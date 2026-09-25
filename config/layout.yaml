@@ -1,0 +1,33 @@
+# Bố cục khung 9:16. Chủ dự án chốt (video mẫu 25/09): MỌI video dùng bố cục "four_titles".
+#   four_titles = nền đen · khối video 16:9 tràn ngang ở giữa · 2 dòng tiêu đề lớn phía trên + 2 dòng phía dưới
+#                 cố định suốt video · phụ đề thoại nằm TRONG khối video (mép dưới) · nhãn chủ đề nhỏ góc trên phải khối.
+#   classic     = bố cục cũ: khối 4:3 / 1:1 + nền mờ + phụ đề ở dải dưới.
+# Tọa độ: tính theo PHẦN CHIỀU CAO KHUNG từ trên xuống (0 = mép trên, 1 = mép dưới); đo từ video mẫu 720x1280.
+preset: four_titles
+
+four_titles:
+  background_color: "#000000FF"
+  block_ratio: "16:9"          # footage ngang: giữ nguyên khung; footage dọc: cắt lấy dải 16:9 quanh chủ thể
+  # tâm 4 dòng tiêu đề (2 trên, 2 dưới). Dòng 4 lấn vào vùng caption TikTok như video mẫu — chỉnh nếu bị che.
+  title_rows: [0.094, 0.262, 0.745, 0.893]
+  subtitle_row: 0.612          # phụ đề thoại: mép dưới khối video (khối nằm 0.342–0.658)
+  emphasis_row: 0.5            # chữ nhấn: giữa khối video
+  topic_row: 0.362             # nhãn chủ đề nhỏ góc trên phải khối
+  topic_x: 0.30                # (nửa khung, dương = sang phải)
+  # Tự canh cỡ chữ tiêu đề cho dòng tràn gần hết chiều ngang (giống video mẫu):
+  title_width: 0.94            # chiều rộng mong muốn của mỗi dòng (phần chiều ngang khung)
+  title_size: 30               # cỡ chữ CapCut gốc; phần còn lại phóng bằng scale
+  # Độ rộng 1 ký tự CJK trên mỗi đơn vị cỡ chữ (phần chiều ngang khung). ƯỚC LƯỢNG [CẦN KIỂM TRA TRÊN MÁY]:
+  # chữ tiêu đề trong CapCut to quá → TĂNG số này; nhỏ quá → GIẢM.
+  char_width_per_size: 0.0017
+  title_scale_max: 2.2
+  # Màu 4 dòng (theo video mẫu; CapCut chưa ghi được gradient/phát sáng bằng code nên dùng màu trơn + viền dày)
+  title_styles:
+    - {color: [1, 1, 1], stroke_color: [0.85, 0.1, 0.8], stroke_width: 0.2}        # trắng, viền hồng tím
+    - {color: [0.55, 0.08, 0.05], stroke_color: [1, 0.8, 0.1], stroke_width: 0.2}  # đỏ nâu, viền vàng
+    - {color: [0.95, 0.3, 0.05], stroke_color: [1, 1, 1], stroke_width: 0.2}       # cam đỏ, viền trắng
+    - {color: [1, 0.85, 0.95], stroke_color: [0.25, 0.05, 0.3], stroke_width: 0.2} # hồng nhạt, viền tím đậm
+  subtitle: {size: 11, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.16}
+  topic: {size: 7, color: [1, 1, 1], stroke_color: [0.1, 0.25, 0.85], stroke_width: 0.2}
+  # giới hạn ký tự mỗi dòng tiêu đề (đạo diễn phải viết ngắn để chữ to)
+  title_max_chars: {ja: 12, ko: 12, en: 22}

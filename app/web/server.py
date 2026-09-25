@@ -577,7 +577,11 @@ def _step_panel(job: Job, d: Path) -> str:
                  f"({job.data.get('duration_s', '?')} giây). Mở CapCut để xem, chỉnh và xuất.</p>"]
         plan = d / "plan" / "edit_plan_video01.json"
         if plan.is_file():
-            parts.append(f"<p><b>Ghi chú editor:</b> {esc(json.loads(_read(plan)).get('editor_notes', ''))}</p>")
+            pdata = json.loads(_read(plan))
+            titles = [t for t in pdata.get("titles_top", []) + pdata.get("titles_bottom", []) if t]
+            if titles:
+                parts.append("<p><b>4 dòng tiêu đề:</b></p><pre>" + esc("\n".join(titles)) + "</pre>")
+            parts.append(f"<p><b>Ghi chú editor:</b> {esc(pdata.get('editor_notes', ''))}</p>")
         cap = _read(d / "deliver" / "video01_captions.txt")
         if cap:
             parts.append(f"<h2 style='margin-top:18px'>📣 Caption + hashtag</h2><pre>{esc(cap)}</pre>")

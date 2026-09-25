@@ -15,7 +15,7 @@ from app import config
 from app.capcut_writer import (
     SEC, DraftTemplate, DraftWriter, Keyframe, TextBackground, TextStyle, VideoSource, block_crop,
 )
-from app.capcut_writer.layout import band_centers
+from app.capcut_writer.layout import band_centers, fit_scale, row_to_y
 from app.director.schemas import EditPlan, HookOption, Understanding
 from app.planner.subtitles import build_cues, speech_intervals
 from app.planner.timeline import TimeMap
@@ -57,6 +57,37 @@ def text_positions(ratio: str, safe: dict) -> dict:
         top, bottom = band_centers(ratio)
     return {"top": min(top, y_max), "bottom": max(bottom, y_min), "center": 0.0,
             "x": -(safe.get("right", 0.12) - safe.get("left", 0.04))}
+
+
+def layout_for(style: dict) -> dict | None:
+    """Cấu hình bố cục 4 dòng tiêu đề (config/layout.yaml), hoặc None nếu dùng bố cục cũ (classic)."""
+    lay = config.load("layout")
+    if lay.get("preset", "four_titles") != "four_titles" or style.get("layout") == "classic":
+        return None
+    return lay.get("four_titles", {})
+
+
+def four_title_positions(four: dict) -> dict:
+    """y cho phụ đề / chữ nhấn / nhãn trong khối video giữa màn (bố cục 4 dòng tiêu đề)."""
+    return {"top": row_to_y(four.get("topic_row", 0.362) + 0.05), "bottom": row_to_y(four.get("subtitle_row", 0.612)),
+            "center": row_to_y(four.get("emphasis_row", 0.5)), "x": 0.0}
+
+
+def add_title_lines(w: DraftWriter, plan: EditPlan, four: dict, start: int, end: int) -> int:
+    """2 dòng tiêu đề trên + 2 dòng dưới, cố định suốt video, tự canh cỡ cho dòng tràn gần hết chiều ngang."""
+    top = [t for t in plan.titles_top if t.strip()] or ([plan.title_top] if plan.title_top.strip() else [])
+    bottom = [t for t in plan.titles_bottom if t.strip()]
+    rows = four.get("title_rows", [0.094, 0.262, 0.745, 0.893])
+    styles = four.get("title_styles") or [{}]
+    size = four.get("title_size", 30)
+    placed = 0
+    for slot, text in list(zip((0, 1), top[:2])) + list(zip((2, 3), bottom[:2])):
+        st = dataclasses.replace(_style(styles[slot % len(styles)]), size=size, bold=True)
+        scale = fit_scale(text, size, four.get("title_width", 0.94), four.get("char_width_per_size", 0.0017),
+                          four.get("title_scale_max", 2.2))
+        w.add_text(text, start=start, duration=end - start, x=0.0, y=row_to_y(rows[slot]), scale=scale, style=st)
+        placed += 1
+    return placed
 
 
 def duck_keyframes(seg_start: int, seg_end: int, intervals, v_speech: float, v_gap: float,
@@ -134,17 +165,28 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     hook_style = _style(hook_cfg)
     hook_anims = _animations(template, hook_cfg.get("animations", ["in"]))
 
+    four = layout_for(style)
+    if four:
+        subtitle_style = dataclasses.replace(_style(four.get("subtitle", {})), bold=True)
+
     def ratio_for(clip_ratio) -> str:
+        if four:
+            return four.get("block_ratio", "16:9")
         return "full" if vertical else (clip_ratio or plan.default_ratio if plan.default_ratio != "full" else "4:3")
 
     bg = config.load("capcut").get("background", {"type": "blur", "blur": 0.375})
 
     def bg_kwargs(ratio: str) -> dict:
+        if four:
+            return {"background_color": four.get("background_color", "#000000FF")}
         if ratio == "full" or bg.get("type") == "none":
             return {}
         if bg.get("type") == "color":
             return {"background_color": bg.get("color", "#000000FF")}
         return {"background_blur": bg.get("blur", 0.375)}
+
+    def positions(ratio: str) -> dict:
+        return four_title_positions(four) if four else text_positions(ratio, safe)
 
     def crop_for(ratio: str, start: float, end: float):
         if ratio == "full":
@@ -165,9 +207,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                     crop=crop_for(ratio, h_start, h_start + hook_us / SEC), volume=0.15,
                     keyframes=[Keyframe("scale", 0, 1.0), Keyframe("scale", hook_us, 1.12)],
                     transition=transition, **bg_kwargs(ratio))
-        pos = text_positions(ratio, safe)
-        w.add_text(hook.onscreen_text, start=0, duration=hook_us, x=pos["x"], y=pos["top"], style=hook_style,
-                   animations=hook_anims)
+        pos = positions(ratio)
+        w.add_text(hook.onscreen_text, start=0, duration=hook_us, x=pos["x"], y=pos["center"] if four else pos["top"],
+                   style=hook_style, animations=hook_anims)
         if voice:
             w.add_local_audio(voice[0], voice[1], target_start=0, duration=voice[1])
         else:
@@ -194,13 +236,13 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed)
         if clip.replay:
-            rpos = text_positions(ratio, safe)
+            rpos = positions(ratio)
             w.add_text(replay_text, start=p.out_start, duration=p.out_duration, x=rpos["x"], y=rpos["top"],
                        style=replay_style, animations=anims_in[:1])
 
     # ---------- chữ ----------
     main_ratio = ratio_for(None)
-    pos = text_positions(main_ratio, safe)
+    pos = positions(main_ratio)
     lang = u.language
     max_chars = style.get("subtitle", {}).get("max_chars", {}).get(lang) or \
         sub_cfg.get("limits", {}).get(lang, {}).get("max_chars_per_line", 16)
@@ -223,6 +265,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     # ---------- trang trí: hiệu ứng hình, sticker, filter ----------
     corners = {"top_left": (-0.55, 0.55), "top_right": (0.45, 0.55), "center": (0.0, 0.25),
                "bottom_left": (-0.55, -0.3), "bottom_right": (0.45, -0.3)}
+    if four:  # trong khối video giữa màn, không đè 4 dòng tiêu đề
+        corners = {"top_left": (-0.62, 0.2), "top_right": (0.62, 0.2), "center": (0.0, 0.0),
+                   "bottom_left": (-0.62, -0.16), "bottom_right": (0.62, -0.16)}
     for e in plan.effects:
         item, t = lib.get(("video_effect", e.name)), tmap.to_out(e.source_time)
         if item and t is not None:
@@ -234,7 +279,14 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             w.add_sticker(item, start=t, duration=min(round(st.duration * SEC), tmap.end - t), x=x, y=y, scale=0.55)
     if plan.filter and lib.get(("filter", plan.filter)):
         w.add_filter(lib[("filter", plan.filter)], start=hook_us, duration=tmap.end - hook_us)
-    if plan.title_top:
+    if four:
+        if add_title_lines(w, plan, four, 0, tmap.end) < 4:
+            notes.append("Kế hoạch dựng thiếu dòng tiêu đề (cần 2 dòng trên + 2 dòng dưới).")
+        if plan.topic_label.strip():
+            w.add_text(plan.topic_label, start=hook_us, duration=tmap.end - hook_us, x=four.get("topic_x", 0.3),
+                       y=row_to_y(four.get("topic_row", 0.362)), style=dataclasses.replace(
+                           _style(four.get("topic", {})), bold=True))
+    elif plan.title_top:
         w.add_text(plan.title_top, start=hook_us, duration=tmap.end - hook_us, x=pos["x"], y=pos["top"],
                    style=title_style)
 

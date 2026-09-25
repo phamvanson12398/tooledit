@@ -114,8 +114,12 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
               music_items: list | None = None, sfx_items: list | None = None, decor_items: list | None = None,
               business: bool = False,
               reframe: bool = False, default_ratio: str = "4:3", video_index: int = 1, footage: int = 0):
-    from app.director.schemas import EditPlan, check_plan
+    from app import config
+    from app.director.schemas import EditPlan, check_plan, check_titles
 
+    layout = config.load("layout")
+    four = layout.get("preset", "four_titles") == "four_titles" and style.get("layout", "") != "classic"
+    title_max = (layout.get("four_titles", {}).get("title_max_chars") or {}).get(u.language, 12)
     a = load_analysis(analysis_dir, footage)
     sc = a["scenes"]
     duration = sc["duration"]
@@ -138,8 +142,12 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         "style_name": style.get("name", ""), "style_description": style.get("description_vi", ""),
         "style_brief": style.get("director_brief", ""), "hook_s": f"{hook_s:.1f}",
         "width": sc["width"], "height": sc["height"],
-        "default_ratio": "full (footage dọc)" if vertical else default_ratio,
-        "reframe": "có — chọn 4:3 hoặc 1:1 cho từng clip" if reframe else "không — mọi clip dùng khung mặc định",
+        "default_ratio": "16:9 (bố cục 4 dòng tiêu đề)" if four else ("full (footage dọc)" if vertical else default_ratio),
+        "reframe": "không — bố cục cố định" if four else
+        ("có — chọn 4:3 hoặc 1:1 cho từng clip" if reframe else "không — mọi clip dùng khung mặc định"),
+        "layout_brief": (FOUR_TITLES_BRIEF.format(max_chars=title_max,
+                                                  language=LANGUAGE_NAMES.get(u.language, u.language))
+                         if four else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng)."),
         "burned_in": (f"có, ở {', '.join(b.regions)}. {b.note_vi}" if b.present else "không"),
         "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
         "sfx_list": "\n".join(sfx_lines) or "(kho SFX trống — đặt name = null, tool sẽ ghi vào danh sách cần bổ sung)",
@@ -171,13 +179,27 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             errors += [f"'{n}' không có trong kho {kind}" for n in used if n not in valid]
         if business and plan.music.name and plan.music.name not in commercial:
             errors.append(f"khách doanh nghiệp: bài '{plan.music.name}' không có nhãn Commercial")
-        if not reframe and any(c.ratio and c.ratio != plan.default_ratio for c in plan.clips):
+        if four:
+            errors += check_titles(plan, title_max)
+        if not reframe and not four and any(c.ratio and c.ratio != plan.default_ratio for c in plan.clips):
             errors.append("không bật đổi khung theo cảnh: mọi clip phải dùng default_ratio (ratio = null)")
         if plan.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors
 
     return director.run("plan", variables, EditPlan, extra_check=extra)
+
+
+FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video mẫu chủ dự án chọn): nền đen, khối video 16:9 ở giữa,
+  2 dòng tiêu đề CHỮ RẤT TO phía trên (`titles_top`) và 2 dòng phía dưới (`titles_bottom`), hiện suốt video.
+  Phụ đề thoại nằm trong khối video (code tự làm). `default_ratio` = "16:9", mọi clip `ratio` = null.
+- `titles_top` (2 dòng): tình huống / câu gợi tò mò, dòng 1 mở (có thể kết bằng "…"), dòng 2 là chi tiết bất ngờ.
+  Ví dụ tiếng Nhật: ["大事な試合の前に…", "隣室から突然流れる演歌"].
+- `titles_bottom` (2 dòng): nhân vật / kết luận về người trong video. Ví dụ: ["全くぶれない男だった", "亜細亜大のキャプテン"].
+- Mỗi dòng tối đa {max_chars} ký tự, viết bằng {language} tự nhiên kiểu tiêu đề TikTok bản xứ, không xuống dòng.
+  Phải ĐÚNG nội dung có thật trong footage; không hứa điều video không có; không lộ hết "lời giải".
+- `topic_label`: nhãn ngắn chủ đề đoạn nói chuyện (ví dụ "同期のパンチ佐藤さんについて"), hoặc rỗng nếu footage đã có sẵn.
+  `title_top` để rỗng."""
 
 
 MARKETS = {"ja": "TikTok Nhật Bản", "ko": "TikTok Hàn Quốc", "en": "TikTok tiếng Anh"}

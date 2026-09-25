@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 11 — Bố cục mới theo video mẫu (4 dòng tiêu đề + khối 16:9) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`. Tạo job mới (hoặc job cũ bấm **🎬 Lập lại kế hoạch dựng** — cần AI viết
+   4 dòng tiêu đề mới).
+2. Mở draft trong CapCut, so với video mẫu:
+   - Nền đen; video 16:9 tràn ngang ở giữa màn.
+   - 2 dòng chữ lớn phía trên + 2 dòng phía dưới, hiện suốt video, mỗi dòng gần tràn chiều ngang.
+   - Phụ đề thoại nằm trong khối video (mép dưới); nhãn chủ đề nhỏ góc trên phải khối video.
+3. **Cỡ chữ tiêu đề** là ước lượng: nếu to quá (tràn ra ngoài) hoặc nhỏ quá, báo Claude; hoặc tự sửa
+   `char_width_per_size` trong `config/layout.yaml` (to quá → tăng, ví dụ 0.0017 → 0.0022; nhỏ quá → giảm).
+4. Muốn quay lại bố cục cũ (khối 4:3 / 1:1 + nền mờ): đổi `preset: four_titles` thành `preset: classic`.
+
 ## Bước 10 — Lỗi "Không thấy dự án mẫu CapCut" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`.

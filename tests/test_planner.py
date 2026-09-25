@@ -129,7 +129,7 @@ def test_hook_io(tmp_path):
 
 def test_build_draft_end_to_end(tmp_path):
     tpl = DraftTemplate(SAMPLE)
-    plan = EditPlan.model_validate(load("plan.json"))
+    plan = EditPlan.model_validate({**load("plan.json"), "default_ratio": "4:3"})  # bố cục cũ (classic)
     u = Understanding.model_validate(load("understand.json"))
     hs = HookSet.model_validate(load("hooks.json"))
     words = [{"start": 7.3 + i * 0.3, "end": 7.5 + i * 0.3, "word": ch} for i, ch in enumerate("高藤力なんか優勝は絶対させないと。")]
@@ -139,7 +139,8 @@ def test_build_draft_end_to_end(tmp_path):
         "subjects": {"points": [[t, 0.7, 0.5] for t in range(0, 170)]},
     }
     res = build(plan, u, analysis, tpl, tmp_path, "khach_job_video01", {
-        "subtitle": {"max_chars": {"ja": 10}}, "hook": {"min_s": 3, "max_s": 5}, "zoom": {}, "music": {}},
+        "subtitle": {"max_chars": {"ja": 10}}, "hook": {"min_s": 3, "max_s": 5}, "zoom": {}, "music": {},
+        "layout": "classic"},
         hook=hs.options[0], voice=(Path("C:/job/voice/video01_hook.wav"), 3_500_000),
         clean_audio=Path("C:/job/analysis/audio/clean_00.wav"))
     tl = res.writer.build_timeline()
@@ -157,6 +158,48 @@ def test_build_draft_end_to_end(tmp_path):
     canvases = tl["materials"]["canvases"]
     assert canvases and all(c["type"] == "canvas_blur" and c["blur"] == 0.375 for c in canvases)
     res.writer.save()
+
+
+def test_four_titles_layout_like_reference(tmp_path):
+    """Bố cục mặc định theo video mẫu: nền đen, khối 16:9 giữa, 2 tiêu đề trên + 2 dưới suốt video."""
+    from app.capcut_writer.layout import row_to_y
+    from app.planner.builder import layout_for
+    from app.styles import load_style
+
+    style = load_style("jp_telop")
+    four = layout_for(style)
+    assert four and four["block_ratio"] == "16:9"
+    tpl = DraftTemplate(SAMPLE)
+    plan = EditPlan.model_validate(load("plan.json"))
+    u = Understanding.model_validate(load("understand.json"))
+    res = build(plan, u, _analysis(), tpl, tmp_path, "four", style)
+    tl = res.writer.build_timeline()
+    mats = {m["id"]: json.loads(m["content"])["text"] for m in tl["materials"]["texts"]}
+    segs = {mats[s["material_id"]]: s for t in tl["tracks"] if t["type"] == "text" for s in t["segments"]}
+    rows = four["title_rows"]
+    for text, row in zip(plan.titles_top + plan.titles_bottom, rows):
+        seg = segs[text]
+        assert abs(seg["clip"]["transform"]["y"] - row_to_y(row)) < 1e-6
+        assert seg["target_timerange"]["start"] == 0 and seg["target_timerange"]["duration"] == res.duration_us
+        assert seg["clip"]["scale"]["x"] > 1.0  # phóng to cho dòng tràn gần hết chiều ngang
+    assert segs["曙との関係について"]["clip"]["transform"]["x"] > 0  # nhãn chủ đề góc phải
+    sub = segs[next(t for t in segs if t.startswith("優勝"))]
+    assert -0.4 < sub["clip"]["transform"]["y"] < 0  # phụ đề trong khối video
+    crop = tl["materials"]["videos"][0]["crop"]
+    assert crop["upper_left_x"] == 0 and crop["lower_right_x"] == 1  # 16:9 giữ nguyên khung
+    assert all(c["type"] == "canvas_color" for c in tl["materials"]["canvases"])
+    assert not [n for n in res.notes if "thiếu dòng tiêu đề" in n]
+
+
+def test_plan_requires_four_titles(tmp_path):
+    from app.director.schemas import check_titles
+
+    p = load("plan.json")
+    assert check_titles(EditPlan.model_validate(p), 12) == []
+    p["titles_bottom"] = ["一行だけ"]
+    assert check_titles(EditPlan.model_validate(p), 12)
+    p["titles_bottom"] = ["とても長すぎるタイトル行ですよね", "x"]
+    assert any("tối đa" in e for e in check_titles(EditPlan.model_validate(p), 12))
 
 
 def _analysis():

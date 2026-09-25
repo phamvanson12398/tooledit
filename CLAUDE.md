@@ -87,6 +87,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   - Tick **"Đổi khung theo cảnh"**: AI chọn 4:3 hoặc 1:1 cho từng cảnh (cảnh rộng/nhiều người → 4:3; cận mặt/cận vật → 1:1), chuyển mượt. Không tick: giữ khung mặc định của hồ sơ khách suốt video.
   - Phần trống: dải trên cho tiêu đề/câu hook cố định, dải dưới cho phụ đề.
   - Nền phần trống (theo hồ sơ khách): bản mờ của chính video, màu trơn, hoặc ảnh nền của khách.
+- **Cập nhật (chủ dự án chốt 25/09, theo video mẫu):** bố cục mặc định cho MỌI video là "4 dòng tiêu đề": nền đen,
+  khối video 16:9 tràn ngang ở giữa, 2 dòng tiêu đề chữ rất lớn phía trên + 2 dòng phía dưới cố định suốt video,
+  phụ đề thoại trong khối video, nhãn chủ đề nhỏ góc trên phải khối. Thông số trong `config/layout.yaml`
+  (`preset: classic` để dùng lại bố cục 4:3/1:1 ở trên).
 - **Vùng an toàn TikTok**: chữ tránh dải dưới cùng (caption, tên tài khoản), cạnh phải (cột nút), và dải trên cùng. Để các lề này là hằng số cấu hình được trong `config/`, giá trị mặc định ước lượng, ghi chú cần kiểm tra lại trên app thật.
 
 ## 7. Tài nguyên và bản quyền

@@ -1,11 +1,11 @@
-"""Tính bố cục khung dọc 9:16: khối 4:3 / 1:1 cho footage ngang, dải chữ trên/dưới."""
+"""Tính bố cục khung dọc 9:16: khối 16:9 / 4:3 / 1:1 cho footage, dải chữ trên/dưới."""
 
 from __future__ import annotations
 
 from .writer import Crop
 
 CANVAS_W, CANVAS_H = 1080, 1920
-RATIOS = {"4:3": 4 / 3, "1:1": 1.0, "9:16": 9 / 16}
+RATIOS = {"16:9": 16 / 9, "4:3": 4 / 3, "1:1": 1.0, "9:16": 9 / 16}
 
 
 def block_size(ratio: str, canvas_w: int = CANVAS_W) -> tuple[int, int]:
@@ -36,3 +36,23 @@ def band_centers(ratio: str, canvas_w: int = CANVAS_W, canvas_h: int = CANVAS_H)
     edge = block_h / canvas_h  # mép khối, tính theo nửa khung
     top = (edge + 1.0) / 2
     return top, -top
+
+
+def row_to_y(row: float) -> float:
+    """Vị trí theo phần chiều cao từ trên xuống (0..1) → y của CapCut (nửa khung, hướng lên)."""
+    return 1.0 - 2.0 * row
+
+
+def text_units(text: str) -> float:
+    """Độ rộng tương đối của chuỗi: ký tự CJK/toàn khoảng = 1, ký tự Latin/số/nửa khoảng ≈ 0.55."""
+    import unicodedata
+
+    return sum(1.0 if unicodedata.east_asian_width(ch) in ("W", "F") else 0.55 for ch in text if ch != "\n")
+
+
+def fit_scale(text: str, size: float, width: float, char_width_per_size: float, max_scale: float = 2.2) -> float:
+    """Scale để một dòng chữ cỡ `size` rộng khoảng `width` (phần chiều ngang khung)."""
+    natural = text_units(text) * size * char_width_per_size
+    if natural <= 0:
+        return 1.0
+    return max(0.3, min(max_scale, width / natural))

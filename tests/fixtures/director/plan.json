@@ -1,7 +1,10 @@
 {
   "video_index": 1,
-  "title_top": "貴闘力と曙の意外な関係",
-  "default_ratio": "4:3",
+  "title_top": "",
+  "titles_top": ["大事な一番の前に…", "曙が病院に運ばれた"],
+  "titles_bottom": ["嫌われ者と呼ばれた男", "元大関・貴闘力"],
+  "topic_label": "曙との関係について",
+  "default_ratio": "16:9",
   "clips": [
     {"source_start": 1.0, "source_end": 6.1, "speed": 1.0, "ratio": null, "purpose_vi": "mở"},
     {"source_start": 7.3, "source_end": 22.0, "speed": 1.0, "ratio": null, "purpose_vi": "bối cảnh"},

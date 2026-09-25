@@ -111,7 +111,7 @@ def check_hooks(hs: HookSet, duration: float, max_chars: int) -> list[str]:
 
 # ---------------- Kế hoạch dựng (mục 10) ----------------
 
-Ratio = Literal["full", "4:3", "1:1"]
+Ratio = Literal["full", "16:9", "4:3", "1:1"]
 
 
 class PlanClip(BaseModel):
@@ -170,6 +170,11 @@ class MusicChoice(BaseModel):
 class EditPlan(BaseModel):
     video_index: int = Field(ge=1)
     title_top: str = Field(default="", description="tiêu đề cố định dải trên (ngôn ngữ video), có thể rỗng")
+    titles_top: list[str] = Field(default_factory=list, max_length=2,
+                                  description="2 dòng tiêu đề lớn phía trên khối video, cố định suốt video")
+    titles_bottom: list[str] = Field(default_factory=list, max_length=2,
+                                     description="2 dòng tiêu đề lớn phía dưới khối video, cố định suốt video")
+    topic_label: str = Field(default="", description="nhãn chủ đề nhỏ góc trên phải khối video, có thể rỗng")
     default_ratio: Ratio
     clips: list[PlanClip] = Field(min_length=1)
     emphasis: list[Emphasis] = []
@@ -185,6 +190,19 @@ class EditPlan(BaseModel):
 
 def clips_duration(clips: list[PlanClip]) -> float:
     return sum((c.source_end - c.source_start) / c.speed for c in clips)
+
+
+def check_titles(plan: EditPlan, max_chars: int) -> list[str]:
+    """Bố cục 4 dòng tiêu đề: đủ 2 dòng trên + 2 dòng dưới, mỗi dòng ngắn để chữ to."""
+    errors = []
+    if len([t for t in plan.titles_top if t.strip()]) != 2 or len([t for t in plan.titles_bottom if t.strip()]) != 2:
+        errors.append("bố cục 4 dòng: titles_top và titles_bottom mỗi cái phải có đúng 2 dòng không rỗng")
+    for t in plan.titles_top + plan.titles_bottom:
+        if len(t) > max_chars:
+            errors.append(f"dòng tiêu đề '{t}' dài {len(t)} ký tự, tối đa {max_chars}")
+        if "\n" in t:
+            errors.append(f"dòng tiêu đề '{t}' không được xuống dòng")
+    return errors
 
 
 def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: float = 60.0,
