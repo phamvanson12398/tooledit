@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 6 — Giao diện web (start.bat) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+```powershell
+cd $HOME\Documents\tooledit
+git pull
+.venv\Scripts\pip install -r requirements.txt
+```
+
+Sau đó nhấp đúp **`start.bat`**: trình duyệt mở http://127.0.0.1:8765 (cửa sổ đen phải để mở; đóng nó là tắt tool).
+1. Trang chủ: dán đường dẫn footage, chọn tùy chọn, bấm **Bắt đầu**. Trang job tự làm mới khi đang chạy.
+2. Khi dừng ở **Chọn hook**: chọn một phương án, bấm **Chọn hook này**.
+3. Khi dừng ở **Thu voice hook**: thả file vào thư mục ghi trên trang, bấm **Đã thả file, tiếp tục**.
+4. Khi **Xong**: trang hiện tên draft CapCut, caption + hashtag, ghi chú editor, bảng tài nguyên cần bổ sung.
+   Nhớ đóng CapCut trước khi tool ghi draft.
+
 ## Bước 5c — Dựng lại job cũ với nền mờ + chữ hook to, và xuất caption `[CẦN KIỂM TRA TRÊN MÁY]`
 
 ```powershell

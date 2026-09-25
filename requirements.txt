@@ -6,4 +6,9 @@ scenedetect>=0.6.4,<0.8
 # OpenCV 4.x: bản 5 không còn kèm bộ dò mặt Haar (cv2.data.haarcascades).
 # Dùng opencv-python (không phải -headless) vì scenedetect bắt buộc gói này; chỉ giữ MỘT gói OpenCV.
 opencv-python>=4.9,<5
+# Giao diện web chạy trên máy
+fastapi>=0.110,<1
+uvicorn>=0.30,<1
+python-multipart>=0.0.9
+httpx>=0.27
 pytest>=8

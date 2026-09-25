@@ -78,3 +78,8 @@ claude doctor        # kiểm tra cài đặt
 
 Nếu `claude` vẫn "not recognized" sau khi mở lại PowerShell: file cài nằm ở
 `%USERPROFILE%\.local\bin\claude.exe`; xem https://code.claude.com/docs/en/troubleshoot-install.
+
+## 6. Dùng hằng ngày
+
+Nhấp đúp **`start.bat`** trong thư mục repo → trình duyệt mở giao diện http://127.0.0.1:8765.
+Cập nhật tool: `git pull` rồi chạy lại `install.bat` (hoặc `.venv\Scripts\pip install -r requirements.txt`).
