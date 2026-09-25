@@ -1,0 +1,28 @@
+# Làm sạch âm thanh (FFmpeg)
+audio:
+  target_lufs: -14        # mục tiêu độ to, TikTok khoảng -14 LUFS
+  true_peak: -1.5
+  lra: 11
+  denoise: "afftdn=nf=-25"  # lọc ồn nhẹ
+
+# Dò cảnh (PySceneDetect ContentDetector)
+scenes:
+  threshold: 27.0
+  min_scene_len_s: 0.6
+
+# Trích khung hình gửi cho đạo diễn (giữ nhỏ để tiết kiệm hạn mức Claude Pro)
+frames:
+  every_s: 4.0            # rải đều mỗi 4 giây
+  max_frames: 40
+  width: 480
+  jpeg_quality: 5         # 2 (đẹp) .. 31 (xấu) theo thang -q:v của FFmpeg
+
+# Chủ thể / khuôn mặt (OpenCV Haar)
+subjects:
+  sample_every_s: 0.5
+  min_face_frac: 0.06     # mặt nhỏ hơn 6% chiều cao khung thì bỏ qua
+  smooth_window: 5
+  max_pan_per_s: 0.25     # tốc độ lia tối đa, tính theo bề rộng khung / giây
+
+ffmpeg: ffmpeg            # đường dẫn ffmpeg (để trống = tìm trong PATH)
+ffprobe: ffprobe

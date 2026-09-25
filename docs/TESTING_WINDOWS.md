@@ -1,5 +1,21 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 3 — Cài đặt và chạy thử phân tích footage `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Làm theo `docs/SETUP_WINDOWS.md` (cài Python, FFmpeg, thư viện, GPU).
+2. Chọn một footage thật ngắn (1–3 phút, có người nói tiếng Hàn/Nhật/Anh; footage của chính anh/chị
+   hoặc đã được khách đồng ý). Chạy:
+
+   ```powershell
+   cd $HOME\Documents\tooledit
+   .venv\Scripts\python tools\analyze_footage.py "D:\duong\dan\video.mp4"
+   ```
+
+3. Chép phần "TÓM TẮT" in ra gửi Claude, kèm nhận xét: ngôn ngữ đúng không, câu thoại có đúng
+   không, chạy mất bao lâu, chạy trên `cuda` hay `cpu`.
+4. Mở thư mục `jobs\<job_id>\analysis\frames` xem ảnh có đúng cảnh không.
+   **Không gửi/commit thư mục jobs** (có footage của khách).
+
 ## Bước 2 — Mở draft demo do tool tạo (ĐÃ XONG: mở được, đạt hết, xuất video OK)
 
 `demo_tool_v1` được tạo hoàn toàn bằng code (`tools/build_demo_draft.py`) từ dự án mẫu, dùng lại
