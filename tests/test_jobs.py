@@ -38,3 +38,20 @@ def test_new_job_id_increments(tmp_path: Path):
     (tmp_path / first).mkdir()
     second = new_job_id(tmp_path)
     assert first.endswith("_01") and second.endswith("_02") and first[:8] == second[:8]
+
+
+def test_load_retries_when_file_is_briefly_locked(tmp_path, monkeypatch):
+    """Giả lập Windows: lần đọc đầu bị PermissionError (đang bị ghi đè), lần sau đọc được."""
+    job = Job.create(tmp_path, [Path("a.mp4")], job_id="j")
+    real_read = Path.read_text
+    calls = {"n": 0}
+
+    def flaky(self, *a, **k):
+        if self.name == "job.json" and calls["n"] < 2:
+            calls["n"] += 1
+            raise PermissionError(13, "Permission denied")
+        return real_read(self, *a, **k)
+
+    monkeypatch.setattr(Path, "read_text", flaky)
+    assert Job.load(tmp_path, "j").job_id == "j" and calls["n"] == 2
+    job.save(tmp_path)

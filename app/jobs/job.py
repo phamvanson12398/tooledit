@@ -74,13 +74,13 @@ class Job(BaseModel):
         path = d / "job.json"
         tmp = path.with_name("job.json.writing")
         tmp.write_text(self.model_dump_json(indent=2), encoding="utf-8")
-        os.replace(tmp, path)
+        _retry(lambda: os.replace(tmp, path))
         return path
 
     @classmethod
     def load(cls, jobs_root: Path, job_id: str) -> "Job":
         path = cls.dir_for(jobs_root, job_id) / "job.json"
-        return cls.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        return cls.model_validate(json.loads(_retry(lambda: path.read_text(encoding="utf-8"))))
 
     @classmethod
     def create(cls, jobs_root: Path, footage: list[Path], options: JobOptions | None = None,
@@ -132,6 +132,20 @@ class Job(BaseModel):
         elif self.status == Status.error:
             self.status = Status.pending
             self._log(message)
+
+
+def _retry(fn, attempts: int = 20, delay: float = 0.05):
+    """Windows khóa file trong tích tắc khi một luồng đang ghi đè (os.replace) mà luồng khác đọc
+    → PermissionError. Thử lại vài lần thay vì báo lỗi (tổng chờ tối đa ~1 giây)."""
+    import time
+
+    for i in range(attempts):
+        try:
+            return fn()
+        except PermissionError:
+            if i == attempts - 1:
+                raise
+            time.sleep(delay)
 
 
 def new_job_id(jobs_root: Path) -> str:

@@ -226,7 +226,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None) -> FastAPI:
     def job_page(job_id: str):
         from app.jobs.job import STEPS
 
-        job = Job.load(Path(jobs_root), job_id)
+        try:
+            job = Job.load(Path(jobs_root), job_id)
+        except (OSError, ValueError):  # file đang được ghi dở → tải lại sau giây lát
+            return _page(f"Job {job_id}", "<div class='card'><span class='spinner'></span> Đang cập nhật trạng thái…"
+                         "</div>", refresh=True)
         d = job.dir(Path(jobs_root))
         running = worker.active == job_id
         status = "running" if running else job.status.value
