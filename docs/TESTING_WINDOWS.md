@@ -2,6 +2,11 @@
 
 ## Bước 5 — Dựng trọn một video từ footage thật (Giai đoạn 1) `[CẦN KIỂM TRA TRÊN MÁY]`
 
+**Lần chạy 1 (2026-09-25, job 20260925_02):** chạy trọn quy trình không lỗi. Hiểu nội dung 28s, viết hook
+(3 phương án đúng yêu cầu: khác kiểu nhau, có mốc nguồn, tránh chuyện 八百長), chọn phương án 2, kế hoạch dựng
+39s; ghi draft `test_20260925_02_video01` dài 106.0 giây; 6 tài nguyên cần bổ sung. Còn chờ: mở trong CapCut
+và xuất video.
+
 Quy trình: phân tích → đạo diễn hiểu nội dung → 3 phương án hook → chọn hook → thu voice → kế hoạch dựng →
 ghi draft CapCut (phong cách tiktok_retention). Dùng lại job 20260925_02 đã phân tích (không phân tích lại):
 
