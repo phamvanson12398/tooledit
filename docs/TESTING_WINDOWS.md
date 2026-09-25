@@ -32,4 +32,38 @@
    ```
 
    Chép toàn bộ kết quả gửi lại.
-7. Commit và push thư mục mẫu (hoặc tải file lên cho Claude).
+7. Commit và push thư mục mẫu (hoặc tải file lên cho Claude), xem mục dưới.
+
+### Cách đưa dự án mẫu lên GitHub
+
+**Cách 1 (dễ nhất):** nén thư mục dự án thành `.zip` (chuột phải → Nén thành tệp ZIP), rồi kéo thả
+file zip vào khung chat với Claude. Claude sẽ tự bỏ video/ảnh và commit phần JSON.
+
+**Cách 2 (dùng git trong PowerShell):**
+
+```powershell
+# Chỉ làm 1 lần: cài git và khai báo tên
+winget install --id Git.Git -e
+# (đóng rồi mở lại PowerShell sau khi cài)
+git config --global user.name "Ten cua ban"
+git config --global user.email "email-github-cua-ban@example.com"
+
+# Tải repo về và chuyển sang nhánh làm việc
+cd $HOME\Documents
+git clone https://github.com/phamvanson12398/tooledit.git
+cd tooledit
+git checkout claude/new-session-lqnr47
+git pull
+
+# Chép dự án mẫu vào repo, BỎ QUA video/âm thanh/ảnh
+robocopy "$env:LOCALAPPDATA\CapCut\User Data\Projects\com.lveditor.draft\capcut_template" "samples\capcut_template" /E /XF *.mp4 *.mov *.mkv *.wav *.mp3 *.m4a *.aac *.jpg *.jpeg *.png *.webp
+
+# Kiểm tra: danh sách chỉ nên có file .json / .tmp / nhỏ, KHÔNG có video
+git status
+
+git add samples
+git commit -m "Thêm dự án CapCut 9.5.0 mẫu"
+git push
+```
+
+Lần đầu `git push` sẽ mở trình duyệt để đăng nhập GitHub, bấm đồng ý là xong.
