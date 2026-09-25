@@ -4,8 +4,10 @@
 #   classic     = bố cục cũ: khối 4:3 / 1:1 + nền mờ + phụ đề ở dải dưới.
 # Tọa độ: tính theo PHẦN CHIỀU CAO KHUNG từ trên xuống (0 = mép trên, 1 = mép dưới); đo từ video mẫu 720x1280.
 preset: four_titles
+# Kiểu dựng có thể tự chọn bố cục riêng bằng khóa `layout:` trong styles/<kiểu>.yaml (ví dụ sports_analysis → sports_focus).
 
 four_titles:
+  titles: true
   background_color: "#000000FF"
   block_ratio: "16:9"          # footage ngang: giữ nguyên khung; footage dọc: cắt lấy dải 16:9 quanh chủ thể
   # tâm 4 dòng tiêu đề (2 trên, 2 dưới). Dòng 4 lấn vào vùng caption TikTok như video mẫu — chỉnh nếu bị che.
@@ -31,3 +33,23 @@ four_titles:
   topic: {size: 7, color: [1, 1, 1], stroke_color: [0.1, 0.25, 0.85], stroke_width: 0.2}
   # giới hạn ký tự mỗi dòng tiêu đề (đạo diễn phải viết ngắn để chữ to)
   title_max_chars: {ja: 12, ko: 12, en: 22}
+
+# Thể thao / boxing (video mẫu 25/09): nền đen · khối video gần vuông 9:10 phóng to vào pha đấu, bám theo người ·
+# KHÔNG có dòng tiêu đề · phụ đề cụm ngắn chữ vàng viền đen ở 2/3 khối video · mũi tên xanh lá chỉ vào chi tiết
+# (găng, chân, bóng) · chuyển cảnh mờ, quay chậm pha quyết định.
+sports_focus:
+  titles: false
+  background_color: "#000000FF"
+  block_ratio: "9:10"          # khối 0.186–0.814 chiều cao như video mẫu
+  subtitle_row: 0.62
+  emphasis_row: 0.5
+  topic_row: 0.24              # chữ nhấn "top" / nhãn REPLAY: gần mép trên khối video
+  subtitle: {size: 13, color: [1, 0.92, 0.1], stroke_color: [0, 0, 0], stroke_width: 0.2}
+  subtitle_max_chars: {ja: 7, ko: 8, en: 14}   # cụm rất ngắn, nhảy theo lời nói như video mẫu
+  arrow:
+    glyph: "→"                 # ký tự mũi tên (xoay theo hướng). [CẦN KIỂM TRA TRÊN MÁY] font CapCut có hiện không
+    size: 40
+    color: [0.2, 1, 0.25]
+    stroke_color: [0, 0.35, 0.05]
+    stroke_width: 0.12
+    offset_px: 120             # khoảng từ điểm cần chỉ tới tâm mũi tên (px trên khung 1080x1920)

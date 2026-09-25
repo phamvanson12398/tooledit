@@ -16,6 +16,7 @@ from app.capcut_writer import (
     SEC, DraftTemplate, DraftWriter, Keyframe, TextBackground, TextStyle, VideoSource, block_crop,
 )
 from app.capcut_writer.layout import band_centers, fit_scale, row_to_y
+from app.styles import layout_for  # dùng chung với bước lập kế hoạch
 from app.director.schemas import EditPlan, HookOption, Understanding
 from app.planner.subtitles import build_cues, speech_intervals
 from app.planner.timeline import TimeMap
@@ -59,16 +60,36 @@ def text_positions(ratio: str, safe: dict) -> dict:
             "x": -(safe.get("right", 0.12) - safe.get("left", 0.04))}
 
 
-def layout_for(style: dict) -> dict | None:
-    """Cấu hình bố cục 4 dòng tiêu đề (config/layout.yaml), hoặc None nếu dùng bố cục cũ (classic)."""
-    lay = config.load("layout")
-    if lay.get("preset", "four_titles") != "four_titles" or style.get("layout") == "classic":
+ARROW_ROTATION = {"right": 0, "down_right": 45, "down": 90, "down_left": 135, "left": 180, "up_left": 225,
+                  "up": 270, "up_right": 315}  # độ, chiều kim đồng hồ [CẦN KIỂM TRA TRÊN MÁY] chiều xoay của CapCut
+ARROW_VECTOR = {"right": (1, 0), "down_right": (0.707, 0.707), "down": (0, 1), "down_left": (-0.707, 0.707),
+                "left": (-1, 0), "up_left": (-0.707, -0.707), "up": (0, -1), "up_right": (0.707, -0.707)}
+
+
+def block_point(fx: float, fy: float, crop, ratio: str, canvas_w: int = 1080, canvas_h: int = 1920):
+    """Điểm (fx, fy) 0..1 trên khung gốc → (x, y) nửa khung của CapCut, khi khối video tràn ngang ở giữa màn.
+    None nếu điểm nằm ngoài vùng cắt."""
+    from app.capcut_writer.layout import block_size
+
+    left, top, right, bottom = (crop.left, crop.top, crop.right, crop.bottom) if crop else (0.0, 0.0, 1.0, 1.0)
+    u, v = (fx - left) / (right - left), (fy - top) / (bottom - top)
+    if not (0.0 <= u <= 1.0 and 0.0 <= v <= 1.0):
         return None
-    return lay.get("four_titles", {})
+    bw, bh = block_size(ratio, canvas_w)
+    return (u - 0.5) * 2 * bw / canvas_w, -(v - 0.5) * 2 * bh / canvas_h
+
+
+def arrow_placement(target: tuple[float, float], points: str, offset_px: float,
+                    canvas_w: int = 1080, canvas_h: int = 1920) -> tuple[float, float, float]:
+    """Tâm mũi tên nằm lùi về phía ngược hướng chỉ, cách điểm cần chỉ offset_px; trả (x, y, góc xoay)."""
+    vx, vy = ARROW_VECTOR[points]  # hướng trên màn hình, y hướng xuống
+    x = target[0] - vx * offset_px / (canvas_w / 2)
+    y = target[1] + vy * offset_px / (canvas_h / 2)
+    return x, y, ARROW_ROTATION[points]
 
 
 def four_title_positions(four: dict) -> dict:
-    """y cho phụ đề / chữ nhấn / nhãn trong khối video giữa màn (bố cục 4 dòng tiêu đề)."""
+    """y cho phụ đề / chữ nhấn / nhãn trong khối video giữa màn (bố cục cố định)."""
     return {"top": row_to_y(four.get("topic_row", 0.362) + 0.05), "bottom": row_to_y(four.get("subtitle_row", 0.612)),
             "center": row_to_y(four.get("emphasis_row", 0.5)), "x": 0.0}
 
@@ -165,9 +186,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     hook_style = _style(hook_cfg)
     hook_anims = _animations(template, hook_cfg.get("animations", ["in"]))
 
-    four = layout_for(style)
-    if four:
-        subtitle_style = dataclasses.replace(_style(four.get("subtitle", {})), bold=True)
+    four = layout_for(style)  # bố cục cố định (4 dòng tiêu đề / thể thao) hoặc None = bố cục cũ
+    if four and four.get("subtitle"):
+        subtitle_style = dataclasses.replace(_style(four["subtitle"]), bold=True)
 
     def ratio_for(clip_ratio) -> str:
         if four:
@@ -244,7 +265,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     main_ratio = ratio_for(None)
     pos = positions(main_ratio)
     lang = u.language
-    max_chars = style.get("subtitle", {}).get("max_chars", {}).get(lang) or \
+    max_chars = ((four or {}).get("subtitle_max_chars") or {}).get(lang) or \
+        style.get("subtitle", {}).get("max_chars", {}).get(lang) or \
         sub_cfg.get("limits", {}).get(lang, {}).get("max_chars_per_line", 16)
     cues = build_cues(tr.get("segments", []), tmap, lang, max_chars, min_cue_s=sub_cfg.get("min_cue_s", 0.35),
                       gap_merge_s=sub_cfg.get("gap_merge_s", 0.15), corrections=u.name_corrections)
@@ -277,9 +299,27 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         if item and t is not None:
             x, y = corners[st.position]
             w.add_sticker(item, start=t, duration=min(round(st.duration * SEC), tmap.end - t), x=x, y=y, scale=0.55)
+    # ---------- mũi tên chỉ chi tiết (kiểu thể thao) ----------
+    arrow_cfg = (four or {}).get("arrow") or {}
+    arrow_style = dataclasses.replace(_style({"size": 40, "color": [0.2, 1, 0.25], "stroke_color": [0, 0.35, 0.05],
+                                              "stroke_width": 0.12, **arrow_cfg}), bold=True)
+    for a in plan.arrows:
+        t, p = tmap.to_out(a.source_time), tmap.clip_containing(a.source_time)
+        if t is None or p is None:
+            continue
+        ratio = ratio_for(None)
+        crop = crop_for(ratio, p.source_start, p.source_end)
+        target = block_point(a.x, a.y, crop, ratio) if ratio != "full" else ((a.x - 0.5) * 2, -(a.y - 0.5) * 2)
+        if target is None:
+            notes.append(f"Mũi tên ở {a.source_time}s chỉ vào chỗ nằm ngoài khung đã cắt — bỏ qua.")
+            continue
+        x, y, rot = arrow_placement(target, a.points, arrow_cfg.get("offset_px", 120))
+        w.add_text(arrow_cfg.get("glyph", "→"), start=t, duration=min(round(a.duration * SEC), tmap.end - t),
+                   x=x, y=y, rotation=rot, style=arrow_style, animations=anims_in[:1])
+
     if plan.filter and lib.get(("filter", plan.filter)):
         w.add_filter(lib[("filter", plan.filter)], start=hook_us, duration=tmap.end - hook_us)
-    if four:
+    if four and four.get("titles"):
         if add_title_lines(w, plan, four, 0, tmap.end) < 4:
             notes.append("Kế hoạch dựng thiếu dòng tiêu đề (cần 2 dòng trên + 2 dòng dưới).")
         if plan.topic_label.strip():

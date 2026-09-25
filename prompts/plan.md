@@ -24,6 +24,9 @@ Phong cách: **{{style_name}}** — {{style_description}}
 ## Bố cục và tiêu đề
 {{layout_brief}}
 
+## Mũi tên chỉ chi tiết
+{{arrow_brief}}
+
 ## Trang trí cho video sinh động (chỉ dùng tên có trong kho; kho trống thì bỏ qua)
 Liều lượng theo phong cách: {{decor_brief}}
 - `effects`: hiệu ứng hình ngắn (flash, rung, lấp lánh...) đúng khoảnh khắc nhấn — kho:

@@ -305,3 +305,61 @@ def test_decor_effects_stickers_transitions_filter(tmp_path):
     assert len(colors) == 2 and colors[0] != colors[1]  # chữ nhấn đổi màu luân phiên
     bad = EditPlan.model_validate({**p, "transitions": [{"after_clip": 5, "name": "x"}]})
     assert any("after_clip" in e for e in check_plan(bad, 173.8, min_s=10))
+
+
+def test_sports_layout_like_reference(tmp_path):
+    """Kiểu thể thao theo video mẫu boxing: nền đen, khối 9:10 phóng vào pha đấu, không tiêu đề,
+    phụ đề vàng cụm ngắn trong khối, mũi tên xanh chỉ chi tiết."""
+    from app.planner.builder import ARROW_ROTATION, arrow_placement, block_point
+    from app.styles import layout_for, load_style
+
+    style = load_style("sports_analysis")
+    lay = layout_for(style)
+    assert lay["name"] == "sports_focus" and not lay["titles"] and lay["block_ratio"] == "9:10"
+    p = load("plan.json")
+    p["arrows"] = [{"source_time": 8.0, "x": 0.5, "y": 0.5, "points": "down_right", "duration": 1.0},
+                   {"source_time": 9.0, "x": 0.01, "y": 0.5, "points": "left"}]  # điểm thứ 2 bị cắt mất
+    plan = EditPlan.model_validate(p)
+    assert check_plan(plan, 173.8, min_s=10) == []
+    tpl = DraftTemplate(SAMPLE)
+    u = Understanding.model_validate(load("understand.json"))
+    a = _analysis()
+    a["subjects"] = {"points": [[t, 0.5, 0.5] for t in range(0, 170)]}
+    res = build(plan, u, a, tpl, tmp_path, "sport", style)
+    tl = res.writer.build_timeline()
+    mats = {m["id"]: m for m in tl["materials"]["texts"]}
+    segs = [(json.loads(mats[s["material_id"]]["content"])["text"], s)
+            for t in tl["tracks"] if t["type"] == "text" for s in t["segments"]]
+    texts = [t for t, _ in segs]
+    assert not set(plan.titles_top + plan.titles_bottom) & set(texts)  # không có dòng tiêu đề
+    arrows = [s for t, s in segs if t == "→"]
+    assert len(arrows) == 1 and arrows[0]["clip"]["rotation"] == ARROW_ROTATION["down_right"]
+    ax, ay = arrows[0]["clip"]["transform"]["x"], arrows[0]["clip"]["transform"]["y"]
+    assert ax < 0 and ay > 0  # nằm phía trên-trái điểm cần chỉ (giữa khung)
+    assert any("ngoài khung" in n for n in res.notes)
+    subs = [t for t in texts if t != "→" and t not in (e.text for e in plan.emphasis)]
+    assert subs and all(len(t) <= 7 for t in subs)  # cụm ngắn kiểu video mẫu
+    crop = tl["materials"]["videos"][0]["crop"]
+    assert 0.2 < crop["upper_left_x"] < 0.3  # 16:9 → 9:10: lấy ~51% chiều ngang quanh chủ thể
+    assert all(c["type"] == "canvas_color" for c in tl["materials"]["canvases"])
+    # hình học
+    assert block_point(0.5, 0.5, None, "9:10") == (0.0, 0.0)
+    x, y, rot = arrow_placement((0.0, 0.0), "down", 96)
+    assert x == 0 and y == 0.1 and rot == 90  # mũi tên chỉ xuống nằm phía trên điểm
+
+
+def test_plan_sends_frames_only_for_arrow_styles(tmp_path):
+    from app.styles import load_style
+
+    a = make_analysis(tmp_path, duration=60.0)
+    u = understand(FakeDirector(), a)
+    music = [m for m in DraftTemplate(SAMPLE).library if m.kind == "music"]
+    d = FakeDirector(responses={"plan": _short_plan()})
+    make_plan(d, a, u, load_style("sports_analysis"), music_items=music)
+    assert d.calls[-1]["images"] and "Mũi tên chỉ chi tiết" in d.calls[-1]["prompt"]
+    assert "(bố cục cố định)" in d.calls[-1]["prompt"]
+    d2 = FakeDirector(responses={"plan": {**_short_plan(), "arrows": [
+        {"source_time": 5.0, "x": 0.5, "y": 0.5, "points": "down"}]}})
+    with pytest.raises(Exception):
+        make_plan(d2, a, u, load_style("jp_telop"), music_items=music)  # kiểu không dùng mũi tên → sai khuôn
+    assert any("không dùng mũi tên" in c["prompt"] for c in d2.calls[1:])

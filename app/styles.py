@@ -27,3 +27,15 @@ def available_styles() -> dict[str, dict]:
 
 def styles_for_prompt() -> str:
     return "\n".join(f"- {k}: {v['name_vi']} — hợp với: {v['fits_vi']}" for k, v in available_styles().items())
+
+
+def layout_for(style: dict) -> dict | None:
+    """Bố cục của kiểu dựng: khóa `layout` trong style, không có thì theo preset của config/layout.yaml.
+    Trả None cho bố cục cũ (classic), còn lại là dict cấu hình kèm "name"."""
+    from app import config
+
+    lay = config.load("layout")
+    name = style.get("layout") or lay.get("preset", "four_titles")
+    if name == "classic" or not isinstance(lay.get(name), dict):
+        return None
+    return {**lay[name], "name": name}

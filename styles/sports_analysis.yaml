@@ -3,6 +3,9 @@ name_vi: Thể thao – bình luận & phân tích tình huống
 fits_vi: trận đấu boxing, bóng đá, bóng chày, bóng rổ, MMA...; highlight kèm bình luận/giải thích chiến thuật
 description_vi: Dẫn dắt như bình luận viên - cho xem tình huống, tua lại chậm (replay) đúng khoảnh khắc quyết định, chữ phân tích chỉ ra điều người xem cần để ý.
 
+layout: sports_focus   # bố cục thể thao (config/layout.yaml)
+arrows: true           # đạo diễn đặt mũi tên chỉ vào chi tiết, được xem khung hình khi lập kế hoạch
+
 director_brief: |
   - Cấu trúc: bối cảnh ngắn (ai đấu ai, tỉ số/hiệp) → diễn biến → TÌNH HUỐNG QUYẾT ĐỊNH → replay chậm → phân tích → kết quả/phản ứng.
   - Tình huống quyết định (cú đấm, bàn thắng, cú đánh bóng, pha cứu thua...) hãy thêm một clip REPLAY: lặp lại đúng đoạn đó
@@ -12,6 +15,9 @@ director_brief: |
   - Zoom "punch" đúng lúc va chạm/ghi bàn; "slow" khi phân tích.
   - Nhạc năng lượng cao (hype/epic/rock), hạ khi có lời bình. SFX: boom/whoosh ở khoảnh khắc quyết định, không lạm dụng.
   - Tốc độ: đoạn chờ/nhàm có thể 1.2–1.5; không tăng tốc đoạn hành động chính.
+  - Theo video mẫu chủ dự án: KHÔNG có dòng tiêu đề; lời bình giải thích từng động tác, phụ đề cụm ngắn tự nhảy theo lời;
+    mũi tên xanh chỉ đúng chi tiết đang được nói tới (găng tay tung đòn, chân bước, bóng) mỗi 2–5 giây khi lời bình nhắc tới;
+    chuyển cảnh mờ nhẹ giữa các pha; quay chậm (replay) pha quyết định.
 
 subtitle: {mode: chunk, max_chars: {ja: 11, ko: 13, en: 24}, size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 hook_text: {size: 34, color: [1, 0.2, 0.2], stroke_color: [1, 1, 1], stroke_width: 0.16, animations: [in, loop]}

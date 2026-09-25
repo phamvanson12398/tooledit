@@ -91,6 +91,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   khối video 16:9 tràn ngang ở giữa, 2 dòng tiêu đề chữ rất lớn phía trên + 2 dòng phía dưới cố định suốt video,
   phụ đề thoại trong khối video, nhãn chủ đề nhỏ góc trên phải khối. Thông số trong `config/layout.yaml`
   (`preset: classic` để dùng lại bố cục 4:3/1:1 ở trên).
+- **Ngoại lệ thể thao (chủ dự án chốt 25/09, video mẫu boxing):** kiểu `sports_analysis` dùng bố cục `sports_focus`:
+  nền đen, khối video 9:10 phóng vào pha đấu bám theo người, không dòng tiêu đề, phụ đề cụm ngắn chữ vàng viền đen
+  trong khối video, mũi tên xanh chỉ chi tiết mà lời bình nhắc tới, chuyển cảnh mờ, replay quay chậm.
 - **Vùng an toàn TikTok**: chữ tránh dải dưới cùng (caption, tên tài khoản), cạnh phải (cột nút), và dải trên cùng. Để các lề này là hằng số cấu hình được trong `config/`, giá trị mặc định ước lượng, ghi chú cần kiểm tra lại trên app thật.
 
 ## 7. Tài nguyên và bản quyền

@@ -117,10 +117,24 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     from app import config
     from app.director.schemas import EditPlan, check_plan, check_titles
 
-    layout = config.load("layout")
-    four = layout.get("preset", "four_titles") == "four_titles" and style.get("layout", "") != "classic"
-    title_max = (layout.get("four_titles", {}).get("title_max_chars") or {}).get(u.language, 12)
+    from app.styles import layout_for
+
+    lay = layout_for(style)
+    four = bool(lay and lay.get("titles"))
+    fixed = lay is not None  # bố cục cố định: không chọn khung 4:3 / 1:1
+    title_max = ((lay or {}).get("title_max_chars") or {}).get(u.language, 12)
     a = load_analysis(analysis_dir, footage)
+    images = []
+    arrow_brief = "(kiểu dựng này không dùng mũi tên — để `arrows` rỗng)"
+    if style.get("arrows"):
+        n = config.load("director").get("frames", {}).get("plan", 10)
+        lo, hi = u.usable_range.start, u.usable_range.end
+        pool = [f for f in a["frames"] if lo <= f["t"] <= hi] or a["frames"]
+        near = [min(pool, key=lambda f, t=m.start: abs(f["t"] - t)) for m in u.key_moments] if pool else []
+        chosen = {f["file"]: f for f in near + pick_evenly(pool, n)}
+        frames = sorted(chosen.values(), key=lambda f: f["t"])
+        images = [analysis_dir / f["file"] for f in frames]
+        arrow_brief = ARROW_BRIEF + "\n" + "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames)
     sc = a["scenes"]
     duration = sc["duration"]
     vertical = sc["height"] > sc["width"]
@@ -142,12 +156,15 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         "style_name": style.get("name", ""), "style_description": style.get("description_vi", ""),
         "style_brief": style.get("director_brief", ""), "hook_s": f"{hook_s:.1f}",
         "width": sc["width"], "height": sc["height"],
-        "default_ratio": "16:9 (bố cục 4 dòng tiêu đề)" if four else ("full (footage dọc)" if vertical else default_ratio),
-        "reframe": "không — bố cục cố định" if four else
+        "default_ratio": (f"{lay['block_ratio']} (bố cục cố định)" if fixed else
+                          ("full (footage dọc)" if vertical else default_ratio)),
+        "reframe": "không — bố cục cố định" if fixed else
         ("có — chọn 4:3 hoặc 1:1 cho từng clip" if reframe else "không — mọi clip dùng khung mặc định"),
         "layout_brief": (FOUR_TITLES_BRIEF.format(max_chars=title_max,
                                                   language=LANGUAGE_NAMES.get(u.language, u.language))
-                         if four else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng)."),
+                         if four else ("- Bố cục không có dòng tiêu đề: để `title_top`, `titles_top`, `titles_bottom` rỗng."
+                                       if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
+        "arrow_brief": arrow_brief,
         "burned_in": (f"có, ở {', '.join(b.regions)}. {b.note_vi}" if b.present else "không"),
         "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
         "sfx_list": "\n".join(sfx_lines) or "(kho SFX trống — đặt name = null, tool sẽ ghi vào danh sách cần bổ sung)",
@@ -181,13 +198,15 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             errors.append(f"khách doanh nghiệp: bài '{plan.music.name}' không có nhãn Commercial")
         if four:
             errors += check_titles(plan, title_max)
-        if not reframe and not four and any(c.ratio and c.ratio != plan.default_ratio for c in plan.clips):
+        if not style.get("arrows") and plan.arrows:
+            errors.append("kiểu dựng này không dùng mũi tên: để `arrows` rỗng")
+        if not reframe and not fixed and any(c.ratio and c.ratio != plan.default_ratio for c in plan.clips):
             errors.append("không bật đổi khung theo cảnh: mọi clip phải dùng default_ratio (ratio = null)")
         if plan.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors
 
-    return director.run("plan", variables, EditPlan, extra_check=extra)
+    return director.run("plan", variables, EditPlan, images, extra_check=extra)
 
 
 FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video mẫu chủ dự án chọn): nền đen, khối video 16:9 ở giữa,
@@ -200,6 +219,12 @@ FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video m
   Phải ĐÚNG nội dung có thật trong footage; không hứa điều video không có; không lộ hết "lời giải".
 - `topic_label`: nhãn ngắn chủ đề đoạn nói chuyện (ví dụ "同期のパンチ佐藤さんについて"), hoặc rỗng nếu footage đã có sẵn.
   `title_top` để rỗng."""
+
+
+ARROW_BRIEF = """- `arrows`: mũi tên xanh chỉ ĐÚNG chi tiết mà lời bình đang nói tới (găng tay tung đòn, chân bước, bóng, cầu thủ),
+  mỗi 2–5 giây khi có chi tiết đáng chỉ; không chỉ khi không chắc vị trí. `x`,`y` là vị trí điểm cần chỉ trong
+  KHUNG HÌNH GỐC (0–1), ước lượng từ khung hình gần mốc đó nhất (mở file bằng Read để xem); `points` là hướng mũi tên
+  chỉ tới. Chi tiết di chuyển nhanh → mũi tên ngắn (duration 0.8–1.5). Khung hình có sẵn:"""
 
 
 MARKETS = {"ja": "TikTok Nhật Bản", "ko": "TikTok Hàn Quốc", "en": "TikTok tiếng Anh"}

@@ -352,6 +352,7 @@ class DraftWriter:
         style: TextStyle | None = None,
         animations: list[LibraryItem] | None = None,
         keyframes: list[Keyframe] | None = None,
+        rotation: float = 0.0,
     ) -> dict:
         style = style or TextStyle()
         seg, mat = self._instantiate(self.template.prototype("text"))
@@ -389,7 +390,7 @@ class DraftWriter:
         mat["font_size"] = style.size
         mat["text_size"] = round(style.size * 2)
         mat["text_color"] = hex_color(style.color)
-        self._set_clip(seg, x=x, y=y, scale=scale)
+        self._set_clip(seg, x=x, y=y, scale=scale, rotation=rotation)
         if animations:
             anim_mat = self._extra(seg, "material_animations")
             if anim_mat is None:

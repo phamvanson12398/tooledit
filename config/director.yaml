@@ -12,3 +12,4 @@ timeout_s: 900
 workspace: null
 frames:
   understand: 12             # số khung hình gửi cho bước hiểu nội dung (tiết kiệm hạn mức Pro)
+  plan: 10                   # khung hình gửi khi lập kế hoạch cho kiểu dựng có mũi tên (thể thao)

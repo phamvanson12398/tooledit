@@ -5,7 +5,7 @@ from __future__ import annotations
 from .writer import Crop
 
 CANVAS_W, CANVAS_H = 1080, 1920
-RATIOS = {"16:9": 16 / 9, "4:3": 4 / 3, "1:1": 1.0, "9:16": 9 / 16}
+RATIOS = {"16:9": 16 / 9, "4:3": 4 / 3, "9:10": 0.9, "4:5": 0.8, "1:1": 1.0, "9:16": 9 / 16}
 
 
 def block_size(ratio: str, canvas_w: int = CANVAS_W) -> tuple[int, int]:

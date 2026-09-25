@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 12 — Kiểu "Thể thao" theo video mẫu boxing `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`. Tạo job với một trận boxing / bóng đá, chọn kiểu dựng
+   **Thể thao – bình luận & phân tích tình huống** (hoặc để AI tự chọn).
+2. Mở draft trong CapCut, so với video mẫu:
+   - Nền đen, video phóng to gần vuông (9:10) ở giữa, bám theo võ sĩ / cầu thủ; không có dòng tiêu đề.
+   - Phụ đề chữ vàng viền đen, cụm rất ngắn (2–7 chữ) nhảy theo lời bình, nằm ở khoảng 2/3 khối video.
+   - **Mũi tên xanh lá** chỉ vào găng / chân / bóng đúng lúc lời bình nhắc tới. Kiểm tra: mũi tên có hiện không
+     (ký tự "→" trong font CapCut), **có xoay đúng hướng không** (ví dụ chỉ xuống-phải), có chỉ gần đúng chỗ không.
+   - Replay quay chậm ở pha quyết định, chuyển cảnh mờ.
+3. Nếu mũi tên xoay ngược chiều / không hiện / to nhỏ: chụp màn hình gửi Claude.
+
 ## Bước 11 — Bố cục mới theo video mẫu (4 dòng tiêu đề + khối 16:9) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`. Tạo job mới (hoặc job cũ bấm **🎬 Lập lại kế hoạch dựng** — cần AI viết

@@ -161,6 +161,18 @@ class TransitionUse(BaseModel):
     name: str = Field(description="tên chuyển cảnh trong kho")
 
 
+ArrowDir = Literal["right", "left", "up", "down", "up_right", "up_left", "down_right", "down_left"]
+
+
+class Arrow(BaseModel):
+    source_time: float = Field(ge=0, description="giây trong footage gốc lúc mũi tên hiện")
+    duration: float = Field(default=1.2, ge=0.4, le=3.0)
+    x: float = Field(ge=0, le=1, description="vị trí điểm cần chỉ trong KHUNG HÌNH GỐC, 0 = trái, 1 = phải")
+    y: float = Field(ge=0, le=1, description="0 = trên, 1 = dưới")
+    points: ArrowDir = Field(description="hướng mũi tên chỉ tới (mũi tên nằm phía ngược lại của điểm)")
+    reason_vi: str = ""
+
+
 class MusicChoice(BaseModel):
     name: str | None = Field(description="tên bài trong danh sách nhạc có sẵn, hoặc null nếu không hợp")
     mood_vi: str
@@ -183,6 +195,7 @@ class EditPlan(BaseModel):
     effects: list[EffectUse] = []
     stickers: list[StickerUse] = []
     transitions: list[TransitionUse] = []
+    arrows: list[Arrow] = Field(default_factory=list, description="mũi tên chỉ chi tiết (kiểu thể thao)")
     filter: str | None = Field(default=None, description="tên filter màu cho cả video, hoặc null")
     music: MusicChoice
     editor_notes: str
@@ -243,6 +256,9 @@ def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: floa
     for st in plan.stickers:
         if not inside(st.source_time):
             errors.append(f"sticker '{st.name}' ở {st.source_time}s không nằm trong clip nào được giữ")
+    for a in plan.arrows:
+        if not inside(a.source_time):
+            errors.append(f"mũi tên ở {a.source_time}s không nằm trong clip nào được giữ")
     for t in plan.transitions:
         if t.after_clip >= len(plan.clips) - 1:
             errors.append(f"chuyển cảnh after_clip={t.after_clip} phải nhỏ hơn số clip - 1 ({len(plan.clips) - 1})")
