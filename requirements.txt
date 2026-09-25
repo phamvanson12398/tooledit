@@ -3,6 +3,7 @@ pydantic>=2.6,<3
 PyYAML>=6
 faster-whisper>=1.1,<2
 scenedetect>=0.6.4,<0.8
-# OpenCV 4.x: bản 5 không còn kèm bộ dò mặt Haar (cv2.data.haarcascades)
-opencv-python-headless>=4.9,<5
+# OpenCV 4.x: bản 5 không còn kèm bộ dò mặt Haar (cv2.data.haarcascades).
+# Dùng opencv-python (không phải -headless) vì scenedetect bắt buộc gói này; chỉ giữ MỘT gói OpenCV.
+opencv-python>=4.9,<5
 pytest>=8
