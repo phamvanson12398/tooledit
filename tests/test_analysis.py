@@ -152,3 +152,13 @@ def test_nvidia_bin_dirs(tmp_path):
     (d / "cublas64_12.dll").write_bytes(b"")
     (tmp_path / "nvidia" / "empty" / "bin").mkdir(parents=True)
     assert nvidia_bin_dirs([str(tmp_path)]) == [d]
+
+
+def test_scan_video_samples_sequentially(tmp_path):
+    from app.analysis.subjects import scan_video
+
+    video = tmp_path / "v.mp4"
+    subprocess.run([FFMPEG, "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=s=1280x720:d=3:r=10",
+                    "-pix_fmt", "yuv420p", str(video)], check=True)
+    frames = scan_video(video, every_s=0.5)
+    assert [round(f.t, 2) for f in frames] == [0.0, 0.5, 1.0, 1.5, 2.0, 2.5]

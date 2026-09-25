@@ -1,6 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
-## Bước 3 — Cài đặt và chạy thử phân tích footage `[CẦN KIỂM TRA TRÊN MÁY]`
+## Bước 3 — Cài đặt và chạy thử phân tích footage
+
+**Kết quả lần 1 (2026-09-25):** video 1920x1080, 173.8 giây, tiếng Nhật. Chạy trên `cuda` (GTX 1080 Ti,
+large-v3, int8_float32): làm sạch âm thanh 8s, nhận dạng thoại ~45s, dò cảnh ~32s (7 cảnh), trích 40 khung
+~15s, dò mặt ~130s → tổng 230s. Nhận đúng tiếng Nhật, 38 câu; tên riêng có chỗ nghe nhầm.
+Sau đó đã tối ưu dò mặt (đọc tuần tự + thu nhỏ khung) → cần chạy lại để đo `[CẦN KIỂM TRA TRÊN MÁY]`.
+
 
 1. Làm theo `docs/SETUP_WINDOWS.md` (cài Python, FFmpeg, thư viện, GPU).
 2. Chọn một footage thật ngắn (1–3 phút, có người nói tiếng Hàn/Nhật/Anh; footage của chính anh/chị

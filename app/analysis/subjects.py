@@ -60,20 +60,29 @@ def _cascade():
     return _CASCADE
 
 
-def scan_video(video: Path, every_s: float = 0.5, min_face_frac: float = 0.06) -> list[FrameSubjects]:
+def scan_video(video: Path, every_s: float = 0.5, min_face_frac: float = 0.06,
+               max_width: int = 640) -> list[FrameSubjects]:
+    """Đọc video tuần tự (grab bỏ qua khung không cần, nhanh hơn nhiều so với tua từng mốc)
+    và thu nhỏ khung về tối đa max_width trước khi dò mặt. Tọa độ trả về vẫn chuẩn hóa 0..1."""
     import cv2
 
     cap = cv2.VideoCapture(str(video))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
     step = max(1, int(round(fps * every_s)))
     out = []
-    for idx in range(0, total, step):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-        ok, frame = cap.read()
-        if not ok:
+    idx = 0
+    while True:
+        if idx % step == 0:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            h, w = frame.shape[:2]
+            if w > max_width:
+                frame = cv2.resize(frame, (max_width, round(h * max_width / w)), interpolation=cv2.INTER_AREA)
+            out.append(FrameSubjects(t=idx / fps, faces=detect_faces(frame, min_face_frac)))
+        elif not cap.grab():
             break
-        out.append(FrameSubjects(t=idx / fps, faces=detect_faces(frame, min_face_frac)))
+        idx += 1
     cap.release()
     return out
 
