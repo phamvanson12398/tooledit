@@ -1,5 +1,25 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 8 — Mọi thao tác trên giao diện, kho tự lấy từ CapCut, dựng sinh động hơn `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Cập nhật: mở PowerShell trong thư mục tool, chạy `git pull` rồi `.venv\Scripts\pip install -r requirements.txt`.
+   Đóng cửa sổ `start.bat` cũ (nếu đang mở) rồi mở lại `start.bat`.
+2. **Kho tài nguyên tự động**: ở trang chủ, ô "📚 Kho tài nguyên" hiện số nhạc / SFX / hiệu ứng / chuyển cảnh / sticker
+   mà tool tự quét được từ **tất cả dự án CapCut** trên máy. Không cần dự án `bo_suu_tap_nhac` nữa.
+   Muốn kho nhiều hơn: mở CapCut, thêm vài bài nhạc, SFX, hiệu ứng, sticker vào một dự án bất kỳ, lưu, đóng CapCut,
+   tải lại trang chủ → số phải tăng. (Chỉ tính những thứ CapCut đã tải về máy.)
+3. Tạo job mới có tick **Có hook**. Tới bước **🎙️ Thu voice hook**: bấm **Chọn tệp** chọn file voice (wav/mp3/m4a) →
+   **Tải lên và dựng tiếp**. Không phải chép file vào thư mục nào.
+4. Khi job **✅ Xong**: kiểm tra có nút **🏠 Về trang chủ** (trên cùng và trong ô "🛠️ Thao tác"), và các nút:
+   - **🔁 Dựng lại draft** — đóng CapCut trước khi bấm; draft được ghi đè.
+   - **🎬 Lập lại kế hoạch dựng** — AI lập kế hoạch mới rồi dựng lại.
+   - **🎣 Chọn hook khác** — quay lại bảng chọn hook; voice cũ đổi tên thành `video01_hook_cu.*`, cần tải voice mới.
+   - **✍️ Viết hook mới** — AI viết 3 phương án mới.
+   - **🗑️ Xóa job** — xóa dữ liệu job (draft trong CapCut vẫn giữ).
+5. **Dựng sinh động hơn**: mở draft trong CapCut, xem có thêm hiệu ứng hình ở điểm nhấn, sticker, chuyển cảnh giữa
+   các đoạn, filter màu, chữ nhấn nhiều màu có animation. Các thứ này lấy từ kho ở bước 2, nên kho càng nhiều thì
+   bản dựng càng phong phú. Báo lại cho Claude chỗ nào quá dày / quá nhạt.
+
 ## Bước 7 — Giao diện mới, 6 kiểu dựng, kho nhạc/SFX `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Cập nhật: `git pull` rồi `.venv\Scripts\pip install -r requirements.txt`. Mở `start.bat`.

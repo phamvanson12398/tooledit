@@ -63,7 +63,7 @@ def hook_table(sets: list[HookSet]) -> str:
 def write_hook_scripts(job_dir: Path, sets: list[HookSet], choices: dict[int, int]) -> Path:
     """hook_scripts.txt: câu cần thu + tên file tương ứng, để thu voice một lượt."""
     by_index = {s.video_index: s for s in sets}
-    lines = ["CÂU HOOK CẦN THU (thả file vào thư mục voice\\ của job, chấp nhận .wav / .mp3 / .m4a)", ""]
+    lines = ["CÂU HOOK CẦN THU (thu xong tải file lên ở trang job, chấp nhận .wav / .mp3 / .m4a)", ""]
     for v in sorted(choices):
         o = by_index[v].options[choices[v] - 1]
         lines += [f"{voice_name(v)}.wav", f"  Câu: {o.line}", f"  Nghĩa: {o.line_vi}", ""]

@@ -125,6 +125,27 @@ class Runner:
         job.save(self.jobs_root)
         return self.run(job)
 
+    REDO_STEPS = ("hooks", "choose_hook", "plan", "write")
+
+    def redo(self, job: Job, step: str) -> None:
+        """Làm lại từ một bước (nút trên giao diện): viết hook mới, chọn hook khác, lập lại kế hoạch, dựng lại draft."""
+        from app.planner import hook_io
+
+        if step not in self.REDO_STEPS or not job.applies(step):
+            raise ValueError(f"Không làm lại được bước {step!r}")
+        if step in ("hooks", "choose_hook"):
+            d, _, _ = self._paths(job)
+            if step == "choose_hook":
+                sets, _ = hook_io.load_hooks(d)
+                hook_io.save_hooks(d, sets, {})
+            # câu hook đổi → voice cũ không còn khớp; giữ bản sao để không mất file
+            for old in (d / "voice").glob(f"{hook_io.voice_name(1)}.*"):
+                old.replace(old.with_name(f"{old.stem}_cu{old.suffix}"))
+        job.step = step
+        job.status = Status.pending
+        job._log(f"người dùng yêu cầu làm lại từ bước {step}")
+        job.save(self.jobs_root)
+
     def run(self, job: Job) -> Job:
         """Chạy các bước cho tới khi xong hoặc gặp điểm dừng / lỗi. Lưu job.json sau mỗi bước."""
         while job.status == Status.pending:
@@ -203,8 +224,7 @@ class Runner:
         _, choices = hook_io.load_hooks(d)
         missing = hook_io.missing_voices(d, choices)
         if missing:
-            job.wait(f"Thu voice theo {d / 'hook_scripts.txt'} rồi thả vào {d / 'voice'}. "
-                     f"Còn thiếu: {', '.join(missing)}")
+            job.wait(f"Thu voice theo câu hook bên dưới rồi tải file lên. Còn thiếu: {', '.join(missing)}")
 
     def step_plan(self, job: Job) -> None:
         from app.director.tasks import make_plan

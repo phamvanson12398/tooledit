@@ -58,12 +58,37 @@ def test_web_full_flow(tmp_path):
     page = client.get(f"/jobs/{job_id}").text
     assert "Thu voice hook" in page and "video01_hook.wav" in page
 
-    (jobs / job_id / "voice" / "video01_hook.wav").write_bytes(b"RIFF")
-    client.post(f"/jobs/{job_id}/continue")
+    assert "type='file' name='voice'" in page and "Thả file vào thư mục" not in page
+    assert "🏠 Về trang chủ" in page
+    # sai định dạng → báo lỗi, không lưu
+    assert "không hợp lệ" in client.post(f"/jobs/{job_id}/voice", files={"voice": ("a.txt", b"x")}).text
+    client.post(f"/jobs/{job_id}/voice", files={"voice": ("thu_am.mp3", b"ID3")})
     wait_idle(app)
+    assert (jobs / job_id / "voice" / "video01_hook.mp3").read_bytes() == b"ID3"
     job = Job.load(jobs, job_id)
     assert job.status == Status.done, job.message
     page = client.get(f"/jobs/{job_id}").text
     assert "Caption + hashtag" in page and "Tài nguyên cần bổ sung" in page and "khachA" in page
     assert job_id in client.get("/").text
     assert job.data["style_used"] == "podcast"
+
+    assert "🔁 Dựng lại draft" in page and "🎣 Chọn hook khác" in page and "🗑️ Xóa job" in page
+
+    # dựng lại draft ngay trên giao diện
+    client.post(f"/jobs/{job_id}/redo", data={"step": "write"})
+    wait_idle(app)
+    assert Job.load(jobs, job_id).status == Status.done
+    assert any("làm lại từ bước write" in h.message for h in Job.load(jobs, job_id).history)
+
+    # chọn hook khác → quay lại bảng chọn, voice cũ được cất đi
+    client.post(f"/jobs/{job_id}/redo", data={"step": "choose_hook"})
+    wait_idle(app)
+    job = Job.load(jobs, job_id)
+    assert job.step == "choose_hook" and job.status == Status.waiting
+    assert not (jobs / job_id / "voice" / "video01_hook.mp3").exists()
+    assert (jobs / job_id / "voice" / "video01_hook_cu.mp3").exists()
+
+    # xóa job
+    client.post(f"/jobs/{job_id}/delete")
+    assert not (jobs / job_id).exists()
+    assert job_id not in client.get("/").text

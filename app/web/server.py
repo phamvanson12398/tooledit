@@ -8,15 +8,16 @@ from __future__ import annotations
 
 import html
 import json
+import shutil
 import threading
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.config import ROOT
-from app.jobs.job import Job, JobOptions, Status
+from app.jobs.job import STEPS, Job, JobOptions, Status
 
 JOBS_ROOT = ROOT / "jobs"
 
@@ -66,6 +67,12 @@ table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px
 @keyframes sp{to{transform:rotate(360deg)}}
 .lib{display:flex;gap:10px;flex-wrap:wrap}.lib div{background:#f1f0ff;border-radius:10px;padding:8px 12px;font-size:13px}
 .lib b{font-size:18px;color:var(--pri);display:block}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.actions form{margin:0}
+.btn.danger{background:#fee2e2;color:var(--err)}.btn.small{padding:7px 14px;font-size:13px}
+.topnav{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.upload{border:2px dashed #c7c9ff;border-radius:12px;padding:16px;background:#f7f7ff;margin-top:12px}
+.upload input[type=file]{font-size:14px;margin:6px 0 10px}
+.note{background:#fff7e6;border:1px solid #fde3a7;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
 """
 
 STEP_VI = {
@@ -224,8 +231,6 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None) -> FastAPI:
 
     @app.get("/jobs/{job_id}", response_class=HTMLResponse)
     def job_page(job_id: str):
-        from app.jobs.job import STEPS
-
         try:
             job = Job.load(Path(jobs_root), job_id)
         except (OSError, ValueError):  # file đang được ghi dở → tải lại sau giây lát
@@ -249,7 +254,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None) -> FastAPI:
                 f"</div><div class='stepper' style='margin-top:14px'>{''.join(chips)}</div>")
         if job.data.get("summary_vi"):
             head += f"<p><b>Nội dung:</b> {html.escape(job.data['summary_vi'])}</p>"
-        parts = [head + "</div>"]
+        parts = ["<div class='topnav'><a class='btn light small' href='/'>🏠 Về trang chủ</a>"
+                 f"<span class='muted'>{'Đang chạy — có thể về trang chủ, job vẫn chạy tiếp' if running else ''}</span></div>",
+                 head + "</div>"]
         if running:
             parts.append(f"<div class='card'><span class='spinner'></span> Đang <b>{STEP_VI.get(job.step, job.step)}</b>… "
                          "trang tự làm mới.</div>")
@@ -258,6 +265,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None) -> FastAPI:
         log = _read(d / "log.txt")
         if log:
             parts.append(f"<div class='card'><h2>📝 Nhật ký</h2><pre>{html.escape(log[-4000:])}</pre></div>")
+        if not running:
+            parts.append(_manage_panel(job))
         return _page(f"Job {job_id}", "".join(parts), refresh=running)
 
     @app.post("/jobs/{job_id}/continue")
@@ -271,7 +280,63 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None) -> FastAPI:
         worker.start(job_id, action=lambda runner, job: runner.choose_hooks(job, {1: choice}))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/voice")
+    async def upload_voice(job_id: str, voice: UploadFile = File(...)):
+        from app.planner import hook_io
+
+        d = Job.dir_for(Path(jobs_root), job_id)
+        ext = Path(voice.filename or "").suffix.lower()
+        if ext not in hook_io.VOICE_EXTS:
+            return _page("Lỗi", f"<div class='card'><h2>File voice không hợp lệ</h2><p>Chỉ nhận "
+                         f"{', '.join(hook_io.VOICE_EXTS)} (bạn chọn: {html.escape(voice.filename or '')}).</p>"
+                         f"<p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
+        vdir = d / "voice"
+        vdir.mkdir(parents=True, exist_ok=True)
+        for old in vdir.glob(f"{hook_io.voice_name(1)}.*"):  # thay file cũ (có thể khác đuôi)
+            old.unlink()
+        with open(vdir / f"{hook_io.voice_name(1)}{ext}", "wb") as f:
+            shutil.copyfileobj(voice.file, f)
+        worker.start(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/redo")
+    def redo(job_id: str, step: str = Form(...)):
+        worker.start(job_id, action=lambda runner, job: runner.redo(job, step))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/delete")
+    def delete(job_id: str):
+        d = Job.dir_for(Path(jobs_root), job_id)
+        if worker.active != job_id and (d / "job.json").is_file():
+            shutil.rmtree(d, ignore_errors=True)
+        return RedirectResponse("/", status_code=303)
+
     return app
+
+
+def _manage_panel(job: Job) -> str:
+    """Các nút làm lại / xóa: mọi thao tác đều bấm trên giao diện."""
+    jid = job.job_id
+
+    def redo(step: str, label: str, confirm: str = "") -> str:
+        onsubmit = f" onsubmit=\"return confirm('{confirm}')\"" if confirm else ""
+        return (f"<form method='post' action='/jobs/{jid}/redo'{onsubmit}><input type='hidden' name='step' value='{step}'>"
+                f"<button type='submit' class='btn light small'>{label}</button></form>")
+
+    buttons = []
+    have_plan = STEPS.index(job.step) > STEPS.index("plan") or job.status == Status.done
+    if have_plan:
+        buttons.append(redo("write", "🔁 Dựng lại draft", "Ghi đè draft CapCut hiện tại? Đóng CapCut trước khi bấm."))
+        buttons.append(redo("plan", "🎬 Lập lại kế hoạch dựng", "AI sẽ lập kế hoạch mới và dựng lại draft. Tiếp tục?"))
+    if job.options.hook and STEPS.index(job.step) > STEPS.index("choose_hook"):
+        buttons.append(redo("choose_hook", "🎣 Chọn hook khác"))
+    if job.options.hook and STEPS.index(job.step) > STEPS.index("hooks"):
+        buttons.append(redo("hooks", "✍️ Viết hook mới", "AI sẽ viết 3 phương án hook mới. Tiếp tục?"))
+    buttons.append(f"<form method='post' action='/jobs/{jid}/delete' onsubmit=\"return confirm('Xóa job này? "
+                   "(draft đã ghi trong CapCut vẫn giữ nguyên)')\"><button type='submit' class='btn danger small'>"
+                   "🗑️ Xóa job</button></form>")
+    return (f"<div class='card'><h2>🛠️ Thao tác</h2><div class='actions'>"
+            f"<a class='btn small' href='/'>🏠 Về trang chủ</a>{''.join(buttons)}</div></div>")
 
 
 def _continue_button(job: Job, label: str = "Tiếp tục") -> str:
@@ -280,7 +345,7 @@ def _continue_button(job: Job, label: str = "Tiếp tục") -> str:
 
 
 def _library_summary() -> str:
-    """Số nhạc / SFX / hiệu ứng đạo diễn có thể dùng (dự án mẫu + bộ sưu tập)."""
+    """Số nhạc / SFX / hiệu ứng đạo diễn có thể dùng (tự quét mọi dự án CapCut trên máy)."""
     try:
         from app.jobs.runner import Runner
 
@@ -291,9 +356,9 @@ def _library_summary() -> str:
     boxes = "".join(f"<div><b>{count(k)}</b>{label}</div>" for k, label in
                     (("music", "nhạc nền"), ("sfx", "SFX"), ("video_effect", "hiệu ứng"), ("transition", "chuyển cảnh"),
                      ("sticker", "sticker")))
-    return (f"<div class='lib'>{boxes}</div><p class='muted'>Muốn đạo diễn có nhiều nhạc/SFX để chọn: tạo dự án CapCut "
-            "tên <b>bo_suu_tap_nhac</b>, thêm các bài nhạc và hiệu ứng âm thanh hay dùng, lưu lại. Gắn tâm trạng cho "
-            "từng bài trong config/capcut_labels.yaml.</p>")
+    return (f"<div class='lib'>{boxes}</div><p class='muted'>Tool tự quét <b>mọi dự án CapCut</b> trên máy: nhạc, SFX, "
+            "hiệu ứng, sticker, chuyển cảnh bạn từng dùng (và CapCut đã tải về) đều vào kho. Muốn kho nhiều hơn: mở CapCut, "
+            "thêm vài bài nhạc / hiệu ứng vào một dự án bất kỳ rồi lưu — lần dựng sau tool tự thấy.</p>")
 
 
 def pick_file_dialog() -> dict:
@@ -339,9 +404,12 @@ def _step_panel(job: Job, d: Path) -> str:
         return (f"<div class='card'><h2>🎣 Chọn hook</h2><form method='post' action='/jobs/{job.job_id}/choose'>"
                 f"{''.join(items)}<button type='submit' class='btn'>Chọn hook này</button></form></div>")
     if job.status == Status.waiting and job.step == "voice":
-        return (f"<div class='card'><h2>🎙️ Thu voice hook</h2><pre>{esc(_read(d / 'hook_scripts.txt'))}</pre>"
-                f"<p>Thả file vào thư mục: <b>{esc(str(d / 'voice'))}</b></p>"
-                f"<pre>{esc(job.message)}</pre>{_continue_button(job, 'Đã thả file, tiếp tục')}</div>")
+        return (f"<div class='card'><h2>🎙️ Thu voice hook</h2><p>Thu câu dưới đây bằng Voice Studio, rồi chọn file "
+                f"để tải lên (wav / mp3 / m4a).</p><pre>{esc(_read(d / 'hook_scripts.txt'))}</pre>"
+                f"<form class='upload' method='post' action='/jobs/{job.job_id}/voice' enctype='multipart/form-data'>"
+                f"<b>📤 File voice cho video01</b><br><input type='file' name='voice' accept='.wav,.mp3,.m4a,audio/*' required>"
+                f"<br><button type='submit' class='btn'>Tải lên và dựng tiếp</button></form>"
+                f"<p class='muted'>{esc(job.message)}</p></div>")
     if job.status == Status.waiting:
         extra = ""
         u = d / "plan" / "understanding.json"
@@ -364,7 +432,9 @@ def _step_panel(job: Job, d: Path) -> str:
             rows = "".join(f"<tr><td>{esc(m['kind'])}</td><td>{esc(str(m['what']))}</td><td>{m['at_s']}s</td>"
                            f"<td>{esc(m.get('purpose_vi', ''))}</td></tr>" for m in missing)
             parts.append("<h2 style='margin-top:18px'>🧩 Tài nguyên cần bổ sung</h2><table><tr><th>Loại</th><th>Cần gì</th><th>Giây</th>"
-                         f"<th>Để làm gì</th></tr>{rows}</table>")
+                         f"<th>Để làm gì</th></tr>{rows}</table><div class='note'>Mở CapCut, thêm các âm thanh/hiệu ứng "
+                         "này vào một dự án bất kỳ (để CapCut tải về), lưu lại, rồi bấm <b>🔁 Dựng lại draft</b> bên dưới."
+                         "</div>")
         parts.append("</div>")
         return "".join(parts)
     return f"<div class='card'>{_continue_button(job, 'Chạy')}</div>"
