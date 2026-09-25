@@ -1,5 +1,32 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 1 — CapCut 9.5.0 đọc bản timeline nào? `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Draft 9.5.0 có 4 bản timeline giống nhau. Draft thăm dò `capcut_template_probe` là bản sao của mẫu.
+Trong đó, lớp chữ đầu tiên (giây 0–3) ở mỗi bản mang một nhãn khác nhau.
+
+1. **Đóng hẳn CapCut.**
+2. Giải nén `capcut_template_probe.zip` (Claude gửi trong chat) vào thư mục draft:
+
+   ```powershell
+   Expand-Archive -Path "$HOME\Downloads\capcut_template_probe.zip" -DestinationPath "$env:LOCALAPPDATA\CapCut\User Data\Projects\com.lveditor.draft"
+   ```
+
+   Nếu có Python và repo, có thể tự tạo draft thăm dò:
+
+   ```powershell
+   python tools\make_probe_draft.py "$env:LOCALAPPDATA\CapCut\User Data\Projects\com.lveditor.draft\<thư_mục_mẫu>"
+   ```
+
+3. Mở CapCut. Draft `capcut_template_probe` có hiện trong danh sách không? Mở nó ra được không?
+4. Xem lớp chữ ở đầu video (giây 0–3). Nó ghi chữ gì?
+   - `GOC_CONTENT` → CapCut đọc `draft_content.json` ở gốc
+   - `GOC_TEMPLATE2` → đọc `template-2.tmp` ở gốc
+   - `TRONG_CONTENT` → đọc `Timelines\<id>\draft_content.json`
+   - `TRONG_TEMPLATE2` → đọc `Timelines\<id>\template-2.tmp`
+   - vẫn là chữ cũ `地獄の合図は深`, hoặc báo lỗi, hoặc không mở được → chụp màn hình gửi lại
+5. Báo lại kết quả, rồi xóa draft thăm dò trong CapCut.
+
 ## Bước 0 — Tạo và gửi dự án CapCut mẫu (cho báo cáo tương thích)
 
 1. Mở **CapCut 9.5.0**, tạo dự án mới, tỷ lệ 9:16. Thêm:

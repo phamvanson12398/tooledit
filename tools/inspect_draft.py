@@ -104,7 +104,7 @@ def inspect(draft_dir: Path) -> dict:
     candidates = [draft_dir / name for name in TIMELINE_FILES]
     timelines_dir = draft_dir / "Timelines"
     if timelines_dir.is_dir():
-        candidates += sorted(timelines_dir.rglob("*.json"))
+        candidates += sorted([*timelines_dir.rglob("*.json"), *timelines_dir.rglob("*.tmp")])
     for path in candidates:
         if not path.is_file():
             continue
