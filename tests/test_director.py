@@ -88,8 +88,8 @@ def test_build_command_never_uses_bare():
 def test_parse_output_variants():
     assert parse_output(json.dumps({"type": "result", "subtype": "success", "structured_output": {"a": 1}})) == {"a": 1}
     assert parse_output(json.dumps({"subtype": "success", "result": "Đây: {\"a\": 2}"})) == {"a": 2}
-    with pytest.raises(DirectorError):
-        parse_output(json.dumps({"subtype": "error_during_execution", "is_error": True, "result": "Not logged in"}))
+    with pytest.raises(DirectorError, match="chưa đăng nhập"):
+        parse_output(json.dumps({"type": "result", "is_error": True, "result": "Not logged in · Please run /login"}))
     with pytest.raises(DirectorError):
         parse_output("không phải json")
 

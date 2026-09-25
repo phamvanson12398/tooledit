@@ -49,7 +49,12 @@ def parse_output(stdout: str) -> dict:
     except json.JSONDecodeError as exc:
         raise DirectorError(f"Claude Code không trả JSON: {stdout[:500]}") from exc
     if data.get("is_error") or (data.get("subtype") not in (None, "success")):
-        raise DirectorError(f"Claude Code báo lỗi: {str(data.get('result'))[:800]}")
+        message = str(data.get("result"))
+        if "not logged in" in message.lower() or "/login" in message:
+            raise DirectorError(
+                "Claude Code chưa đăng nhập. Mở PowerShell, gõ `claude`, gõ `/login`, đăng nhập tài khoản "
+                "Claude Pro trên trình duyệt, rồi gõ `/exit` và chạy lại. (Thông báo gốc: " + message[:200] + ")")
+        raise DirectorError(f"Claude Code báo lỗi: {message[:800]}")
     if isinstance(data.get("structured_output"), dict):
         return data["structured_output"]
     text = str(data.get("result", "")).strip()
