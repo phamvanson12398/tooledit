@@ -34,7 +34,13 @@ Bản mẫu trong repo đã xóa tên user Windows, `device_id`, `mac_address` (
       attachment_*.json, common_attachment/, draft.extra
 ```
 
-- **Có 4 bản timeline giống hệt nhau từng byte.** Không có `draft_info.json`.
+- **Có 4 bản timeline giống hệt nhau từng byte**, cộng **bản thứ 5** ở
+  `Timelines/<id>/attachment/patch/mini_draft.json` (định dạng khác: `draft` + danh sách
+  `segments`, mỗi segment gói luôn vật liệu của nó). Không có `draft_info.json`.
+- **Kết quả thử vòng 1 trên máy (2026-09-25):** đổi chữ ở cả 4 bản timeline, CapCut vẫn hiện chữ gốc.
+  → CapCut 9.5.0 **đọc `mini_draft.json`**, không đọc 4 file kia. Đây là điều capcut-cli và
+  pyCapCut đều chưa biết. Vòng 2 (đang chờ kết quả) kiểm tra: đổi chữ trong mini_draft thì có hiện
+  không, và xóa mini_draft thì CapCut có quay về đọc 4 file kia không.
 - `capcut diagnose` chọn `template-2.tmp` làm bản chính, và báo bản trong `Timelines/`
   trùng với bản ở gốc.
 - Chưa biết CapCut thực sự đọc bản nào khi mở. Theo capcut-cli, từ 9.2.8 CapCut có thể đọc bản trong
@@ -110,7 +116,8 @@ Trong mẫu, **nhạc, hiệu ứng và chuyển cảnh đều có `is_vip: "1"`
 2. Xóa clip/chữ/nhạc cũ, rồi thêm mới bằng **bản sao các khối JSON lấy từ chính mẫu 9.5.0**
    (mỗi loại một "khuôn": video segment, text, audio, effect, filter, transition, kèm các vật liệu
    phụ), chỉ thay id, thời gian, đường dẫn, nội dung. Làm vậy thì không thiếu trường nào như pyCapCut.
-3. Ghi **cùng một nội dung vào cả 4 bản timeline**, ghi an toàn (file tạm rồi đổi tên), và từ chối
+3. Ghi **cùng một nội dung vào cả 4 bản timeline**, và xử lý `mini_draft.json` theo kết quả vòng 2
+   (xóa đi để CapCut dựng lại, hoặc sinh lại theo định dạng mini draft). Ghi an toàn (file tạm rồi đổi tên), và từ chối
    ghi khi CapCut đang mở.
 4. Dùng `capcut diagnose` (tùy chọn) để kiểm tra lại sau khi ghi.
 5. Nếu CapCut 9.5.0 từ chối draft do tool ghi: phương án dự phòng là xuất mp4 bằng FFmpeg (mất

@@ -1,5 +1,23 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 1b — Thử vòng 2 `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Kết quả vòng 1: draft thăm dò vẫn hiện chữ gốc `地獄の合図は深`. Nghĩa là CapCut không đọc 4 file
+timeline kia, mà đọc bản thứ 5 `Timelines\<id>\attachment\patch\mini_draft.json`.
+
+1. **Đóng hẳn CapCut.** Trong thư mục draft, xóa draft thăm dò cũ `capcut_template_probe` (nếu còn).
+2. Giải nén `capcut_probe_vong2.zip` vào thư mục draft:
+
+   ```powershell
+   Expand-Archive -Path "$HOME\Downloads\capcut_probe_vong2.zip" -DestinationPath "$env:LOCALAPPDATA\CapCut\User Data\Projects\com.lveditor.draft"
+   ```
+
+3. Mở CapCut, lần lượt mở 2 dự án và xem chữ ở giây 0–3:
+   - `capcut_template_probe2`: mong đợi hiện `MINI_DRAFT`.
+   - `capcut_template_probe3` (đã xóa mini_draft.json): hiện nhãn nào (`GOC_CONTENT`, `GOC_TEMPLATE2`,
+     `TRONG_CONTENT`, `TRONG_TEMPLATE2`), chữ gốc, hay báo lỗi?
+4. Báo lại hai kết quả.
+
 ## Bước 1 — CapCut 9.5.0 đọc bản timeline nào? `[CẦN KIỂM TRA TRÊN MÁY]`
 
 Draft 9.5.0 có 4 bản timeline giống nhau. Draft thăm dò `capcut_template_probe` là bản sao của mẫu.

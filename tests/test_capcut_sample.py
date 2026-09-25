@@ -63,3 +63,32 @@ def test_make_probe_labels_each_file(tmp_path: Path):
     # bản gốc không bị đụng tới
     original = json.loads(load(src / "draft_content.json")["materials"]["texts"][0]["content"])
     assert original["text"] != "GOC_CONTENT"
+
+
+def test_mini_draft_holds_fifth_copy():
+    mini = make_probe_draft.mini_draft_file(SAMPLE)
+    assert mini is not None
+    texts = [
+        json.loads(seg["material"]["content"])["text"]
+        for seg in load(mini)["mini_draft_data"]["segments"]
+        if (seg.get("material") or {}).get("type") == "text"
+    ]
+    assert texts[0] == "地獄の合図は深"
+
+
+def test_make_probe_round2(tmp_path: Path):
+    src = tmp_path / "capcut_template"
+    shutil.copytree(SAMPLE, src)
+    p2 = make_probe_draft.make_probe(src, "_probe2", mini="label")
+    mini = make_probe_draft.mini_draft_file(p2)
+    texts = [
+        json.loads(seg["material"]["content"])["text"]
+        for seg in load(mini)["mini_draft_data"]["segments"]
+        if (seg.get("material") or {}).get("type") == "text"
+    ]
+    assert make_probe_draft.MINI_LABEL in texts
+    p3 = make_probe_draft.make_probe(src, "_probe3", mini="remove")
+    assert make_probe_draft.mini_draft_file(p3) is None
+    assert set(make_probe_draft.timeline_files(p3)) == {
+        "GOC_CONTENT", "GOC_TEMPLATE2", "TRONG_CONTENT", "TRONG_TEMPLATE2"
+    }
