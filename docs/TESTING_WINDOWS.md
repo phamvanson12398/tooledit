@@ -1,5 +1,31 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 2 — Mở draft demo do tool tạo `[CẦN KIỂM TRA TRÊN MÁY]`
+
+`demo_tool_v1` được tạo hoàn toàn bằng code (`tools/build_demo_draft.py`) từ dự án mẫu, dùng lại
+các clip có sẵn trong mẫu (j1/final.mp4, j2/final.mp4, clips/02.mp4). Các clip đó phải còn nguyên chỗ cũ.
+
+1. **Đóng hẳn CapCut.** Xóa các draft thăm dò cũ (`capcut_template_probe*`) nếu còn.
+2. Giải nén `demo_tool_v1.zip` vào thư mục draft:
+
+   ```powershell
+   Expand-Archive -Path "$HOME\Downloads\demo_tool_v1.zip" -DestinationPath "$env:LOCALAPPDATA\CapCut\User Data\Projects\com.lveditor.draft"
+   ```
+
+3. Mở CapCut → dự án `demo_tool_v1` (dài 15 giây). Kiểm tra từng mục, ghi Đạt/Không đạt:
+
+   | Giây | Cần thấy |
+   |---|---|
+   | 0–4 | Clip dọc **zoom chậm** vào; chữ vàng viền đen "TEST 1" ở trên có **hiệu ứng vào/rung/ra**; phụ đề trắng viền đen tiếng Hàn rồi tiếng Nhật ở dưới; hiệu ứng "Lệch flash" giây 0–1; sticker emoji giây 2–4 |
+   | ~4 | **Chuyển cảnh** "Lấp lánh mùa đông" |
+   | 4–8 | Clip ngang thành **khối 4:3 nằm giữa**, không méo; filter "Hè thư thái"; chữ "TEST 2" ở dải trên, phụ đề tiếng Anh ở dải dưới |
+   | 8–11 | Clip ngang thành **khối 1:1 (vuông)**, lấy phần lệch trái; chữ "TEST 3" ở dải trên |
+   | 11–15 | Clip dọc phóng to, **lia từ trái sang phải** |
+   | cả video | Nhạc "Keep It High": to ở 0–4s, **nhỏ hẳn từ giây 4** |
+
+4. Thử **xuất video** (Export) để chắc chắn xuất được.
+5. Báo lại mục nào không đạt (chụp màn hình càng tốt).
+
 ## Bước 1b — Thử vòng 2 (ĐÃ XONG: cả probe2 và probe3 đều hiện `TRONG_CONTENT`)
 
 Kết quả vòng 1: draft thăm dò vẫn hiện chữ gốc `地獄の合図は深`. Nghĩa là CapCut không đọc 4 file

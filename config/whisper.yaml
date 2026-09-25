@@ -1,0 +1,16 @@
+# Cấu hình nhận dạng thoại (faster-whisper / CTranslate2).
+# Máy chủ dự án: GTX 1080 Ti (Compute Capability 6.1, 11 GB VRAM).
+# Theo tài liệu CTranslate2 (docs/quantization.md): CC 6.1 chạy được int8_float32 trên GPU,
+# KHÔNG hỗ trợ float16 (sẽ bị đổi về float32, chậm và tốn VRAM hơn).
+model: large-v3
+device: cuda            # cuda | cpu | auto
+compute_type: int8_float32
+beam_size: 5
+word_timestamps: true
+languages: [ko, ja, en] # tự nhận, chỉ chấp nhận 3 ngôn ngữ này
+
+# Dự phòng khi không chạy được GPU (thiếu CUDA 12 / cuDNN 9, hết VRAM...)
+fallback:
+  - {device: cpu, model: large-v3, compute_type: int8}
+  - {device: cpu, model: medium, compute_type: int8}
+# [CẦN KIỂM TRA TRÊN MÁY]: driver NVIDIA phải hỗ trợ CUDA 12; ctranslate2 4.x cần CUDA 12 + cuDNN 9.

@@ -136,3 +136,30 @@ Trong mẫu, **nhạc, hiệu ứng và chuyển cảnh đều có `is_vip: "1"`
 2. ~~Tài khoản Pro~~ → có.
 3. Khi bắt đầu Giai đoạn 1: thêm vào mẫu 1 sticker, 1 animation chữ, 1 keyframe vị trí, 1 clip
    16:9 đã thu nhỏ vào giữa khung, để có đủ "khuôn".
+
+## 7. Bổ sung từ mẫu lần 2 (2026-09-25)
+
+- **Sticker**: `materials.stickers` (`resource_id` = `sticker_id`, `path` → `Cache/artistEffect/<id>/<md5>`),
+  nằm trên track `sticker`, render_index chung dải 14000+ với chữ.
+- **Animation chữ**: vật liệu `material_animations` gắn vào segment chữ, mảng `animations` gồm các mục
+  `type` = `in` / `loop` / `out` với `resource_id`, `start`, `duration`.
+- **Keyframe**: `segment.common_keyframes[]`, mỗi mục có một `property_type` (`KFTypeScaleX`,
+  `KFTypePositionX/Y`, `KFTypeRotation`...) và `keyframe_list` (`time_offset` tính từ đầu segment,
+  `values: [v]`, `curveType: "Line"`). Khi bật `uniform_scale`, CapCut 9.5.0 dùng `KFTypeScaleX`
+  cho zoom đều. Đơn vị vị trí: nửa khung hình, trục y hướng lên (theo pyCapCut).
+- **Clip 16:9 trong mẫu** bị kéo méo (scale x 1.0, y 1.55, tắt uniform_scale). Tool sẽ làm khối 4:3/1:1
+  bằng trường `crop` của vật liệu video và scale đều `[CẦN KIỂM TRA TRÊN MÁY]` (demo_tool_v1).
+- **Nhạc Commercial**: không có trường nào trong draft/key_value phân biệt (`material_copyright`
+  rỗng với cả hai bài). → Nhãn Commercial phải do chủ dự án đánh dấu tay trong danh mục bộ sưu tập.
+- `is_vip`: "Keep It High" = 0 (miễn phí), "Abstraction" = 1 (Pro).
+
+## 8. Bộ ghi draft đã viết (`app/capcut_writer/`)
+
+- `template.py`: nạp mẫu, rút khuôn cho video/audio/chữ/sticker/hiệu ứng/filter, lập danh mục tài
+  nguyên thư viện (kèm `is_vip` từ `key_value.json`).
+- `writer.py`: `DraftWriter` thêm clip (in/out, tốc độ, crop, scale, vị trí, keyframe, chuyển cảnh),
+  nhạc thư viện, âm thanh local (voice hook, `[CẦN KIỂM TRA TRÊN MÁY]`), chữ (màu, cỡ, viền, animation),
+  sticker, hiệu ứng, filter; tự xếp làn khi chồng thời gian; ghi cả 4 bản timeline, xóa mini_draft,
+  cập nhật `draft_meta_info.json`; từ chối ghi khi CapCut đang mở.
+- `layout.py`: kích thước/cắt khối 4:3, 1:1 và vị trí dải chữ trên/dưới.
+- `media.py`: đọc kích thước, độ dài, góc xoay video bằng ffprobe.
