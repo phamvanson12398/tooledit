@@ -1,0 +1,3 @@
+# Âm lượng chung. music_gain nhân với mức nhạc nền của mọi kiểu dựng (styles/*.yaml, phần music).
+# 1.0 = như preset; 1.3 = to hơn 30% (chủ dự án yêu cầu 25/09). Nhạc vẫn tự hạ khi có thoại (ducking).
+music_gain: 1.3

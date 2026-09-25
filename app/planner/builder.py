@@ -355,6 +355,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                         "purpose_vi": f"Nhạc nền ({plan.music.energy}) — không có bài phù hợp trong danh mục"})
     else:
         mcfg = style.get("music", {})
+        gain = float(config.load("audio").get("music_gain", 1.0))  # chỉnh chung độ to nhạc nền
+        v_speech = min(1.0, mcfg.get("volume_speech", 0.12) * gain)
+        v_gap = min(1.0, mcfg.get("volume_gap", 0.35) * gain)
         intervals = speech_intervals(cues)
         if hook is not None:
             intervals = [(0, hook_us), *intervals]  # hạ nhạc dưới voice hook
@@ -363,8 +366,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         while m_dur > 0 and t < tmap.end:
             seg_len = min(m_dur, tmap.end - t)
             _add_audio_item(w, music, target_start=t, duration=seg_len,
-                        keyframes=duck_keyframes(t, t + seg_len, intervals, mcfg.get("volume_speech", 0.12),
-                                                 mcfg.get("volume_gap", 0.35), round(mcfg.get("fade_s", 0.25) * SEC)))
+                        keyframes=duck_keyframes(t, t + seg_len, intervals, v_speech, v_gap,
+                                                 round(mcfg.get("fade_s", 0.25) * SEC)))
             t += seg_len
 
     return BuildResult(writer=w, duration_us=tmap.end, missing_assets=missing, notes=notes)

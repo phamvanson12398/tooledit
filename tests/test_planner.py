@@ -363,3 +363,22 @@ def test_plan_sends_frames_only_for_arrow_styles(tmp_path):
     with pytest.raises(Exception):
         make_plan(d2, a, u, load_style("jp_telop"), music_items=music)  # kiểu không dùng mũi tên → sai khuôn
     assert any("không dùng mũi tên" in c["prompt"] for c in d2.calls[1:])
+
+
+def test_music_gain_makes_music_louder(tmp_path):
+    from app import config
+    from app.styles import load_style
+
+    style = load_style("jp_telop")
+    tpl = DraftTemplate(SAMPLE)
+    plan = EditPlan.model_validate(load("plan.json"))
+    u = Understanding.model_validate(load("understand.json"))
+    res = build(plan, u, _analysis(), tpl, tmp_path, "gain", style)
+    tl = res.writer.build_timeline()
+    music_ids = {m["id"] for m in tl["materials"]["audios"] if m.get("name") == "Keep It High"}
+    seg = next(s for t in tl["tracks"] if t["type"] == "audio" for s in t["segments"] if s["material_id"] in music_ids)
+    values = [v for k in seg["common_keyframes"] for kf in k["keyframe_list"] for v in kf["values"]]
+    gain = config.load("audio")["music_gain"]
+    assert gain == 1.3
+    top = round(style["music"]["volume_gap"] * gain, 3)
+    assert any(abs(v - top) < 1e-6 for v in values), values

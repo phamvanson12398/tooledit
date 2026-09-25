@@ -1,5 +1,11 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 14 — Nhạc nền to hơn 30% `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`. Vào job cũ bấm **🔁 Dựng lại draft** (không tốn lượt AI), hoặc tạo job mới.
+2. Mở draft trong CapCut, nghe: nhạc nền to hơn trước ~30%, vẫn tự nhỏ lại khi có người nói.
+3. Muốn to/nhỏ nữa: sửa `music_gain` trong `config/audio.yaml` (1.3 = +30%, 1.5 = +50%, 1.0 = như cũ), rồi Dựng lại draft.
+
 ## Bước 13 — Chia video dài thành nhiều video `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`.
