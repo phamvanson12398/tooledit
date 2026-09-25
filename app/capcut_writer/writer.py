@@ -104,12 +104,25 @@ class Crop:
 
 
 @dataclass
+class TextBackground:
+    """Khung nền sau chữ (định dạng theo pyCapCut TextBackground; CapCut: Văn bản → Nền)."""
+
+    color: str = "#E53935"        # '#RRGGBB'
+    alpha: float = 1.0
+    round_radius: float = 0.2     # 0..1
+    style: int = 1                # 1 hoặc 2 (hai kiểu nền của CapCut)
+    width: float = 0.14           # độ rộng đệm, 0..1
+    height: float = 0.14
+
+
+@dataclass
 class TextStyle:
-    size: float = 15.0
+    size: float = 15.0            # 15 = cỡ mặc định của CapCut
     color: tuple[float, float, float] = (1.0, 1.0, 1.0)
     bold: bool = False
     stroke_color: tuple[float, float, float] | None = None
-    stroke_width: float = 0.08  # đơn vị nội bộ CapCut (pyCapCut: 40/100*0.2 = 0.08)
+    stroke_width: float = 0.08  # đơn vị nội bộ CapCut (pyCapCut: thang 0–100 của CapCut /100*0.2; 40 → 0.08)
+    background: TextBackground | None = None
 
 
 @dataclass
@@ -352,6 +365,15 @@ class DraftWriter:
             mat["border_width"] = style.stroke_width
         else:
             base_style.pop("strokes", None)
+        if style.background is not None:
+            bg = style.background
+            check_flag |= 16
+            mat.update({
+                "background_style": bg.style, "background_color": bg.color, "background_alpha": bg.alpha,
+                "background_round_radius": bg.round_radius, "background_height": bg.height,
+                "background_width": bg.width, "background_horizontal_offset": 0.0,
+                "background_vertical_offset": 0.0,
+            })
         mat["content"] = json.dumps({"text": text, "styles": [base_style]}, ensure_ascii=False, separators=(",", ":"))
         mat["base_content"] = ""
         mat["check_flag"] = check_flag

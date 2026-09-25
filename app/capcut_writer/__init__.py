@@ -2,9 +2,10 @@
 
 from .layout import block_crop, block_size
 from .template import DraftTemplate, LibraryItem
-from .writer import SEC, Crop, DraftWriter, Keyframe, TextStyle, VideoSource
+from .writer import SEC, Crop, DraftWriter, Keyframe, TextBackground, TextStyle, VideoSource
 
 __all__ = [
-    "SEC", "Crop", "DraftTemplate", "DraftWriter", "Keyframe", "LibraryItem", "TextStyle", "VideoSource",
+    "SEC", "Crop", "DraftTemplate", "DraftWriter", "Keyframe", "LibraryItem", "TextBackground", "TextStyle",
+    "VideoSource",
     "block_crop", "block_size",
 ]

@@ -11,7 +11,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app import config
-from app.capcut_writer import SEC, DraftTemplate, DraftWriter, Keyframe, TextStyle, VideoSource, block_crop
+from app.capcut_writer import (
+    SEC, DraftTemplate, DraftWriter, Keyframe, TextBackground, TextStyle, VideoSource, block_crop,
+)
 from app.capcut_writer.layout import band_centers
 from app.director.schemas import EditPlan, HookOption, Understanding
 from app.planner.subtitles import build_cues, speech_intervals
@@ -27,8 +29,21 @@ class BuildResult:
 
 
 def _style(d: dict) -> TextStyle:
+    bg = d.get("background")
     return TextStyle(size=d.get("size", 12), color=tuple(d.get("color", (1, 1, 1))),
-                     stroke_color=tuple(d["stroke_color"]) if d.get("stroke_color") else None)
+                     stroke_color=tuple(d["stroke_color"]) if d.get("stroke_color") else None,
+                     stroke_width=d.get("stroke_width", 0.08),
+                     background=TextBackground(**bg) if bg else None)
+
+
+def _animations(template: DraftTemplate, kinds: list[str]) -> list:
+    """Chọn animation chữ trong thư viện theo loại (in / loop / out), mỗi loại một cái."""
+    out = []
+    for kind in kinds:
+        item = next((a for a in template.library if a.kind == "text_animation" and a.category == kind), None)
+        if item:
+            out.append(item)
+    return out
 
 
 def text_positions(ratio: str, safe: dict) -> dict:
@@ -114,6 +129,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     transition = next((i for i in template.library if i.kind == "transition"), None)
     subtitle_style, emph_style = _style(style.get("subtitle", {})), _style(style.get("emphasis", {}))
     title_style = _style(style.get("title", {}))
+    hook_cfg = style.get("hook_text") or style.get("emphasis", {})
+    hook_style = _style(hook_cfg)
+    hook_anims = _animations(template, hook_cfg.get("animations", ["in"]))
 
     def ratio_for(clip_ratio) -> str:
         return "full" if vertical else (clip_ratio or plan.default_ratio if plan.default_ratio != "full" else "4:3")
@@ -138,8 +156,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                     keyframes=[Keyframe("scale", 0, 1.0), Keyframe("scale", hook_us, 1.12)],
                     transition=transition)
         pos = text_positions(ratio, safe)
-        w.add_text(hook.onscreen_text, start=0, duration=hook_us, x=pos["x"], y=pos["top"], style=emph_style,
-                   animations=anims_in[:1])
+        w.add_text(hook.onscreen_text, start=0, duration=hook_us, x=pos["x"], y=pos["top"], style=hook_style,
+                   animations=hook_anims)
         if voice:
             w.add_local_audio(voice[0], voice[1], target_start=0, duration=voice[1])
         else:

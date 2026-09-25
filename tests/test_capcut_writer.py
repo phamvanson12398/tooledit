@@ -142,3 +142,17 @@ def test_commercial_label_from_config(tpl):
     assert all(i.name != "kkk2.wav" for i in tpl.library)  # âm thanh local không phải tài nguyên thư viện
     plain = DraftTemplate(SAMPLE, labels={})
     assert not any(i.commercial for i in plain.library)
+
+
+def test_text_background_and_thick_stroke(tpl, tmp_path):
+    from app.capcut_writer import TextBackground
+
+    w = DraftWriter(tpl, tmp_path, "x")
+    w.add_text("ライバルを病院へ!?", start=0, duration=SEC,
+               style=TextStyle(size=30, stroke_color=(0, 0, 0), stroke_width=0.16,
+                               background=TextBackground(color="#E53935", round_radius=0.3)))
+    m = w.build_timeline()["materials"]["texts"][0]
+    assert m["check_flag"] == 7 | 8 | 16
+    assert m["background_color"] == "#E53935" and m["background_round_radius"] == 0.3
+    style = json.loads(m["content"])["styles"][0]
+    assert style["size"] == 30 and style["strokes"][0]["width"] == 0.16

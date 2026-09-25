@@ -15,13 +15,21 @@ director_brief: |
 subtitle:
   mode: chunk           # chunk = từng cụm ngắn nhảy liên tục
   max_chars: {ja: 10, ko: 12, en: 22}
-  size: 12
+  size: 13
   color: [1.0, 1.0, 1.0]
   stroke_color: [0.0, 0.0, 0.0]
-emphasis:
-  size: 16
+# Cỡ chữ theo thang của CapCut (15 = mặc định). Chọn lại sau khi xem dự án thử chữ (tools/build_text_test.py).
+hook_text:              # chữ lớn dải trên trong hook: to, viền dày, có animation vào + rung lặp
+  size: 32
   color: [1.0, 0.85, 0.0]
   stroke_color: [0.0, 0.0, 0.0]
+  stroke_width: 0.16
+  animations: [in, loop]
+emphasis:
+  size: 22
+  color: [1.0, 0.85, 0.0]
+  stroke_color: [0.0, 0.0, 0.0]
+  stroke_width: 0.12
 title:
   size: 13
   color: [1.0, 1.0, 1.0]

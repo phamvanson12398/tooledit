@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 5b — Chọn cỡ và kiểu chữ hook (dự án thử chữ) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Phản hồi lần chạy 1: chữ hook quá nhỏ (cỡ 16, gần bằng cỡ mặc định 15) và chưa được trang trí.
+Dự án `test_chu_v1`: giây 0–6 cùng một câu ở cỡ 15/20/25/30/40/50; giây 6–12 năm kiểu A–E ở cỡ 30
+(A vàng viền đen dày; B chữ trắng trên khung đỏ; C chữ đen trên khung vàng bo tròn; D trắng viền đen rất dày +
+hiệu ứng vào và rung; E đỏ viền trắng + hiệu ứng vào).
+
+```powershell
+Expand-Archive -Path "$HOME\Downloads\test_chu_v1.zip" -DestinationPath "$env:LOCALAPPDATA\CapCut\User Data\Projects\com.lveditor.draft"
+```
+
+(Hoặc tự tạo: `.venv\Scripts\python tools\build_text_test.py`.) Báo lại: cỡ nào vừa cho chữ hook, cỡ nào cho
+phụ đề, kiểu nào đẹp nhất, chữ có bị tràn khỏi khung không.
+
 ## Bước 5 — Dựng trọn một video từ footage thật (Giai đoạn 1) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 **Lần chạy 1 (2026-09-25, job 20260925_02):** chạy trọn quy trình không lỗi. Hiểu nội dung 28s, viết hook
