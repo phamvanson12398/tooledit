@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 4 — Chạy thử đạo diễn AI (Claude Code) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Cần: đã cài và đăng nhập Claude Code (docs/SETUP_WINDOWS.md mục 5), đã có một job phân tích xong.
+
+```powershell
+cd $HOME\Documents\tooledit
+git pull
+.venv\Scripts\python tools\director_understand.py 20260925_02
+```
+
+Tool chép 12 khung hình vào `%LOCALAPPDATA%\tooledit\director\understand\` (ngoài repo, để Claude Code
+không đọc CLAUDE.md của dự án), rồi gọi `claude -p` với khuôn JSON. Gửi lại phần "ĐẠO DIỄN NHẬN XÉT"
+và nhận xét: tóm tắt có đúng nội dung không, phong cách đề xuất có hợp lý không, các mốc giây có đúng không.
+
 ## Bước 3 — Cài đặt và chạy thử phân tích footage
 
 **Kết quả lần 1 (2026-09-25):** video 1920x1080, 173.8 giây, tiếng Nhật. Chạy trên `cuda` (GTX 1080 Ti,

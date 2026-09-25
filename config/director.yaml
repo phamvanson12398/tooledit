@@ -1,0 +1,14 @@
+# Đạo diễn AI = Claude Code chạy trên máy, đăng nhập gói Claude Pro (KHÔNG dùng --bare: --bare bỏ qua
+# đăng nhập Pro, chỉ nhận API key). Cờ lệnh đã đối chiếu với `claude --help` bản 2.1.282 và
+# https://code.claude.com/docs/en/headless.
+backend: claude_cli          # claude_cli | fake
+claude_exe: claude
+model: null                  # null = mặc định của tài khoản; hoặc "sonnet", "opus"...
+effort: null                 # null | low | medium | high
+max_attempts: 3              # số lần gọi lại khi JSON sai khuôn
+timeout_s: 900
+# Thư mục làm việc tạm cho đạo diễn, NẰM NGOÀI repo để Claude Code không nạp CLAUDE.md của dự án.
+# Để trống = %LOCALAPPDATA%\tooledit\director (Windows) hoặc ~/.cache/tooledit/director.
+workspace: null
+frames:
+  understand: 12             # số khung hình gửi cho bước hiểu nội dung (tiết kiệm hạn mức Pro)
