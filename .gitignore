@@ -1,0 +1,43 @@
+# Dữ liệu job và hồ sơ khách thật
+jobs/
+clients/*
+!clients/example.yaml
+
+# Media (không bao giờ commit video/âm thanh/ảnh footage)
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.flac
+*.ogg
+assets/**/*.png
+assets/**/*.jpg
+assets/**/*.jpeg
+assets/**/*.gif
+assets/**/*.webp
+!assets/ledger.json
+
+# Trong dự án CapCut mẫu: chỉ giữ file JSON, bỏ ảnh bìa/cache
+samples/**/*.jpg
+samples/**/*.jpeg
+samples/**/*.png
+samples/**/*.webp
+samples/**/Resources/
+samples/**/*.bak
+
+# Bí mật và cache
+.env
+*.key
+.cache/
+models/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+node_modules/
