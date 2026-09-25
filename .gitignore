@@ -1,5 +1,5 @@
 # Dữ liệu job và hồ sơ khách thật
-jobs/
+/jobs/
 clients/*
 !clients/example.yaml
 
@@ -34,7 +34,7 @@ samples/**/*.bak
 .env
 *.key
 .cache/
-models/
+/models/
 __pycache__/
 *.pyc
 .pytest_cache/
