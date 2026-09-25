@@ -1,0 +1,39 @@
+# Phong cách tiktok_retention: cắt rất nhanh, bỏ mọi khoảng lặng, phụ đề nhảy từng cụm, zoom liên tục.
+name: tiktok_retention
+description_vi: Cắt rất nhanh, bỏ mọi khoảng lặng, phụ đề nhảy từng cụm từ, zoom liên tục.
+
+# Hướng dẫn cho đạo diễn (ghép vào prompt kế hoạch dựng)
+director_brief: |
+  - Nhịp rất nhanh: mỗi clip thường 1.5–5 giây; cắt bỏ khoảng lặng > 0.3 giây, câu vấp, lặp ý, đoạn chào hỏi.
+  - Có thể tăng tốc đoạn nhàm (speed 1.1–1.5), không tăng tốc chỗ có câu thoại quan trọng.
+  - Zoom: "punch" (giật nhanh 1.0→1.15) ở điểm nhấn/phản ứng, khoảng mỗi 4–8 giây; "slow" (1.0→1.1) cho đoạn kể.
+  - Chữ nhấn (emphasis): từ khóa ngắn bằng ngôn ngữ video, tối đa 1 chữ nhấn / 5 giây.
+  - SFX: pop/whoosh ở chữ nhấn và chuyển đoạn, không quá dày.
+  - Nhạc nền năng lượng cao nhưng hạ thấp khi có thoại.
+
+# Tham số cho bộ dựng (code dùng trực tiếp)
+subtitle:
+  mode: chunk           # chunk = từng cụm ngắn nhảy liên tục
+  max_chars: {ja: 10, ko: 12, en: 22}
+  size: 12
+  color: [1.0, 1.0, 1.0]
+  stroke_color: [0.0, 0.0, 0.0]
+emphasis:
+  size: 16
+  color: [1.0, 0.85, 0.0]
+  stroke_color: [0.0, 0.0, 0.0]
+title:
+  size: 13
+  color: [1.0, 1.0, 1.0]
+  stroke_color: [0.0, 0.0, 0.0]
+zoom:
+  punch_scale: 1.15
+  punch_in_s: 0.15
+  slow_scale: 1.1
+music:
+  volume_speech: 0.12   # âm lượng nhạc khi có thoại (ducking)
+  volume_gap: 0.35      # âm lượng nhạc khi không thoại
+  fade_s: 0.25
+hook:
+  min_s: 3.0
+  max_s: 5.0

@@ -66,3 +66,128 @@ def check_ranges(ranges: list[TimeRange], duration: float, what: str = "mốc") 
 def compact_schema(model: type[BaseModel]) -> dict:
     """JSON Schema gửi qua --json-schema (giữ gọn vì dòng lệnh Windows giới hạn ~32k ký tự)."""
     return model.model_json_schema()
+
+
+# ---------------- Hook (mục 5) ----------------
+
+HookType = Literal["climax_first", "open_question", "contrast", "half_reveal", "odd_detail"]
+HOOK_TYPES_VI = {
+    "climax_first": "tua thẳng đến cao trào",
+    "open_question": "câu hỏi bỏ lửng",
+    "contrast": "tương phản",
+    "half_reveal": "hé lộ một nửa",
+    "odd_detail": "con số / chi tiết lạ",
+}
+
+
+class HookOption(BaseModel):
+    hook_type: HookType
+    line: str = Field(description="câu hook để thu voice, văn nói tự nhiên bằng NGÔN NGỮ CỦA VIDEO")
+    line_vi: str = Field(description="bản dịch tiếng Việt")
+    onscreen_text: str = Field(description="chữ lớn dải trên, từ khóa ngắn bằng ngôn ngữ của video")
+    footage: TimeRange = Field(description="đoạn footage gốc chạy bên dưới hook (3–5 giây)")
+    source: TimeRange = Field(description="đoạn footage chứng minh hook đúng sự thật (nguồn)")
+    music_sfx_vi: str = Field(description="kiểu nhạc/hiệu ứng đi kèm")
+    why_vi: str
+
+
+class HookSet(BaseModel):
+    video_index: int = Field(ge=1)
+    options: list[HookOption] = Field(min_length=3, max_length=3)
+    editor_notes: str
+
+
+def check_hooks(hs: HookSet, duration: float, max_chars: int) -> list[str]:
+    errors = []
+    for i, o in enumerate(hs.options, 1):
+        errors += check_ranges([o.footage, o.source], duration, f"hook {i}")
+        span = o.footage.end - o.footage.start
+        if not 2.0 <= span <= 6.0:
+            errors.append(f"hook {i}: đoạn footage dài {span:.1f}s, cần khoảng 3–5 giây")
+        if len(o.line) > max_chars:
+            errors.append(f"hook {i}: câu hook dài {len(o.line)} ký tự, tối đa {max_chars} (phải đọc trong ~4 giây)")
+    if len({o.hook_type for o in hs.options}) < 2:
+        errors.append("3 phương án phải thuộc ít nhất 2 kiểu hook khác nhau")
+    return errors
+
+
+# ---------------- Kế hoạch dựng (mục 10) ----------------
+
+Ratio = Literal["full", "4:3", "1:1"]
+
+
+class PlanClip(BaseModel):
+    source_start: float = Field(ge=0)
+    source_end: float = Field(gt=0)
+    speed: float = Field(default=1.0, ge=1.0, le=2.0)
+    ratio: Ratio | None = Field(default=None, description="khung riêng cho clip; null = khung mặc định")
+    purpose_vi: str = ""
+
+
+class Emphasis(BaseModel):
+    source_time: float = Field(ge=0, description="giây trong footage gốc lúc chữ xuất hiện")
+    duration: float = Field(default=1.5, gt=0.3, le=4.0)
+    text: str = Field(description="từ khóa ngắn bằng ngôn ngữ của video, đúng với lời thoại")
+    position: Literal["top", "center"] = "center"
+
+
+class Zoom(BaseModel):
+    source_start: float = Field(ge=0)
+    source_end: float = Field(gt=0)
+    kind: Literal["punch", "slow"]
+
+
+class Sfx(BaseModel):
+    source_time: float = Field(ge=0)
+    kind: Literal["pop", "whoosh", "ding", "boom", "laugh", "swoosh", "record_scratch"]
+    reason_vi: str = ""
+
+
+class MusicChoice(BaseModel):
+    name: str | None = Field(description="tên bài trong danh sách nhạc có sẵn, hoặc null nếu không hợp")
+    mood_vi: str
+    energy: Literal["low", "mid", "high"]
+
+
+class EditPlan(BaseModel):
+    video_index: int = Field(ge=1)
+    title_top: str = Field(default="", description="tiêu đề cố định dải trên (ngôn ngữ video), có thể rỗng")
+    default_ratio: Ratio
+    clips: list[PlanClip] = Field(min_length=1)
+    emphasis: list[Emphasis] = []
+    zooms: list[Zoom] = []
+    sfx: list[Sfx] = []
+    music: MusicChoice
+    editor_notes: str
+
+
+def clips_duration(clips: list[PlanClip]) -> float:
+    return sum((c.source_end - c.source_start) / c.speed for c in clips)
+
+
+def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: float = 60.0,
+               max_s: float = 150.0) -> list[str]:
+    errors = check_ranges([TimeRange(start=c.source_start, end=c.source_end) for c in plan.clips], duration, "clip")
+    for a, b in zip(plan.clips, plan.clips[1:]):
+        if b.source_start < a.source_end - 0.05 and b.source_end > a.source_start:
+            errors.append(f"clip {a.source_start}-{a.source_end} và {b.source_start}-{b.source_end} chồng nhau")
+    total = clips_duration(plan.clips) + hook_s
+    usable = duration + hook_s
+    if total > max_s:
+        errors.append(f"tổng thời lượng {total:.1f}s (kể cả hook {hook_s:.1f}s) vượt {max_s:.0f}s — cắt gọn thêm")
+    if total < min_s and usable >= min_s + 10:
+        errors.append(f"tổng thời lượng {total:.1f}s ngắn hơn {min_s:.0f}s trong khi footage đủ dài")
+
+    def inside(t: float) -> bool:
+        return any(c.source_start - 0.05 <= t <= c.source_end + 0.05 for c in plan.clips)
+
+    for e in plan.emphasis:
+        if not inside(e.source_time):
+            errors.append(f"chữ nhấn '{e.text}' ở {e.source_time}s không nằm trong clip nào được giữ")
+    for z in plan.zooms:
+        if not inside(z.source_start):
+            errors.append(f"zoom ở {z.source_start}s không nằm trong clip nào được giữ")
+    for s in plan.sfx:
+        if not inside(s.source_time):
+            errors.append(f"SFX ở {s.source_time}s không nằm trong clip nào được giữ")
+    return errors

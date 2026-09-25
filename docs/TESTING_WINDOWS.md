@@ -1,5 +1,42 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 5 — Dựng trọn một video từ footage thật (Giai đoạn 1) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Quy trình: phân tích → đạo diễn hiểu nội dung → 3 phương án hook → chọn hook → thu voice → kế hoạch dựng →
+ghi draft CapCut (phong cách tiktok_retention). Dùng lại job 20260925_02 đã phân tích (không phân tích lại):
+
+```powershell
+cd $HOME\Documents\tooledit
+git pull
+.venv\Scripts\python tools\run_job.py continue 20260925_02 --hook --client test
+```
+
+1. Tool hỏi đạo diễn (hiểu nội dung, rồi viết 3 hook) và **dừng lại**, in bảng 3 phương án hook.
+2. Chọn một phương án, ví dụ số 2:
+
+   ```powershell
+   .venv\Scripts\python tools\run_job.py continue 20260925_02 --choose 1=2
+   ```
+
+   Tool xuất `jobs\20260925_02\hook_scripts.txt` (câu cần thu) và dừng chờ voice.
+3. Thu câu hook, lưu thành `jobs\20260925_02\voice\video01_hook.wav` (hoặc .mp3/.m4a). Muốn thử nhanh có
+   thể chép tạm một file âm thanh bất kỳ đổi tên như vậy.
+4. **Đóng CapCut**, rồi chạy tiếp:
+
+   ```powershell
+   .venv\Scripts\python tools\run_job.py continue 20260925_02
+   ```
+
+   Đạo diễn lập kế hoạch dựng, tool ghi draft `test_20260925_02_video01` vào thư mục draft của CapCut.
+5. Mở CapCut, mở draft đó. Kiểm tra: hook đầu video (voice + chữ lớn dải trên), footage 16:9 thành khối 4:3
+   giữa màn và bám theo người nói, phụ đề tiếng Nhật ở dải dưới (tên đã sửa đúng 貴闘力/曙), chữ nhấn,
+   zoom, nhạc Keep It High nhỏ lại khi có thoại, tổng thời lượng 60–150 giây. Thử xuất video.
+6. Gửi lại: toàn bộ chữ in ra trong PowerShell + nhận xét từng mục + ảnh chụp nếu có chỗ sai.
+
+Ghi chú: `jobs\20260925_02\missing_assets.json` liệt kê SFX đạo diễn muốn dùng nhưng chưa có trong kho
+(Giai đoạn 1 chưa có kho SFX). Nếu tool báo không thấy dự án mẫu, sửa `template_name` trong
+`config\capcut.yaml` cho đúng tên dự án mẫu trong CapCut.
+
 ## Bước 2b — Demo v2: thêm âm thanh local (ĐÃ XONG: mở được, nghe kkk2.wav, xuất OK)
 
 `demo_tool_v2` giống demo v1, thêm file `C:\Users\balha\Downloads\kkk2.wav` (lấy từ mẫu lần 3) ở giây 0–4

@@ -24,7 +24,7 @@ def make_analysis(tmp_path: Path, duration=60.0) -> Path:
     (a / "frames.json").write_text(json.dumps(frames), encoding="utf-8")
     (a / "transcript.json").write_text(json.dumps([{"footage": 0, "language": "ja", "segments": [
         {"start": 1.0, "end": 3.0, "text": "こんにちは", "words": []}]}]), encoding="utf-8")
-    (a / "scenes.json").write_text(json.dumps([{"footage": 0, "duration": duration, "width": 1920, "height": 1080,
+    (a / "scenes.json").write_text(json.dumps([{"footage": 0, "path": "C:/f/test.mp4", "duration": duration, "width": 1920, "height": 1080,
                                                 "scenes": [{"index": 0, "start": 0, "end": duration}]}]),
                                    encoding="utf-8")
     (a / "subjects.json").write_text(json.dumps([{"footage": 0, "points": [], "face_count_max": 2}]),

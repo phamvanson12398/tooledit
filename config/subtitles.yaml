@@ -1,0 +1,12 @@
+# Giới hạn phụ đề theo ngôn ngữ (tham khảo capcut-cli dist/script.js: ja 13 ký tự/dòng 4 ký tự/giây,
+# ko 16/dòng 12/giây; tiếng Anh 42/dòng 20/giây). Cấu hình được.
+limits:
+  ja: {max_chars_per_line: 13, max_chars_per_second: 4, max_lines: 2}
+  ko: {max_chars_per_line: 16, max_chars_per_second: 12, max_lines: 2}
+  en: {max_chars_per_line: 42, max_chars_per_second: 20, max_lines: 2}
+min_cue_s: 0.35      # cụm phụ đề ngắn nhất
+gap_merge_s: 0.15    # hai cụm cách nhau ít hơn → nối liền để khỏi nháy
+fonts:               # font hỗ trợ Hangul/Kana/Kanji (cần có trên máy/CapCut)
+  ja: Noto Sans JP
+  ko: Noto Sans KR
+  en: Noto Sans

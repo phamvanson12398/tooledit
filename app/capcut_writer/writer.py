@@ -278,7 +278,7 @@ class DraftWriter:
 
     def add_local_audio(
         self, path: Path, file_duration: int, *, target_start: int, duration: int, source_start: int = 0,
-        volume: float = 1.0, keyframes: list[Keyframe] | None = None,
+        volume: float = 1.0, keyframes: list[Keyframe] | None = None, speed: float = 1.0,
     ) -> dict:
         """File âm thanh trên máy (ví dụ voice hook). Các trường khớp đúng với vật liệu âm thanh local mà
         CapCut 9.5.0 tự ghi (mẫu lần 3, file kkk2.wav): type extract_music, category_name local, app_id 0,
@@ -299,13 +299,18 @@ class DraftWriter:
             "check_flag": 1,
             "copyright_limit_type": "none",
         })
-        return self._finish_audio(seg, mat, target_start, duration, source_start, volume, keyframes)
+        return self._finish_audio(seg, mat, target_start, duration, source_start, volume, keyframes, speed)
 
-    def _finish_audio(self, seg, mat, target_start, duration, source_start, volume, keyframes) -> dict:
-        if source_start + duration > mat.get("duration", 0):
+    def _finish_audio(self, seg, mat, target_start, duration, source_start, volume, keyframes,
+                      speed: float = 1.0) -> dict:
+        source_duration = round(duration * speed)
+        if source_start + source_duration > mat.get("duration", 0) + 1000:
             raise ValueError(f"Đoạn âm thanh vượt quá độ dài file {mat.get('name')}")
-        seg["source_timerange"] = {"start": int(source_start), "duration": int(duration)}
-        seg["speed"] = 1.0
+        seg["source_timerange"] = {"start": int(source_start), "duration": int(source_duration)}
+        seg["speed"] = speed
+        speed_mat = self._extra(seg, "speeds")
+        if speed_mat is not None:
+            speed_mat["speed"] = speed
         seg["volume"] = volume
         if keyframes:
             self._set_keyframes(seg, keyframes)

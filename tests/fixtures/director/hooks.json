@@ -1,0 +1,18 @@
+{
+  "video_index": 1,
+  "options": [
+    {"hook_type": "open_question", "line": "嫌われ者の横綱候補が、なぜライバルを病院に？",
+     "line_vi": "Ứng viên yokozuna bị ghét, sao lại chở đối thủ đi viện?", "onscreen_text": "なぜ病院に？",
+     "footage": {"start": 35.3, "end": 39.3}, "source": {"start": 35.3, "end": 42.5},
+     "music_sfx_vi": "nhạc hồi hộp + whoosh", "why_vi": "gợi tò mò, đúng nội dung 35–42s"},
+    {"hook_type": "contrast", "line": "現役時代から今も嫌われてる男の本音",
+     "line_vi": "Nỗi lòng người bị ghét từ thời thi đấu đến giờ", "onscreen_text": "今も嫌われてる",
+     "footage": {"start": 27.9, "end": 30.8}, "source": {"start": 27.9, "end": 30.8},
+     "music_sfx_vi": "beat vui", "why_vi": "tương phản hài hước"},
+    {"hook_type": "half_reveal", "line": "優勝させたら大変なことになる…",
+     "line_vi": "Để hắn vô địch thì to chuyện…", "onscreen_text": "大変なことに",
+     "footage": {"start": 7.3, "end": 11.3}, "source": {"start": 7.3, "end": 13.6},
+     "music_sfx_vi": "trống dồn", "why_vi": "hé lộ một nửa"}
+  ],
+  "editor_notes": "Ưu tiên phương án 1 vì dẫn thẳng vào điểm nhấn cảm xúc."
+}

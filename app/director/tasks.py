@@ -62,3 +62,91 @@ def apply_name_corrections(text: str, corrections) -> str:
         if c.wrong:
             text = text.replace(c.wrong, c.right)
     return text
+
+
+# ---------------- Hook và kế hoạch dựng ----------------
+
+LANGUAGE_NAMES = {"ja": "tiếng Nhật", "ko": "tiếng Hàn", "en": "tiếng Anh"}
+HOOK_MAX_CHARS = {"ja": 32, "ko": 30, "en": 70}  # đọc được trong ~4 giây
+
+
+def _segments_in(segments: list[dict], start: float, end: float) -> list[dict]:
+    return [s for s in segments if s["end"] > start and s["start"] < end]
+
+
+def _shared_context(u, segments: list[dict]) -> dict:
+    return {
+        "summary": u.summary_vi,
+        "sensitive_notes": "\n".join(f"- {n}" for n in u.sensitive_notes_vi) or "(không có)",
+        "name_corrections": "\n".join(f"- {c.wrong} → {c.right}" for c in u.name_corrections) or "(không có)",
+        "key_moments": "\n".join(f"- {m.start:.1f}–{m.end:.1f}s: {m.why_vi}" for m in u.key_moments),
+        "transcript": format_transcript(
+            [{**s, "text": apply_name_corrections(s["text"], u.name_corrections)} for s in segments]
+        ) or "(không có thoại)",
+        "range": f"{u.usable_range.start:.1f}–{u.usable_range.end:.1f}",
+    }
+
+
+def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
+               preferred_hooks: list[str] | None = None, footage: int = 0):
+    from app.director.schemas import HookSet, check_hooks
+
+    a = load_analysis(analysis_dir, footage)
+    duration = a["scenes"]["duration"]
+    segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
+    max_chars = HOOK_MAX_CHARS.get(u.language, 40)
+    variables = {**_shared_context(u, segs), "video_index": video_index,
+                 "language_name": LANGUAGE_NAMES.get(u.language, u.language), "max_chars": max_chars,
+                 "preferred_hooks": ", ".join(preferred_hooks or []) or "chưa có"}
+    return director.run("hooks", variables, HookSet,
+                        extra_check=lambda r: check_hooks(r, duration, max_chars)
+                        + ([] if r.video_index == video_index else [f"video_index phải là {video_index}"]))
+
+
+def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=None, hook_s: float = 0.0,
+              music_items: list | None = None, business: bool = False, reframe: bool = False,
+              default_ratio: str = "4:3", video_index: int = 1, footage: int = 0):
+    from app.director.schemas import EditPlan, check_plan
+
+    a = load_analysis(analysis_dir, footage)
+    sc = a["scenes"]
+    duration = sc["duration"]
+    vertical = sc["height"] > sc["width"]
+    segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
+    music_lines = [
+        f"- {m.name} ({m.category}{', Commercial' if m.commercial else ''}{', Pro' if m.is_vip else ''})"
+        for m in (music_items or [])
+    ]
+    b = u.burned_in_text
+    variables = {
+        **_shared_context(u, segs), "video_index": video_index,
+        "style_name": style.get("name", ""), "style_description": style.get("description_vi", ""),
+        "style_brief": style.get("director_brief", ""), "hook_s": f"{hook_s:.1f}",
+        "width": sc["width"], "height": sc["height"],
+        "default_ratio": "full (footage dọc)" if vertical else default_ratio,
+        "reframe": "có — chọn 4:3 hoặc 1:1 cho từng clip" if reframe else "không — mọi clip dùng khung mặc định",
+        "burned_in": (f"có, ở {', '.join(b.regions)}. {b.note_vi}" if b.present else "không"),
+        "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
+        "business_note": "Khách là doanh nghiệp: CHỈ chọn bài có nhãn Commercial." if business else "",
+        "hook": (f"{hook.line} ({hook.line_vi}) — footage {hook.footage.start:.1f}–{hook.footage.end:.1f}s"
+                 if hook else "không có hook"),
+        "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in sc["scenes"]),
+    }
+    names = {m.name for m in (music_items or [])}
+    commercial = {m.name for m in (music_items or []) if m.commercial}
+
+    def extra(plan) -> list[str]:
+        errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s)
+        if any(c.source_start < u.usable_range.start - 0.5 for c in plan.clips):
+            errors.append(f"có clip bắt đầu trước đoạn dùng được ({u.usable_range.start:.1f}s)")
+        if plan.music.name and plan.music.name not in names:
+            errors.append(f"bài nhạc '{plan.music.name}' không có trong danh sách")
+        if business and plan.music.name and plan.music.name not in commercial:
+            errors.append(f"khách doanh nghiệp: bài '{plan.music.name}' không có nhãn Commercial")
+        if not reframe and any(c.ratio and c.ratio != plan.default_ratio for c in plan.clips):
+            errors.append("không bật đổi khung theo cảnh: mọi clip phải dùng default_ratio (ratio = null)")
+        if plan.video_index != video_index:
+            errors.append(f"video_index phải là {video_index}")
+        return errors
+
+    return director.run("plan", variables, EditPlan, extra_check=extra)

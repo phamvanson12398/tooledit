@@ -1,0 +1,8 @@
+# Thư mục draft của CapCut trên máy (đã xác minh trên máy chủ dự án, CapCut 9.5.0 quốc tế).
+# Để trống = %LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft
+drafts_root: null
+# Tên dự án mẫu do CapCut tạo, nằm trong drafts_root: tên thư mục HOẶC tên hiển thị trong CapCut
+# (hai tên có thể khác nhau; tool tự tìm theo draft_name trong draft_meta_info.json).
+template_name: capcut_template
+canvas: {width: 1080, height: 1920}
+default_block: "4:3"    # khung mặc định cho footage ngang khi hồ sơ khách không nói gì

@@ -1,0 +1,6 @@
+# Vùng an toàn TikTok cho chữ, tính theo phần của khung 1080x1920.
+# GIÁ TRỊ ƯỚC LƯỢNG — cần kiểm tra lại trên app TikTok thật [CẦN KIỂM TRA TRÊN MÁY].
+top: 0.08       # dải trên cùng (thanh tìm kiếm, tab)
+bottom: 0.18    # dải dưới cùng (caption, tên tài khoản, nhạc)
+right: 0.12     # cột nút bên phải (tim, bình luận, chia sẻ)
+left: 0.04

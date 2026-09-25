@@ -1,0 +1,16 @@
+{
+  "video_index": 1,
+  "title_top": "貴闘力と曙の意外な関係",
+  "default_ratio": "4:3",
+  "clips": [
+    {"source_start": 1.0, "source_end": 6.1, "speed": 1.0, "ratio": null, "purpose_vi": "mở"},
+    {"source_start": 7.3, "source_end": 22.0, "speed": 1.0, "ratio": null, "purpose_vi": "bối cảnh"},
+    {"source_start": 23.1, "source_end": 45.0, "speed": 1.2, "ratio": null, "purpose_vi": "chuyện bệnh viện"}
+  ],
+  "emphasis": [{"source_time": 19.3, "duration": 1.5, "text": "嫌われた", "position": "center"}],
+  "zooms": [{"source_start": 19.2, "source_end": 22.0, "kind": "punch"},
+            {"source_start": 35.3, "source_end": 40.0, "kind": "slow"}],
+  "sfx": [{"source_time": 19.3, "kind": "pop", "reason_vi": "nhấn chữ"}],
+  "music": {"name": "Keep It High", "mood_vi": "vui, nhẹ", "energy": "mid"},
+  "editor_notes": "Giữ nhịp nhanh, zoom giật ở câu tự nhận bị ghét."
+}
