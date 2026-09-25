@@ -158,7 +158,7 @@ Trong mẫu, **nhạc, hiệu ứng và chuyển cảnh đều có `is_vip: "1"`
 **Đã kiểm chứng trên máy thật (2026-09-25):** draft `demo_tool_v1` do `tools/build_demo_draft.py`
 sinh ra mở được trong CapCut 9.5.0, mọi mục trong bảng kiểm tra đều đạt (zoom keyframe, khối 4:3 và
 1:1 bằng crop, lia khung, chữ có viền và animation, sticker, hiệu ứng, filter, chuyển cảnh, nhạc có
-keyframe âm lượng), và **xuất video thành công**. Chưa kiểm chứng: âm thanh local (voice hook).
+keyframe âm lượng), và **xuất video thành công**. Âm thanh local (voice hook) kiểm chứng ở demo_tool_v2 (mục 9).
 
 
 - `template.py`: nạp mẫu, rút khuôn cho video/audio/chữ/sticker/hiệu ứng/filter, lập danh mục tài
@@ -175,7 +175,7 @@ keyframe âm lượng), và **xuất video thành công**. Chưa kiểm chứng:
 - **Âm thanh local** (kkk2.wav, CapCut tự ghi): `type: extract_music`, `category_name: local`, `app_id: 0`,
   `check_flag: 1`, `music_id` / `local_material_id` / `category_id` rỗng; vật liệu phụ giống nhạc thư viện
   (speeds, placeholder_infos, beats, sound_channel_mappings, vocal_separations). Bộ ghi đã sửa cho khớp
-  (trước đó theo pyCapCut: check_flag 3, music_id = id). Kiểm chứng trên máy: demo_tool_v2.
+  (trước đó theo pyCapCut: check_flag 3, music_id = id). **Đã kiểm chứng trên máy (demo_tool_v2): mở được, nghe đúng file, xuất video OK.**
 - **Nhãn Commercial**: chủ dự án xác nhận "Keep It High" có nhãn Commercial, "Abstraction" thì không. So sánh
   draft_content.json và key_value.json của hai bài: không có trường nào phân biệt (chỉ khác `is_vip`).
   → Kết luận: **draft không lưu nhãn Commercial**; khai báo tay trong `config/capcut_labels.yaml`

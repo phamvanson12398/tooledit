@@ -1,6 +1,6 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
-## Bước 2b — Demo v2: thêm âm thanh local (giả làm voice hook) `[CẦN KIỂM TRA TRÊN MÁY]`
+## Bước 2b — Demo v2: thêm âm thanh local (ĐÃ XONG: mở được, nghe kkk2.wav, xuất OK)
 
 `demo_tool_v2` giống demo v1, thêm file `C:\Users\balha\Downloads\kkk2.wav` (lấy từ mẫu lần 3) ở giây 0–4
 trên một track âm thanh riêng. File đó phải còn nguyên chỗ cũ.
