@@ -238,24 +238,28 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         w.add_text(plan.title_top, start=hook_us, duration=tmap.end - hook_us, x=pos["x"], y=pos["top"],
                    style=title_style)
 
-    # ---------- SFX: lấy từ kho (bộ sưu tập); không có thì ghi danh sách cần bổ sung ----------
+    # ---------- SFX: lấy từ kho (CapCut + assets/); không có thì ghi danh sách cần bổ sung ----------
     sfx_lib = {m.name: m for m in template.library if m.kind == "sfx"}
     for s in plan.sfx:
         t = tmap.to_out(s.source_time)
         if t is None:
             continue
-        item = sfx_lib.get(s.name or "")
+        item = sfx_lib.get(s.name or "") or _fallback_sfx(template.library, s.kind)
         if item is not None:
             length = min(item.material.get("duration", SEC), 3 * SEC, max(1, tmap.end - t))
-            w.add_music(item, target_start=t, duration=length, volume=0.8)
+            _add_audio_item(w, item, target_start=t, duration=length, volume=0.8)
         else:
             missing.append({"kind": "sfx", "what": s.kind, "video": video_index, "at_s": round(t / SEC, 2),
                             "purpose_vi": s.reason_vi})
 
     # ---------- nhạc nền + ducking ----------
     music = next((m for m in template.library if m.kind == "music" and m.name == plan.music.name), None)
+    if music is None:  # đạo diễn không chọn được bài → thử nhạc local cùng mức năng lượng
+        music = next((m for m in template.library if m.kind == "music" and m.material.get("local")
+                      and m.mood == plan.music.energy), None)
     if music is None:
-        missing.append({"kind": "music", "what": plan.music.mood_vi, "video": video_index, "at_s": 0.0,
+        missing.append({"kind": "music", "what": plan.music.mood_vi, "energy": plan.music.energy,
+                        "video": video_index, "at_s": 0.0,
                         "purpose_vi": f"Nhạc nền ({plan.music.energy}) — không có bài phù hợp trong danh mục"})
     else:
         mcfg = style.get("music", {})
@@ -266,9 +270,30 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         t = 0
         while m_dur > 0 and t < tmap.end:
             seg_len = min(m_dur, tmap.end - t)
-            w.add_music(music, target_start=t, duration=seg_len,
+            _add_audio_item(w, music, target_start=t, duration=seg_len,
                         keyframes=duck_keyframes(t, t + seg_len, intervals, mcfg.get("volume_speech", 0.12),
                                                  mcfg.get("volume_gap", 0.35), round(mcfg.get("fade_s", 0.25) * SEC)))
             t += seg_len
 
     return BuildResult(writer=w, duration_us=tmap.end, missing_assets=missing, notes=notes)
+
+
+def _fallback_sfx(library, kind: str):
+    """Đạo diễn không nêu tên (hoặc tên không có trong kho) → lấy SFX cùng loại: file local trong
+    assets/sfx/<loại>/ trước, rồi SFX CapCut có tên chứa từ khóa của loại đó."""
+    from app.assets.scan import SFX_KEYWORDS
+
+    local = [m for m in library if m.kind == "sfx" and m.material.get("local") and m.mood == kind]
+    if local:
+        return local[0]
+    keys = [k.lower() for k in SFX_KEYWORDS.get(kind, (kind,))]
+    return next((m for m in library if m.kind == "sfx" and not m.material.get("local")
+                 and any(k in m.name.lower() for k in keys)), None)
+
+
+def _add_audio_item(w, item, *, target_start: int, duration: int, volume: float = 1.0, keyframes=None):
+    """Âm thanh thư viện CapCut → tham chiếu trong draft; file local (assets/) → âm thanh trên máy."""
+    if item.material.get("local"):
+        return w.add_local_audio(Path(item.material["path"]), item.material["duration"], target_start=target_start,
+                                 duration=duration, volume=volume, keyframes=keyframes)
+    return w.add_music(item, target_start=target_start, duration=duration, volume=volume, keyframes=keyframes)

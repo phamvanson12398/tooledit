@@ -1,0 +1,21 @@
+# Kho tài nguyên local + tải từ internet (mục 7 CLAUDE.md). Chỉ nguồn có giấy phép rõ ràng.
+freesound:
+  # API key: nhập trên giao diện (lưu ở config/local.yaml, không commit). Chỉ tải file CC0.
+  sfx_per_kind: 2        # mỗi loại SFX còn thiếu tải bao nhiêu file
+  music_per_mood: 1      # mỗi mức năng lượng nhạc còn thiếu tải bao nhiêu bài
+  sfx_seconds: [0.1, 3.0]
+  music_seconds: [30, 180]
+# Từ khóa tìm cho từng loại SFX mà đạo diễn dùng (khớp danh sách kind trong app/director/schemas.py)
+sfx_queries:
+  pop: "pop cartoon"
+  whoosh: "whoosh"
+  ding: "ding bell notification"
+  boom: "boom impact cinematic"
+  laugh: "audience laugh"
+  swoosh: "swoosh transition"
+  record_scratch: "record scratch"
+# Nhạc nền theo mức năng lượng (low / mid / high)
+music_queries:
+  low: "calm acoustic music loop"
+  mid: "upbeat happy music loop"
+  high: "energetic hype music loop"

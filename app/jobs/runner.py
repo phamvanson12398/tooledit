@@ -96,6 +96,12 @@ class Runner:
             added = tpl.merge_items(scan_drafts(drafts_root()))
             tpl._apply_labels(_load_labels())
             self.log(f"Kho tài nguyên tự quét từ CapCut: thêm {added} mục")
+        if self._template_dir is None:
+            from app.assets.local import scan_local
+
+            added = tpl.merge_items(scan_local())
+            if added:
+                self.log(f"Kho local assets/: thêm {added} file âm thanh")
         return tpl
 
     def _style_name(self, job: Job) -> str:

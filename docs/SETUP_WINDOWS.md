@@ -83,3 +83,9 @@ Nếu `claude` vẫn "not recognized" sau khi mở lại PowerShell: file cài n
 
 Nhấp đúp **`start.bat`** trong thư mục repo → trình duyệt mở giao diện http://127.0.0.1:8765.
 Cập nhật tool: `git pull` rồi chạy lại `install.bat` (hoặc `.venv\Scripts\pip install -r requirements.txt`).
+
+## Tùy chọn: key Freesound để tự tải âm thanh CC0
+
+Không bắt buộc. Có key thì nút **🔍 Quét tài nguyên** tự tải SFX / nhạc nền còn thiếu (chỉ giấy phép CC0).
+Đăng ký ở https://freesound.org → mở https://freesound.org/apiv2/apply → tạo key → dán vào
+**⚙️ Cài đặt Freesound** trên trang chủ tool. Key lưu ở `config/local.yaml` (không commit).

@@ -1,5 +1,24 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 9 — Nút "🔍 Quét tài nguyên" (CapCut + kho trên máy + Freesound CC0) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, rồi `.venv\Scripts\pip install -r requirements.txt`, đóng và mở lại `start.bat`.
+2. **Lấy key Freesound (miễn phí, làm 1 lần):** đăng ký tài khoản ở https://freesound.org, mở
+   https://freesound.org/apiv2/apply, điền tên ứng dụng bất kỳ (ví dụ "tooledit"), bấm tạo, copy **API key**.
+   Ở trang chủ tool, mở **⚙️ Cài đặt Freesound**, dán key, bấm **Lưu** → hiện "✅ đã lưu key".
+   (Key lưu ở `config/local.yaml` trên máy bạn, không đưa lên GitHub.)
+3. Bấm **🔍 Quét tài nguyên** (để tick "Tải thêm cái còn thiếu từ internet"). Chờ vài chục giây.
+   Trang kết quả hiện: số tài nguyên từ CapCut, số file trong kho máy, bảng "Tài nguyên cần thiết"
+   (có sẵn / đã tải / còn thiếu), danh sách file vừa tải kèm link nguồn và giấy phép CC0.
+4. Kiểm tra thư mục `assets\sfx\...` và `assets\music\...` trong thư mục tool có file .mp3 mới, và
+   `assets\ledger.json` ghi nguồn từng file.
+5. Nếu có job từng thiếu SFX/nhạc: bấm nút **🔁 Dựng lại draft job …** ở cuối trang kết quả, mở draft trong
+   CapCut, nghe SFX / nhạc mới có ở đúng chỗ không.
+6. Thử **➕ Thêm file âm thanh của bạn vào kho**: chọn loại, nhãn, file → "Đã thêm vào kho".
+
+Lưu ý: nhạc/hiệu ứng **thư viện online của CapCut** không tải bằng code được — CapCut chỉ tải khi bạn dùng
+thử chúng trong app. Tool tự thấy mọi thứ bạn đã dùng trong bất kỳ dự án CapCut nào.
+
 ## Bước 8 — Mọi thao tác trên giao diện, kho tự lấy từ CapCut, dựng sinh động hơn `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Cập nhật: mở PowerShell trong thư mục tool, chạy `git pull` rồi `.venv\Scripts\pip install -r requirements.txt`.

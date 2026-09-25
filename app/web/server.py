@@ -16,6 +16,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from app import config as app_config
 from app.config import ROOT
 from app.jobs.job import STEPS, Job, JobOptions, Status
 
@@ -142,7 +143,19 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.is_file() else ""
 
 
-def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None) -> FastAPI:
+def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root: Path | None = None,
+               settings_path: Path | None = None, scan_fn=None) -> FastAPI:
+    from app import settings as app_settings
+    from app.assets import ledger
+
+    assets_root = Path(assets_root or ledger.ASSETS_ROOT)
+    settings_path = Path(settings_path or app_settings.LOCAL)
+    if scan_fn is None:
+        def scan_fn(download: bool, api_key: str):
+            from app.assets.scan import scan_resources
+            from app.jobs.runner import drafts_root
+
+            return scan_resources(drafts_root(), Path(jobs_root), assets_root, download=download, api_key=api_key)
     if runner_factory is None:
         from app.jobs.runner import Runner
 
@@ -168,6 +181,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None) -> FastAPI:
     def index():
         from app.styles import available_styles
 
+        has_key = bool(app_settings.load(settings_path).get("freesound_api_key"))
         jobs_html = "".join(
             f"<a class='job' href='/jobs/{j.job_id}'><div><div class='name'>{html.escape(Path(j.footage[0]).name)}</div>"
             f"<div class='sub'>{j.job_id} · {STEP_VI.get(j.step, j.step)}</div></div>"
@@ -197,7 +211,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None) -> FastAPI:
               <option value="1:1">1:1 (vuông)</option></select></div></div>
           <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>
         </form></div></div>
-        <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary()}</div>
+        <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary()}{_resource_tools(has_key)}</div>
         <div class="card jobs"><h2>🗂️ Các video</h2>{jobs_html or "<p class='muted'>Chưa có video nào.</p>"}</div></div></div>
         <script>
         async function pick(){{
@@ -280,6 +294,42 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None) -> FastAPI:
         worker.start(job_id, action=lambda runner, job: runner.choose_hooks(job, {1: choice}))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/resources/scan", response_class=HTMLResponse)
+    def resources_scan(download: str | None = Form(None)):
+        key = app_settings.load(settings_path).get("freesound_api_key", "")
+        try:
+            report = scan_fn(bool(download), key)
+        except Exception as exc:
+            return _page("Quét tài nguyên", f"<div class='card'><h2>⚠️ Quét lỗi</h2><pre>{html.escape(str(exc))}</pre>"
+                         "<p><a class='btn light' href='/'>🏠 Về trang chủ</a></p></div>")
+        return _page("Quét tài nguyên", _scan_report_html(report, bool(download), bool(key)))
+
+    @app.post("/settings/freesound")
+    def save_freesound(key: str = Form("")):
+        app_settings.save({"freesound_api_key": key.strip()}, settings_path)
+        return RedirectResponse("/", status_code=303)
+
+    @app.post("/assets/upload", response_class=HTMLResponse)
+    async def upload_asset(kind: str = Form(...), tag: str = Form(""), file: UploadFile = File(...)):
+        from app.assets.local import AUDIO_EXTS
+        from app.assets.freesound import slug
+
+        name = Path(file.filename or "").name
+        ext = Path(name).suffix.lower()
+        if kind not in ("sfx", "music") or ext not in AUDIO_EXTS:
+            return _page("Lỗi", f"<div class='card'><h2>File không hợp lệ</h2><p>Chỉ nhận âm thanh "
+                         f"{', '.join(AUDIO_EXTS)}.</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
+        folder = assets_root / kind / (slug(tag) if tag.strip() else "khac")
+        folder.mkdir(parents=True, exist_ok=True)
+        out = folder / f"{slug(Path(name).stem)}{ext}"
+        with open(out, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+        ledger.add(assets_root, out, source="user", license="người dùng tự thêm (tự xác nhận quyền dùng)",
+                   extra={"original_name": name, "kind": kind, "tag": tag})
+        return _page("Đã thêm", f"<div class='card'><h2>✅ Đã thêm vào kho</h2><p>{html.escape(out.name)} → "
+                     f"{html.escape(kind)} / {html.escape(folder.name)}</p><p><a class='btn' href='/'>🏠 Về trang chủ</a>"
+                     "</p></div>")
+
     @app.post("/jobs/{job_id}/voice")
     async def upload_voice(job_id: str, voice: UploadFile = File(...)):
         from app.planner import hook_io
@@ -342,6 +392,77 @@ def _manage_panel(job: Job) -> str:
 def _continue_button(job: Job, label: str = "Tiếp tục") -> str:
     return (f"<form method='post' action='/jobs/{job.job_id}/continue' style='margin-top:12px'>"
             f"<button type='submit' class='btn'>{label}</button></form>")
+
+
+def _resource_tools(has_key: bool) -> str:
+    """Nút quét tài nguyên + cài đặt Freesound + thêm file âm thanh của mình vào kho."""
+    from app.assets.scan import ENERGY_VI
+
+    cfg = app_config.load("assets")
+    tags = "".join(f"<option value='{k}'>SFX · {k}</option>" for k in (cfg.get("sfx_queries") or {}))
+    tags += "".join(f"<option value='{k}'>Nhạc · {ENERGY_VI.get(k, k)} ({k})</option>"
+                    for k in (cfg.get("music_queries") or {}))
+    key_state = "✅ đã lưu key" if has_key else "chưa có key"
+    return f"""
+    <form method="post" action="/resources/scan" onsubmit="this.querySelector('button').innerHTML='<span class=spinner></span> Đang quét…'">
+      <label class="tg" style="margin-top:12px"><input type="checkbox" name="download" {'checked' if has_key else ''}>
+        Tải thêm cái còn thiếu từ internet (Freesound, chỉ CC0)</label>
+      <p><button type="submit" class="btn">🔍 Quét tài nguyên</button></p></form>
+    <details><summary class="muted">⚙️ Cài đặt Freesound ({key_state})</summary>
+      <form method="post" action="/settings/freesound" style="margin-top:8px">
+        <p class="muted">Lấy key miễn phí: đăng ký tài khoản ở freesound.org rồi vào
+        <a href="https://freesound.org/apiv2/apply" target="_blank">freesound.org/apiv2/apply</a>, copy "Client secret/Api key".</p>
+        <div class="row"><input type="text" name="key" placeholder="{'Đã lưu — dán key mới để thay' if has_key else 'Dán API key'}">
+        <button class="btn small" type="submit">Lưu</button></div></form></details>
+    <details><summary class="muted">➕ Thêm file âm thanh của bạn vào kho</summary>
+      <form class="upload" method="post" action="/assets/upload" enctype="multipart/form-data">
+        <div class="row"><select name="kind"><option value="sfx">SFX</option><option value="music">Nhạc nền</option></select>
+        <select name="tag">{tags}</select></div>
+        <input type="file" name="file" accept="audio/*" required><br>
+        <button class="btn small" type="submit">Thêm vào kho</button>
+        <p class="muted">Chỉ thêm file bạn có quyền dùng. Nguồn được ghi vào sổ assets/ledger.json.</p></form></details>"""
+
+
+def _scan_report_html(rep, download: bool, has_key: bool) -> str:
+    esc = html.escape
+    names = {"music": "nhạc", "sfx": "SFX", "video_effect": "hiệu ứng", "transition": "chuyển cảnh",
+             "sticker": "sticker", "filter": "filter", "text_animation": "animation chữ"}
+    box = lambda d: "".join(f"<div><b>{n}</b>{names.get(k, k)}</div>" for k, n in d.items()) or "<div>trống</div>"  # noqa: E731
+    color = {"có sẵn": "done", "đã tải": "running", "còn thiếu": "error"}
+    rows = "".join(
+        f"<tr><td>{esc(n['label'])}</td><td>{n['have']}</td><td class='muted'>{esc(n['why'])}</td>"
+        f"<td><span class='badge b-{color.get(n['status'], 'pending')}'>{esc(n['status'])}</span></td></tr>"
+        for n in rep.needs)
+    parts = ["<div class='topnav'><a class='btn light small' href='/'>🏠 Về trang chủ</a></div>",
+             "<div class='card'><h2>🔍 Kết quả quét tài nguyên</h2>",
+             f"<p><b>Từ CapCut</b> (mọi dự án trên máy):</p><div class='lib'>{box(rep.capcut)}</div>",
+             f"<p><b>Kho trên máy</b> (thư mục assets/):</p><div class='lib'>{box(rep.local)}</div>",
+             f"<h2 style='margin-top:18px'>Tài nguyên cần thiết</h2><table><tr><th>Cần</th><th>Đang có</th><th>Vì sao</th>"
+             f"<th>Trạng thái</th></tr>{rows}</table>"]
+    if rep.downloaded:
+        dl = "".join(f"<tr><td>{esc(d.get('name') or d['file'])}</td><td>{esc(d.get('tag', ''))}</td>"
+                     f"<td>{esc(d.get('author', ''))}</td><td><a href='{esc(d.get('url', ''))}' target='_blank'>nguồn</a></td>"
+                     "<td>CC0</td></tr>" for d in rep.downloaded)
+        parts.append(f"<h2 style='margin-top:18px'>⬇️ Vừa tải về ({len(rep.downloaded)})</h2><table><tr><th>Tên</th>"
+                     f"<th>Loại</th><th>Tác giả</th><th>Link</th><th>Giấy phép</th></tr>{dl}</table>")
+    if rep.errors:
+        parts.append(f"<div class='note'>{'<br>'.join(esc(e) for e in rep.errors)}</div>")
+    still = [n for n in rep.needs if n["status"] == "còn thiếu"]
+    if still:
+        if not download:
+            hint = "Tick <b>Tải thêm từ internet</b> rồi quét lại để tool tự tải bản CC0 từ Freesound."
+        elif not has_key:
+            hint = "Chưa có Freesound API key: mở <b>⚙️ Cài đặt Freesound</b> ở trang chủ để nhập."
+        else:
+            hint = "Freesound chưa có bản phù hợp cho các mục này."
+        parts.append(f"<div class='note'>Còn thiếu {len(still)} mục. {hint} Hoặc: mở CapCut, dùng thử âm thanh loại đó "
+                     "trong một dự án bất kỳ rồi lưu; hoặc thêm file của bạn ở mục <b>➕ Thêm file âm thanh</b>.</div>")
+    for jid in rep.jobs_to_redo:
+        parts.append(f"<form method='post' action='/jobs/{esc(jid)}/redo' style='margin-top:10px'>"
+                     f"<input type='hidden' name='step' value='write'><button class='btn small' type='submit'>"
+                     f"🔁 Dựng lại draft job {esc(jid)} với tài nguyên mới</button></form>")
+    parts.append("</div>")
+    return "".join(parts)
 
 
 def _library_summary() -> str:
