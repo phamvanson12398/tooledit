@@ -1,6 +1,6 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
-## Bước 1b — Thử vòng 2 `[CẦN KIỂM TRA TRÊN MÁY]`
+## Bước 1b — Thử vòng 2 (ĐÃ XONG: cả probe2 và probe3 đều hiện `TRONG_CONTENT`)
 
 Kết quả vòng 1: draft thăm dò vẫn hiện chữ gốc `地獄の合図は深`. Nghĩa là CapCut không đọc 4 file
 timeline kia, mà đọc bản thứ 5 `Timelines\<id>\attachment\patch\mini_draft.json`.

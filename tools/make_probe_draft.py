@@ -5,8 +5,8 @@ trong Timelines/<id>/, cộng Timelines/<id>/attachment/patch/mini_draft.json). 
 draft mẫu thành draft mới, rồi ở MỖI file đổi chữ của lớp chữ đầu tiên thành một nhãn riêng
 (ví dụ "GOC_CONTENT"). Mở draft mới trong CapCut: chữ hiện ra cho biết CapCut đã đọc file nào.
 
-Vòng 1 (chỉ 4 file đầu) cho thấy CapCut vẫn hiện chữ gốc, tức là nó đọc mini_draft.json.
-Vòng 2 tạo hai draft:
+Kết quả trên CapCut 9.5.0: cả probe2 và probe3 đều hiện TRONG_CONTENT, tức là CapCut đọc
+Timelines/<id>/draft_content.json, và xóa mini_draft.json vẫn mở được. Hai draft của vòng 2:
 - <mẫu>_probe2: đổi chữ ở cả 5 file (mini_draft mang nhãn MINI_DRAFT);
 - <mẫu>_probe3: đổi chữ ở 4 file và XÓA mini_draft.json, để xem CapCut có quay về đọc 4 file kia.
 

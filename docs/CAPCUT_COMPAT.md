@@ -13,8 +13,10 @@ Bản mẫu trong repo đã xóa tên user Windows, `device_id`, `mac_address` (
 | Phiên bản ghi trong draft | `app_version 9.5.0`, `app_source cc`, `version 360000`, `new_version 187.0.0` |
 | pyCapCut dùng thẳng được không? | **Không nên dùng để tạo draft từ đầu** (dấu phiên bản 6.7.0, thiếu nhiều trường, chỉ ghi 1 file). Có thể mượn một phần logic. |
 | capcut-cli dùng được không? | Đọc/chẩn đoán được (`version`, `diagnose` chạy tốt). Ghi thì "untested" với 9.5.0. |
-| Hướng đi đề xuất | **Tự viết bộ ghi draft bằng Python, dựa trên dự án mẫu do CapCut 9.5.0 tạo**, ghi đồng bộ cả 4 bản timeline. |
-| Còn phải thử trên máy | CapCut đọc bản timeline nào; draft do tool sinh có mở được không `[CẦN KIỂM TRA TRÊN MÁY]` |
+| CapCut đọc file nào? | **`Timelines/<main_timeline_id>/draft_content.json`** (đã thử trên máy, xem mục 1). |
+| Draft do tool sửa có mở được? | **Có.** Dự án thăm dò do script sửa được CapCut 9.5.0 mở bình thường, kể cả khi đã xóa `mini_draft.json`. |
+| Hướng đi (chủ dự án đã đồng ý) | **Tự viết bộ ghi draft bằng Python, dựa trên dự án mẫu do CapCut 9.5.0 tạo**. Ghi vào file chính trong `Timelines/`, đồng bộ 3 bản còn lại, xóa `mini_draft.json`. |
+| CapCut Pro | Chủ dự án **có Pro**, nên dùng được tài nguyên `is_vip`. |
 
 ## 1. Cấu trúc thư mục draft 9.5.0
 
@@ -37,15 +39,18 @@ Bản mẫu trong repo đã xóa tên user Windows, `device_id`, `mac_address` (
 - **Có 4 bản timeline giống hệt nhau từng byte**, cộng **bản thứ 5** ở
   `Timelines/<id>/attachment/patch/mini_draft.json` (định dạng khác: `draft` + danh sách
   `segments`, mỗi segment gói luôn vật liệu của nó). Không có `draft_info.json`.
-- **Kết quả thử vòng 1 trên máy (2026-09-25):** đổi chữ ở cả 4 bản timeline, CapCut vẫn hiện chữ gốc.
-  → CapCut 9.5.0 **đọc `mini_draft.json`**, không đọc 4 file kia. Đây là điều capcut-cli và
-  pyCapCut đều chưa biết. Vòng 2 (đang chờ kết quả) kiểm tra: đổi chữ trong mini_draft thì có hiện
-  không, và xóa mini_draft thì CapCut có quay về đọc 4 file kia không.
-- `capcut diagnose` chọn `template-2.tmp` làm bản chính, và báo bản trong `Timelines/`
-  trùng với bản ở gốc.
-- Chưa biết CapCut thực sự đọc bản nào khi mở. Theo capcut-cli, từ 9.2.8 CapCut có thể đọc bản trong
-  `Timelines/` và bỏ qua bản ở gốc. Vì vậy **tool sẽ ghi cả 4 bản cho giống nhau**. Script
-  `tools/make_probe_draft.py` dùng để xác minh việc này trên máy `[CẦN KIỂM TRA TRÊN MÁY]`.
+- **Kết quả thử trên máy (2026-09-25).** Script `tools/make_probe_draft.py` tạo dự án thăm dò,
+  trong đó mỗi bản timeline mang một nhãn chữ khác nhau:
+  - `probe2` (đổi chữ ở cả 5 bản): CapCut hiện **`TRONG_CONTENT`**.
+  - `probe3` (4 bản mang nhãn, đã xóa `mini_draft.json`): CapCut vẫn mở được, hiện **`TRONG_CONTENT`**.
+  - → **File CapCut 9.5.0 thực sự đọc là `Timelines/<main_timeline_id>/draft_content.json`.**
+    `mini_draft.json` không cần thiết, xóa đi vẫn mở bình thường. Các file ở gốc chỉ là bản sao.
+  - Vòng 1 được báo là "hiện đúng chữ gốc". Kết quả đó không khớp với vòng 2, có lẽ do hiểu lệch câu hỏi. Vòng 2 có đối chứng rõ nên lấy vòng 2 làm căn cứ.
+- `capcut diagnose` chọn `template-2.tmp` ở gốc làm bản chính. **Điều này sai với 9.5.0**, và mọi lệnh
+  sửa của capcut-cli cũng chỉ ghi file ở gốc. → Không dùng capcut-cli để ghi.
+- pyCapCut cũng chỉ ghi `draft_content.json` ở gốc → CapCut 9.5.0 sẽ **bỏ qua** thay đổi.
+- Tool sẽ ghi file chính trong `Timelines/`, rồi chép cùng nội dung sang 3 bản kia cho nhất quán,
+  và xóa `attachment/patch/` (mini_draft).
 - `draft_meta_info.json` chứa `draft_fold_path` (đường dẫn thư mục) và `draft_name`. Khi tạo
   draft mới phải sửa hai trường này và cấp `draft_id` mới.
 - Media (video) **không được chép vào thư mục draft**. Draft chỉ lưu đường dẫn tuyệt đối tới file
@@ -116,8 +121,8 @@ Trong mẫu, **nhạc, hiệu ứng và chuyển cảnh đều có `is_vip: "1"`
 2. Xóa clip/chữ/nhạc cũ, rồi thêm mới bằng **bản sao các khối JSON lấy từ chính mẫu 9.5.0**
    (mỗi loại một "khuôn": video segment, text, audio, effect, filter, transition, kèm các vật liệu
    phụ), chỉ thay id, thời gian, đường dẫn, nội dung. Làm vậy thì không thiếu trường nào như pyCapCut.
-3. Ghi **cùng một nội dung vào cả 4 bản timeline**, và xử lý `mini_draft.json` theo kết quả vòng 2
-   (xóa đi để CapCut dựng lại, hoặc sinh lại theo định dạng mini draft). Ghi an toàn (file tạm rồi đổi tên), và từ chối
+3. Ghi vào **`Timelines/<main_timeline_id>/draft_content.json`** (file CapCut đọc), chép cùng nội
+   dung sang 3 bản còn lại, xóa `attachment/patch/`. Ghi an toàn (file tạm rồi đổi tên), và từ chối
    ghi khi CapCut đang mở.
 4. Dùng `capcut diagnose` (tùy chọn) để kiểm tra lại sau khi ghi.
 5. Nếu CapCut 9.5.0 từ chối draft do tool ghi: phương án dự phòng là xuất mp4 bằng FFmpeg (mất
@@ -125,9 +130,9 @@ Trong mẫu, **nhạc, hiệu ứng và chuyển cảnh đều có `is_vip: "1"`
 
 ## 6. Việc cần làm tiếp trên máy thật
 
-1. Chạy `tools/make_probe_draft.py` để biết CapCut đọc bản timeline nào (xem
-   `docs/TESTING_WINDOWS.md`, Bước 1) `[CẦN KIỂM TRA TRÊN MÁY]`.
-2. Cho biết có tài khoản CapCut Pro không (nhạc, hiệu ứng, chuyển cảnh trong mẫu đều là Pro, nên
-   xuất video có thể bị chặn nếu không có Pro).
+**Giai đoạn 0 hoàn tất** (chủ dự án xác nhận ngày 2026-09-25).
+
+1. ~~CapCut đọc bản timeline nào~~ → xong: `Timelines/<id>/draft_content.json`.
+2. ~~Tài khoản Pro~~ → có.
 3. Khi bắt đầu Giai đoạn 1: thêm vào mẫu 1 sticker, 1 animation chữ, 1 keyframe vị trí, 1 clip
    16:9 đã thu nhỏ vào giữa khung, để có đủ "khuôn".
