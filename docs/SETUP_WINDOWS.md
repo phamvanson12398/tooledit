@@ -56,3 +56,25 @@ GTX 1080 Ti (Compute Capability 6.1) chạy được kiểu `int8_float32` (đã
 **Chưa chắc chắn:** các bản cuDNN 9 mới có thể đã bỏ hỗ trợ card đời Pascal (GTX 10xx). Nếu GPU
 không chạy được, tool **tự chuyển sang CPU** (chậm hơn nhưng vẫn ra kết quả) và in lý do.
 Lần chạy đầu, faster-whisper tự tải model large-v3 (~3 GB) về máy.
+
+## 5. Claude Code (đạo diễn AI)
+
+Tool gọi Claude Code chạy trên máy, đăng nhập bằng gói Claude Pro. Theo tài liệu chính thức
+(https://code.claude.com/docs/en/setup), cài trên Windows bằng PowerShell, **không cần quyền Administrator**:
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+Cài xong **đóng PowerShell rồi mở lại**, kiểm tra:
+
+```powershell
+claude --version     # in ra số phiên bản, ví dụ "2.1.x (Claude Code)"
+claude doctor        # kiểm tra cài đặt
+```
+
+Đăng nhập lần đầu: gõ `claude`, làm theo hướng dẫn mở trình duyệt, đăng nhập tài khoản Claude Pro, rồi gõ
+`/exit` để thoát. Gói Free không dùng được Claude Code.
+
+Nếu `claude` vẫn "not recognized" sau khi mở lại PowerShell: file cài nằm ở
+`%USERPROFILE%\.local\bin\claude.exe`; xem https://code.claude.com/docs/en/troubleshoot-install.
