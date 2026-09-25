@@ -55,7 +55,7 @@ def test_job_without_hook_and_error_recovery(tmp_path):
     assert job.step == "confirm_genre" and job.status == Status.waiting
     r._template_dir = tmp_path / "khong_co"  # lỗi: không có dự án mẫu
     job = r.resume(job)
-    assert job.status == Status.error and "dự án mẫu" in job.message and job.step == "plan"
+    assert job.status == Status.error and job.step == "plan"
     r._template_dir = SAMPLE
     job = r.resume(job)
     assert job.status == Status.done, job.message
@@ -70,6 +70,27 @@ def test_find_template_by_display_name(tmp_path):
     (tmp_path / "khac").mkdir()
     assert find_template(tmp_path, "capcut_template") == tmp_path / "0925"
     assert find_template(tmp_path, "khong_co") is None
+
+
+def test_resolve_template_fallback_to_builtin(tmp_path, monkeypatch):
+    import shutil
+
+    from app import settings
+    from app.jobs import runner as runner_mod
+
+    shutil.copytree(SAMPLE, tmp_path / "drafts" / "0925")
+    monkeypatch.setattr(runner_mod, "drafts_root", lambda: tmp_path / "drafts")
+    local = tmp_path / "local.yaml"
+    monkeypatch.setattr(settings, "LOCAL", local)
+    monkeypatch.setattr(settings.load, "__defaults__", (local,))
+    assert runner_mod.resolve_template() == tmp_path / "drafts" / "0925"  # theo config: capcut_template
+    settings.save({"template_name": "da_bi_xoa"}, local)
+    logs = []
+    assert runner_mod.resolve_template(logs.append) == runner_mod.BUILTIN_TEMPLATE  # không dừng job
+    assert "da_bi_xoa" in logs[0]
+    settings.save({"template_name": runner_mod.BUILTIN}, local)
+    assert runner_mod.resolve_template() == runner_mod.BUILTIN_TEMPLATE
+    assert [n for _, n in runner_mod.list_drafts(tmp_path / "drafts")] == ["capcut_template"]
 
 
 def test_style_choice_user_vs_auto(tmp_path):

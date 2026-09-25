@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 10 — Lỗi "Không thấy dự án mẫu CapCut" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`.
+2. Trang chủ → ô Kho tài nguyên → mở **🧩 Dự án mẫu CapCut**: dòng "đang dùng" cho biết tool đang lấy khuôn ở đâu.
+   Danh sách chọn liệt kê mọi dự án CapCut trên máy. Chọn dự án mẫu của bạn (hoặc "Mẫu có sẵn trong tool") → **Lưu**.
+3. Mở lại job bị lỗi → bấm **Chạy lại bước này**. Job phải chạy tiếp tới Xong.
+4. Nếu dùng "Mẫu có sẵn trong tool": mở draft vừa tạo trong CapCut, kiểm tra mở được, chữ / âm thanh / clip đúng,
+   xuất được video.
+
 ## Bước 9 — Nút "🔍 Quét tài nguyên" (CapCut + kho trên máy + Freesound CC0) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, rồi `.venv\Scripts\pip install -r requirements.txt`, đóng và mở lại `start.bat`.

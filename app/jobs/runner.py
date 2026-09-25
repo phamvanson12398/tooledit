@@ -46,6 +46,57 @@ def find_template(root: Path, name: str) -> Path | None:
     return None
 
 
+BUILTIN_TEMPLATE = config.ROOT / "samples" / "capcut_template"
+BUILTIN = "__builtin__"  # giá trị cài đặt: dùng dự án mẫu có sẵn trong tool
+
+
+def list_drafts(root: Path) -> list[tuple[Path, str]]:
+    """Các dự án CapCut trên máy: (thư mục, tên hiển thị)."""
+    if not Path(root).is_dir():
+        return []
+    out = []
+    for d in sorted(Path(root).iterdir()):
+        meta = d / "draft_meta_info.json"
+        if not meta.is_file():
+            continue
+        try:
+            name = json.loads(meta.read_text(encoding="utf-8-sig")).get("draft_name") or d.name
+        except (OSError, ValueError):
+            name = d.name
+        out.append((d, name))
+    return out
+
+
+def template_name() -> str:
+    """Tên dự án mẫu: chọn trên giao diện (config/local.yaml) trước, rồi tới config/capcut.yaml."""
+    from app import settings
+
+    return settings.load().get("template_name") or config.load("capcut").get("template_name", "capcut_template")
+
+
+def resolve_template(log=lambda m: None) -> Path:
+    """Tìm dự án mẫu CapCut; không thấy thì dùng mẫu có sẵn trong tool (samples/capcut_template) thay vì dừng job."""
+    name = template_name()
+    if name != BUILTIN:
+        try:
+            found = find_template(drafts_root(), name)
+        except RuntimeError:
+            found = None
+        if found is not None:
+            return found
+    if (BUILTIN_TEMPLATE / "draft_meta_info.json").is_file():
+        if name != BUILTIN:
+            log(f"Không thấy dự án mẫu '{name}' trong CapCut → dùng dự án mẫu có sẵn trong tool. "
+                "Có thể chọn dự án mẫu khác ở trang chủ (⚙️ Dự án mẫu CapCut).")
+        return BUILTIN_TEMPLATE
+    try:
+        names = ", ".join(n for _, n in list_drafts(drafts_root())) or "(không có dự án nào)"
+    except RuntimeError as exc:
+        names = str(exc)
+    raise RuntimeError(f"Không thấy dự án mẫu CapCut '{name}'. Các dự án đang có: {names}. "
+                       "Chọn lại ở trang chủ (⚙️ Dự án mẫu CapCut).")
+
+
 class Runner:
     def __init__(self, jobs_root: Path, *, director=None, analyze_fn=None, probe_duration_fn=None,
                  drafts_dir: Path | None = None, template_dir: Path | None = None,
@@ -81,13 +132,7 @@ class Runner:
     def _template(self):
         from app.capcut_writer import DraftTemplate
 
-        if self._template_dir is not None:
-            tdir = self._template_dir
-        else:
-            tdir = find_template(drafts_root(), config.load("capcut").get("template_name", "capcut_template"))
-        if tdir is None or not Path(tdir).is_dir():
-            raise RuntimeError(f"Không thấy dự án mẫu CapCut ({tdir or 'theo config/capcut.yaml'}). "
-                               "Kiểm tra template_name trong config/capcut.yaml.")
+        tdir = self._template_dir if self._template_dir is not None else resolve_template(self.log)
         tpl = DraftTemplate(Path(tdir))
         if self._template_dir is None and config.load("capcut").get("library_scan", True):
             from app.capcut_writer.library import scan_drafts

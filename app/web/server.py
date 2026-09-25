@@ -211,7 +211,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <option value="1:1">1:1 (vuông)</option></select></div></div>
           <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>
         </form></div></div>
-        <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary()}{_resource_tools(has_key)}</div>
+        <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary()}{_resource_tools(has_key)}{_template_setting()}</div>
         <div class="card jobs"><h2>🗂️ Các video</h2>{jobs_html or "<p class='muted'>Chưa có video nào.</p>"}</div></div></div>
         <script>
         async function pick(){{
@@ -307,6 +307,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     @app.post("/settings/freesound")
     def save_freesound(key: str = Form("")):
         app_settings.save({"freesound_api_key": key.strip()}, settings_path)
+        return RedirectResponse("/", status_code=303)
+
+    @app.post("/settings/template")
+    def save_template(name: str = Form(...)):
+        app_settings.save({"template_name": name}, settings_path)
         return RedirectResponse("/", status_code=303)
 
     @app.post("/assets/upload", response_class=HTMLResponse)
@@ -421,6 +426,34 @@ def _resource_tools(has_key: bool) -> str:
         <input type="file" name="file" accept="audio/*" required><br>
         <button class="btn small" type="submit">Thêm vào kho</button>
         <p class="muted">Chỉ thêm file bạn có quyền dùng. Nguồn được ghi vào sổ assets/ledger.json.</p></form></details>"""
+
+
+def _template_setting() -> str:
+    """Chọn dự án CapCut làm khuôn (dự án mẫu) ngay trên giao diện."""
+    from app.jobs.runner import BUILTIN, drafts_root, list_drafts, resolve_template, template_name
+
+    esc = html.escape
+    current = template_name()
+    try:
+        drafts = list_drafts(drafts_root())
+    except Exception:
+        drafts = []
+    try:
+        used = resolve_template()
+        from app.jobs.runner import BUILTIN_TEMPLATE
+
+        state = "mẫu có sẵn trong tool" if used == BUILTIN_TEMPLATE else f"dự án CapCut '{esc(current)}'"
+    except Exception as exc:
+        state = f"⚠️ {esc(str(exc))}"
+    names = sorted({n for _, n in drafts})
+    opts = [f"<option value='{BUILTIN}' {'selected' if current == BUILTIN else ''}>Mẫu có sẵn trong tool</option>"]
+    opts += [f"<option value='{esc(n)}' {'selected' if n == current else ''}>{esc(n)}</option>" for n in names]
+    return (f"<details><summary class='muted'>🧩 Dự án mẫu CapCut (đang dùng: {state})</summary>"
+            "<form method='post' action='/settings/template' style='margin-top:8px'>"
+            "<p class='muted'>Dự án mẫu là khuôn để tool nhân bản chữ, clip, âm thanh. Nên chọn dự án bạn tạo riêng "
+            "làm mẫu và đừng xóa nó trong CapCut; không có thì dùng mẫu có sẵn trong tool.</p>"
+            f"<div class='row'><select name='name'>{''.join(opts)}</select>"
+            "<button class='btn small' type='submit'>Lưu</button></div></form></details>")
 
 
 def _scan_report_html(rep, download: bool, has_key: bool) -> str:
