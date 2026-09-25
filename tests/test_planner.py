@@ -157,3 +157,80 @@ def test_build_draft_end_to_end(tmp_path):
     canvases = tl["materials"]["canvases"]
     assert canvases and all(c["type"] == "canvas_blur" and c["blur"] == 0.375 for c in canvases)
     res.writer.save()
+
+
+def _analysis():
+    words = [{"start": 7.3 + i * 0.3, "end": 7.5 + i * 0.3, "word": ch} for i, ch in enumerate("優勝は絶対させないと。")]
+    return {"scenes": {"path": "C:/f/box.mp4", "duration": 173.8, "width": 1920, "height": 1080, "scenes": []},
+            "transcript": {"language": "ja", "segments": [{"start": 7.3, "end": 11.0, "text": "", "words": words}]},
+            "subjects": {"points": []}}
+
+
+def test_replay_clip_and_sfx_from_library(tmp_path):
+    from app.capcut_writer.template import LibraryItem
+    from app.styles import load_style
+
+    tpl = DraftTemplate(SAMPLE)
+    tpl.library.append(LibraryItem(kind="sfx", name="Punch Hit", resource_id="999",
+                                   material={**next(m for m in tpl.library if m.kind == "music").material,
+                                             "music_id": "999", "name": "Punch Hit", "duration": 1_200_000}))
+    p = load("plan.json")
+    p["clips"].append({"source_start": 19.2, "source_end": 21.0, "speed": 0.4, "replay": True, "purpose_vi": "replay"})
+    p["sfx"] = [{"source_time": 19.3, "kind": "boom", "name": "Punch Hit", "reason_vi": "cú đấm"},
+                {"source_time": 20.0, "kind": "whoosh", "name": None, "reason_vi": "chuyển"}]
+    plan = EditPlan.model_validate(p)
+    assert check_plan(plan, 173.8, min_s=10) == []  # replay được phép lặp footage
+    u = Understanding.model_validate(load("understand.json"))
+    res = build(plan, u, _analysis(), tpl, tmp_path, "sport", load_style("sports_analysis"))
+    tl = res.writer.build_timeline()
+    texts = [json.loads(m["content"])["text"] for m in tl["materials"]["texts"]]
+    assert "リプレイ" in texts
+    videos = [s for t in tl["tracks"] if t["type"] == "video" for s in t["segments"]]
+    replay = videos[-1]
+    assert replay["speed"] == 0.4 and replay["volume"] == 0.0
+    assert replay["target_timerange"]["duration"] == round(1.8 / 0.4 * SEC)
+    audio_names = [m["name"] for m in tl["materials"]["audios"]]
+    assert "Punch Hit" in audio_names
+    assert [m["what"] for m in res.missing_assets] == ["whoosh"]
+
+
+def test_replay_rules():
+    p = load("plan.json")
+    p["clips"].append({"source_start": 19.2, "source_end": 21.0, "speed": 1.0, "replay": True})
+    p["clips"].append({"source_start": 50.0, "source_end": 52.0, "speed": 0.5})
+    errs = check_plan(EditPlan.model_validate(p), 173.8, min_s=10)
+    assert any("phải quay chậm" in e for e in errs) and any("chỉ clip replay" in e for e in errs)
+
+
+def test_styles_available_and_loadable():
+    from app.styles import available_styles, load_style, styles_for_prompt
+
+    styles = available_styles()
+    for name in ("tiktok_retention", "podcast", "sports_analysis", "vlog", "entertainment", "jp_telop"):
+        assert name in styles and styles[name]["name_vi"]
+        st = load_style(name)
+        assert st["director_brief"] and st["subtitle"]["size"] and st["hook_text"]["size"] >= 30
+    assert "sports_analysis:" in styles_for_prompt()
+
+
+def test_understand_rejects_unknown_style(tmp_path):
+    bad = load("understand.json")
+    bad["suggested_style"] = "khong_co"
+    d = FakeDirector({"understand": [bad, load("understand.json")]})
+    understand(d, make_analysis(tmp_path))
+    assert len(d.calls) == 2 and "sports_analysis" in d.calls[1]["prompt"]
+
+
+def test_audio_kind_and_merge_library(tmp_path):
+    import shutil
+
+    from app.capcut_writer.template import audio_kind
+
+    assert audio_kind({"type": "music", "duration": 2_000_000}) == "sfx"
+    assert audio_kind({"type": "music", "duration": 60_000_000}) == "music"
+    assert audio_kind({"type": "sound", "duration": 60_000_000}) == "sfx"
+    a = DraftTemplate(SAMPLE)
+    shutil.copytree(SAMPLE, tmp_path / "coll")
+    assert a.merge_library(DraftTemplate(tmp_path / "coll")) == 0  # trùng hết
+    moods = {i.name: i.mood for i in a.library if i.kind == "music"}
+    assert "vui" in moods["Keep It High"]

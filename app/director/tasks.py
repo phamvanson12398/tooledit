@@ -6,8 +6,9 @@ import json
 from pathlib import Path
 
 from app import config
+from app.styles import available_styles, styles_for_prompt
 from app.director.base import Director
-from app.director.schemas import STYLES, Understanding, check_ranges
+from app.director.schemas import Understanding, check_ranges
 
 
 def load_analysis(analysis_dir: Path, footage: int = 0) -> dict:
@@ -41,7 +42,7 @@ def understand(director: Director, analysis_dir: Path, client_style: str | None 
     n_frames = config.load("director").get("frames", {}).get("understand", 12)
     frames = pick_evenly(a["frames"], n_frames)
     variables = {
-        "styles": ", ".join(STYLES),
+        "styles": styles_for_prompt(),
         "client_style": client_style or "chưa có (khách mới, bạn tự chọn)",
         "duration": f"{sc['duration']:.1f}",
         "width": sc["width"], "height": sc["height"], "scene_count": len(sc["scenes"]),
@@ -51,9 +52,15 @@ def understand(director: Director, analysis_dir: Path, client_style: str | None 
         "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames),
     }
     images = [analysis_dir / f["file"] for f in frames]
-    return director.run("understand", variables, Understanding, images,
-                        extra_check=lambda r: check_ranges([*r.key_moments, r.usable_range], sc["duration"],
-                                                           "mốc"))
+    styles = available_styles()
+
+    def extra(r) -> list[str]:
+        errors = check_ranges([*r.key_moments, r.usable_range], sc["duration"], "mốc")
+        if r.suggested_style not in styles:
+            errors.append(f"suggested_style '{r.suggested_style}' không có; chọn một trong: {', '.join(styles)}")
+        return errors
+
+    return director.run("understand", variables, Understanding, images, extra_check=extra)
 
 
 def apply_name_corrections(text: str, corrections) -> str:
@@ -104,8 +111,8 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
 
 
 def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=None, hook_s: float = 0.0,
-              music_items: list | None = None, business: bool = False, reframe: bool = False,
-              default_ratio: str = "4:3", video_index: int = 1, footage: int = 0):
+              music_items: list | None = None, sfx_items: list | None = None, business: bool = False,
+              reframe: bool = False, default_ratio: str = "4:3", video_index: int = 1, footage: int = 0):
     from app.director.schemas import EditPlan, check_plan
 
     a = load_analysis(analysis_dir, footage)
@@ -114,9 +121,12 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     vertical = sc["height"] > sc["width"]
     segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
     music_lines = [
-        f"- {m.name} ({m.category}{', Commercial' if m.commercial else ''}{', Pro' if m.is_vip else ''})"
+        f"- {m.name} ({m.category}{', tâm trạng: ' + m.mood if m.mood else ''}"
+        f"{', Commercial' if m.commercial else ''}{', Pro' if m.is_vip else ''}, "
+        f"{m.material.get('duration', 0) / 1e6:.0f}s)"
         for m in (music_items or [])
     ]
+    sfx_lines = [f"- {m.name}{' (' + m.mood + ')' if m.mood else ''}" for m in (sfx_items or [])]
     b = u.burned_in_text
     variables = {
         **_shared_context(u, segs), "video_index": video_index,
@@ -127,12 +137,14 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         "reframe": "có — chọn 4:3 hoặc 1:1 cho từng clip" if reframe else "không — mọi clip dùng khung mặc định",
         "burned_in": (f"có, ở {', '.join(b.regions)}. {b.note_vi}" if b.present else "không"),
         "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
+        "sfx_list": "\n".join(sfx_lines) or "(kho SFX trống — đặt name = null, tool sẽ ghi vào danh sách cần bổ sung)",
         "business_note": "Khách là doanh nghiệp: CHỈ chọn bài có nhãn Commercial." if business else "",
         "hook": (f"{hook.line} ({hook.line_vi}) — footage {hook.footage.start:.1f}–{hook.footage.end:.1f}s"
                  if hook else "không có hook"),
         "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in sc["scenes"]),
     }
     names = {m.name for m in (music_items or [])}
+    sfx_names = {m.name for m in (sfx_items or [])}
     commercial = {m.name for m in (music_items or []) if m.commercial}
 
     def extra(plan) -> list[str]:
@@ -141,6 +153,9 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             errors.append(f"có clip bắt đầu trước đoạn dùng được ({u.usable_range.start:.1f}s)")
         if plan.music.name and plan.music.name not in names:
             errors.append(f"bài nhạc '{plan.music.name}' không có trong danh sách")
+        for sfx in plan.sfx:
+            if sfx.name and sfx.name not in sfx_names:
+                errors.append(f"SFX '{sfx.name}' không có trong kho SFX")
         if business and plan.music.name and plan.music.name not in commercial:
             errors.append(f"khách doanh nghiệp: bài '{plan.music.name}' không có nhãn Commercial")
         if not reframe and any(c.ratio and c.ratio != plan.default_ratio for c in plan.clips):

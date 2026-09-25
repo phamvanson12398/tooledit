@@ -1,0 +1,20 @@
+name: entertainment
+name_vi: Giải trí / show / hài (kiểu 예능)
+fits_vi: show giải trí, trò chơi, thử thách, hài, phản ứng, nhiều tiếng cười
+description_vi: Chữ to nhiều màu có viền, bình luận chêm, zoom giật khi phản ứng, SFX vui, nhịp nhanh.
+
+director_brief: |
+  - Bắt mọi khoảnh khắc phản ứng/tiếng cười; cắt nhanh, bỏ khoảng chết.
+  - Chữ nhấn kiểu bình luận chêm của editor (giọng người xem/editor, vui, ngắn) - vẫn phải đúng với cái đang diễn ra,
+    không gán lời cho nhân vật. Tối đa 1 chữ nhấn / 4 giây. Xen kẽ position center và top.
+  - Zoom "punch" ở mỗi phản ứng lớn; có thể dày hơn các kiểu khác nhưng không liên tục.
+  - SFX vui (pop, ding, laugh, record_scratch) ở điểm hài.
+  - Nhạc vui/bouncy, hạ khi có thoại.
+
+subtitle: {mode: chunk, max_chars: {ja: 10, ko: 12, en: 22}, size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
+hook_text: {size: 34, color: [1, 0.85, 0], stroke_color: [0, 0, 0], stroke_width: 0.18, animations: [in, loop]}
+emphasis: {size: 24, color: [1, 0.4, 0.7], stroke_color: [1, 1, 1], stroke_width: 0.16}
+title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
+zoom: {punch_scale: 1.18, punch_in_s: 0.1, slow_scale: 1.1}
+music: {volume_speech: 0.12, volume_gap: 0.4, fade_s: 0.2}
+hook: {min_s: 3.0, max_s: 5.0}

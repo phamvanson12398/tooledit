@@ -6,8 +6,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-STYLES = ("kr_variety", "jp_telop", "tiktok_retention", "storytelling", "healing", "professional")
-Style = Literal["kr_variety", "jp_telop", "tiktok_retention", "storytelling", "healing", "professional"]
 Language = Literal["ko", "ja", "en"]
 
 
@@ -41,7 +39,7 @@ class Understanding(BaseModel):
     people_count: int = Field(ge=0)
     main_subject: str
     language: Language
-    suggested_style: Style
+    suggested_style: str = Field(description="tên preset phong cách, phải thuộc danh sách được cung cấp")
     style_reason_vi: str
     key_moments: list[KeyMoment] = Field(min_length=1, max_length=12)
     usable_range: TimeRange = Field(description="đoạn chứa mạch nội dung chính, bỏ phần thừa đầu/cuối")
@@ -119,7 +117,8 @@ Ratio = Literal["full", "4:3", "1:1"]
 class PlanClip(BaseModel):
     source_start: float = Field(ge=0)
     source_end: float = Field(gt=0)
-    speed: float = Field(default=1.0, ge=1.0, le=2.0)
+    speed: float = Field(default=1.0, ge=0.25, le=2.0, description="<1 = quay chậm (replay), >1 = tua nhanh")
+    replay: bool = Field(default=False, description="true = tua lại chậm một đoạn đã dùng (được phép lặp footage)")
     ratio: Ratio | None = Field(default=None, description="khung riêng cho clip; null = khung mặc định")
     purpose_vi: str = ""
 
@@ -140,6 +139,7 @@ class Zoom(BaseModel):
 class Sfx(BaseModel):
     source_time: float = Field(ge=0)
     kind: Literal["pop", "whoosh", "ding", "boom", "laugh", "swoosh", "record_scratch"]
+    name: str | None = Field(default=None, description="tên SFX trong kho có sẵn (nếu có bài hợp), hoặc null")
     reason_vi: str = ""
 
 
@@ -168,7 +168,8 @@ def clips_duration(clips: list[PlanClip]) -> float:
 def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: float = 60.0,
                max_s: float = 150.0) -> list[str]:
     errors = check_ranges([TimeRange(start=c.source_start, end=c.source_end) for c in plan.clips], duration, "clip")
-    for a, b in zip(plan.clips, plan.clips[1:]):
+    normal = [c for c in plan.clips if not c.replay]
+    for a, b in zip(normal, normal[1:]):
         if b.source_start < a.source_end - 0.05 and b.source_end > a.source_start:
             errors.append(f"clip {a.source_start}-{a.source_end} và {b.source_start}-{b.source_end} chồng nhau")
     total = clips_duration(plan.clips) + hook_s
@@ -177,6 +178,12 @@ def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: floa
         errors.append(f"tổng thời lượng {total:.1f}s (kể cả hook {hook_s:.1f}s) vượt {max_s:.0f}s — cắt gọn thêm")
     if total < min_s and usable >= min_s + 10:
         errors.append(f"tổng thời lượng {total:.1f}s ngắn hơn {min_s:.0f}s trong khi footage đủ dài")
+
+    for c in plan.clips:
+        if c.replay and c.speed >= 1.0:
+            errors.append(f"clip replay {c.source_start}-{c.source_end} phải quay chậm (speed < 1)")
+        if not c.replay and c.speed < 1.0:
+            errors.append(f"clip {c.source_start}-{c.source_end}: chỉ clip replay mới được quay chậm")
 
     def inside(t: float) -> bool:
         return any(c.source_start - 0.05 <= t <= c.source_end + 0.05 for c in plan.clips)

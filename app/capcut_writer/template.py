@@ -63,13 +63,14 @@ class Prototype:
 class LibraryItem:
     """Một tài nguyên thư viện CapCut (hiệu ứng, filter, chuyển cảnh, sticker, nhạc, animation chữ)."""
 
-    kind: str  # video_effect | filter | transition | sticker | music | text_animation
+    kind: str  # video_effect | filter | transition | sticker | music | sfx | text_animation
     name: str
     resource_id: str
     material: dict
     is_vip: bool = False
     category: str = ""
     commercial: bool = False  # nhãn Commercial của CapCut: draft không ghi, lấy từ config/capcut_labels.yaml
+    mood: str = ""            # nhãn tâm trạng do người dùng ghi trong config/capcut_labels.yaml
 
     def to_json(self) -> dict:
         return {
@@ -79,6 +80,7 @@ class LibraryItem:
             "is_vip": self.is_vip,
             "category": self.category,
             "commercial": self.commercial,
+            "mood": self.mood,
             "material": self.material,
         }
 
@@ -92,6 +94,7 @@ class LibraryItem:
             is_vip=data.get("is_vip", False),
             category=data.get("category", ""),
             commercial=data.get("commercial", False),
+            mood=data.get("mood", ""),
         )
 
 
@@ -201,7 +204,7 @@ class DraftTemplate:
             add("sticker", mat, mat["resource_id"], mat.get("name", ""), mat.get("category_name", ""))
         for mat in m.get("audios", []):
             if mat.get("music_id"):
-                add("music", mat, mat["music_id"], mat.get("name", ""), mat.get("category_name", ""))
+                add(audio_kind(mat), mat, mat["music_id"], mat.get("name", ""), mat.get("category_name", ""))
         seen = set()
         for mat in m.get("material_animations", []):
             for anim in mat.get("animations", []):
@@ -213,9 +216,22 @@ class DraftTemplate:
 
     def _apply_labels(self, labels: dict) -> None:
         commercial = {str(x) for x in labels.get("commercial_music_ids", [])}
+        moods = {str(k): str(v) for k, v in (labels.get("moods") or {}).items()}
         for item in self.library:
-            if item.kind == "music" and item.resource_id in commercial:
-                item.commercial = True
+            if item.kind in ("music", "sfx"):
+                item.commercial = item.resource_id in commercial
+                item.mood = moods.get(item.resource_id, item.mood)
+
+    def merge_library(self, other: "DraftTemplate") -> int:
+        """Gộp tài nguyên từ một dự án 'bộ sưu tập' (nhạc, SFX, hiệu ứng...) vào danh mục; trả số mục mới."""
+        seen = {(i.kind, i.resource_id) for i in self.library}
+        added = 0
+        for item in other.library:
+            if (item.kind, item.resource_id) not in seen:
+                self.library.append(item)
+                seen.add((item.kind, item.resource_id))
+                added += 1
+        return added
 
     # ---------- tra cứu ----------
 
@@ -229,6 +245,16 @@ class DraftTemplate:
         if kind not in self.prototypes:
             raise KeyError(f"Dự án mẫu thiếu khuôn cho loại {kind!r}")
         return self.prototypes[kind].clone()
+
+
+SFX_MAX_US = 6_000_000  # âm thanh thư viện ngắn hơn 6 giây coi là SFX
+
+
+def audio_kind(mat: dict) -> str:
+    """Nhạc nền hay hiệu ứng âm thanh: theo type của CapCut hoặc độ dài."""
+    if mat.get("type") in ("sound", "sound_effect") or 0 < mat.get("duration", 0) <= SFX_MAX_US:
+        return "sfx"
+    return "music"
 
 
 def _load_labels() -> dict:

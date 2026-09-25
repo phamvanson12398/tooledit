@@ -1,5 +1,7 @@
 # Phong cách tiktok_retention: cắt rất nhanh, bỏ mọi khoảng lặng, phụ đề nhảy từng cụm, zoom liên tục.
 name: tiktok_retention
+name_vi: Cắt nhanh giữ chân (TikTok)
+fits_vi: nội dung nói nhiều, cần nhịp nhanh, đa số video TikTok
 description_vi: Cắt rất nhanh, bỏ mọi khoảng lặng, phụ đề nhảy từng cụm từ, zoom liên tục.
 
 # Hướng dẫn cho đạo diễn (ghép vào prompt kế hoạch dựng)

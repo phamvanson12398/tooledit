@@ -1,5 +1,21 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 7 — Giao diện mới, 6 kiểu dựng, kho nhạc/SFX `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Cập nhật: `git pull` rồi `.venv\Scripts\pip install -r requirements.txt`. Mở `start.bat`.
+2. Bấm **📂 Chọn file…**: hộp thoại Windows hiện ra (có thể nằm sau cửa sổ trình duyệt), chọn video.
+3. Chọn **Kiểu dựng**: "AI tự chọn" hoặc một trong: Cắt nhanh (TikTok), Podcast/phỏng vấn, Thể thao – bình luận &
+   phân tích tình huống (có replay quay chậm + chữ phân tích), Vlog, Giải trí/show, テロップ Nhật.
+4. **Kho nhạc/SFX để đạo diễn chọn nhạc hợp từng video:**
+   - Trong CapCut tạo dự án mới tên **`bo_suu_tap_nhac`**. Kéo vào timeline 10–30 bài nhạc nhiều tâm trạng khác nhau
+     (vui, hype/thể thao, chill/lofi, cảm động, hồi hộp, hài...) và 10–20 hiệu ứng âm thanh (pop, whoosh, ding, boom,
+     tiếng cười...). Không cần sắp xếp. Lưu, đóng CapCut.
+   - Trang chủ, ô **Kho tài nguyên** sẽ hiện số nhạc / SFX đọc được.
+   - (Tùy chọn) Ghi tâm trạng từng bài trong `config\capcut_labels.yaml` mục `moods` (music_id lấy bằng
+     `.venv\Scripts\python tools\inspect_draft.py <thư mục dự án bo_suu_tap_nhac>`), ghi bài Commercial ở
+     `commercial_music_ids`.
+5. Dựng thử một video thể thao (boxing/bóng đá/bóng chày có bình luận) với kiểu "Thể thao" hoặc "AI tự chọn".
+
 ## Bước 6 — Giao diện web (start.bat) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 ```powershell

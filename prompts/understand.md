@@ -4,7 +4,8 @@ Xem transcript và các khung hình dưới đây, rồi cho biết:
 - thể loại, không khí, số người xuất hiện, chủ thể chính;
 - ngôn ngữ chính của video (ko / ja / en);
 - tóm tắt một dòng bằng tiếng Việt (người dùng sẽ duyệt câu này);
-- phong cách dựng phù hợp nhất trong 6 phong cách: {{styles}};
+- phong cách dựng phù hợp nhất (ghi đúng tên preset ở đầu dòng) trong danh sách:
+{{styles}}
 - 3–8 khoảnh khắc đáng chú ý (mốc giây trong footage gốc, lý do bằng tiếng Việt) — dùng cho hook và kế hoạch dựng;
 - `usable_range`: đoạn chứa mạch nội dung chính (bỏ phần thừa, phần bị cắt dở);
 - `name_corrections`: tên riêng/từ mà transcript tự động nghe sai, kèm căn cứ (chữ trên khung hình, ngữ cảnh).

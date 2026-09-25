@@ -14,8 +14,11 @@ Phong cách: **{{style_name}}** — {{style_description}}
   ("4:3" cho cảnh rộng/nhiều người, "1:1" cho cận mặt/cận vật; "full" chỉ khi footage dọc).
   Đổi khung theo cảnh: {{reframe}}.
 - Chữ có sẵn trên hình: {{burned_in}}
-- Nhạc: chọn `music.name` trong danh sách dưới (hoặc null nếu không bài nào hợp):
+- Nhạc nền: chọn bài HỢP NHẤT với không khí của video này (thể loại, tâm trạng, nhịp) trong danh sách dưới;
+  đừng chọn theo thói quen. Nếu không bài nào hợp thì đặt null và mô tả trong mood_vi (tool sẽ báo cần bổ sung):
 {{music_list}}
+- SFX: nếu có tiếng phù hợp trong kho dưới thì ghi `name`, không thì null:
+{{sfx_list}}
 {{business_note}}
 
 ## Hook đã chọn (sẽ đặt trước clip đầu tiên)

@@ -4,3 +4,8 @@
 # Dùng music_id (xem bằng: python tools\inspect_draft.py <thư mục draft>).
 commercial_music_ids:
   - "7615753471502092304"   # Keep It High (Vlog) — chủ dự án xác nhận có nhãn Commercial
+
+# Nhãn tâm trạng cho nhạc / SFX (giúp đạo diễn chọn đúng bài cho từng video). music_id: "mô tả ngắn"
+moods:
+  "7615753471502092304": "vui, sôi động, vlog"     # Keep It High
+  "7114694728516159489": "chill, trầm, suy tư"     # Abstraction

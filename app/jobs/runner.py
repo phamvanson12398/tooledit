@@ -14,7 +14,7 @@ from typing import Callable
 from app import config
 from app.jobs.job import Job, Status
 
-STAGE1_STYLE = "tiktok_retention"
+DEFAULT_STYLE = "tiktok_retention"
 
 
 def drafts_root() -> Path:
@@ -88,7 +88,28 @@ class Runner:
         if tdir is None or not Path(tdir).is_dir():
             raise RuntimeError(f"Không thấy dự án mẫu CapCut ({tdir or 'theo config/capcut.yaml'}). "
                                "Kiểm tra template_name trong config/capcut.yaml.")
-        return DraftTemplate(Path(tdir))
+        tpl = DraftTemplate(Path(tdir))
+        if self._template_dir is None:  # gộp kho nhạc/SFX từ các dự án bộ sưu tập
+            for name in config.load("capcut").get("library_drafts") or []:
+                extra = find_template(drafts_root(), name)
+                if extra is not None and extra != Path(tdir):
+                    added = tpl.merge_library(DraftTemplate(extra))
+                    self.log(f"Kho tài nguyên '{name}': thêm {added} mục")
+        return tpl
+
+    def _style_name(self, job: Job) -> str:
+        """Phong cách người dùng chọn; 'auto' = theo đề xuất của đạo diễn (nếu preset tồn tại)."""
+        from app.styles import available_styles
+
+        chosen = job.data.get("style") or "auto"
+        styles = available_styles()
+        if chosen != "auto" and chosen in styles:
+            return chosen
+        try:
+            suggested = self._understanding(job).suggested_style
+        except FileNotFoundError:
+            suggested = None
+        return suggested if suggested in styles else DEFAULT_STYLE
 
     # ---------- chạy ----------
 
@@ -142,8 +163,8 @@ class Runner:
 
     def step_confirm_genre(self, job: Job) -> None:
         u = self._understanding(job)
-        job.wait(f"Xác nhận nội dung: {u.summary_vi} | Phong cách đề xuất: {u.suggested_style} "
-                 f"(Giai đoạn 1 luôn dựng {STAGE1_STYLE}). Sửa plan/understanding.json nếu cần rồi bấm Tiếp tục.")
+        job.wait(f"Xác nhận nội dung: {u.summary_vi} | Phong cách sẽ dùng: {self._style_name(job)}. "
+                 "Sửa plan/understanding.json nếu cần rồi bấm Tiếp tục.")
 
     def step_hooks(self, job: Job) -> None:
         from app.director.tasks import make_hooks
@@ -198,8 +219,12 @@ class Runner:
             voice = hook_io.find_voice(d, 1)
             hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else 4.0
         tpl = self._template()
-        plan = make_plan(self.director, analysis, u, load_style(STAGE1_STYLE), hook=hook, hook_s=hook_s,
+        style_name = self._style_name(job)
+        job.data["style_used"] = style_name
+        self.log(f"Phong cách dựng: {style_name}")
+        plan = make_plan(self.director, analysis, u, load_style(style_name), hook=hook, hook_s=hook_s,
                          music_items=[m for m in tpl.library if m.kind == "music"],
+                         sfx_items=[m for m in tpl.library if m.kind == "sfx"],
                          business=job.data.get("business", False), reframe=job.options.reframe_per_scene,
                          default_ratio=job.data.get("default_ratio") or config.load("capcut").get("default_block", "4:3"))
         (plan_dir / "edit_plan_video01.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
@@ -233,7 +258,7 @@ class Runner:
         clean = analysis / "audio" / "clean_00.wav"
         name = f"{job.options.client_id or 'khach'}_{job.job_id}_video01"
         res = build(plan, u, load_analysis(analysis), self._template(), self._drafts_dir or drafts_root(), name,
-                    load_style(STAGE1_STYLE), hook=hook, voice=voice,
+                    load_style(job.data.get("style_used") or self._style_name(job)), hook=hook, voice=voice,
                     clean_audio=clean.resolve() if clean.is_file() else None)
         out = res.writer.save(overwrite=True)
         (d / "missing_assets.json").write_text(json.dumps(res.missing_assets, ensure_ascii=False, indent=2),

@@ -175,16 +175,25 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
 
     # ---------- clip chính ----------
     tmap = TimeMap(plan.clips, offset_us=hook_us)
+    replay_cfg = style.get("replay_label") or {}
+    replay_text = (replay_cfg.get("text") or {}).get(u.language, "REPLAY")
+    replay_style = _style(replay_cfg) if replay_cfg else emph_style
     for clip, p in zip(plan.clips, tmap.placed):
         ratio = ratio_for(clip.ratio)
+        kfs = zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
+            [Keyframe("scale", 0, 1.0), Keyframe("scale", p.out_duration, style.get("zoom", {}).get("slow_scale", 1.12))]
         w.add_video(src, target_start=p.out_start, duration=p.out_duration,
                     source_start=round(clip.source_start * SEC), speed=clip.speed,
                     crop=crop_for(ratio, clip.source_start, clip.source_end),
-                    volume=0.0 if clean_audio else 1.0,
-                    keyframes=zoom_keyframes(plan.zooms, p, style.get("zoom", {})) or None, **bg_kwargs(ratio))
-        if clean_audio:
+                    volume=0.0 if (clean_audio or clip.replay) else 1.0,
+                    keyframes=kfs or None, **bg_kwargs(ratio))
+        if clean_audio and not clip.replay:  # replay quay chậm: tắt tiếng gốc, để nhạc/SFX dẫn
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed)
+        if clip.replay:
+            rpos = text_positions(ratio, safe)
+            w.add_text(replay_text, start=p.out_start, duration=p.out_duration, x=rpos["x"], y=rpos["top"],
+                       style=replay_style, animations=anims_in[:1])
 
     # ---------- chữ ----------
     main_ratio = ratio_for(None)
@@ -208,10 +217,17 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         w.add_text(plan.title_top, start=hook_us, duration=tmap.end - hook_us, x=pos["x"], y=pos["top"],
                    style=title_style)
 
-    # ---------- SFX: chưa có kho → ghi danh sách cần bổ sung ----------
+    # ---------- SFX: lấy từ kho (bộ sưu tập); không có thì ghi danh sách cần bổ sung ----------
+    sfx_lib = {m.name: m for m in template.library if m.kind == "sfx"}
     for s in plan.sfx:
         t = tmap.to_out(s.source_time)
-        if t is not None:
+        if t is None:
+            continue
+        item = sfx_lib.get(s.name or "")
+        if item is not None:
+            length = min(item.material.get("duration", SEC), 3 * SEC, max(1, tmap.end - t))
+            w.add_music(item, target_start=t, duration=length, volume=0.8)
+        else:
             missing.append({"kind": "sfx", "what": s.kind, "video": video_index, "at_s": round(t / SEC, 2),
                             "purpose_vi": s.reason_vi})
 

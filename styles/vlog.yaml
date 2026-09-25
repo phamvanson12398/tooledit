@@ -1,0 +1,20 @@
+name: vlog
+name_vi: Vlog / du lịch / đời thường
+fits_vi: quay đời sống, du lịch, ăn uống, một ngày của..., cảnh đẹp, ít thoại hoặc thoại tự sự
+description_vi: Kể chuyện theo hành trình, nhịp vừa, nhạc nền là linh hồn, cắt theo nhịp nhạc, chữ ít và nhẹ nhàng.
+
+director_brief: |
+  - Kể theo trình tự thời gian/hành trình; mỗi cảnh 2–6 giây, cắt ở động tác hoặc chuyển cảnh tự nhiên.
+  - Giữ âm thanh hiện trường ở khoảnh khắc đẹp; chỗ không thoại để nhạc dẫn dắt.
+  - Chữ nhấn ít (tối đa 1 / 10 giây): địa điểm, món ăn, cảm xúc ngắn.
+  - Zoom "slow" là chính; "punch" hầu như không dùng.
+  - Nhạc nền nổi bật hơn các kiểu khác (acoustic/chill/pop nhẹ), chọn đúng tâm trạng; chỉ hạ khi có thoại.
+  - SFX rất ít.
+
+subtitle: {mode: chunk, max_chars: {ja: 12, ko: 14, en: 28}, size: 12, color: [1, 1, 1], stroke_color: [0, 0, 0]}
+hook_text: {size: 30, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.12, animations: [in]}
+emphasis: {size: 20, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.08}
+title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
+zoom: {punch_scale: 1.08, punch_in_s: 0.3, slow_scale: 1.08}
+music: {volume_speech: 0.18, volume_gap: 0.6, fade_s: 0.5}
+hook: {min_s: 3.0, max_s: 5.0}

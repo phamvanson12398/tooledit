@@ -28,7 +28,8 @@ def test_web_full_flow(tmp_path):
 
     app = create_app(jobs, factory)
     client = TestClient(app)
-    assert "Job mới" in client.get("/").text
+    home = client.get("/").text
+    assert "Tạo video mới" in home and "Chọn file" in home and "value='sports_analysis'" in home
 
     # file không tồn tại → báo lỗi
     assert "Không thấy file" in client.post("/jobs", data={"footage": str(tmp_path / "khong.mp4")}).text
@@ -44,7 +45,7 @@ def test_web_full_flow(tmp_path):
         return orig_start(job_id, action)
 
     app.state.worker.start = start
-    r = client.post("/jobs", data={"footage": str(footage), "client": "khachA", "hook": "on"},
+    r = client.post("/jobs", data={"footage": str(footage), "client": "khachA", "hook": "on", "style": "podcast"},
                     follow_redirects=False)
     assert r.status_code == 303
     wait_idle(app)
@@ -65,3 +66,4 @@ def test_web_full_flow(tmp_path):
     page = client.get(f"/jobs/{job_id}").text
     assert "Caption + hashtag" in page and "Tài nguyên cần bổ sung" in page and "khachA" in page
     assert job_id in client.get("/").text
+    assert job.data["style_used"] == "podcast"

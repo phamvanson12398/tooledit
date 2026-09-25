@@ -70,3 +70,14 @@ def test_find_template_by_display_name(tmp_path):
     (tmp_path / "khac").mkdir()
     assert find_template(tmp_path, "capcut_template") == tmp_path / "0925"
     assert find_template(tmp_path, "khong_co") is None
+
+
+def test_style_choice_user_vs_auto(tmp_path):
+    jobs, job = prepare(tmp_path, JobOptions())
+    r = make_runner(tmp_path, jobs)
+    job = r.run(job)
+    assert job.status == Status.done and job.data["style_used"] == "jp_telop"  # đạo diễn đề xuất
+    jobs2, job2 = prepare(tmp_path / "b", JobOptions())
+    job2.data["style"] = "podcast"
+    job2 = make_runner(tmp_path / "b", jobs2).run(job2)
+    assert job2.data["style_used"] == "podcast"
