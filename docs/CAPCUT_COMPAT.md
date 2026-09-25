@@ -169,3 +169,14 @@ keyframe âm lượng), và **xuất video thành công**. Chưa kiểm chứng:
   cập nhật `draft_meta_info.json`; từ chối ghi khi CapCut đang mở.
 - `layout.py`: kích thước/cắt khối 4:3, 1:1 và vị trí dải chữ trên/dưới.
 - `media.py`: đọc kích thước, độ dài, góc xoay video bằng ffprobe.
+
+## 9. Bổ sung từ mẫu lần 3 (2026-09-25)
+
+- **Âm thanh local** (kkk2.wav, CapCut tự ghi): `type: extract_music`, `category_name: local`, `app_id: 0`,
+  `check_flag: 1`, `music_id` / `local_material_id` / `category_id` rỗng; vật liệu phụ giống nhạc thư viện
+  (speeds, placeholder_infos, beats, sound_channel_mappings, vocal_separations). Bộ ghi đã sửa cho khớp
+  (trước đó theo pyCapCut: check_flag 3, music_id = id). Kiểm chứng trên máy: demo_tool_v2.
+- **Nhãn Commercial**: chủ dự án xác nhận "Keep It High" có nhãn Commercial, "Abstraction" thì không. So sánh
+  draft_content.json và key_value.json của hai bài: không có trường nào phân biệt (chỉ khác `is_vip`).
+  → Kết luận: **draft không lưu nhãn Commercial**; khai báo tay trong `config/capcut_labels.yaml`
+  (`commercial_music_ids`), bộ đọc mẫu gắn cờ `commercial` cho tài nguyên tương ứng.

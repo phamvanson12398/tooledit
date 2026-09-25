@@ -1,0 +1,6 @@
+# Nhãn mà draft CapCut KHÔNG ghi lại, người dùng tự khai báo.
+# Đã kiểm tra (mẫu lần 3): bài có nhãn Commercial và bài không có nhãn giống hệt nhau trong
+# draft_content.json và key_value.json (chỉ khác is_vip). Nên nhãn Commercial phải ghi tay ở đây.
+# Dùng music_id (xem bằng: python tools\inspect_draft.py <thư mục draft>).
+commercial_music_ids:
+  - "7615753471502092304"   # Keep It High (Vlog) — chủ dự án xác nhận có nhãn Commercial

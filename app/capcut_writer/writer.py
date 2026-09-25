@@ -280,21 +280,24 @@ class DraftWriter:
         self, path: Path, file_duration: int, *, target_start: int, duration: int, source_start: int = 0,
         volume: float = 1.0, keyframes: list[Keyframe] | None = None,
     ) -> dict:
-        """File âm thanh trên máy (ví dụ voice hook). Kiểu 'extract_music' theo pyCapCut.
-        [CẦN KIỂM TRA TRÊN MÁY]: chưa có mẫu âm thanh local do CapCut 9.5.0 ghi."""
+        """File âm thanh trên máy (ví dụ voice hook). Các trường khớp đúng với vật liệu âm thanh local mà
+        CapCut 9.5.0 tự ghi (mẫu lần 3, file kkk2.wav): type extract_music, category_name local, app_id 0,
+        check_flag 1, music_id / local_material_id / category_id rỗng."""
         seg, mat = self._instantiate(self.template.prototype("audio"))
+        keep_id = mat["id"]
+        for key, value in list(mat.items()):  # bỏ dấu vết của bài nhạc thư viện trong khuôn
+            if isinstance(value, str):
+                mat[key] = ""
         mat.update({
+            "id": keep_id,
             "type": "extract_music",
             "name": Path(path).name,
             "path": Path(path).as_posix(),
             "duration": int(file_duration),
-            "music_id": mat["id"],
-            "local_material_id": mat["id"],
-            "category_id": "",
             "category_name": "local",
             "app_id": 0,
-            "check_flag": 3,
-            "request_id": "",
+            "check_flag": 1,
+            "copyright_limit_type": "none",
         })
         return self._finish_audio(seg, mat, target_start, duration, source_start, volume, keyframes)
 

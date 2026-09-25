@@ -69,6 +69,7 @@ class LibraryItem:
     material: dict
     is_vip: bool = False
     category: str = ""
+    commercial: bool = False  # nhãn Commercial của CapCut: draft không ghi, lấy từ config/capcut_labels.yaml
 
     def to_json(self) -> dict:
         return {
@@ -77,6 +78,7 @@ class LibraryItem:
             "resource_id": self.resource_id,
             "is_vip": self.is_vip,
             "category": self.category,
+            "commercial": self.commercial,
             "material": self.material,
         }
 
@@ -89,6 +91,7 @@ class LibraryItem:
             material=data["material"],
             is_vip=data.get("is_vip", False),
             category=data.get("category", ""),
+            commercial=data.get("commercial", False),
         )
 
 
@@ -97,7 +100,7 @@ class DraftTemplate:
 
     PROTOTYPE_KINDS = ("video", "audio", "text", "sticker", "effect", "filter")
 
-    def __init__(self, draft_dir: Path):
+    def __init__(self, draft_dir: Path, labels: dict | None = None):
         self.draft_dir = Path(draft_dir)
         self.timeline_path = main_timeline_path(self.draft_dir)
         self.timeline = read_json(self.timeline_path)
@@ -106,6 +109,7 @@ class DraftTemplate:
         self.track_prototypes: dict[str, dict] = {}
         self._extract_prototypes()
         self.library = self._extract_library()
+        self._apply_labels(labels if labels is not None else _load_labels())
 
     # ---------- đọc ----------
 
@@ -207,6 +211,12 @@ class DraftTemplate:
                 add("text_animation", anim, anim["resource_id"], anim.get("name", ""), anim.get("type", ""))
         return items
 
+    def _apply_labels(self, labels: dict) -> None:
+        commercial = {str(x) for x in labels.get("commercial_music_ids", [])}
+        for item in self.library:
+            if item.kind == "music" and item.resource_id in commercial:
+                item.commercial = True
+
     # ---------- tra cứu ----------
 
     def find(self, kind: str, name: str | None = None) -> LibraryItem:
@@ -219,6 +229,12 @@ class DraftTemplate:
         if kind not in self.prototypes:
             raise KeyError(f"Dự án mẫu thiếu khuôn cho loại {kind!r}")
         return self.prototypes[kind].clone()
+
+
+def _load_labels() -> dict:
+    from app import config
+
+    return config.load("capcut_labels")
 
 
 def _blank_beats(beats: dict) -> None:

@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 2b — Demo v2: thêm âm thanh local (giả làm voice hook) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+`demo_tool_v2` giống demo v1, thêm file `C:\Users\balha\Downloads\kkk2.wav` (lấy từ mẫu lần 3) ở giây 0–4
+trên một track âm thanh riêng. File đó phải còn nguyên chỗ cũ.
+
+1. Đóng hẳn CapCut. Giải nén:
+
+   ```powershell
+   Expand-Archive -Path "$HOME\Downloads\demo_tool_v2.zip" -DestinationPath "$env:LOCALAPPDATA\CapCut\User Data\Projects\com.lveditor.draft"
+   ```
+
+2. Mở `demo_tool_v2`: giây 0–4 phải nghe **kkk2.wav** chồng lên nhạc; track âm thanh không báo "thiếu file".
+3. Xuất thử video.
+
 ## Bước 4 — Chạy thử đạo diễn AI (Claude Code)
 
 **Kết quả lần 1 (2026-09-25, job 20260925_02):** chạy được sau khi đăng nhập Claude Code, mất 24 giây.

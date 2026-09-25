@@ -120,3 +120,25 @@ def test_probe_parsing_rotation():
             "format": {"duration": "12.5"}}
     src = video_source_from_probe(Path("x.mp4"), info)
     assert (src.width, src.height, src.duration, src.has_audio) == (1080, 1920, 12_500_000, True)
+
+
+def test_local_audio_matches_capcut_written_material(tpl, tmp_path):
+    """Mẫu lần 3 có file kkk2.wav do CapCut 9.5.0 tự thêm: vật liệu tool ghi phải khớp các trường chính."""
+    real = next(a for a in tpl.timeline["materials"]["audios"] if a["type"] == "extract_music")
+    w = DraftWriter(tpl, tmp_path, "x")
+    w.add_local_audio(Path("C:/job/voice/video01_hook.wav"), 4 * SEC, target_start=0, duration=3 * SEC)
+    mine = next(a for a in w.build_timeline()["materials"]["audios"] if a["type"] == "extract_music")
+    for key in ("type", "category_name", "app_id", "check_flag", "music_id", "local_material_id", "category_id"):
+        assert mine[key] == real[key], key
+    assert set(real) <= set(mine)  # không thiếu trường nào CapCut ghi
+    seg = next(s for t in w.build_timeline()["tracks"] if t["type"] == "audio" for s in t["segments"])
+    kinds = sorted(k for k, items in w._materials.items() for m in items if m["id"] in seg["extra_material_refs"])
+    assert kinds == ["beats", "placeholder_infos", "sound_channel_mappings", "speeds", "vocal_separations"]
+
+
+def test_commercial_label_from_config(tpl):
+    music = {i.name: i for i in tpl.library if i.kind == "music"}
+    assert music["Keep It High"].commercial and not music["Abstraction"].commercial
+    assert all(i.name != "kkk2.wav" for i in tpl.library)  # âm thanh local không phải tài nguyên thư viện
+    plain = DraftTemplate(SAMPLE, labels={})
+    assert not any(i.commercial for i in plain.library)

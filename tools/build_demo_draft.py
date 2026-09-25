@@ -3,7 +3,7 @@
 Dùng lại chính các clip có trong dự án mẫu (khỏi cần ffprobe). Demo gồm:
 zoom chậm bằng keyframe, khối 4:3 và 1:1 cho clip ngang, lia khung bằng keyframe vị trí,
 phụ đề có viền, chữ có animation, sticker, hiệu ứng, filter, chuyển cảnh, nhạc thư viện
-với keyframe âm lượng (ducking).
+với keyframe âm lượng (ducking), và âm thanh local 0–4s (giả làm voice hook) nếu mẫu có.
 
 Chạy trên Windows (đóng CapCut trước):
     python tools\\build_demo_draft.py "%LOCALAPPDATA%\\CapCut\\User Data\\Projects\\com.lveditor.draft\\capcut_template"
@@ -80,13 +80,18 @@ def build(template_dir: Path, drafts_root: Path, name: str) -> DraftWriter:
     w.add_music(music, target_start=0, duration=15 * SEC, volume=1.0,
                 keyframes=[Keyframe("volume", 0, 1.0), Keyframe("volume", 4 * SEC, 1.0),
                            Keyframe("volume", 4 * SEC + 300_000, 0.2), Keyframe("volume", 15 * SEC, 0.2)])
+    # Âm thanh local (giả làm voice hook) nếu mẫu có: dùng lại file CapCut đã nhập trong mẫu
+    local = next((a for a in tpl.timeline["materials"]["audios"] if a.get("type") == "extract_music"), None)
+    if local:
+        w.add_local_audio(Path(local["path"]), local["duration"], target_start=0,
+                          duration=min(4 * SEC, local["duration"]), volume=1.0)
     return w
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("template_dir", type=Path)
-    parser.add_argument("--name", default="demo_tool_v1")
+    parser.add_argument("--name", default="demo_tool_v2")
     parser.add_argument("--drafts-root", type=Path, help="mặc định: thư mục chứa dự án mẫu")
     parser.add_argument("--fold-root", help="(chỉ dùng khi tạo hộ) đường dẫn thư mục draft trên máy đích")
     parser.add_argument("--overwrite", action="store_true")
