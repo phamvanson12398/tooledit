@@ -42,15 +42,17 @@ cài thư viện, rồi chạy `tools\check_gpu.py`. Mất khoảng 5–15 phút
 faster-whisper cần **cuBLAS cho CUDA 12** và **cuDNN 9 cho CUDA 12** (theo README của faster-whisper).
 GTX 1080 Ti (Compute Capability 6.1) chạy được kiểu `int8_float32` (đã đặt trong `config/whisper.yaml`).
 
-1. Cập nhật driver NVIDIA mới nhất (GeForce Experience hoặc nvidia.com). Kiểm tra: `nvidia-smi`
-   → dòng "CUDA Version" phải từ 12.x trở lên.
-2. Cài thư viện CUDA, chọn MỘT cách:
-   - Cách chính thức: cài CUDA Toolkit 12.x và cuDNN 9 (bản CUDA 12) từ trang NVIDIA.
-   - Cách gọn (README faster-whisper gợi ý): tải gói thư viện ở
-     https://github.com/Purfview/whisper-standalone-win/releases/tag/libs, giải nén, rồi thêm thư mục
-     đó vào biến môi trường PATH.
-3. Chạy lại: `.venv\Scripts\python tools\check_gpu.py` → phải thấy "Số GPU NVIDIA nhận được: 1"
-   và `int8_float32` có trong danh sách.
+1. Driver NVIDIA: `nvidia-smi` → dòng "CUDA Version" phải từ 12.x trở lên.
+2. Cài thư viện NVIDIA bằng pip (install.bat đã làm bước này):
 
-Nếu không làm được bước 4, tool vẫn chạy bằng CPU (chậm hơn nhiều với model large-v3).
-Lần chạy đầu tiên, faster-whisper tự tải model large-v3 (~3 GB) về máy.
+   ```powershell
+   .venv\Scripts\pip install -r requirements-gpu.txt
+   ```
+
+   Tool tự thêm thư mục DLL của các gói này vào PATH khi chạy (`app/gpu_libs.py`).
+3. Kiểm tra: `.venv\Scripts\python tools\check_gpu.py` → cả 3 dòng `cublas64_12.dll`,
+   `cublasLt64_12.dll`, `cudnn64_9.dll` phải "nạp được".
+
+**Chưa chắc chắn:** các bản cuDNN 9 mới có thể đã bỏ hỗ trợ card đời Pascal (GTX 10xx). Nếu GPU
+không chạy được, tool **tự chuyển sang CPU** (chậm hơn nhưng vẫn ra kết quả) và in lý do.
+Lần chạy đầu, faster-whisper tự tải model large-v3 (~3 GB) về máy.

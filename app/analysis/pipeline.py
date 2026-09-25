@@ -49,7 +49,7 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
             whisper_wav = out / "audio" / f"whisper_{tag}.wav"
             ffmpeg.run(ffmpeg.whisper_audio_args(src, whisper_wav))
             progress("Nhận dạng thoại (có thể mất vài phút)")
-            tr = transcribe_fn(whisper_wav)
+            tr = transcribe_fn(whisper_wav, log=progress)
             transcripts.append({"footage": i, **tr.model_dump()})
             whisper_wav.unlink(missing_ok=True)
         else:

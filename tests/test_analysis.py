@@ -9,7 +9,7 @@ import pytest
 from app.analysis import ffmpeg
 from app.analysis.scenes import Scene, detect_scenes, frame_times
 from app.analysis.subjects import Box, FrameSubjects, detect_faces, main_subject_track
-from app.analysis.transcribe import attempts, load_model, pick_language, transcribe
+from app.analysis.transcribe import attempts, pick_language, transcribe
 
 imageio_ffmpeg = pytest.importorskip("imageio_ffmpeg")
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
@@ -89,12 +89,11 @@ class FakeInfo:
 
 class FakeModel:
     def __init__(self, name, device, compute_type):
-        if device == "cuda":
-            raise RuntimeError("CUDA không có")
-        self.calls = []
+        self.device = device
 
     def transcribe(self, audio, language=None, **kw):
-        self.calls.append(language)
+        if self.device == "cuda":  # giống lỗi thật: nạp model được, chạy mới lỗi
+            raise RuntimeError("Library cublas64_12.dll is not found or cannot be loaded")
         if language is None:
             return iter([]), FakeInfo("zh", all_language_probs=[("zh", 0.5), ("ja", 0.4)])
         return iter([FakeSeg(0, 1.2, " こんにちは", [FakeWord(0, 1.2, "こんにちは")])]), FakeInfo(language)
@@ -105,9 +104,9 @@ def test_transcribe_fallback_and_language_forcing():
            "fallback": [{"device": "cpu", "model": "large-v3", "compute_type": "int8"}],
            "languages": ["ko", "ja", "en"]}
     assert len(attempts(cfg)) == 2
-    model, used = load_model(cfg, FakeModel)
-    assert used["device"] == "cpu"
-    tr = transcribe(Path("a.wav"), cfg, FakeModel)
+    logs = []
+    tr = transcribe(Path("a.wav"), cfg, FakeModel, log=logs.append)
+    assert logs and "cublas64_12.dll" in logs[0]
     assert tr.language == "ja" and tr.device == "cpu"
     assert tr.segments[0].text == "こんにちは" and tr.segments[0].words[0].word == "こんにちは"
 
@@ -123,7 +122,7 @@ def test_pipeline_end_to_end(tmp_path: Path, monkeypatch):
                     "-f", "lavfi", "-i", "sine=d=6", "-shortest", "-pix_fmt", "yuv420p", str(video)], check=True)
     monkeypatch.setattr(pipeline, "probe_video", lambda p, exe=None: VideoSource(p, 320, 240, 6_000_000, True))
     monkeypatch.setattr(ffmpeg, "ffmpeg_exe", lambda: FFMPEG)
-    fake = lambda wav: Transcript(language="en", language_probability=1, duration=6, model="fake", device="cpu",
+    fake = lambda wav, log=None: Transcript(language="en", language_probability=1, duration=6, model="fake", device="cpu",
                                   segments=[Segment(start=0, end=1, text="hello")])
     job = Job.create(tmp_path / "jobs", [video], job_id="j1")
     result = pipeline.run_analysis(job, tmp_path / "jobs", transcribe_fn=fake)
@@ -134,3 +133,22 @@ def test_pipeline_end_to_end(tmp_path: Path, monkeypatch):
     assert not (out / "audio" / "whisper_00.wav").exists()
     assert result["frames"] and (out / result["frames"][0]["file"]).is_file()
     assert result["transcripts"][0]["segments"][0]["text"] == "hello"
+
+
+def test_transcribe_all_attempts_fail():
+    class Broken:
+        def __init__(self, *a, **k):
+            raise RuntimeError("không có model")
+
+    with pytest.raises(RuntimeError, match="Không chạy được nhận dạng thoại"):
+        transcribe(Path("a.wav"), {"model": "x", "device": "cpu", "fallback": []}, Broken)
+
+
+def test_nvidia_bin_dirs(tmp_path):
+    from app.gpu_libs import nvidia_bin_dirs
+
+    d = tmp_path / "nvidia" / "cublas" / "bin"
+    d.mkdir(parents=True)
+    (d / "cublas64_12.dll").write_bytes(b"")
+    (tmp_path / "nvidia" / "empty" / "bin").mkdir(parents=True)
+    assert nvidia_bin_dirs([str(tmp_path)]) == [d]

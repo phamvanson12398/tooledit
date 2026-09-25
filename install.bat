@@ -33,7 +33,8 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/4] Kiem tra GPU ...
+echo [4/4] Cai thu vien GPU NVIDIA (cuBLAS, cuDNN - khoang 1.3 GB) va kiem tra GPU ...
+pip install -r requirements-gpu.txt
 python tools\check_gpu.py
 echo.
 echo XONG. Nhan phim bat ky de dong.

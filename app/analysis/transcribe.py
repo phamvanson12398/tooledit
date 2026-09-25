@@ -39,19 +39,14 @@ def attempts(cfg: dict) -> list[dict]:
     return [main, *cfg.get("fallback", [])]
 
 
-def load_model(cfg: dict, factory: Callable | None = None):
-    """Thử từng cấu hình; trả về (model, cấu hình đã dùng). Lỗi hết thì báo lỗi tiếng Việt."""
+def load_model(attempt: dict, factory: Callable | None = None):
     if factory is None:
+        from app.gpu_libs import register_cuda_dlls
+
+        register_cuda_dlls()  # Windows: chỉ đường tới cublas/cudnn cài bằng pip
         from faster_whisper import WhisperModel as factory  # noqa: N813
-    errors = []
-    for a in attempts(cfg):
-        try:
-            model = factory(a.get("model", "large-v3"), device=a.get("device", "auto"),
-                            compute_type=a.get("compute_type", "default"))
-            return model, a
-        except Exception as exc:  # thiếu CUDA/cuDNN, hết VRAM, chưa tải được model...
-            errors.append(f"{a}: {exc}")
-    raise RuntimeError("Không nạp được model nhận dạng thoại:\n" + "\n".join(errors))
+    return factory(attempt.get("model", "large-v3"), device=attempt.get("device", "auto"),
+                   compute_type=attempt.get("compute_type", "default"))
 
 
 def pick_language(detected: str, probs: list[tuple[str, float]] | None, allowed: list[str]) -> str | None:
@@ -62,9 +57,23 @@ def pick_language(detected: str, probs: list[tuple[str, float]] | None, allowed:
     return max(ranked, key=lambda x: x[1])[0] if ranked else allowed[0]
 
 
-def transcribe(audio: Path, cfg: dict | None = None, factory: Callable | None = None) -> Transcript:
+def transcribe(audio: Path, cfg: dict | None = None, factory: Callable | None = None,
+               log: Callable[[str], None] = lambda msg: None) -> Transcript:
+    """Thử lần lượt từng cấu hình (GPU rồi CPU...). Lỗi GPU có thể chỉ lộ ra lúc bắt đầu tính
+    (ví dụ thiếu cublas64_12.dll), nên mỗi lần thử phải chạy trọn cả nhận dạng."""
     cfg = cfg or config.load("whisper")
-    model, used = load_model(cfg, factory)
+    errors = []
+    for attempt in attempts(cfg):
+        try:
+            model = load_model(attempt, factory)
+            return _run(model, attempt, audio, cfg)
+        except Exception as exc:  # thiếu CUDA/cuDNN, GPU không hỗ trợ, hết VRAM, chưa tải được model...
+            errors.append(f"{attempt}: {exc}")
+            log(f"Không chạy được với {attempt.get('device')}/{attempt.get('model')}: {exc}. Thử cách khác...")
+    raise RuntimeError("Không chạy được nhận dạng thoại:\n" + "\n".join(errors))
+
+
+def _run(model, used: dict, audio: Path, cfg: dict) -> Transcript:
     allowed = cfg.get("languages", ["ko", "ja", "en"])
     kwargs = dict(beam_size=cfg.get("beam_size", 5), word_timestamps=cfg.get("word_timestamps", True),
                   vad_filter=True)
