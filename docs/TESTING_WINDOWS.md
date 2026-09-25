@@ -1,6 +1,6 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
-## Bước 2 — Mở draft demo do tool tạo `[CẦN KIỂM TRA TRÊN MÁY]`
+## Bước 2 — Mở draft demo do tool tạo (ĐÃ XONG: mở được, đạt hết, xuất video OK)
 
 `demo_tool_v1` được tạo hoàn toàn bằng code (`tools/build_demo_draft.py`) từ dự án mẫu, dùng lại
 các clip có sẵn trong mẫu (j1/final.mp4, j2/final.mp4, clips/02.mp4). Các clip đó phải còn nguyên chỗ cũ.

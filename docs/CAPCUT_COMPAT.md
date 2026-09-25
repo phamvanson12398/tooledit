@@ -155,6 +155,12 @@ Trong mẫu, **nhạc, hiệu ứng và chuyển cảnh đều có `is_vip: "1"`
 
 ## 8. Bộ ghi draft đã viết (`app/capcut_writer/`)
 
+**Đã kiểm chứng trên máy thật (2026-09-25):** draft `demo_tool_v1` do `tools/build_demo_draft.py`
+sinh ra mở được trong CapCut 9.5.0, mọi mục trong bảng kiểm tra đều đạt (zoom keyframe, khối 4:3 và
+1:1 bằng crop, lia khung, chữ có viền và animation, sticker, hiệu ứng, filter, chuyển cảnh, nhạc có
+keyframe âm lượng), và **xuất video thành công**. Chưa kiểm chứng: âm thanh local (voice hook).
+
+
 - `template.py`: nạp mẫu, rút khuôn cho video/audio/chữ/sticker/hiệu ứng/filter, lập danh mục tài
   nguyên thư viện (kèm `is_vip` từ `key_value.json`).
 - `writer.py`: `DraftWriter` thêm clip (in/out, tốc độ, crop, scale, vị trí, keyframe, chuyển cảnh),
