@@ -21,6 +21,17 @@ Phong cách: **{{style_name}}** — {{style_description}}
 {{sfx_list}}
 {{business_note}}
 
+## Trang trí cho video sinh động (chỉ dùng tên có trong kho; kho trống thì bỏ qua)
+Liều lượng theo phong cách: {{decor_brief}}
+- `effects`: hiệu ứng hình ngắn (flash, rung, lấp lánh...) đúng khoảnh khắc nhấn — kho:
+{{effect_list}}
+- `stickers`: emoji/sticker minh họa cảm xúc, đặt ở góc không che mặt người — kho:
+{{sticker_list}}
+- `transitions`: chuyển cảnh ở cuối clip số `after_clip` (tính từ 0), dùng khi đổi ý/đổi cảnh, không phải mọi chỗ cắt — kho:
+{{transition_list}}
+- `filter`: một filter màu cho cả video để đồng bộ tông (hoặc null) — kho:
+{{filter_list}}
+
 ## Hook đã chọn (sẽ đặt trước clip đầu tiên)
 {{hook}}
 

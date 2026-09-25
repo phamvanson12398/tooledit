@@ -9,6 +9,7 @@ default_block: "4:3"    # khung mặc định cho footage ngang khi hồ sơ kh�
 # Nền cho phần trống quanh khối 4:3 / 1:1 (hồ sơ khách sẽ ghi đè ở Giai đoạn 2):
 #   blur  = bản mờ của chính video (độ mờ 0–1), color = màu trơn '#RRGGBBAA', none = để đen
 background: {type: blur, blur: 0.375, color: "#000000FF"}
-# Dự án "bộ sưu tập" trong CapCut chứa sẵn nhạc / SFX / hiệu ứng hay dùng (tên thư mục hoặc tên hiển thị).
-# Tool đọc tất cả tài nguyên thư viện trong các dự án này để đạo diễn chọn. Âm thanh < 6 giây coi là SFX.
-library_drafts: [bo_suu_tap_nhac]
+# Kho tài nguyên: tự quét MỌI dự án trong drafts_root, gom nhạc / SFX / hiệu ứng / chuyển cảnh / filter /
+# sticker / animation chữ từng dùng (chỉ giữ cái còn trong cache của CapCut). Âm thanh < 6 giây coi là SFX.
+# Muốn kho phong phú: cứ dùng thử nhạc/hiệu ứng trong CapCut ở bất kỳ dự án nào (hoặc gom vào một dự án riêng).
+library_scan: true

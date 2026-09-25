@@ -17,3 +17,7 @@ title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 zoom: {punch_scale: 1.15, punch_in_s: 0.12, slow_scale: 1.08}
 music: {volume_speech: 0.1, volume_gap: 0.3, fade_s: 0.3}
 hook: {min_s: 3.0, max_s: 5.0}
+
+# Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)
+decor_brief: "Vừa phải: 1 hiệu ứng mỗi 10–15 giây, 2–4 sticker, chuyển cảnh 2–3 lần, filter nhẹ."
+emphasis_palette: [[1, 1, 1], [1, 0.85, 0], [0.4, 0.85, 1], [1, 0.45, 0.6]]

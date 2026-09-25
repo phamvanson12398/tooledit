@@ -143,6 +143,24 @@ class Sfx(BaseModel):
     reason_vi: str = ""
 
 
+class EffectUse(BaseModel):
+    source_time: float = Field(ge=0)
+    duration: float = Field(default=0.8, gt=0.2, le=4.0)
+    name: str = Field(description="tên hiệu ứng hình trong kho")
+
+
+class StickerUse(BaseModel):
+    source_time: float = Field(ge=0)
+    duration: float = Field(default=1.5, gt=0.3, le=5.0)
+    name: str = Field(description="tên sticker trong kho")
+    position: Literal["top_left", "top_right", "center", "bottom_left", "bottom_right"] = "top_right"
+
+
+class TransitionUse(BaseModel):
+    after_clip: int = Field(ge=0, description="chỉ số clip (từ 0) mà chuyển cảnh nằm ở cuối")
+    name: str = Field(description="tên chuyển cảnh trong kho")
+
+
 class MusicChoice(BaseModel):
     name: str | None = Field(description="tên bài trong danh sách nhạc có sẵn, hoặc null nếu không hợp")
     mood_vi: str
@@ -157,6 +175,10 @@ class EditPlan(BaseModel):
     emphasis: list[Emphasis] = []
     zooms: list[Zoom] = []
     sfx: list[Sfx] = []
+    effects: list[EffectUse] = []
+    stickers: list[StickerUse] = []
+    transitions: list[TransitionUse] = []
+    filter: str | None = Field(default=None, description="tên filter màu cho cả video, hoặc null")
     music: MusicChoice
     editor_notes: str
 
@@ -197,6 +219,15 @@ def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: floa
     for s in plan.sfx:
         if not inside(s.source_time):
             errors.append(f"SFX ở {s.source_time}s không nằm trong clip nào được giữ")
+    for e in plan.effects:
+        if not inside(e.source_time):
+            errors.append(f"hiệu ứng '{e.name}' ở {e.source_time}s không nằm trong clip nào được giữ")
+    for st in plan.stickers:
+        if not inside(st.source_time):
+            errors.append(f"sticker '{st.name}' ở {st.source_time}s không nằm trong clip nào được giữ")
+    for t in plan.transitions:
+        if t.after_clip >= len(plan.clips) - 1:
+            errors.append(f"chuyển cảnh after_clip={t.after_clip} phải nhỏ hơn số clip - 1 ({len(plan.clips) - 1})")
     return errors
 
 

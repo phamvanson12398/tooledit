@@ -22,3 +22,7 @@ title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0], background: {color:
 zoom: {punch_scale: 1.1, punch_in_s: 0.2, slow_scale: 1.06}
 music: {volume_speech: 0.06, volume_gap: 0.18, fade_s: 0.4}
 hook: {min_s: 3.0, max_s: 5.0}
+
+# Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)
+decor_brief: "Tiết chế: 0–2 hiệu ứng, 0–2 sticker, chuyển cảnh chỉ khi đổi chủ đề, filter nhẹ."
+emphasis_palette: [[1, 1, 1], [1, 0.85, 0]]

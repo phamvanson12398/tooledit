@@ -156,3 +156,21 @@ def test_text_background_and_thick_stroke(tpl, tmp_path):
     assert m["background_color"] == "#E53935" and m["background_round_radius"] == 0.3
     style = json.loads(m["content"])["styles"][0]
     assert style["size"] == 30 and style["strokes"][0]["width"] == 0.16
+
+
+def test_scan_all_drafts_for_library(tmp_path):
+    import shutil
+
+    from app.capcut_writer.library import scan_drafts
+
+    shutil.copytree(SAMPLE, tmp_path / "a")
+    shutil.copytree(SAMPLE, tmp_path / "b")
+    (tmp_path / "hong").mkdir()
+    (tmp_path / "hong" / "draft_meta_info.json").write_text("{}", encoding="utf-8")  # draft hỏng: bỏ qua
+    items = scan_drafts(tmp_path, require_cached=False, use_cache=False)
+    kinds = {i.kind for i in items}
+    assert {"music", "transition", "sticker", "video_effect", "filter", "text_animation"} <= kinds
+    assert len(items) == len({(i.kind, i.resource_id) for i in items})  # đã bỏ trùng giữa 2 draft
+    assert all(i.name != "kkk2.wav" for i in items)  # âm thanh local không phải tài nguyên thư viện
+    # đường dẫn cache trong mẫu là C:/Users/<USER>/... không tồn tại ở đây → bị loại hết
+    assert scan_drafts(tmp_path, require_cached=True, use_cache=False) == []

@@ -111,7 +111,8 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
 
 
 def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=None, hook_s: float = 0.0,
-              music_items: list | None = None, sfx_items: list | None = None, business: bool = False,
+              music_items: list | None = None, sfx_items: list | None = None, decor_items: list | None = None,
+              business: bool = False,
               reframe: bool = False, default_ratio: str = "4:3", video_index: int = 1, footage: int = 0):
     from app.director.schemas import EditPlan, check_plan
 
@@ -127,6 +128,10 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         for m in (music_items or [])
     ]
     sfx_lines = [f"- {m.name}{' (' + m.mood + ')' if m.mood else ''}" for m in (sfx_items or [])]
+    decor = {k: [i for i in (decor_items or []) if i.kind == k] for k in ("video_effect", "sticker", "transition", "filter")}
+
+    def lines(kind: str) -> str:
+        return "\n".join(f"- {i.name}{' (' + i.category + ')' if i.category else ''}" for i in decor[kind]) or "(trống)"
     b = u.burned_in_text
     variables = {
         **_shared_context(u, segs), "video_index": video_index,
@@ -138,6 +143,9 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         "burned_in": (f"có, ở {', '.join(b.regions)}. {b.note_vi}" if b.present else "không"),
         "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
         "sfx_list": "\n".join(sfx_lines) or "(kho SFX trống — đặt name = null, tool sẽ ghi vào danh sách cần bổ sung)",
+        "effect_list": lines("video_effect"), "sticker_list": lines("sticker"),
+        "transition_list": lines("transition"), "filter_list": lines("filter"),
+        "decor_brief": style.get("decor_brief", ""),
         "business_note": "Khách là doanh nghiệp: CHỈ chọn bài có nhãn Commercial." if business else "",
         "hook": (f"{hook.line} ({hook.line_vi}) — footage {hook.footage.start:.1f}–{hook.footage.end:.1f}s"
                  if hook else "không có hook"),
@@ -156,6 +164,11 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         for sfx in plan.sfx:
             if sfx.name and sfx.name not in sfx_names:
                 errors.append(f"SFX '{sfx.name}' không có trong kho SFX")
+        for kind, used in (("video_effect", [e.name for e in plan.effects]), ("sticker", [x.name for x in plan.stickers]),
+                           ("transition", [t.name for t in plan.transitions]),
+                           ("filter", [plan.filter] if plan.filter else [])):
+            valid = {i.name for i in decor[kind]}
+            errors += [f"'{n}' không có trong kho {kind}" for n in used if n not in valid]
         if business and plan.music.name and plan.music.name not in commercial:
             errors.append(f"khách doanh nghiệp: bài '{plan.music.name}' không có nhãn Commercial")
         if not reframe and any(c.ratio and c.ratio != plan.default_ratio for c in plan.clips):

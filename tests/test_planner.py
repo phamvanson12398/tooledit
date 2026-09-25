@@ -234,3 +234,31 @@ def test_audio_kind_and_merge_library(tmp_path):
     assert a.merge_library(DraftTemplate(tmp_path / "coll")) == 0  # trùng hết
     moods = {i.name: i.mood for i in a.library if i.kind == "music"}
     assert "vui" in moods["Keep It High"]
+
+
+def test_decor_effects_stickers_transitions_filter(tmp_path):
+    from app.styles import load_style
+
+    tpl = DraftTemplate(SAMPLE)
+    names = {k: next(i.name for i in tpl.library if i.kind == k) for k in ("video_effect", "sticker", "transition", "filter")}
+    p = load("plan.json")
+    p.update({"effects": [{"source_time": 19.3, "duration": 0.8, "name": names["video_effect"]}],
+              "stickers": [{"source_time": 20.0, "duration": 1.5, "name": names["sticker"], "position": "top_left"}],
+              "transitions": [{"after_clip": 0, "name": names["transition"]}],
+              "filter": names["filter"],
+              "emphasis": [{"source_time": 8.0, "text": "A"}, {"source_time": 12.0, "text": "B"}]})
+    plan = EditPlan.model_validate(p)
+    assert check_plan(plan, 173.8, min_s=10) == []
+    u = Understanding.model_validate(load("understand.json"))
+    res = build(plan, u, _analysis(), tpl, tmp_path, "deco", load_style("entertainment"))
+    tl = res.writer.build_timeline()
+    kinds = [t["type"] for t in tl["tracks"]]
+    assert "effect" in kinds and "sticker" in kinds and "filter" in kinds
+    first_clip = next(t for t in tl["tracks"] if t["type"] == "video")["segments"][0]
+    trans_ids = {m["id"] for m in tl["materials"]["transitions"]}
+    assert trans_ids & set(first_clip["extra_material_refs"])
+    colors = [json.loads(m["content"])["styles"][0]["fill"]["content"]["solid"]["color"]
+              for m in tl["materials"]["texts"] if json.loads(m["content"])["text"] in ("A", "B")]
+    assert len(colors) == 2 and colors[0] != colors[1]  # chữ nhấn đổi màu luân phiên
+    bad = EditPlan.model_validate({**p, "transitions": [{"after_clip": 5, "name": "x"}]})
+    assert any("after_clip" in e for e in check_plan(bad, 173.8, min_s=10))

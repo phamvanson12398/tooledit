@@ -89,12 +89,13 @@ class Runner:
             raise RuntimeError(f"Không thấy dự án mẫu CapCut ({tdir or 'theo config/capcut.yaml'}). "
                                "Kiểm tra template_name trong config/capcut.yaml.")
         tpl = DraftTemplate(Path(tdir))
-        if self._template_dir is None:  # gộp kho nhạc/SFX từ các dự án bộ sưu tập
-            for name in config.load("capcut").get("library_drafts") or []:
-                extra = find_template(drafts_root(), name)
-                if extra is not None and extra != Path(tdir):
-                    added = tpl.merge_library(DraftTemplate(extra))
-                    self.log(f"Kho tài nguyên '{name}': thêm {added} mục")
+        if self._template_dir is None and config.load("capcut").get("library_scan", True):
+            from app.capcut_writer.library import scan_drafts
+            from app.capcut_writer.template import _load_labels
+
+            added = tpl.merge_items(scan_drafts(drafts_root()))
+            tpl._apply_labels(_load_labels())
+            self.log(f"Kho tài nguyên tự quét từ CapCut: thêm {added} mục")
         return tpl
 
     def _style_name(self, job: Job) -> str:
@@ -225,6 +226,8 @@ class Runner:
         plan = make_plan(self.director, analysis, u, load_style(style_name), hook=hook, hook_s=hook_s,
                          music_items=[m for m in tpl.library if m.kind == "music"],
                          sfx_items=[m for m in tpl.library if m.kind == "sfx"],
+                         decor_items=[m for m in tpl.library if m.kind in ("video_effect", "sticker", "transition",
+                                                                            "filter")],
                          business=job.data.get("business", False), reframe=job.options.reframe_per_scene,
                          default_ratio=job.data.get("default_ratio") or config.load("capcut").get("default_block", "4:3"))
         (plan_dir / "edit_plan_video01.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")

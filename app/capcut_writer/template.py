@@ -166,53 +166,10 @@ class DraftTemplate:
         return count
 
     def _key_values(self) -> dict:
-        path = self.draft_dir / "key_value.json"
-        if not path.is_file():
-            return {}
-        by_material = {}
-        for entry in read_json(path).values():
-            if isinstance(entry, dict) and entry.get("materialId"):
-                by_material.setdefault(entry["materialId"], entry)
-        return by_material
+        return key_values(self.draft_dir)
 
     def _extract_library(self) -> list[LibraryItem]:
-        kv = self._key_values()
-        m = self.timeline["materials"]
-        items: list[LibraryItem] = []
-
-        def add(kind: str, material: dict, resource_id: str, name: str, category: str = "") -> None:
-            meta = kv.get(resource_id, {})
-            items.append(
-                LibraryItem(
-                    kind=kind,
-                    name=name,
-                    resource_id=resource_id,
-                    material=copy.deepcopy(material),
-                    is_vip=str(meta.get("is_vip", "0")) == "1",
-                    category=category or meta.get("materialThirdcategory", ""),
-                )
-            )
-
-        for mat in m.get("video_effects", []):
-            add("video_effect", mat, mat["resource_id"], mat.get("name", ""), mat.get("category_name", ""))
-        for mat in m.get("effects", []):
-            if mat.get("type") == "filter":
-                add("filter", mat, mat["resource_id"], mat.get("name", ""), mat.get("category_name", ""))
-        for mat in m.get("transitions", []):
-            add("transition", mat, mat["resource_id"], mat.get("name", ""), mat.get("category_name", ""))
-        for mat in m.get("stickers", []):
-            add("sticker", mat, mat["resource_id"], mat.get("name", ""), mat.get("category_name", ""))
-        for mat in m.get("audios", []):
-            if mat.get("music_id"):
-                add(audio_kind(mat), mat, mat["music_id"], mat.get("name", ""), mat.get("category_name", ""))
-        seen = set()
-        for mat in m.get("material_animations", []):
-            for anim in mat.get("animations", []):
-                if anim.get("resource_id") in seen:
-                    continue
-                seen.add(anim.get("resource_id"))
-                add("text_animation", anim, anim["resource_id"], anim.get("name", ""), anim.get("type", ""))
-        return items
+        return extract_library(self.timeline, self._key_values())
 
     def _apply_labels(self, labels: dict) -> None:
         commercial = {str(x) for x in labels.get("commercial_music_ids", [])}
@@ -223,10 +180,13 @@ class DraftTemplate:
                 item.mood = moods.get(item.resource_id, item.mood)
 
     def merge_library(self, other: "DraftTemplate") -> int:
-        """Gộp tài nguyên từ một dự án 'bộ sưu tập' (nhạc, SFX, hiệu ứng...) vào danh mục; trả số mục mới."""
+        """Gộp tài nguyên từ một dự án khác vào danh mục; trả số mục mới."""
+        return self.merge_items(other.library)
+
+    def merge_items(self, items: list[LibraryItem]) -> int:
         seen = {(i.kind, i.resource_id) for i in self.library}
         added = 0
-        for item in other.library:
+        for item in items:
             if (item.kind, item.resource_id) not in seen:
                 self.library.append(item)
                 seen.add((item.kind, item.resource_id))
@@ -245,6 +205,57 @@ class DraftTemplate:
         if kind not in self.prototypes:
             raise KeyError(f"Dự án mẫu thiếu khuôn cho loại {kind!r}")
         return self.prototypes[kind].clone()
+
+
+def key_values(draft_dir: Path) -> dict:
+    """key_value.json: siêu dữ liệu tài nguyên (is_vip, danh mục...) theo materialId."""
+    path = Path(draft_dir) / "key_value.json"
+    if not path.is_file():
+        return {}
+    by_material = {}
+    try:
+        data = read_json(path)
+    except (OSError, ValueError):
+        return {}
+    for entry in data.values():
+        if isinstance(entry, dict) and entry.get("materialId"):
+            by_material.setdefault(entry["materialId"], entry)
+    return by_material
+
+
+def extract_library(timeline: dict, kv: dict) -> list[LibraryItem]:
+    """Tài nguyên thư viện CapCut (hiệu ứng, filter, chuyển cảnh, sticker, nhạc, SFX, animation chữ) trong timeline."""
+    m = timeline.get("materials", {})
+    items: list[LibraryItem] = []
+
+    def add(kind: str, material: dict, resource_id: str, name: str, category: str = "") -> None:
+        if not resource_id:
+            return
+        meta = kv.get(resource_id, {})
+        items.append(LibraryItem(kind=kind, name=name, resource_id=resource_id, material=copy.deepcopy(material),
+                                 is_vip=str(meta.get("is_vip", "0")) == "1",
+                                 category=category or meta.get("materialThirdcategory", "")))
+
+    for mat in m.get("video_effects", []):
+        add("video_effect", mat, mat.get("resource_id", ""), mat.get("name", ""), mat.get("category_name", ""))
+    for mat in m.get("effects", []):
+        if mat.get("type") == "filter":
+            add("filter", mat, mat.get("resource_id", ""), mat.get("name", ""), mat.get("category_name", ""))
+    for mat in m.get("transitions", []):
+        add("transition", mat, mat.get("resource_id", ""), mat.get("name", ""), mat.get("category_name", ""))
+    for mat in m.get("stickers", []):
+        add("sticker", mat, mat.get("resource_id", ""), mat.get("name", ""), mat.get("category_name", ""))
+    for mat in m.get("audios", []):
+        if mat.get("music_id") and mat.get("type") != "extract_music":
+            add(audio_kind(mat), mat, mat["music_id"], mat.get("name", ""), mat.get("category_name", ""))
+    seen = set()
+    for mat in m.get("material_animations", []):
+        for anim in mat.get("animations", []):
+            if anim.get("resource_id") in seen:
+                continue
+            seen.add(anim.get("resource_id"))
+            add("text_animation", anim, anim.get("resource_id", ""), anim.get("name", ""), anim.get("type", ""))
+    return items
 
 
 SFX_MAX_US = 6_000_000  # âm thanh thư viện ngắn hơn 6 giây coi là SFX

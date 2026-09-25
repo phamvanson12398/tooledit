@@ -7,6 +7,7 @@ danh sách cần bổ sung thay vì bịa.
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -178,7 +179,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     replay_cfg = style.get("replay_label") or {}
     replay_text = (replay_cfg.get("text") or {}).get(u.language, "REPLAY")
     replay_style = _style(replay_cfg) if replay_cfg else emph_style
-    for clip, p in zip(plan.clips, tmap.placed):
+    lib = {(i.kind, i.name): i for i in template.library}
+    trans_after = {t.after_clip: lib.get(("transition", t.name)) for t in plan.transitions}
+    for idx, (clip, p) in enumerate(zip(plan.clips, tmap.placed)):
         ratio = ratio_for(clip.ratio)
         kfs = zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
             [Keyframe("scale", 0, 1.0), Keyframe("scale", p.out_duration, style.get("zoom", {}).get("slow_scale", 1.12))]
@@ -186,7 +189,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                     source_start=round(clip.source_start * SEC), speed=clip.speed,
                     crop=crop_for(ratio, clip.source_start, clip.source_end),
                     volume=0.0 if (clean_audio or clip.replay) else 1.0,
-                    keyframes=kfs or None, **bg_kwargs(ratio))
+                    keyframes=kfs or None, transition=trans_after.get(idx), **bg_kwargs(ratio))
         if clean_audio and not clip.replay:  # replay quay chậm: tắt tiếng gốc, để nhạc/SFX dẫn
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed)
@@ -206,13 +209,31 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     for c in cues:
         w.add_text(c.text, start=c.start, duration=c.end - c.start, x=pos["x"], y=pos["bottom"],
                    style=subtitle_style)
-    for e in plan.emphasis:
+    palette = [tuple(c) for c in style.get("emphasis_palette") or []] or [emph_style.color]
+    emph_anims = _animations(template, style.get("emphasis", {}).get("animations", ["in"]))
+    for i, e in enumerate(plan.emphasis):
         t = tmap.to_out(e.source_time)
         if t is None:
             continue
         dur = min(round(e.duration * SEC), tmap.end - t)
+        colored = dataclasses.replace(emph_style, color=palette[i % len(palette)])
         w.add_text(e.text, start=t, duration=dur, x=pos["x"], y=pos["center"] if e.position == "center"
-                   else pos["top"], style=emph_style, animations=anims_in[:1])
+                   else pos["top"], style=colored, animations=emph_anims)
+
+    # ---------- trang trí: hiệu ứng hình, sticker, filter ----------
+    corners = {"top_left": (-0.55, 0.55), "top_right": (0.45, 0.55), "center": (0.0, 0.25),
+               "bottom_left": (-0.55, -0.3), "bottom_right": (0.45, -0.3)}
+    for e in plan.effects:
+        item, t = lib.get(("video_effect", e.name)), tmap.to_out(e.source_time)
+        if item and t is not None:
+            w.add_effect(item, start=t, duration=min(round(e.duration * SEC), tmap.end - t))
+    for st in plan.stickers:
+        item, t = lib.get(("sticker", st.name)), tmap.to_out(st.source_time)
+        if item and t is not None:
+            x, y = corners[st.position]
+            w.add_sticker(item, start=t, duration=min(round(st.duration * SEC), tmap.end - t), x=x, y=y, scale=0.55)
+    if plan.filter and lib.get(("filter", plan.filter)):
+        w.add_filter(lib[("filter", plan.filter)], start=hook_us, duration=tmap.end - hook_us)
     if plan.title_top:
         w.add_text(plan.title_top, start=hook_us, duration=tmap.end - hook_us, x=pos["x"], y=pos["top"],
                    style=title_style)
