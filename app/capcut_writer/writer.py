@@ -236,8 +236,11 @@ class DraftWriter:
         keyframes: list[Keyframe] | None = None,
         transition: LibraryItem | None = None,
         transition_duration: int | None = None,
+        background_blur: float | None = None,
+        background_color: str | None = None,
     ) -> dict:
-        """Thêm một clip. duration là thời lượng trên timeline; nguồn dùng duration*speed."""
+        """Thêm một clip. background_blur (0–1): lấp phần trống bằng bản mờ của chính video;
+        background_color ('#RRGGBBAA'): lấp bằng màu trơn (theo định dạng BackgroundFilling của pyCapCut). duration là thời lượng trên timeline; nguồn dùng duration*speed."""
         source_duration = round(duration * speed)
         if source_start < 0 or source_start + source_duration > source.duration:
             raise ValueError(
@@ -262,6 +265,12 @@ class DraftWriter:
         if speed_mat is not None:
             speed_mat["speed"] = speed
         self._set_clip(seg, x=x, y=y, scale=scale)
+        canvas = self._extra(seg, "canvases")
+        if canvas is not None and (background_blur is not None or background_color is not None):
+            if background_blur is not None:
+                canvas.update({"type": "canvas_blur", "blur": float(background_blur)})
+            else:
+                canvas.update({"type": "canvas_color", "color": background_color, "blur": 0.0})
         if keyframes:
             self._set_keyframes(seg, keyframes)
         if transition is not None:

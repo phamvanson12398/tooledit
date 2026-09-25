@@ -191,3 +191,26 @@ def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: floa
         if not inside(s.source_time):
             errors.append(f"SFX ở {s.source_time}s không nằm trong clip nào được giữ")
     return errors
+
+
+# ---------------- Caption / hashtag (mục 3.10) ----------------
+
+class Captions(BaseModel):
+    video_index: int = Field(ge=1)
+    caption: str = Field(description="caption TikTok bằng ngôn ngữ của video, 1–3 câu, không bịa")
+    caption_vi: str = Field(description="bản dịch tiếng Việt")
+    hashtags: list[str] = Field(min_length=3, max_length=8, description="hashtag bằng ngôn ngữ video, có dấu #")
+    hashtags_vi: list[str] = Field(description="nghĩa tiếng Việt của từng hashtag, cùng thứ tự")
+    editor_notes: str
+
+
+def check_captions(c: Captions) -> list[str]:
+    errors = []
+    if len(c.caption) > 300:
+        errors.append(f"caption dài {len(c.caption)} ký tự, nên dưới 300")
+    for h in c.hashtags:
+        if not h.startswith("#") or " " in h or len(h) < 2:
+            errors.append(f"hashtag '{h}' phải bắt đầu bằng # và không có dấu cách")
+    if len(c.hashtags_vi) != len(c.hashtags):
+        errors.append("hashtags_vi phải có cùng số phần tử với hashtags")
+    return errors

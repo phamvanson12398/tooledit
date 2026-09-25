@@ -154,4 +154,6 @@ def test_build_draft_end_to_end(tmp_path):
     assert {m["kind"] for m in res.missing_assets} == {"sfx"}
     crop = next(m for m in tl["materials"]["videos"])["crop"]
     assert crop["upper_left_x"] > 0.2  # bám chủ thể lệch phải (cx=0.7)
+    canvases = tl["materials"]["canvases"]
+    assert canvases and all(c["type"] == "canvas_blur" and c["blur"] == 0.375 for c in canvases)
     res.writer.save()

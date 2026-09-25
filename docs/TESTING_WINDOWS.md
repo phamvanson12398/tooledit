@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 5c — Dựng lại job cũ với nền mờ + chữ hook to, và xuất caption `[CẦN KIỂM TRA TRÊN MÁY]`
+
+```powershell
+cd $HOME\Documents\tooledit
+git pull
+.venv\Scripts\python tools\run_job.py continue 20260925_02 --redo write
+```
+
+Không hỏi lại đạo diễn cho hook/kế hoạch (dùng kết quả cũ); chỉ ghi lại draft và hỏi thêm một lượt để viết
+caption. Kiểm tra trong CapCut: phần trống trên/dưới khối 4:3 là **bản mờ của chính video** (không còn đen),
+chữ hook to hơn và rung. Mở `jobs\20260925_02\deliver\video01_captions.txt` xem caption + hashtag.
+
 ## Bước 5b — Chọn cỡ và kiểu chữ hook (dự án thử chữ) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 Phản hồi lần chạy 1: chữ hook quá nhỏ (cỡ 16, gần bằng cỡ mặc định 15) và chưa được trang trí.

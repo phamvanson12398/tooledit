@@ -3,7 +3,7 @@
 Luồng Giai đoạn 1 (mục 3 của CLAUDE.md):
 
     created → analyzing → understanding → [chờ xác nhận thể loại] → hooks → [chờ chọn hook]
-    → [chờ file voice] → planning → assets → writing → [chờ bổ sung tài nguyên] → done
+    → [chờ file voice] → planning → assets → writing → captions → done
 
 Các bước trong ngoặc vuông là điểm dừng chờ người dùng (status = "waiting").
 """
@@ -20,7 +20,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 STEPS = ["analyze", "understand", "confirm_genre", "hooks", "choose_hook", "voice", "plan", "assets", "write",
-         "done"]
+         "captions", "done"]
 
 WAIT_STEPS = {"confirm_genre", "choose_hook", "voice"}
 

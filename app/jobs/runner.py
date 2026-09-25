@@ -244,3 +244,22 @@ class Runner:
         for n in res.notes:
             self.log(n)
         self.log(f"Đã ghi draft CapCut: {out} ({job.data['duration_s']}s)")
+
+    def step_captions(self, job: Job) -> None:
+        from app.director.schemas import EditPlan
+        from app.director.tasks import captions_text, make_captions
+        from app.planner import hook_io
+
+        d, analysis, plan_dir = self._paths(job)
+        plan = EditPlan.model_validate_json((plan_dir / "edit_plan_video01.json").read_text(encoding="utf-8"))
+        hook = None
+        if job.options.hook:
+            sets, choices = hook_io.load_hooks(d)
+            hook = sets[0].options[choices[1] - 1]
+        c = make_captions(self.director, analysis, self._understanding(job), plan, hook=hook)
+        out = d / "deliver" / "video01_captions.txt"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(captions_text(c), encoding="utf-8")
+        (plan_dir / "captions_video01.json").write_text(c.model_dump_json(indent=2), encoding="utf-8")
+        job.data["captions"] = str(out)
+        self.log(f"Đã xuất caption: {out}")

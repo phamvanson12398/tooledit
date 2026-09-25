@@ -150,3 +150,39 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         return errors
 
     return director.run("plan", variables, EditPlan, extra_check=extra)
+
+
+MARKETS = {"ja": "TikTok Nhật Bản", "ko": "TikTok Hàn Quốc", "en": "TikTok tiếng Anh"}
+
+
+def make_captions(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1,
+                  footage: int = 0):
+    from app.director.schemas import Captions, check_captions
+
+    a = load_analysis(analysis_dir, footage)
+    kept = [s for s in a["transcript"].get("segments", [])
+            if any(s["end"] > c.source_start and s["start"] < c.source_end for c in plan.clips)]
+    variables = {**_shared_context(u, kept), "video_index": video_index,
+                 "language_name": LANGUAGE_NAMES.get(u.language, u.language),
+                 "market": MARKETS.get(u.language, "TikTok"),
+                 "hook": f"{hook.line} ({hook.line_vi})" if hook else "không có hook"}
+    return director.run("captions", variables, Captions,
+                        extra_check=lambda r: check_captions(r)
+                        + ([] if r.video_index == video_index else [f"video_index phải là {video_index}"]))
+
+
+def captions_text(c) -> str:
+    """Nội dung captions.txt: bản đăng (ngôn ngữ video) + bản dịch tiếng Việt."""
+    return "\n".join([
+        "=== ĐĂNG TIKTOK (copy nguyên phần này) ===",
+        c.caption,
+        "",
+        " ".join(c.hashtags),
+        "",
+        "=== DỊCH TIẾNG VIỆT (không đăng) ===",
+        c.caption_vi,
+        "",
+        *[f"{h} = {vi}" for h, vi in zip(c.hashtags, c.hashtags_vi)],
+        "",
+        f"Ghi chú editor: {c.editor_notes}",
+    ]) + "\n"

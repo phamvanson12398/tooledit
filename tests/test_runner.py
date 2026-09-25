@@ -44,6 +44,8 @@ def test_full_job_with_hook_and_waits(tmp_path):
     missing = json.loads((jobs / "j1" / "missing_assets.json").read_text(encoding="utf-8"))
     assert [m["kind"] for m in missing] == ["sfx"]
     assert Job.load(jobs, "j1").status == Status.done
+    cap = (jobs / "j1" / "deliver" / "video01_captions.txt").read_text(encoding="utf-8")
+    assert "#相撲" in cap and "DỊCH TIẾNG VIỆT" in cap
 
 
 def test_job_without_hook_and_error_recovery(tmp_path):

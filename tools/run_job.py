@@ -6,6 +6,8 @@ Chạy tiếp (sau khi chọn hook / thả voice / duyệt):
     .venv\\Scripts\\python tools\\run_job.py continue 20260925_03 --choose 1=2
 Dùng lại job đã phân tích bằng analyze_footage.py (không phân tích lại):
     .venv\\Scripts\\python tools\\run_job.py continue 20260925_02 --hook --client khachA
+Dựng lại draft (sau khi cập nhật tool) mà không hỏi lại đạo diễn:
+    .venv\\Scripts\\python tools\\run_job.py continue 20260925_02 --redo write
 Xem trạng thái:
     .venv\\Scripts\\python tools\\run_job.py status 20260925_03
 """
@@ -19,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.jobs.job import Job, JobOptions, Status  # noqa: E402
+from app.jobs.job import STEPS, Job, Status  # noqa: E402
 from app.jobs.runner import Runner  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,6 +57,8 @@ def report(job: Job) -> None:
     print(job.message)
     if job.status == Status.done:
         print(f"\nDraft CapCut: {job.data.get('draft')} ({job.data.get('duration_s')} giây)")
+        if job.data.get("captions"):
+            print(f"Caption + hashtag: {job.data['captions']}")
         if job.data.get("missing_assets"):
             print(f"Tài nguyên cần bổ sung: {job.data['missing_assets']} mục — xem missing_assets.json trong job")
     elif job.status == Status.waiting and job.step == "choose_hook":
@@ -73,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
     p_cont = sub.add_parser("continue")
     p_cont.add_argument("job_id")
     p_cont.add_argument("--choose", action="append", default=[], help="video=phương án, ví dụ 1=2")
+    p_cont.add_argument("--redo", choices=STEPS[:-1],
+                        help="chạy lại từ bước này (ví dụ write: dựng lại draft, không hỏi lại đạo diễn)")
     add_options(p_cont)
     p_stat = sub.add_parser("status")
     p_stat.add_argument("job_id")
@@ -94,6 +100,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         job = Job.load(args.jobs_root, args.job_id)
         apply_options(job, args)
+        if args.redo:
+            job.step, job.status = args.redo, Status.pending
+            job.message = f"chạy lại từ bước {args.redo}"
         if args.choose:
             runner.choose_hooks(job, {int(a): int(b) for a, b in (c.split("=") for c in args.choose)})
         job = runner.resume(job) if job.status != Status.pending else runner.run(job)

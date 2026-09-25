@@ -6,3 +6,6 @@ drafts_root: null
 template_name: capcut_template
 canvas: {width: 1080, height: 1920}
 default_block: "4:3"    # khung mặc định cho footage ngang khi hồ sơ khách không nói gì
+# Nền cho phần trống quanh khối 4:3 / 1:1 (hồ sơ khách sẽ ghi đè ở Giai đoạn 2):
+#   blur  = bản mờ của chính video (độ mờ 0–1), color = màu trơn '#RRGGBBAA', none = để đen
+background: {type: blur, blur: 0.375, color: "#000000FF"}

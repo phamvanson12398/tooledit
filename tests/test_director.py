@@ -115,3 +115,15 @@ def test_parse_output_variants():
 def test_helpers():
     assert pick_evenly(list(range(10)), 3) == [0, 3, 6]
     assert format_transcript([{"start": 0, "end": 1, "text": "a" * 50}], max_chars=20).endswith("(cắt bớt)")
+
+
+def test_captions_text_and_validation():
+    from app.director.schemas import Captions, check_captions
+    from app.director.tasks import captions_text
+
+    c = Captions.model_validate(json.loads((ROOT / "tests/fixtures/director/captions.json").read_text(encoding="utf-8")))
+    assert check_captions(c) == []
+    txt = captions_text(c)
+    assert "#相撲 #貴闘力" in txt and "#曙 = Akebono" in txt
+    bad = c.model_copy(update={"hashtags": ["相撲", "#a b", "#ok"], "hashtags_vi": ["x"]})
+    assert len(check_captions(bad)) == 3

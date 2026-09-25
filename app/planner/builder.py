@@ -136,6 +136,15 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     def ratio_for(clip_ratio) -> str:
         return "full" if vertical else (clip_ratio or plan.default_ratio if plan.default_ratio != "full" else "4:3")
 
+    bg = config.load("capcut").get("background", {"type": "blur", "blur": 0.375})
+
+    def bg_kwargs(ratio: str) -> dict:
+        if ratio == "full" or bg.get("type") == "none":
+            return {}
+        if bg.get("type") == "color":
+            return {"background_color": bg.get("color", "#000000FF")}
+        return {"background_blur": bg.get("blur", 0.375)}
+
     def crop_for(ratio: str, start: float, end: float):
         if ratio == "full":
             return None
@@ -154,7 +163,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         w.add_video(src, target_start=0, duration=hook_us, source_start=round(h_start * SEC),
                     crop=crop_for(ratio, h_start, h_start + hook_us / SEC), volume=0.15,
                     keyframes=[Keyframe("scale", 0, 1.0), Keyframe("scale", hook_us, 1.12)],
-                    transition=transition)
+                    transition=transition, **bg_kwargs(ratio))
         pos = text_positions(ratio, safe)
         w.add_text(hook.onscreen_text, start=0, duration=hook_us, x=pos["x"], y=pos["top"], style=hook_style,
                    animations=hook_anims)
@@ -172,7 +181,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                     source_start=round(clip.source_start * SEC), speed=clip.speed,
                     crop=crop_for(ratio, clip.source_start, clip.source_end),
                     volume=0.0 if clean_audio else 1.0,
-                    keyframes=zoom_keyframes(plan.zooms, p, style.get("zoom", {})) or None)
+                    keyframes=zoom_keyframes(plan.zooms, p, style.get("zoom", {})) or None, **bg_kwargs(ratio))
         if clean_audio:
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed)
