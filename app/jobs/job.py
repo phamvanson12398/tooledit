@@ -2,8 +2,10 @@
 
 Luồng Giai đoạn 1 (mục 3 của CLAUDE.md):
 
-    created → analyzing → understanding → [chờ xác nhận thể loại] → hooks → [chờ chọn hook]
-    → [chờ file voice] → planning → assets → writing → captions → done
+    created → analyzing → understanding → [chờ xác nhận thể loại] → chia video → [chờ duyệt chia video]
+    → hooks → [chờ chọn hook] → [chờ file voice] → planning → assets → writing → captions → done
+
+Mỗi bước sau "chia video" chạy cho từng video của job (data["videos"]); không chia thì chỉ có video 1.
 
 Các bước trong ngoặc vuông là điểm dừng chờ người dùng (status = "waiting").
 """
@@ -19,10 +21,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-STEPS = ["analyze", "understand", "confirm_genre", "hooks", "choose_hook", "voice", "plan", "assets", "write",
-         "captions", "done"]
+STEPS = ["analyze", "understand", "confirm_genre", "segment", "review_segments", "hooks", "choose_hook", "voice",
+         "plan", "assets", "write", "captions", "done"]
 
-WAIT_STEPS = {"confirm_genre", "choose_hook", "voice"}
+WAIT_STEPS = {"confirm_genre", "review_segments", "choose_hook", "voice"}
 
 
 class Status(str, Enum):
@@ -36,7 +38,7 @@ class Status(str, Enum):
 class JobOptions(BaseModel):
     client_id: str | None = None      # None = khách mới, AI tự chọn phong cách
     hook: bool = False                # ☐ Có hook
-    split: bool = False               # ☐ Chia video dài (Giai đoạn 2)
+    split: bool = False               # ☐ Chia video dài
     reframe_per_scene: bool = False   # ☐ Đổi khung theo cảnh
     auto_download: bool = False       # ☐ Tự tải tài nguyên thiếu
     confirm_before_build: bool = False  # ☐ Xác nhận trước khi dựng
@@ -123,6 +125,8 @@ class Job(BaseModel):
             return self.options.confirm_before_build
         if step in ("hooks", "choose_hook", "voice"):
             return self.options.hook
+        if step == "review_segments":
+            return self.options.split
         return True
 
     def resume(self, message: str = "người dùng bấm Tiếp tục") -> None:

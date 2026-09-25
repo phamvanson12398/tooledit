@@ -13,7 +13,7 @@ import threading
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app import config as app_config
@@ -37,6 +37,7 @@ main{max-width:1180px;margin:24px auto;padding:0 20px}
 .field{margin:12px 0}.field>label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
 .row{display:flex;gap:8px}.row input{flex:1}
 input[type=text],select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fbfcff}
+input[type=number]{padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-size:14px}
 input[type=text]:focus{outline:2px solid #c7c9ff;border-color:var(--pri)}
 .btn{display:inline-block;background:linear-gradient(120deg,var(--pri),var(--pri2));color:#fff;border:0;border-radius:10px;
 padding:10px 20px;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none}
@@ -78,6 +79,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px
 
 STEP_VI = {
     "analyze": "Phân tích footage", "understand": "AI hiểu nội dung", "confirm_genre": "Chờ xác nhận nội dung",
+    "segment": "AI chia video", "review_segments": "Chờ duyệt chia video",
     "hooks": "AI viết hook", "choose_hook": "Chờ chọn hook", "voice": "Chờ file voice",
     "plan": "AI lập kế hoạch dựng", "assets": "Tìm tài nguyên", "write": "Ghi dự án CapCut",
     "captions": "AI viết caption", "done": "Xong",
@@ -204,7 +206,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <label class="tg"><input type="checkbox" name="hook" checked> Có hook voice</label>
             <label class="tg"><input type="checkbox" name="reframe"> Đổi khung theo cảnh</label>
             <label class="tg"><input type="checkbox" name="business"> Khách doanh nghiệp (nhạc Commercial)</label>
-            <label class="tg"><input type="checkbox" name="confirm"> Xác nhận trước khi dựng</label></div></div>
+            <label class="tg"><input type="checkbox" name="confirm"> Xác nhận trước khi dựng</label>
+            <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label></div></div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
             <div><label>Khung cho footage ngang</label><select name="ratio"><option value="4:3">4:3</option>
@@ -230,14 +233,15 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     @app.post("/jobs")
     def new_job(footage: str = Form(...), client: str = Form("khach"), hook: str | None = Form(None),
                 reframe: str | None = Form(None), business: str | None = Form(None),
-                confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto")):
+                confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto"),
+                split: str | None = Form(None)):
         path = Path(footage.strip().strip('"'))
         if not path.is_file():
             return _page("Lỗi", f"<div class='card'><h2>Không thấy file</h2><p>{html.escape(str(path))}</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         job = Job.create(Path(jobs_root), [path.resolve()], JobOptions(
             client_id=client.strip() or "khach", hook=bool(hook), reframe_per_scene=bool(reframe),
-            confirm_before_build=bool(confirm)))
+            confirm_before_build=bool(confirm), split=bool(split)))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
         job.save(Path(jobs_root))
         worker.start(job.job_id)
@@ -256,7 +260,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         cur = STEPS.index(job.step)
         chips = []
         for i, st in enumerate(STEPS):
-            if not job.applies(st) or st == "assets":
+            if not job.applies(st) or st == "assets" or (st == "segment" and not job.options.split):
                 continue
             cls = "done" if i < cur or job.status == Status.done else ("cur " + status if i == cur else "")
             chips.append(f"<span class='step {cls}'>{STEP_VI.get(st, st)}</span>")
@@ -289,9 +293,24 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/choose")
-    async def choose(job_id: str, request_form: str = Form(..., alias="choice_1")):
-        choice = int(request_form)
-        worker.start(job_id, action=lambda runner, job: runner.choose_hooks(job, {1: choice}))
+    async def choose(job_id: str, request: Request):
+        form = await request.form()
+        choices = {int(k.split("_", 1)[1]): int(v) for k, v in form.items()
+                   if k.startswith("choice_") and k.split("_", 1)[1].isdigit()}
+        worker.start(job_id, action=lambda runner, job: runner.choose_hooks(job, choices))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/segments")
+    async def segments(job_id: str, request: Request):
+        form = await request.form()
+        rows = []
+        for key in form:
+            if key.startswith("keep_"):
+                k = key[5:]
+                rows.append({"start": float(form.get(f"start_{k}") or 0), "end": float(form.get(f"end_{k}") or 0),
+                             "title_vi": str(form.get(f"title_{k}") or ""),
+                             "summary_vi": str(form.get(f"summary_{k}") or "")})
+        worker.start(job_id, action=lambda runner, job: runner.apply_segments(job, rows))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/resources/scan", response_class=HTMLResponse)
@@ -336,7 +355,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                      "</p></div>")
 
     @app.post("/jobs/{job_id}/voice")
-    async def upload_voice(job_id: str, voice: UploadFile = File(...)):
+    async def upload_voice(job_id: str, voice: UploadFile = File(...), video: int = Form(1)):
         from app.planner import hook_io
 
         d = Job.dir_for(Path(jobs_root), job_id)
@@ -347,9 +366,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                          f"<p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
         vdir = d / "voice"
         vdir.mkdir(parents=True, exist_ok=True)
-        for old in vdir.glob(f"{hook_io.voice_name(1)}.*"):  # thay file cũ (có thể khác đuôi)
+        for old in vdir.glob(f"{hook_io.voice_name(video)}.*"):  # thay file cũ (có thể khác đuôi)
             old.unlink()
-        with open(vdir / f"{hook_io.voice_name(1)}{ext}", "wb") as f:
+        with open(vdir / f"{hook_io.voice_name(video)}{ext}", "wb") as f:
             shutil.copyfileobj(voice.file, f)
         worker.start(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
@@ -379,6 +398,9 @@ def _manage_panel(job: Job) -> str:
                 f"<button type='submit' class='btn light small'>{label}</button></form>")
 
     buttons = []
+    if job.options.split and STEPS.index(job.step) > STEPS.index("review_segments"):
+        buttons.append(redo("segment", "✂️ Chia lại video",
+                            "AI sẽ chia lại video; hook, kế hoạch và voice cũ sẽ phải làm lại. Tiếp tục?"))
     have_plan = STEPS.index(job.step) > STEPS.index("plan") or job.status == Status.done
     if have_plan:
         buttons.append(redo("write", "🔁 Dựng lại draft", "Ghi đè draft CapCut hiện tại? Đóng CapCut trước khi bấm."))
@@ -534,6 +556,38 @@ def pick_file_dialog() -> dict:
     return {"path": str(Path(path)) if path else ""}
 
 
+def _segments_panel(job: Job, d: Path) -> str:
+    """Bảng duyệt chia video: các video (sửa được điểm cắt, bỏ tick để bỏ) + các đoạn bị bỏ (tick để dựng thêm)."""
+    esc = html.escape
+    data = json.loads(_read(d / "plan" / "segments.json") or "{}")
+    prop = data.get("proposal") or {}
+    min_s = app_config.load("split").get("min_video_s", 60)
+
+    def row(key: str, v: dict, keep: bool, note: str) -> str:
+        span = float(v["end"]) - float(v["start"])
+        short = f" <span class='badge b-waiting'>ngắn hơn {min_s}s</span>" if span < min_s else ""
+        return (f"<tr><td><input type='checkbox' name='keep_{key}' {'checked' if keep else ''}></td>"
+                f"<td><input type='number' step='0.1' name='start_{key}' value='{float(v['start']):.1f}' style='width:90px'>"
+                f" – <input type='number' step='0.1' name='end_{key}' value='{float(v['end']):.1f}' style='width:90px'></td>"
+                f"<td>{span:.0f}s{short}</td><td><b>{esc(v.get('title_vi', ''))}</b><br>"
+                f"<span class='muted'>{esc(v.get('summary_vi', '') or note)}</span>"
+                f"<input type='hidden' name='title_{key}' value='{esc(v.get('title_vi', ''))}'>"
+                f"<input type='hidden' name='summary_{key}' value='{esc(v.get('summary_vi', '') or note)}'></td></tr>")
+
+    vids = "".join(row(f"v{i}", v, True, v.get("why_vi", "")) for i, v in enumerate(data.get("videos", []), 1))
+    dropped = "".join(row(f"d{i}", {**x, "title_vi": "Đoạn bị bỏ"}, False, "Lý do bỏ: " + x.get("reason_vi", ""))
+                      for i, x in enumerate(prop.get("dropped", []), 1))
+    head = "<tr><th>Dựng</th><th>Giây (bắt đầu – kết thúc)</th><th>Độ dài</th><th>Nội dung</th></tr>"
+    return (f"<div class='card'><h2>✂️ Duyệt chia video</h2>"
+            f"<p>AI đề xuất {len(data.get('videos', []))} video độc lập. Sửa giây bắt đầu/kết thúc nếu muốn, bỏ tick để "
+            f"không dựng, hoặc tick đoạn bị bỏ để dựng thêm. Mỗi video sau khi dựng sẽ được cắt gọn còn 60–150 giây.</p>"
+            f"<p class='muted'>Ghi chú editor: {esc(prop.get('editor_notes', ''))}</p>"
+            f"<form method='post' action='/jobs/{job.job_id}/segments'>"
+            f"<h2 style='margin-top:14px'>Video sẽ dựng</h2><table>{head}{vids}</table>"
+            + (f"<h2 style='margin-top:18px'>Đoạn bị bỏ</h2><table>{head}{dropped}</table>" if dropped else "")
+            + "<p><button type='submit' class='btn'>✅ Xác nhận và dựng tiếp</button></p></form></div>")
+
+
 def _step_panel(job: Job, d: Path) -> str:
     esc = html.escape
     if job.status == Status.error:
@@ -558,12 +612,25 @@ def _step_panel(job: Job, d: Path) -> str:
         return (f"<div class='card'><h2>🎣 Chọn hook</h2><form method='post' action='/jobs/{job.job_id}/choose'>"
                 f"{''.join(items)}<button type='submit' class='btn'>Chọn hook này</button></form></div>")
     if job.status == Status.waiting and job.step == "voice":
-        return (f"<div class='card'><h2>🎙️ Thu voice hook</h2><p>Thu câu dưới đây bằng Voice Studio, rồi chọn file "
-                f"để tải lên (wav / mp3 / m4a).</p><pre>{esc(_read(d / 'hook_scripts.txt'))}</pre>"
+        from app.planner import hook_io
+
+        _, choices = hook_io.load_hooks(d)
+        forms = []
+        for v in sorted(choices):
+            have = hook_io.find_voice(d, v)
+            state = f"✅ đã có ({esc(have.name)}) — tải lại để thay" if have else "❌ còn thiếu"
+            forms.append(
                 f"<form class='upload' method='post' action='/jobs/{job.job_id}/voice' enctype='multipart/form-data'>"
-                f"<b>📤 File voice cho video01</b><br><input type='file' name='voice' accept='.wav,.mp3,.m4a,audio/*' required>"
-                f"<br><button type='submit' class='btn'>Tải lên và dựng tiếp</button></form>"
+                f"<b>📤 Voice cho video{v:02d}</b> <span class='muted'>{state}</span><br>"
+                f"<input type='hidden' name='video' value='{v}'>"
+                f"<input type='file' name='voice' accept='.wav,.mp3,.m4a,audio/*' required>"
+                f"<br><button type='submit' class='btn small'>Tải lên</button></form>")
+        return (f"<div class='card'><h2>🎙️ Thu voice hook</h2><p>Thu các câu dưới đây bằng Voice Studio, rồi tải lên "
+                f"từng file (wav / mp3 / m4a). Đủ file là tool tự dựng tiếp.</p>"
+                f"<pre>{esc(_read(d / 'hook_scripts.txt'))}</pre>{''.join(forms)}"
                 f"<p class='muted'>{esc(job.message)}</p></div>")
+    if job.status == Status.waiting and job.step == "review_segments":
+        return _segments_panel(job, d)
     if job.status == Status.waiting:
         extra = ""
         u = d / "plan" / "understanding.json"
@@ -573,23 +640,29 @@ def _step_panel(job: Job, d: Path) -> str:
                      f"<p>Ghi chú editor: {esc(data.get('editor_notes', ''))}</p>")
         return f"<div class='card'><pre>{esc(job.message)}</pre>{extra}{_continue_button(job)}</div>"
     if job.status == Status.done:
-        parts = [f"<div class='card'><h2>✅ Xong</h2><p>Draft CapCut: <b>{esc(job.data.get('draft', ''))}</b> "
-                 f"({job.data.get('duration_s', '?')} giây). Mở CapCut để xem, chỉnh và xuất.</p>"]
-        plan = d / "plan" / "edit_plan_video01.json"
-        if plan.is_file():
-            pdata = json.loads(_read(plan))
-            titles = [t for t in pdata.get("titles_top", []) + pdata.get("titles_bottom", []) if t]
-            if titles:
-                parts.append("<p><b>4 dòng tiêu đề:</b></p><pre>" + esc("\n".join(titles)) + "</pre>")
-            parts.append(f"<p><b>Ghi chú editor:</b> {esc(pdata.get('editor_notes', ''))}</p>")
-        cap = _read(d / "deliver" / "video01_captions.txt")
-        if cap:
-            parts.append(f"<h2 style='margin-top:18px'>📣 Caption + hashtag</h2><pre>{esc(cap)}</pre>")
+        drafts = job.data.get("drafts") or [{"index": 1, "draft": job.data.get("draft", ""),
+                                             "duration_s": job.data.get("duration_s", "?")}]
+        parts = [f"<div class='card'><h2>✅ Xong — {len(drafts)} video</h2><p>Mở CapCut để xem, chỉnh và xuất từng draft.</p>"]
+        for dr in drafts:
+            i = dr["index"]
+            short = " <span class='badge b-waiting'>ngắn hơn 1 phút</span>" if dr.get("short") else ""
+            parts.append(f"<h2 style='margin-top:18px'>🎬 Video {i:02d}{short}</h2><p>Draft: <b>{esc(dr['draft'])}</b> "
+                         f"({dr.get('duration_s', '?')} giây)</p>")
+            plan = d / "plan" / f"edit_plan_video{i:02d}.json"
+            if plan.is_file():
+                pdata = json.loads(_read(plan))
+                titles = [t for t in pdata.get("titles_top", []) + pdata.get("titles_bottom", []) if t]
+                if titles:
+                    parts.append("<p><b>Dòng tiêu đề:</b></p><pre>" + esc("\n".join(titles)) + "</pre>")
+                parts.append(f"<p><b>Ghi chú editor:</b> {esc(pdata.get('editor_notes', ''))}</p>")
+            cap = _read(d / "deliver" / f"video{i:02d}_captions.txt")
+            if cap:
+                parts.append(f"<details><summary><b>📣 Caption + hashtag</b></summary><pre>{esc(cap)}</pre></details>")
         missing = json.loads(_read(d / "missing_assets.json") or "[]")
         if missing:
-            rows = "".join(f"<tr><td>{esc(m['kind'])}</td><td>{esc(str(m['what']))}</td><td>{m['at_s']}s</td>"
+            rows = "".join(f"<tr><td>{m.get('video', 1):02d}</td><td>{esc(m['kind'])}</td><td>{esc(str(m['what']))}</td><td>{m['at_s']}s</td>"
                            f"<td>{esc(m.get('purpose_vi', ''))}</td></tr>" for m in missing)
-            parts.append("<h2 style='margin-top:18px'>🧩 Tài nguyên cần bổ sung</h2><table><tr><th>Loại</th><th>Cần gì</th><th>Giây</th>"
+            parts.append("<h2 style='margin-top:18px'>🧩 Tài nguyên cần bổ sung</h2><table><tr><th>Video</th><th>Loại</th><th>Cần gì</th><th>Giây</th>"
                          f"<th>Để làm gì</th></tr>{rows}</table><div class='note'>Mở CapCut, thêm các âm thanh/hiệu ứng "
                          "này vào một dự án bất kỳ (để CapCut tải về), lưu lại, rồi bấm <b>🔁 Dựng lại draft</b> bên dưới."
                          "</div>")

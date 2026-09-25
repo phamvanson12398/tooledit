@@ -1,0 +1,10 @@
+{
+  "videos": [
+    {"start": 1.0, "end": 70.0, "title_vi": "Bị ghét vì quá mạnh", "summary_vi": "Mở: bị gọi là kẻ đáng ghét; diễn biến: chuyện với đối thủ; kết: lời thật lòng.", "why_vi": "Có mở và kết rõ"},
+    {"start": 75.0, "end": 150.0, "title_vi": "Chuyện bệnh viện", "summary_vi": "Mở: trước trận lớn; diễn biến: đối thủ nhập viện; kết: phản ứng.", "why_vi": "Tình huống bất ngờ, tự đứng được"}
+  ],
+  "dropped": [
+    {"start": 150.0, "end": 173.0, "reason_vi": "Chào kết chương trình, không có nội dung"}
+  ],
+  "editor_notes": "Chia 2 video theo 2 câu chuyện độc lập."
+}

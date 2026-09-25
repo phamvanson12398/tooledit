@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from app.director.fake import FakeDirector
 from app.jobs.job import Job, JobOptions, Status
 from app.jobs.runner import Runner
@@ -102,3 +104,79 @@ def test_style_choice_user_vs_auto(tmp_path):
     job2.data["style"] = "podcast"
     job2 = make_runner(tmp_path / "b", jobs2).run(job2)
     assert job2.data["style_used"] == "podcast"
+
+
+def _split_director():
+    import copy
+
+    from tests.test_planner import load
+
+    u = load("understand.json")
+    u["usable_range"] = {"start": 0.0, "end": 200.0}
+    h1 = load("hooks.json")
+    h2 = copy.deepcopy(h1)
+    h2["video_index"] = 2
+    for o in h2["options"]:
+        for k in ("footage", "source"):
+            o[k] = {"start": o[k]["start"] + 80, "end": o[k]["end"] + 80}
+    base = {**load("plan.json"), "emphasis": [], "zooms": [], "sfx": [], "effects": [], "stickers": [],
+            "transitions": [], "arrows": []}
+    p1 = {**base, "clips": [{"source_start": 1.0, "source_end": 65.0}]}
+    p2 = {**base, "video_index": 2, "clips": [{"source_start": 76.0, "source_end": 145.0}]}
+    c1 = load("captions.json")
+    c2 = {**c1, "video_index": 2}
+    return FakeDirector(responses={"understand": u, "hooks": [h1, h2], "plan": [p1, p2], "captions": [c1, c2]})
+
+
+def test_split_job_two_videos(tmp_path):
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/long.mp4")], JobOptions(split=True, hook=True, client_id="k"), job_id="j2")
+    make_analysis(jobs / "j2", duration=200.0)
+    r = make_runner(tmp_path, jobs)
+    r._director = _split_director()
+    job = r.run(job)
+    assert job.step == "review_segments" and job.status == Status.waiting, job.message
+    seg = json.loads((jobs / "j2" / "plan" / "segments.json").read_text(encoding="utf-8"))
+    assert len(seg["videos"]) == 2 and seg["proposal"]["dropped"]
+
+    # người dùng chỉnh điểm cắt video 2 rồi xác nhận
+    rows = [dict(seg["videos"][0]), {**seg["videos"][1], "end": 148.0}]
+    r.apply_segments(job, rows)
+    job = r.resume(job)
+    assert job.step == "choose_hook" and job.status == Status.waiting
+    assert "=== VIDEO 02 ===" in job.message
+    r.choose_hooks(job, {1: 1})
+    job = r.resume(job)
+    assert job.step == "choose_hook"  # còn thiếu lựa chọn cho video 2
+    r.choose_hooks(job, {1: 1, 2: 3})
+    job = r.resume(job)
+    assert job.step == "voice" and "video02_hook.wav" in job.message
+    for i in (1, 2):
+        (jobs / "j2" / "voice" / f"video0{i}_hook.wav").write_bytes(b"RIFF")
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+    drafts = job.data["drafts"]
+    assert [Path(d["draft"]).name for d in drafts] == ["k_j2_video01", "k_j2_video02"]
+    assert all((jobs / "j2" / "deliver" / f"video0{i}_captions.txt").is_file() for i in (1, 2))
+    assert (jobs / "j2" / "plan" / "edit_plan_video02.json").is_file()
+
+    # chia lại → xóa hook / kế hoạch cũ, voice được cất đi
+    r.redo(job, "segment")
+    assert not (jobs / "j2" / "plan" / "segments.json").exists()
+    assert not list((jobs / "j2" / "plan").glob("edit_plan_video*.json"))
+    assert (jobs / "j2" / "voice" / "video02_hook_cu.wav").exists()
+
+
+def test_apply_segments_validation(tmp_path):
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/long.mp4")], JobOptions(split=True), job_id="j3")
+    make_analysis(jobs / "j3", duration=100.0)
+    r = make_runner(tmp_path, jobs)
+    with pytest.raises(ValueError):
+        r.apply_segments(job, [{"start": 10, "end": 5}])
+    with pytest.raises(ValueError):
+        r.apply_segments(job, [{"start": 0, "end": 60}, {"start": 50, "end": 99}])
+    with pytest.raises(ValueError):
+        r.apply_segments(job, [{"start": 0, "end": 160}])
+    with pytest.raises(ValueError):
+        r.apply_segments(job, [])

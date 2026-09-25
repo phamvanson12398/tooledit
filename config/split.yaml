@@ -1,0 +1,7 @@
+# Chia video dài thành nhiều video độc lập (mục 4 CLAUDE.md)
+min_video_s: 60        # thời lượng tối thiểu mỗi video (kể cả hook)
+max_video_s: 150       # tối đa 2:30
+# Độ dài đoạn footage GỐC cho mỗi video (trước khi cắt gọn nhịp). Kế hoạch dựng sẽ cắt gọn về 60–150s.
+min_raw_s: 55
+max_raw_s: 300
+transcript_max_chars: 30000   # bản lời thoại gửi cho đạo diễn khi chia video (footage dài)

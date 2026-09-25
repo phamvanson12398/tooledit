@@ -66,6 +66,43 @@ def compact_schema(model: type[BaseModel]) -> dict:
     return model.model_json_schema()
 
 
+# ---------------- Chia video dài (mục 4) ----------------
+
+class SegmentVideo(TimeRange):
+    title_vi: str = Field(description="tên ngắn của video (tiếng Việt) để người dùng nhận ra")
+    summary_vi: str = Field(description="tóm tắt nội dung video: mở – diễn biến – kết (tiếng Việt)")
+    why_vi: str = Field(description="vì sao đoạn này đứng được một mình và đáng thành video")
+
+
+class DroppedPart(TimeRange):
+    reason_vi: str = Field(description="vì sao bỏ (nhạt, trùng, quá ngắn không ghép được...)")
+
+
+class SegmentPlan(BaseModel):
+    videos: list[SegmentVideo] = Field(min_length=1)
+    dropped: list[DroppedPart] = Field(default_factory=list)
+    editor_notes: str
+
+
+def check_segments(sp: SegmentPlan, duration: float, usable: TimeRange, min_raw: float, max_raw: float) -> list[str]:
+    """Mỗi video là một đoạn footage liền, không chồng nhau, độ dài hợp lý; mốc nằm trong footage."""
+    errors = check_ranges(sp.videos, duration, "video") + check_ranges(sp.dropped, duration, "đoạn bỏ")
+    vids = sorted(sp.videos, key=lambda v: v.start)
+    for a, b in zip(vids, vids[1:]):
+        if b.start < a.end - 0.5:
+            errors.append(f"video {a.start:.1f}–{a.end:.1f}s và {b.start:.1f}–{b.end:.1f}s chồng nhau")
+    whole_short = usable.end - usable.start < min_raw
+    for v in sp.videos:
+        span = v.end - v.start
+        if span < min_raw and not whole_short:
+            errors.append(f"video {v.start:.1f}–{v.end:.1f}s chỉ {span:.0f}s footage, cần ≥ {min_raw:.0f}s "
+                          "(ghép với đoạn liền kề cùng chủ đề hoặc bỏ và ghi lý do)")
+        if span > max_raw:
+            errors.append(f"video {v.start:.1f}–{v.end:.1f}s dài {span:.0f}s footage, tối đa {max_raw:.0f}s "
+                          "(tách thành hai video độc lập)")
+    return errors
+
+
 # ---------------- Hook (mục 5) ----------------
 
 HookType = Literal["climax_first", "open_question", "contrast", "half_reveal", "odd_detail"]
@@ -219,14 +256,15 @@ def check_titles(plan: EditPlan, max_chars: int) -> list[str]:
 
 
 def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: float = 60.0,
-               max_s: float = 150.0) -> list[str]:
+               max_s: float = 150.0, available: float | None = None) -> list[str]:
+    """available: số giây footage dành cho video này (mặc định = duration); dùng cho luật tối thiểu 60s."""
     errors = check_ranges([TimeRange(start=c.source_start, end=c.source_end) for c in plan.clips], duration, "clip")
     normal = [c for c in plan.clips if not c.replay]
     for a, b in zip(normal, normal[1:]):
         if b.source_start < a.source_end - 0.05 and b.source_end > a.source_start:
             errors.append(f"clip {a.source_start}-{a.source_end} và {b.source_start}-{b.source_end} chồng nhau")
     total = clips_duration(plan.clips) + hook_s
-    usable = duration + hook_s
+    usable = (duration if available is None else available) + hook_s
     if total > max_s:
         errors.append(f"tổng thời lượng {total:.1f}s (kể cả hook {hook_s:.1f}s) vượt {max_s:.0f}s — cắt gọn thêm")
     if total < min_s and usable >= min_s + 10:

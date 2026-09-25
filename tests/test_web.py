@@ -131,3 +131,59 @@ def test_web_resource_scan_settings_upload(tmp_path):
     led = json.loads((tmp_path / "assets" / "ledger.json").read_text(encoding="utf-8"))["items"]
     assert led[0]["source"] == "user" and led[0]["file"].startswith("sfx/laugh/")
     assert "không hợp lệ" in client.post("/assets/upload", data={"kind": "sfx"}, files={"file": ("a.exe", b"x")}).text
+
+
+def test_web_split_flow(tmp_path):
+    from tests.test_runner import _split_director
+
+    jobs = tmp_path / "jobs"
+    footage = tmp_path / "long.mp4"
+    footage.write_bytes(b"x")
+    director = _split_director()
+
+    def factory(root, log):
+        r = make_runner(tmp_path, root)
+        r._director = director
+        r.log = log
+        return r
+
+    app = create_app(jobs, factory)
+    orig = app.state.worker.start
+    holder = {}
+
+    def start(job_id, action=None):
+        if not (jobs / job_id / "analysis").exists():
+            make_analysis(jobs / job_id, duration=200.0)
+        holder["id"] = job_id
+        return orig(job_id, action)
+
+    app.state.worker.start = start
+    client = TestClient(app)
+    assert "name=\"split\"" in client.get("/").text
+    client.post("/jobs", data={"footage": str(footage), "hook": "on", "split": "on"})
+    wait_idle(app)
+    jid = holder["id"]
+    page = client.get(f"/jobs/{jid}").text
+    assert "Duyệt chia video" in page and "name='keep_v2'" in page and "name='keep_d1'" in page
+    # giữ 2 video, sửa điểm cắt video 2; không tick đoạn bị bỏ
+    client.post(f"/jobs/{jid}/segments", data={
+        "keep_v1": "on", "start_v1": "1.0", "end_v1": "70.0", "title_v1": "A", "summary_v1": "a",
+        "keep_v2": "on", "start_v2": "75.0", "end_v2": "148.0", "title_v2": "B", "summary_v2": "b",
+        "start_d1": "150", "end_d1": "173"})
+    wait_idle(app)
+    page = client.get(f"/jobs/{jid}").text
+    assert "name='choice_1'" in page and "name='choice_2'" in page
+    client.post(f"/jobs/{jid}/choose", data={"choice_1": "1", "choice_2": "2"})
+    wait_idle(app)
+    page = client.get(f"/jobs/{jid}").text
+    assert "Voice cho video01" in page and "Voice cho video02" in page
+    client.post(f"/jobs/{jid}/voice", data={"video": "1"}, files={"voice": ("a.wav", b"RIFF")})
+    wait_idle(app)
+    assert Job.load(jobs, jid).step == "voice"  # còn thiếu video 2
+    client.post(f"/jobs/{jid}/voice", data={"video": "2"}, files={"voice": ("b.m4a", b"x")})
+    wait_idle(app)
+    job = Job.load(jobs, jid)
+    assert job.status == Status.done, job.message
+    page = client.get(f"/jobs/{jid}").text
+    assert "2 video" in page and "Video 02" in page and "✂️ Chia lại video" in page
+    assert (jobs / jid / "voice" / "video02_hook.m4a").is_file()

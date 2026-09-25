@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def add_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("--hook", action="store_true", help="có hook voice")
     p.add_argument("--confirm", action="store_true", help="dừng xác nhận nội dung trước khi dựng")
+    p.add_argument("--split", action="store_true", help="chia video dài thành nhiều video độc lập")
     p.add_argument("--reframe", action="store_true", help="đổi khung 4:3/1:1 theo cảnh")
     p.add_argument("--business", action="store_true", help="khách doanh nghiệp: chỉ dùng nhạc Commercial")
     p.add_argument("--client", help="mã khách (dùng trong tên draft)")
@@ -41,6 +42,8 @@ def apply_options(job: Job, args) -> None:
         job.options.hook = True
     if args.confirm:
         job.options.confirm_before_build = True
+    if args.split:
+        job.options.split = True
     if args.reframe:
         job.options.reframe_per_scene = True
     if args.client:
@@ -56,7 +59,8 @@ def report(job: Job) -> None:
     print(f"Job {job.job_id} | bước: {job.step} | trạng thái: {job.status.value}")
     print(job.message)
     if job.status == Status.done:
-        print(f"\nDraft CapCut: {job.data.get('draft')} ({job.data.get('duration_s')} giây)")
+        for dr in job.data.get("drafts") or [{"draft": job.data.get("draft"), "duration_s": job.data.get("duration_s")}]:
+            print(f"\nDraft CapCut: {dr['draft']} ({dr['duration_s']} giây)")
         if job.data.get("captions"):
             print(f"Caption + hashtag: {job.data['captions']}")
         if job.data.get("missing_assets"):
@@ -100,7 +104,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         job = Job.load(args.jobs_root, args.job_id)
         apply_options(job, args)
-        if args.redo:
+        if args.redo in Runner.REDO_STEPS:
+            runner.redo(job, args.redo)  # xóa kết quả cũ của các bước phụ thuộc rồi chạy lại
+        elif args.redo:
             job.step, job.status = args.redo, Status.pending
             job.message = f"chạy lại từ bước {args.redo}"
         if args.choose:

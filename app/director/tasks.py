@@ -94,8 +94,40 @@ def _shared_context(u, segments: list[dict]) -> dict:
     }
 
 
+def for_video(u, video: dict):
+    """Understanding thu hẹp về một video (khi chia video): đoạn dùng được, tóm tắt, khoảnh khắc trong đoạn."""
+    from app.director.schemas import TimeRange
+
+    start, end = float(video["start"]), float(video["end"])
+    moments = [m for m in u.key_moments if m.end > start and m.start < end]
+    summary = video.get("summary_vi") or u.summary_vi
+    return u.model_copy(update={"usable_range": TimeRange(start=start, end=end), "key_moments": moments or
+                                u.key_moments[:1], "summary_vi": summary})
+
+
+def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0):
+    """Chia footage dài thành nhiều video độc lập 60–150s (mục 4)."""
+    from app.director.schemas import SegmentPlan, check_segments
+
+    cfg = config.load("split")
+    a = load_analysis(analysis_dir, footage)
+    duration = a["scenes"]["duration"]
+    segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
+    min_raw, max_raw = cfg.get("min_raw_s", 55), cfg.get("max_raw_s", 300)
+    variables = {**_shared_context(u, segs), "duration": f"{duration:.1f}",
+                 "min_video_s": cfg.get("min_video_s", 60), "max_video_s": cfg.get("max_video_s", 150),
+                 "min_raw_s": min_raw, "max_raw_s": max_raw,
+                 "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in a["scenes"]["scenes"]) or "(không có)",
+                 "transcript": format_transcript(
+                     [{**s, "text": apply_name_corrections(s["text"], u.name_corrections)} for s in segs],
+                     max_chars=cfg.get("transcript_max_chars", 30000)) or "(không có thoại)"}
+    return director.run("segment", variables, SegmentPlan,
+                        extra_check=lambda r: check_segments(r, duration, u.usable_range, min_raw, max_raw))
+
+
 def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
-               preferred_hooks: list[str] | None = None, footage: int = 0):
+               preferred_hooks: list[str] | None = None, footage: int = 0, restrict: bool = False):
+    """restrict=True (khi chia video): footage và nguồn của hook phải nằm trong đoạn của video này."""
     from app.director.schemas import HookSet, check_hooks
 
     a = load_analysis(analysis_dir, footage)
@@ -105,9 +137,21 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
     variables = {**_shared_context(u, segs), "video_index": video_index,
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language), "max_chars": max_chars,
                  "preferred_hooks": ", ".join(preferred_hooks or []) or "chưa có"}
-    return director.run("hooks", variables, HookSet,
-                        extra_check=lambda r: check_hooks(r, duration, max_chars)
-                        + ([] if r.video_index == video_index else [f"video_index phải là {video_index}"]))
+    lo, hi = u.usable_range.start - 0.5, u.usable_range.end + 0.5
+
+    def extra(r) -> list[str]:
+        errors = check_hooks(r, duration, max_chars)
+        if r.video_index != video_index:
+            errors.append(f"video_index phải là {video_index}")
+        if restrict:
+            for i, o in enumerate(r.options, 1):
+                for what, t in (("footage", o.footage), ("nguồn", o.source)):
+                    if t.start < lo or t.end > hi:
+                        errors.append(f"hook {i}: {what} {t.start:.1f}–{t.end:.1f}s nằm ngoài video này "
+                                      f"({u.usable_range.start:.1f}–{u.usable_range.end:.1f}s)")
+        return errors
+
+    return director.run("hooks", variables, HookSet, extra_check=extra)
 
 
 def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=None, hook_s: float = 0.0,
@@ -181,7 +225,8 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     commercial = {m.name for m in (music_items or []) if m.commercial}
 
     def extra(plan) -> list[str]:
-        errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s)
+        errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s,
+                            available=u.usable_range.end - u.usable_range.start)
         if any(c.source_start < u.usable_range.start - 0.5 for c in plan.clips):
             errors.append(f"có clip bắt đầu trước đoạn dùng được ({u.usable_range.start:.1f}s)")
         if plan.music.name and plan.music.name not in names:

@@ -10,7 +10,9 @@ def test_job_flow_without_hook(tmp_path: Path):
     job.advance()
     assert job.step == "understand"
     job.advance()
-    assert job.step == "plan"  # không xác nhận, không hook → nhảy thẳng
+    assert job.step == "segment"  # không xác nhận → sang bước chia video (không chia: 1 video)
+    job.advance()
+    assert job.step == "plan"  # không duyệt chia video, không hook → nhảy thẳng
     job.save(tmp_path)
     again = Job.load(tmp_path, "20260925_01")
     assert again.step == "plan" and again.footage == ["C:/f/a.mp4"]
@@ -19,10 +21,10 @@ def test_job_flow_without_hook(tmp_path: Path):
 def test_job_flow_with_hook_and_waits(tmp_path: Path):
     job = Job.create(tmp_path, [Path("a.mp4")], JobOptions(hook=True, confirm_before_build=True), job_id="j")
     steps = [job.step]
-    for _ in range(3):
+    for _ in range(4):
         job.advance()
         steps.append(job.step)
-    assert steps == ["analyze", "understand", "confirm_genre", "hooks"]
+    assert steps == ["analyze", "understand", "confirm_genre", "segment", "hooks"]
     job.advance()
     job.wait("Chọn 1 trong 3 hook cho mỗi video")
     assert job.status == Status.waiting and job.step == "choose_hook"
@@ -55,3 +57,12 @@ def test_load_retries_when_file_is_briefly_locked(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "read_text", flaky)
     assert Job.load(tmp_path, "j").job_id == "j" and calls["n"] == 2
     job.save(tmp_path)
+
+
+def test_split_job_has_review_step(tmp_path: Path):
+    job = Job.create(tmp_path, [Path("a.mp4")], JobOptions(split=True), job_id="s")
+    steps = [job.step]
+    for _ in range(4):
+        job.advance()
+        steps.append(job.step)
+    assert steps == ["analyze", "understand", "segment", "review_segments", "plan"]

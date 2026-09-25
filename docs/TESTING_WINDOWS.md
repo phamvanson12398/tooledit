@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 13 — Chia video dài thành nhiều video `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`.
+2. Tạo job với một footage DÀI (5–20 phút), bật **Chia video dài thành nhiều video** (và **Có hook voice** nếu muốn).
+3. Job dừng ở **✂️ Duyệt chia video**: xem các video AI đề xuất (giây bắt đầu–kết thúc, độ dài, nội dung) và các
+   **đoạn bị bỏ kèm lý do**. Thử: sửa giây một video, bỏ tick một video, tick một đoạn bị bỏ → **Xác nhận và dựng tiếp**.
+4. **Chọn hook**: mỗi video có 3 phương án riêng, chọn cho TẤT CẢ video trong một lần bấm.
+5. **Thu voice**: có ô tải lên riêng cho từng video (video01, video02…). Tải đủ thì tool tự dựng tiếp.
+6. Khi xong: trang job liệt kê từng video (draft `khach_<job>_video01`, `video02`…, thời lượng, tiêu đề, caption riêng).
+   Mở từng draft trong CapCut: mỗi video phải tự đứng được (có mở, diễn biến, kết), không có chữ "Part 1/2",
+   dài 60–150 giây (trừ khi cả footage quá ngắn — có nhãn "ngắn hơn 1 phút").
+7. Thử nút **✂️ Chia lại video**: AI chia lại, hook / kế hoạch / voice cũ phải làm lại (voice cũ đổi tên `_cu`).
+
+Dòng lệnh (không bắt buộc): `.venv\Scripts\python tools\run_job.py new "D:\footage\dai.mp4" --split --hook`
+
 ## Bước 12 — Kiểu "Thể thao" theo video mẫu boxing `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`. Tạo job với một trận boxing / bóng đá, chọn kiểu dựng

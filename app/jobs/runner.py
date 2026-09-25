@@ -165,7 +165,7 @@ class Runner:
 
     # ---------- chạy ----------
 
-    RECHECK_STEPS = {"choose_hook", "voice"}  # chạy lại bước để kiểm tra điều kiện, không nhảy qua
+    RECHECK_STEPS = {"review_segments", "choose_hook", "voice"}  # chạy lại bước để kiểm tra điều kiện
 
     def resume(self, job: Job) -> Job:
         """Người dùng bấm Tiếp tục (đã chọn hook / đã thả voice / đã duyệt) → chạy tiếp."""
@@ -176,26 +176,67 @@ class Runner:
         job.save(self.jobs_root)
         return self.run(job)
 
-    REDO_STEPS = ("hooks", "choose_hook", "plan", "write")
+    REDO_STEPS = ("segment", "hooks", "choose_hook", "plan", "write")
 
     def redo(self, job: Job, step: str) -> None:
-        """Làm lại từ một bước (nút trên giao diện): viết hook mới, chọn hook khác, lập lại kế hoạch, dựng lại draft."""
+        """Làm lại từ một bước (nút trên giao diện): chia lại video, viết hook mới, chọn hook khác,
+        lập lại kế hoạch, dựng lại draft. Xóa kết quả cũ của các bước phụ thuộc."""
         from app.planner import hook_io
 
-        if step not in self.REDO_STEPS or not job.applies(step):
+        if step not in self.REDO_STEPS or (step != "segment" and not job.applies(step)) or \
+                (step == "segment" and not job.options.split):
             raise ValueError(f"Không làm lại được bước {step!r}")
-        if step in ("hooks", "choose_hook"):
-            d, _, _ = self._paths(job)
-            if step == "choose_hook":
-                sets, _ = hook_io.load_hooks(d)
-                hook_io.save_hooks(d, sets, {})
+        d, _, plan_dir = self._paths(job)
+        if step == "segment":
+            for f in (plan_dir / "segments.json", hook_io.hooks_path(d)):
+                f.unlink(missing_ok=True)
+            job.data.pop("videos", None)
+        if step == "hooks":
+            hook_io.hooks_path(d).unlink(missing_ok=True)
+        if step == "choose_hook":
+            sets, _ = hook_io.load_hooks(d)
+            hook_io.save_hooks(d, sets, {})
+        if step in ("segment", "hooks", "choose_hook"):
             # câu hook đổi → voice cũ không còn khớp; giữ bản sao để không mất file
-            for old in (d / "voice").glob(f"{hook_io.voice_name(1)}.*"):
+            for old in (d / "voice").glob("video*_hook.*"):
                 old.replace(old.with_name(f"{old.stem}_cu{old.suffix}"))
+        if step in ("segment", "hooks", "choose_hook", "plan"):
+            self._clear_plans(d, plan_dir)
         job.step = step
         job.status = Status.pending
         job._log(f"người dùng yêu cầu làm lại từ bước {step}")
         job.save(self.jobs_root)
+
+    @staticmethod
+    def _clear_plans(d: Path, plan_dir: Path) -> None:
+        for pattern in ("edit_plan_video*.json", "captions_video*.json"):
+            for f in plan_dir.glob(pattern):
+                f.unlink()
+        for f in (d / "deliver").glob("video*_captions.txt"):
+            f.unlink()
+
+    # ---------- danh sách video của job ----------
+
+    def videos(self, job: Job) -> list[dict]:
+        """Các video sẽ dựng: [{index, start, end, title_vi, summary_vi}]. Job cũ / không chia → 1 video."""
+        if job.data.get("videos"):
+            return job.data["videos"]
+        u = self._understanding(job)
+        return [{"index": 1, "start": u.usable_range.start, "end": u.usable_range.end, "title_vi": "",
+                 "summary_vi": u.summary_vi}]
+
+    def _u_for(self, job: Job, video: dict):
+        from app.director.tasks import for_video
+
+        u = self._understanding(job)
+        return for_video(u, video) if job.options.split else u
+
+    def _hook_for(self, d: Path, index: int):
+        from app.planner import hook_io
+
+        sets, choices = hook_io.load_hooks(d)
+        s = next((x for x in sets if x.video_index == index), None)
+        return s.options[choices[index] - 1] if s and index in choices else None
 
     def run(self, job: Job) -> Job:
         """Chạy các bước cho tới khi xong hoặc gặp điểm dừng / lỗi. Lưu job.json sau mỗi bước."""
@@ -239,20 +280,89 @@ class Runner:
         job.wait(f"Xác nhận nội dung: {u.summary_vi} | Phong cách sẽ dùng: {self._style_name(job)}. "
                  "Sửa plan/understanding.json nếu cần rồi bấm Tiếp tục.")
 
+    def step_segment(self, job: Job) -> None:
+        from app.director.tasks import make_segments
+
+        _, analysis, plan_dir = self._paths(job)
+        u = self._understanding(job)
+        path = plan_dir / "segments.json"
+        if not job.options.split:
+            videos = [{"index": 1, "start": u.usable_range.start, "end": u.usable_range.end, "title_vi": "",
+                       "summary_vi": u.summary_vi}]
+            path.write_text(json.dumps({"videos": videos, "confirmed": True}, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
+            job.data["videos"] = videos
+            return
+        if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
+            self.log("Đã có kết quả chia video, dùng lại.")
+            return
+        sp = make_segments(self.director, analysis, u)
+        videos = [{"index": i, "start": v.start, "end": v.end, "title_vi": v.title_vi, "summary_vi": v.summary_vi,
+                   "why_vi": v.why_vi} for i, v in enumerate(sorted(sp.videos, key=lambda v: v.start), 1)]
+        data = {"proposal": sp.model_dump(), "videos": videos, "confirmed": False}
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        job.data["videos"] = videos
+        self.log(f"Đạo diễn chia thành {len(videos)} video, bỏ {len(sp.dropped)} đoạn.")
+
+    def step_review_segments(self, job: Job) -> None:
+        _, _, plan_dir = self._paths(job)
+        data = json.loads((plan_dir / "segments.json").read_text(encoding="utf-8"))
+        if not data.get("confirmed"):
+            job.wait(f"Duyệt cách chia video: {len(data.get('videos', []))} video. Chỉnh điểm cắt, bỏ bớt hoặc "
+                     "thêm đoạn bị bỏ rồi bấm Xác nhận.")
+
+    def apply_segments(self, job: Job, rows: list[dict]) -> None:
+        """Người dùng duyệt bảng chia video: rows = [{start, end, title_vi, summary_vi}] các video giữ lại."""
+        from app.director.tasks import load_analysis
+        from app.planner import hook_io
+
+        d, analysis, plan_dir = self._paths(job)
+        duration = load_analysis(analysis)["scenes"]["duration"]
+        rows = sorted(rows, key=lambda r: float(r["start"]))
+        if not rows:
+            raise ValueError("Cần giữ ít nhất một video.")
+        for r in rows:
+            a, b = float(r["start"]), float(r["end"])
+            if not (0 <= a < b <= duration + 0.5):
+                raise ValueError(f"Điểm cắt {a:.1f}–{b:.1f}s không hợp lệ (footage dài {duration:.1f}s).")
+        for x, y in zip(rows, rows[1:]):
+            if float(y["start"]) < float(x["end"]) - 0.5:
+                raise ValueError(f"Video {float(x['start']):.1f}–{float(x['end']):.1f}s và "
+                                 f"{float(y['start']):.1f}–{float(y['end']):.1f}s chồng nhau.")
+        videos = [{"index": i, "start": float(r["start"]), "end": float(r["end"]), "title_vi": r.get("title_vi", ""),
+                   "summary_vi": r.get("summary_vi", "")} for i, r in enumerate(rows, 1)]
+        path = plan_dir / "segments.json"
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+        changed = data.get("videos") != videos or not data.get("confirmed")
+        data.update({"videos": videos, "confirmed": True})
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        job.data["videos"] = videos
+        if changed:  # chia khác đi → hook / kế hoạch cũ không còn đúng
+            hook_io.hooks_path(d).unlink(missing_ok=True)
+            self._clear_plans(d, plan_dir)
+        job.save(self.jobs_root)
+
     def step_hooks(self, job: Job) -> None:
         from app.director.tasks import make_hooks
         from app.planner import hook_io
 
         d, analysis, _ = self._paths(job)
-        hs = make_hooks(self.director, analysis, self._understanding(job), video_index=1)
-        hook_io.save_hooks(d, [hs])
+        sets, choices = hook_io.load_hooks(d) if hook_io.hooks_path(d).is_file() else ([], {})
+        done = {s.video_index for s in sets}
+        for v in self.videos(job):
+            if v["index"] in done:
+                continue
+            self.log(f"Viết hook cho video {v['index']:02d}…")
+            sets.append(make_hooks(self.director, analysis, self._u_for(job, v), video_index=v["index"],
+                                   restrict=job.options.split))
+            hook_io.save_hooks(d, sorted(sets, key=lambda s: s.video_index), choices)
 
     def step_choose_hook(self, job: Job) -> None:
         from app.planner import hook_io
 
         d, _, _ = self._paths(job)
         sets, choices = hook_io.load_hooks(d)
-        if not choices:
+        if not choices or any(v["index"] not in choices for v in self.videos(job)):
             job.wait("Chọn hook cho từng video (bảng bên dưới), rồi chạy tiếp với lựa chọn.\n" + hook_io.hook_table(sets))
             return
         path = hook_io.write_hook_scripts(d, sets, choices)
@@ -283,25 +393,31 @@ class Runner:
         from app.styles import load_style
 
         d, analysis, plan_dir = self._paths(job)
-        u = self._understanding(job)
-        hook, hook_s = None, 0.0
-        if job.options.hook:
-            sets, choices = hook_io.load_hooks(d)
-            hook = sets[0].options[choices[1] - 1]
-            voice = hook_io.find_voice(d, 1)
-            hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else 4.0
         tpl = self._template()
         style_name = self._style_name(job)
         job.data["style_used"] = style_name
         self.log(f"Phong cách dựng: {style_name}")
-        plan = make_plan(self.director, analysis, u, load_style(style_name), hook=hook, hook_s=hook_s,
-                         music_items=[m for m in tpl.library if m.kind == "music"],
-                         sfx_items=[m for m in tpl.library if m.kind == "sfx"],
-                         decor_items=[m for m in tpl.library if m.kind in ("video_effect", "sticker", "transition",
-                                                                            "filter")],
-                         business=job.data.get("business", False), reframe=job.options.reframe_per_scene,
-                         default_ratio=job.data.get("default_ratio") or config.load("capcut").get("default_block", "4:3"))
-        (plan_dir / "edit_plan_video01.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+        for v in self.videos(job):
+            i = v["index"]
+            out = plan_dir / f"edit_plan_video{i:02d}.json"
+            if out.is_file():
+                continue
+            hook, hook_s = None, 0.0
+            if job.options.hook:
+                hook = self._hook_for(d, i)
+                voice = hook_io.find_voice(d, i)
+                hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else 4.0
+            self.log(f"Lập kế hoạch dựng video {i:02d}…")
+            plan = make_plan(self.director, analysis, self._u_for(job, v), load_style(style_name), hook=hook,
+                             hook_s=hook_s, video_index=i,
+                             music_items=[m for m in tpl.library if m.kind == "music"],
+                             sfx_items=[m for m in tpl.library if m.kind == "sfx"],
+                             decor_items=[m for m in tpl.library if m.kind in ("video_effect", "sticker",
+                                                                                "transition", "filter")],
+                             business=job.data.get("business", False), reframe=job.options.reframe_per_scene,
+                             default_ratio=job.data.get("default_ratio")
+                             or config.load("capcut").get("default_block", "4:3"))
+            out.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
 
     def _voice_duration(self, voice: Path) -> int:
         if self._probe is None:
@@ -321,44 +437,52 @@ class Runner:
         from app.styles import load_style
 
         d, analysis, plan_dir = self._paths(job)
-        u = self._understanding(job)
-        plan = EditPlan.model_validate_json((plan_dir / "edit_plan_video01.json").read_text(encoding="utf-8"))
-        hook, voice = None, None
-        if job.options.hook:
-            sets, choices = hook_io.load_hooks(d)
-            hook = sets[0].options[choices[1] - 1]
-            vpath = hook_io.find_voice(d, 1)
-            voice = (vpath, self._voice_duration(vpath)) if vpath else None
+        tpl = self._template()
+        style = load_style(job.data.get("style_used") or self._style_name(job))
+        a = load_analysis(analysis)
         clean = analysis / "audio" / "clean_00.wav"
-        name = f"{job.options.client_id or 'khach'}_{job.job_id}_video01"
-        res = build(plan, u, load_analysis(analysis), self._template(), self._drafts_dir or drafts_root(), name,
-                    load_style(job.data.get("style_used") or self._style_name(job)), hook=hook, voice=voice,
-                    clean_audio=clean.resolve() if clean.is_file() else None)
-        out = res.writer.save(overwrite=True)
-        (d / "missing_assets.json").write_text(json.dumps(res.missing_assets, ensure_ascii=False, indent=2),
-                                               encoding="utf-8")
-        job.data["draft"] = str(out)
-        job.data["duration_s"] = round(res.duration_us / 1_000_000, 1)
-        job.data["missing_assets"] = len(res.missing_assets)
-        for n in res.notes:
-            self.log(n)
-        self.log(f"Đã ghi draft CapCut: {out} ({job.data['duration_s']}s)")
+        drafts, missing = [], []
+        for v in self.videos(job):
+            i = v["index"]
+            plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
+            hook, voice = None, None
+            if job.options.hook:
+                hook = self._hook_for(d, i)
+                vpath = hook_io.find_voice(d, i)
+                voice = (vpath, self._voice_duration(vpath)) if vpath else None
+            name = f"{job.options.client_id or 'khach'}_{job.job_id}_video{i:02d}"
+            res = build(plan, self._u_for(job, v), a, tpl, self._drafts_dir or drafts_root(), name, style,
+                        hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
+                        video_index=i)
+            out = res.writer.save(overwrite=True)
+            dur = round(res.duration_us / 1_000_000, 1)
+            drafts.append({"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),
+                           "short": dur < config.load("split").get("min_video_s", 60)})
+            missing += res.missing_assets
+            for n in res.notes:
+                self.log(f"[video {i:02d}] {n}")
+            self.log(f"Đã ghi draft CapCut: {out} ({dur}s)")
+        (d / "missing_assets.json").write_text(json.dumps(missing, ensure_ascii=False, indent=2), encoding="utf-8")
+        job.data["drafts"] = drafts
+        job.data["draft"] = drafts[0]["draft"]
+        job.data["duration_s"] = drafts[0]["duration_s"]
+        job.data["missing_assets"] = len(missing)
 
     def step_captions(self, job: Job) -> None:
         from app.director.schemas import EditPlan
         from app.director.tasks import captions_text, make_captions
-        from app.planner import hook_io
 
         d, analysis, plan_dir = self._paths(job)
-        plan = EditPlan.model_validate_json((plan_dir / "edit_plan_video01.json").read_text(encoding="utf-8"))
-        hook = None
-        if job.options.hook:
-            sets, choices = hook_io.load_hooks(d)
-            hook = sets[0].options[choices[1] - 1]
-        c = make_captions(self.director, analysis, self._understanding(job), plan, hook=hook)
-        out = d / "deliver" / "video01_captions.txt"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(captions_text(c), encoding="utf-8")
-        (plan_dir / "captions_video01.json").write_text(c.model_dump_json(indent=2), encoding="utf-8")
-        job.data["captions"] = str(out)
-        self.log(f"Đã xuất caption: {out}")
+        for v in self.videos(job):
+            i = v["index"]
+            out = d / "deliver" / f"video{i:02d}_captions.txt"
+            if out.is_file():
+                continue
+            plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
+            hook = self._hook_for(d, i) if job.options.hook else None
+            c = make_captions(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(captions_text(c), encoding="utf-8")
+            (plan_dir / f"captions_video{i:02d}.json").write_text(c.model_dump_json(indent=2), encoding="utf-8")
+            self.log(f"Đã xuất caption: {out}")
+        job.data["captions"] = str(d / "deliver")
