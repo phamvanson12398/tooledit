@@ -32,7 +32,10 @@ git checkout claude/new-session-lqnr47
 ## 3. Cài thư viện
 
 Nhấp đúp `install.bat` trong thư mục repo (hoặc chạy `.\install.bat`). Script tạo môi trường `.venv`,
-cài thư viện, rồi chạy `tools\check_gpu.py`.
+cài thư viện, rồi chạy `tools\check_gpu.py`. Mất khoảng 5–15 phút.
+
+> **Lưu ý:** trong lúc cài, **đừng bấm chuột vào cửa sổ đen**. Nếu tiêu đề cửa sổ hiện chữ
+> **"Select"** thì chương trình đang bị Windows tạm dừng; bấm **Esc** để chạy tiếp.
 
 ## 4. GPU cho nhận dạng thoại (GTX 1080 Ti) `[CẦN KIỂM TRA TRÊN MÁY]`
 
