@@ -44,6 +44,13 @@ def main(argv: list[str] | None = None) -> int:
     print("Khoảnh khắc đáng chú ý:")
     for m in result.key_moments:
         print(f"  {m.start:6.1f}-{m.end:6.1f}s  {m.why_vi}")
+    print(f"Đoạn nên dùng: {result.usable_range.start:.1f}-{result.usable_range.end:.1f}s")
+    for c in result.name_corrections:
+        print(f"Sửa tên: {c.wrong} → {c.right} ({c.evidence_vi})")
+    b = result.burned_in_text
+    print(f"Chữ có sẵn trên hình: {'có' if b.present else 'không'} {', '.join(b.regions)} {b.note_vi}")
+    for n in result.sensitive_notes_vi:
+        print(f"Lưu ý nhạy cảm: {n}")
     print(f"Ghi chú editor: {result.editor_notes}")
     print(f"\nĐã lưu: {out}")
     return 0

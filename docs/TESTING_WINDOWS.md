@@ -1,6 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
-## Bước 4 — Chạy thử đạo diễn AI (Claude Code) `[CẦN KIỂM TRA TRÊN MÁY]`
+## Bước 4 — Chạy thử đạo diễn AI (Claude Code)
+
+**Kết quả lần 1 (2026-09-25, job 20260925_02):** chạy được sau khi đăng nhập Claude Code, mất 24 giây.
+Tóm tắt đúng nội dung; đề xuất jp_telop có lý do; 7 khoảnh khắc có mốc giây; tự sửa tên nhận dạng sai
+(高藤力 → 貴闘力, 明物 → 曙) dựa trên chữ trong khung hình; phát hiện footage có sẵn テロップ; tự nêu lưu ý
+không được viết câu đùa 八百長 như sự thật. Sau đó đã thêm các trường riêng cho những nhận định này.
+
 
 Cần: đã cài và đăng nhập Claude Code (docs/SETUP_WINDOWS.md mục 5), đã có một job phân tích xong.
 

@@ -8,8 +8,38 @@
   "suggested_style": "jp_telop",
   "style_reason_vi": "Thoại tiếng Nhật, nhịp trò chuyện, hợp テロップ nhấn chữ theo cảm xúc.",
   "key_moments": [
-    {"start": 19.2, "end": 22.0, "why_vi": "Câu trả lời thẳng thắn gây cười"},
-    {"start": 35.3, "end": 42.5, "why_vi": "Chi tiết bất ngờ, đảo chiều câu chuyện"}
+    {
+      "start": 19.2,
+      "end": 22.0,
+      "why_vi": "Câu trả lời thẳng thắn gây cười"
+    },
+    {
+      "start": 35.3,
+      "end": 42.5,
+      "why_vi": "Chi tiết bất ngờ, đảo chiều câu chuyện"
+    }
   ],
-  "editor_notes": "Chọn jp_telop vì thoại dày và có nhiều khoảnh khắc phản ứng."
+  "editor_notes": "Chọn jp_telop vì thoại dày và có nhiều khoảnh khắc phản ứng.",
+  "usable_range": {
+    "start": 1.0,
+    "end": 50.0
+  },
+  "name_corrections": [
+    {
+      "wrong": "高藤力",
+      "right": "貴闘力",
+      "evidence_vi": "logo '貴闘力部屋' trên khung hình"
+    }
+  ],
+  "burned_in_text": {
+    "present": true,
+    "regions": [
+      "top_left",
+      "center"
+    ],
+    "note_vi": "テロップ lớn giữa màn"
+  },
+  "sensitive_notes_vi": [
+    "Câu đùa 八百長 là giả định, không được viết như sự thật"
+  ]
 }

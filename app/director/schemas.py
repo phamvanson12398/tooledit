@@ -20,6 +20,18 @@ class KeyMoment(TimeRange):
     why_vi: str = Field(description="vì sao khoảnh khắc này đáng chú ý (tiếng Việt)")
 
 
+class NameCorrection(BaseModel):
+    wrong: str = Field(description="chữ nhận dạng sai trong transcript")
+    right: str = Field(description="cách viết đúng")
+    evidence_vi: str = Field(description="căn cứ (ví dụ chữ trên khung hình nào)")
+
+
+class BurnedInText(BaseModel):
+    present: bool = Field(description="footage gốc đã có chữ in sẵn (テロップ, tiêu đề, logo)?")
+    regions: list[Literal["top", "center", "bottom", "top_left", "top_right", "bottom_left", "bottom_right"]] = []
+    note_vi: str = ""
+
+
 class Understanding(BaseModel):
     """Kết quả bước 'AI hiểu nội dung' (mục 3.3 CLAUDE.md)."""
 
@@ -32,6 +44,11 @@ class Understanding(BaseModel):
     suggested_style: Style
     style_reason_vi: str
     key_moments: list[KeyMoment] = Field(min_length=1, max_length=12)
+    usable_range: TimeRange = Field(description="đoạn chứa mạch nội dung chính, bỏ phần thừa đầu/cuối")
+    name_corrections: list[NameCorrection] = Field(default_factory=list)
+    burned_in_text: BurnedInText
+    sensitive_notes_vi: list[str] = Field(
+        default_factory=list, description="điều KHÔNG được viết/ám chỉ trên màn hình hay trong hook")
     editor_notes: str = Field(description="giải thích ngắn các nhận định chính (tiếng Việt)")
 
 

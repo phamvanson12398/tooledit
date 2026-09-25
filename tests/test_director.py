@@ -56,6 +56,7 @@ def test_retry_when_moment_outside_footage(tmp_path):
     a = make_analysis(tmp_path, duration=30.0)  # key moment 35.3-42.5 vượt quá 30s
     fixed = json.loads(json.dumps(GOOD))
     fixed["key_moments"] = [{"start": 5, "end": 8, "why_vi": "ok"}]
+    fixed["usable_range"] = {"start": 1, "end": 29}
     d = FakeDirector({"understand": [GOOD, fixed]})
     r = understand(d, a)
     assert len(d.calls) == 2 and "vượt quá độ dài footage" in d.calls[1]["prompt"]
@@ -68,6 +69,23 @@ def test_gives_up_after_max_attempts(tmp_path):
     d = FakeDirector({"understand": [bad]}, max_attempts=2)
     with pytest.raises(DirectorError):
         understand(d, a)
+    assert len(d.calls) == 2
+
+
+def test_name_corrections_applied(tmp_path):
+    from app.director.tasks import apply_name_corrections
+
+    r = understand(FakeDirector(), make_analysis(tmp_path))
+    assert r.burned_in_text.present and r.usable_range.end == 50.0
+    assert apply_name_corrections("高藤力なんか優勝は", r.name_corrections) == "貴闘力なんか優勝は"
+
+
+def test_usable_range_checked(tmp_path):
+    bad = json.loads(json.dumps(GOOD))
+    bad["usable_range"] = {"start": 0, "end": 500}
+    good = json.loads(json.dumps(GOOD))
+    d = FakeDirector({"understand": [bad, good]})
+    understand(d, make_analysis(tmp_path))
     assert len(d.calls) == 2
 
 

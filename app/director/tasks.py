@@ -52,4 +52,13 @@ def understand(director: Director, analysis_dir: Path, client_style: str | None 
     }
     images = [analysis_dir / f["file"] for f in frames]
     return director.run("understand", variables, Understanding, images,
-                        extra_check=lambda r: check_ranges(r.key_moments, sc["duration"], "key_moment"))
+                        extra_check=lambda r: check_ranges([*r.key_moments, r.usable_range], sc["duration"],
+                                                           "mốc"))
+
+
+def apply_name_corrections(text: str, corrections) -> str:
+    """Thay tên nhận dạng sai bằng tên đúng (dùng cho phụ đề)."""
+    for c in corrections:
+        if c.wrong:
+            text = text.replace(c.wrong, c.right)
+    return text
