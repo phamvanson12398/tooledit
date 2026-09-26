@@ -47,7 +47,11 @@ def search(key: str, query: str, *, min_s: float, max_s: float, count: int = 3, 
         raise FreesoundError("Freesound từ chối key (401). Kiểm tra lại API key trong phần cài đặt.")
     if r.status_code != 200:
         raise FreesoundError(f"Freesound trả lỗi {r.status_code}: {r.text[:200]}")
-    results = [s for s in r.json().get("results", []) if is_cc0(s.get("license", ""))
+    try:
+        data = r.json()
+    except ValueError as exc:
+        raise FreesoundError(f"Freesound trả dữ liệu không đọc được: {exc}") from exc
+    results = [s for s in data.get("results", []) if is_cc0(s.get("license", ""))
                and (s.get("previews") or {}).get("preview-hq-mp3")]
     return results[:count]
 

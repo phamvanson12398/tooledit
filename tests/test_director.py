@@ -127,3 +127,16 @@ def test_captions_text_and_validation():
     assert "#相撲 #貴闘力" in txt and "#曙 = Akebono" in txt
     bad = c.model_copy(update={"hashtags": ["相撲", "#a b", "#ok"], "hashtags_vi": ["x"]})
     assert len(check_captions(bad)) == 3
+
+
+def test_cap_per_mood_keeps_variety():
+    from app.capcut_writer.template import LibraryItem
+    from app.director.tasks import cap_per_mood
+
+    items = [LibraryItem(kind="sfx", name=f"{m}{i}", resource_id=f"{m}{i}", material={}, mood=m)
+             for m in ("pop", "whoosh", "boom") for i in range(10)]
+    items += [LibraryItem(kind="sfx", name="CapCut Hit", resource_id="c1", material={})]
+    got = cap_per_mood(items, per_mood=3, total=8)
+    names = [g.name for g in got]
+    assert len(got) == 8 and {"pop0", "whoosh0", "boom0", "CapCut Hit"} <= set(names)
+    assert sum(n.startswith("pop") for n in names) <= 3

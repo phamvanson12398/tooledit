@@ -113,7 +113,7 @@ def test_web_resource_scan_settings_upload(tmp_path):
                      scan_fn=scan_fn)
     client = TestClient(app)
     home = client.get("/").text
-    assert "🔍 Quét tài nguyên" in home and "chưa có key" in home
+    assert "🔍 Quét &amp; làm giàu kho" in home and "chưa có key" in home
 
     client.post("/settings/freesound", data={"key": " ABC "})
     assert "đã lưu key" in client.get("/").text
@@ -187,3 +187,19 @@ def test_web_split_flow(tmp_path):
     page = client.get(f"/jobs/{jid}").text
     assert "2 video" in page and "Video 02" in page and "✂️ Chia lại video" in page
     assert (jobs / jid / "voice" / "video02_hook.m4a").is_file()
+
+
+def test_web_import_folder(tmp_path):
+    src = tmp_path / "tai_ve" / "SFX" / "DamDong"
+    src.mkdir(parents=True)
+    (src / "crowd cheer.mp3").write_bytes(b"x")
+    app = create_app(tmp_path / "jobs", assets_root=tmp_path / "assets", settings_path=tmp_path / "l.yaml",
+                     scan_fn=lambda d, k: None)
+    client = TestClient(app)
+    home = client.get("/").text
+    assert "Nhập cả thư mục" in home and "Incompetech" in home and "làm giàu kho" in home
+    page = client.post("/assets/import-folder", data={"folder": str(tmp_path / "tai_ve"), "kind": "auto",
+                                                       "source": "pixabay"}).text
+    assert "Đã nhập 1 file" in page and "dam_dong" in page
+    assert (tmp_path / "assets" / "sfx" / "dam_dong" / "crowd_cheer_pb.mp3").is_file()
+    assert "Không nhập được" in client.post("/assets/import-folder", data={"folder": str(tmp_path / "khong_co")}).text

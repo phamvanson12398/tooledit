@@ -230,6 +230,33 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     def pick_file():
         return pick_file_dialog()
 
+    @app.get("/api/pick-folder")
+    def pick_folder():
+        return pick_folder_dialog()
+
+    @app.post("/assets/import-folder", response_class=HTMLResponse)
+    def import_folder_page(folder: str = Form(...), kind: str = Form("auto"), source: str = Form("other"),
+                           license: str = Form(""), author: str = Form("")):
+        from app.assets.importer import import_folder
+
+        try:
+            res = import_folder(Path(folder.strip().strip('"')), assets_root, kind=kind, source=source,
+                                license=license, author=author)
+        except Exception as exc:
+            return _page("Lỗi", f"<div class='card'><h2>Không nhập được</h2><pre>{html.escape(str(exc))}</pre>"
+                         "<p><a class='btn light' href='/'>🏠 Về trang chủ</a></p></div>")
+        esc = html.escape
+        rows = "".join(f"<tr><td>{esc(e.get('original_name', ''))}</td><td>{esc(e.get('kind', ''))}</td>"
+                       f"<td>{esc(e.get('tag', ''))}</td></tr>" for e in res["imported"])
+        note = ("<div class='note'>Nguồn này <b>bắt buộc ghi tác giả</b>: video nào dùng các file này, tool tự thêm dòng "
+                "ghi nguồn vào cuối caption.</div>" if res["credit_required"] else "")
+        body = (f"<div class='topnav'><a class='btn light small' href='/'>🏠 Về trang chủ</a></div>"
+                f"<div class='card'><h2>📁 Đã nhập {len(res['imported'])} file</h2>{note}"
+                f"<table><tr><th>File</th><th>Loại</th><th>Nhóm</th></tr>{rows}</table>"
+                f"<p class='muted'>Bỏ qua {len(res['skipped'])} file (đã có trong kho). Nhóm 'khac' = không đoán được từ "
+                "tên thư mục; đạo diễn vẫn dùng được theo tên file.</p></div>")
+        return _page("Nhập thư mục", body)
+
     @app.post("/jobs")
     def new_job(footage: str = Form(...), client: str = Form("khach"), hook: str | None = Form(None),
                 reframe: str | None = Form(None), business: str | None = Form(None),
@@ -422,32 +449,63 @@ def _continue_button(job: Job, label: str = "Tiếp tục") -> str:
 
 
 def _resource_tools(has_key: bool) -> str:
-    """Nút quét tài nguyên + cài đặt Freesound + thêm file âm thanh của mình vào kho."""
+    """Nút quét / làm giàu kho + cài đặt Freesound + thêm file / cả thư mục âm thanh của mình vào kho."""
     from app.assets.scan import ENERGY_VI
 
+    esc = html.escape
     cfg = app_config.load("assets")
     tags = "".join(f"<option value='{k}'>SFX · {k}</option>" for k in (cfg.get("sfx_queries") or {}))
+    tags += "".join(f"<option value='{k}'>SFX · {esc(g.get('vi', k))}</option>" for k, g in (cfg.get("sfx_groups") or {}).items())
     tags += "".join(f"<option value='{k}'>Nhạc · {ENERGY_VI.get(k, k)} ({k})</option>"
                     for k in (cfg.get("music_queries") or {}))
-    key_state = "✅ đã lưu key" if has_key else "chưa có key"
+    tags += "".join(f"<option value='{k}'>Nhạc · {esc(g.get('vi', k))}</option>"
+                    for k, g in (cfg.get("music_groups") or {}).items())
+    sources = "".join(f"<option value='{k}'>{esc(v.get('vi', k))}{' — phải ghi nguồn' if v.get('credit') else ''}</option>"
+                      for k, v in (cfg.get("manual_sources") or {}).items())
+    key_state = "✅ đã lưu key" if has_key else "chưa có key — vẫn tải được từ Openverse"
     return f"""
-    <form method="post" action="/resources/scan" onsubmit="this.querySelector('button').innerHTML='<span class=spinner></span> Đang quét…'">
-      <label class="tg" style="margin-top:12px"><input type="checkbox" name="download" {'checked' if has_key else ''}>
-        Tải thêm cái còn thiếu từ internet (Freesound, chỉ CC0)</label>
-      <p><button type="submit" class="btn">🔍 Quét tài nguyên</button></p></form>
+    <form method="post" action="/resources/scan" onsubmit="this.querySelector('button').innerHTML='<span class=spinner></span> Đang quét / tải… (có thể vài phút)'">
+      <label class="tg" style="margin-top:12px"><input type="checkbox" name="download" checked>
+        Tự tải thêm cái còn thiếu (Freesound + Openverse, chỉ CC0 / Public Domain)</label>
+      <p><button type="submit" class="btn">🔍 Quét &amp; làm giàu kho</button></p>
+      <p class="muted">Kho gồm {len(cfg.get('sfx_groups') or {})} nhóm SFX và {len(cfg.get('music_groups') or {})} nhóm nhạc
+      (chuyển cảnh, va chạm, căng thẳng, đám đông, thiên nhiên… / hành động, tài liệu, cảm động, Nhật, Hàn, trap…).
+      Nhóm nào chưa đủ file thì tool tự tìm và tải.</p></form>
     <details><summary class="muted">⚙️ Cài đặt Freesound ({key_state})</summary>
       <form method="post" action="/settings/freesound" style="margin-top:8px">
         <p class="muted">Lấy key miễn phí: đăng ký tài khoản ở freesound.org rồi vào
         <a href="https://freesound.org/apiv2/apply" target="_blank">freesound.org/apiv2/apply</a>, copy "Client secret/Api key".</p>
         <div class="row"><input type="text" name="key" placeholder="{'Đã lưu — dán key mới để thay' if has_key else 'Dán API key'}">
         <button class="btn small" type="submit">Lưu</button></div></form></details>
-    <details><summary class="muted">➕ Thêm file âm thanh của bạn vào kho</summary>
+    <details><summary class="muted">📁 Nhập cả thư mục (Pixabay, Mixkit, YouTube Audio Library, Incompetech…)</summary>
+      <form class="upload" method="post" action="/assets/import-folder"
+            onsubmit="this.querySelector('button[type=submit]').innerHTML='<span class=spinner></span> Đang nhập…'">
+        <p class="muted">Các trang này không có API nên tải tay về máy (có thể chia thư mục như SFX/ChuyenCanh,
+        Nhac/CamDong…), rồi chọn thư mục ở đây. Tool tự xếp nhóm theo tên thư mục, ghi sổ nguồn và CREDITS.csv.</p>
+        <div class="row"><input type="text" id="folder" name="folder" placeholder="Bấm Chọn thư mục… hoặc dán đường dẫn" required>
+        <button type="button" class="btn light small" onclick="pickFolder()">📂 Chọn thư mục…</button></div>
+        <div class="row" style="margin-top:8px"><select name="kind"><option value="auto">Tự nhận SFX / nhạc</option>
+          <option value="sfx">Tất cả là SFX</option><option value="music">Tất cả là nhạc nền</option></select>
+          <select name="source">{sources}</select></div>
+        <div class="row" style="margin-top:8px"><input type="text" name="license" placeholder="Giấy phép (để trống = theo nguồn)">
+          <input type="text" name="author" placeholder="Tác giả (nếu có)"></div>
+        <p><button type="submit" class="btn small">Nhập vào kho</button></p>
+        <p class="muted">Không nhập file giấy phép NonCommercial (NC) hoặc NoDerivatives (ND). Không lấy file từ CapCut/TikTok ra.</p>
+      </form></details>
+    <details><summary class="muted">➕ Thêm một file âm thanh</summary>
       <form class="upload" method="post" action="/assets/upload" enctype="multipart/form-data">
         <div class="row"><select name="kind"><option value="sfx">SFX</option><option value="music">Nhạc nền</option></select>
         <select name="tag">{tags}</select></div>
         <input type="file" name="file" accept="audio/*" required><br>
         <button class="btn small" type="submit">Thêm vào kho</button>
-        <p class="muted">Chỉ thêm file bạn có quyền dùng. Nguồn được ghi vào sổ assets/ledger.json.</p></form></details>"""
+        <p class="muted">Chỉ thêm file bạn có quyền dùng. Nguồn được ghi vào sổ assets/ledger.json.</p></form></details>
+    <script>
+    async function pickFolder(){{
+      try{{const r=await fetch('/api/pick-folder');const d=await r.json();
+        if(d.path) document.getElementById('folder').value=d.path; else if(d.error) alert(d.error);}}
+      catch(e){{alert('Không mở được hộp thoại: '+e);}}
+    }}
+    </script>"""
 
 
 def _template_setting() -> str:
@@ -535,6 +593,24 @@ def _library_summary() -> str:
     return (f"<div class='lib'>{boxes}</div><p class='muted'>Tool tự quét <b>mọi dự án CapCut</b> trên máy: nhạc, SFX, "
             "hiệu ứng, sticker, chuyển cảnh bạn từng dùng (và CapCut đã tải về) đều vào kho. Muốn kho nhiều hơn: mở CapCut, "
             "thêm vài bài nhạc / hiệu ứng vào một dự án bất kỳ rồi lưu — lần dựng sau tool tự thấy.</p>")
+
+
+def pick_folder_dialog() -> dict:
+    """Hộp thoại chọn thư mục của Windows (server và trình duyệt cùng một máy)."""
+    try:
+        import tkinter
+        from tkinter import filedialog
+    except ImportError:
+        return {"error": "Máy không có tkinter, hãy dán đường dẫn thư mục."}
+    try:
+        root = tkinter.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        path = filedialog.askdirectory(title="Chọn thư mục âm thanh đã tải về")
+        root.destroy()
+    except Exception as exc:
+        return {"error": f"Không mở được hộp thoại chọn thư mục: {exc}"}
+    return {"path": str(Path(path)) if path else ""}
 
 
 def pick_file_dialog() -> dict:

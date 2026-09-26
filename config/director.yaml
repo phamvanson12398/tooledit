@@ -13,3 +13,5 @@ workspace: null
 frames:
   understand: 12             # số khung hình gửi cho bước hiểu nội dung (tiết kiệm hạn mức Pro)
   plan: 10                   # khung hình gửi khi lập kế hoạch cho kiểu dựng có mũi tên (thể thao)
+# Kho tài nguyên lớn: mỗi nhóm chỉ liệt kê vài mục cho đạo diễn (tiết kiệm hạn mức Claude Pro)
+prompt_limits: {sfx_per_mood: 3, sfx_total: 90, music_per_mood: 4, music_total: 60}

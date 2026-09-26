@@ -45,3 +45,4 @@ node_modules/
 # Cài đặt riêng từng máy (API key)
 /config/local.yaml
 assets/**/*.beats.json
+assets/CREDITS.csv

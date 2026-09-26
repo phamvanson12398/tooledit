@@ -97,3 +97,92 @@ def test_builder_uses_local_sfx_and_music_fallback(tmp_path):
     paths = {Path(a["path"]).name for a in audios if a.get("category_name") == "local"}
     assert {"p.mp3", "m.mp3"} <= paths
     assert not [m for m in res.missing_assets if m["kind"] in ("sfx", "music")]
+
+
+def test_openverse_only_free_licenses(tmp_path):
+    from app.assets import openverse
+
+    def handler(request: httpx.Request):
+        if request.url.path == "/v1/audio/":
+            assert request.url.params["license"] == "cc0,pdm"
+            return httpx.Response(200, json={"results": [
+                {"id": "a1", "title": "Epic Rise", "url": "https://x/a.mp3", "license": "by", "duration": 40000},
+                {"id": "b2c3d4e5f6", "title": "Whoosh Fast", "url": "https://x/b.mp3", "license": "cc0",
+                 "duration": 1200, "filetype": "mp3", "creator": "c", "provider": "freesound",
+                 "foreign_landing_url": "https://freesound.org/s/1/", "license_url": "https://cc/zero"},
+                {"id": "c3", "title": "Long", "url": "https://x/c.mp3", "license": "pdm", "duration": 400000}]})
+        return httpx.Response(200, content=b"ID3")
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    got = openverse.search("whoosh", min_s=0.1, max_s=3.0, count=5, client=client)
+    assert [g["id"] for g in got] == ["b2c3d4e5f6"]  # bỏ CC BY (dù API trả về) và bài quá dài
+    out = openverse.download(got[0], tmp_path, client=client)
+    assert out.name == "whoosh_fast_ovb2c3d4e5.mp3" and out.read_bytes() == b"ID3"
+
+
+def test_scan_enrich_groups_without_freesound_key(tmp_path):
+    """Không có key Freesound vẫn làm giàu kho được qua Openverse; mỗi nhóm tải tới đủ số cần."""
+    from app import config
+
+    def handler(request: httpx.Request):
+        if request.url.path == "/v1/audio/":
+            q = request.url.params["q"]
+            return httpx.Response(200, json={"results": [
+                {"id": f"{q}{i}xxxxxxxx", "title": f"{q} {i}", "url": f"https://x/{q}{i}.mp3", "license": "cc0",
+                 "duration": 1500, "creator": "u", "provider": "freesound", "foreign_landing_url": "https://f/1"}
+                for i in range(2)]})
+        return httpx.Response(200, content=b"ID3")
+
+    ov = httpx.Client(transport=httpx.MockTransport(handler))
+    rep = scan_resources(tmp_path, tmp_path / "jobs", tmp_path / "assets", download=True, api_key="",
+                         capcut_items=[], probe=lambda p: 1, openverse_client=ov)
+    assert rep.download_enabled
+    cc = next(n for n in rep.needs if n["tag"] == "chuyen_canh" and n["kind"] == "sfx")
+    target = config.load("assets")["group_targets"]["sfx"]
+    assert cc["status"] == "đã tải" and cc["have"] >= target
+    assert len(list((tmp_path / "assets" / "sfx" / "chuyen_canh").glob("*.mp3"))) >= target
+    led = ledger.load(tmp_path / "assets")
+    assert all(e["source"].startswith("openverse") and "CC0" in e["license"] for e in led)
+    csv_text = (tmp_path / "assets" / "CREDITS.csv").read_text(encoding="utf-8-sig")
+    assert csv_text.splitlines()[0].startswith("ten_file,thu_muc,nguon") and "chuyen_canh" in csv_text
+
+
+def test_import_folder_sorts_by_readme_folder_names(tmp_path):
+    from app.assets.importer import import_folder, infer_tag
+
+    assert infer_tag(["SFX", "ChuyenCanh"], "sfx") == "chuyen_canh"
+    assert infer_tag(["Nhac", "TaiLieu_BiAn"], "music") == "tai_lieu"
+    assert infer_tag(["Nhac", "TruyenCamHung"], "music") == "cam_hung"
+    assert infer_tag(["tải về", "Thời gian - Tua"], "sfx") == "thoi_gian"
+    assert infer_tag(["downloads", "whoosh pack"], "sfx") == "chuyen_canh"
+    assert infer_tag(["random"], "sfx") == "khac"
+    src = tmp_path / "KhoTaiNguyen"
+    for rel in ("SFX/VaCham/big hit.mp3", "Nhac/CamDong/sad piano.mp3", "SFX/VaCham/readme.txt"):
+        f = src / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(b"x")
+    res = import_folder(src, tmp_path / "assets", kind="auto", source="incompetech", author="Kevin MacLeod")
+    files = sorted(e["file"] for e in res["imported"])
+    assert files == ["music/cam_dong/sad_piano_ic.mp3", "sfx/va_cham/big_hit_ic.mp3"]
+    assert res["credit_required"] and all(e["credit_required"] for e in res["imported"])
+    assert all(e["license"] == "CC BY 4.0" for e in res["imported"])
+    again = import_folder(src, tmp_path / "assets", kind="auto", source="incompetech")
+    assert not again["imported"] and len(again["skipped"]) == 2  # không nhập trùng
+
+
+def test_credit_lines_for_cc_by_files(tmp_path, monkeypatch):
+    from app.jobs.runner import Runner
+
+    assets = tmp_path / "assets"
+    f = assets / "music" / "cam_dong" / "sad_ic.mp3"
+    f.parent.mkdir(parents=True)
+    f.write_bytes(b"x")
+    ledger.add(assets, f, source="Incompetech (Kevin MacLeod)", license="CC BY 4.0", author="Kevin MacLeod",
+               url="https://incompetech.com/x", credit_required=True, extra={"name": "Sad Song"})
+    g = assets / "sfx" / "hai" / "boing_pb.mp3"
+    g.parent.mkdir(parents=True)
+    g.write_bytes(b"x")
+    ledger.add(assets, g, source="Pixabay", license="Pixabay Content License")
+    monkeypatch.setattr(ledger, "ASSETS_ROOT", assets)
+    lines = Runner._credits([str(f), str(g), "C:/khac/file.mp3"])
+    assert lines == ['"Sad Song" by Kevin MacLeod — CC BY 4.0 (https://incompetech.com/x)']

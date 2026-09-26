@@ -463,7 +463,8 @@ class Runner:
             out = res.writer.save(overwrite=True)
             dur = round(res.duration_us / 1_000_000, 1)
             drafts.append({"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),
-                           "short": dur < config.load("split").get("min_video_s", 60)})
+                           "short": dur < config.load("split").get("min_video_s", 60),
+                           "credits": self._credits(res.used_local)})
             missing += res.missing_assets
             for n in res.notes:
                 self.log(f"[video {i:02d}] {n}")
@@ -474,21 +475,45 @@ class Runner:
         job.data["duration_s"] = drafts[0]["duration_s"]
         job.data["missing_assets"] = len(missing)
 
+    @staticmethod
+    def _credits(used_paths: list[str]) -> list[str]:
+        """Dòng ghi nguồn cho các file trong kho có giấy phép yêu cầu ghi tác giả (ví dụ Incompetech CC BY)."""
+        from app.assets import ledger
+
+        root = ledger.ASSETS_ROOT.resolve()
+        by_file = ledger.by_file(ledger.ASSETS_ROOT)
+        lines = []
+        for p in used_paths:
+            try:
+                rel = Path(p).resolve().relative_to(root).as_posix()
+            except ValueError:
+                continue
+            e = by_file.get(rel)
+            if e and e.get("credit_required"):
+                lines.append(ledger.credit_line(e))
+        return lines
+
     def step_captions(self, job: Job) -> None:
-        from app.director.schemas import EditPlan
+        from app.director.schemas import Captions, EditPlan
         from app.director.tasks import captions_text, make_captions
 
         d, analysis, plan_dir = self._paths(job)
+        credits = {dr["index"]: dr.get("credits") or [] for dr in job.data.get("drafts", [])}
         for v in self.videos(job):
             i = v["index"]
             out = d / "deliver" / f"video{i:02d}_captions.txt"
-            if out.is_file():
-                continue
-            plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
-            hook = self._hook_for(d, i) if job.options.hook else None
-            c = make_captions(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i)
+            cap_json = plan_dir / f"captions_video{i:02d}.json"
+            if cap_json.is_file() and out.is_file():  # đã viết rồi: không gọi lại AI, chỉ cập nhật phần ghi nguồn
+                c = Captions.model_validate_json(cap_json.read_text(encoding="utf-8"))
+            else:
+                plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
+                hook = self._hook_for(d, i) if job.options.hook else None
+                c = make_captions(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i)
+                cap_json.write_text(c.model_dump_json(indent=2), encoding="utf-8")
+            text = captions_text(c)
+            if credits.get(i):
+                text += "\n\n=== GHI NGUỒN (bắt buộc theo giấy phép, dán vào caption) ===\n" + "\n".join(credits[i])
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(captions_text(c), encoding="utf-8")
-            (plan_dir / f"captions_video{i:02d}.json").write_text(c.model_dump_json(indent=2), encoding="utf-8")
+            out.write_text(text, encoding="utf-8")
             self.log(f"Đã xuất caption: {out}")
         job.data["captions"] = str(d / "deliver")

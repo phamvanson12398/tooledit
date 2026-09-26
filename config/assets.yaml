@@ -19,3 +19,46 @@ music_queries:
   low: "calm acoustic music loop"
   mid: "upbeat happy music loop"
   high: "energetic hype music loop"
+
+# ---------------- Làm giàu kho (theo README_NguonTaiNguyen của chủ dự án, 27/09) ----------------
+# Nguồn tự tải (có API, giấy phép rõ ràng, chỉ CC0 / Public Domain): freesound (cần key) → openverse (không cần key).
+# Nguồn KHÔNG có API (Pixabay, Mixkit, YouTube Audio Library, Incompetech...): tải tay rồi dùng
+# "📁 Nhập cả thư mục" trên giao diện — tool tự xếp loại theo tên thư mục và ghi sổ nguồn.
+sources: [freesound, openverse]
+group_targets: {sfx: 3, music: 2}      # mỗi nhóm cần có ít nhất bao nhiêu file trong kho
+sfx_groups:
+  chuyen_canh:  {vi: "Chuyển cảnh",        keywords: [whoosh, swish, transition, swoosh]}
+  va_cham:      {vi: "Va chạm / nhấn mạnh", keywords: [impact, cinematic hit, boom, punch, thud]}
+  cang_thang:   {vi: "Căng thẳng",          keywords: [riser, tension, reverse cymbal, sub drop, drone]}
+  thoi_gian:    {vi: "Thời gian / tua",     keywords: [rewind, tape stop, clock ticking, time freeze]}
+  giao_dien:    {vi: "Giao diện / chữ",     keywords: [click, pop, notification, typing, camera shutter]}
+  co_the:       {vi: "Cơ thể người",        keywords: [heartbeat, breathing, gasp, stomach growl, yawn]}
+  dam_dong:     {vi: "Đám đông",            keywords: [crowd cheer, applause, crowd murmur, stadium]}
+  do_thi:       {vi: "Không khí đô thị",    keywords: [city ambience, traffic, train station, cafe ambience, market]}
+  thien_nhien:  {vi: "Thiên nhiên",         keywords: [forest ambience, rain, thunder, wind, ocean waves, river]}
+  dong_vat:     {vi: "Động vật",            keywords: [lion roar, bird, wolf howl, elephant, insects night, jungle]}
+  chien_tran:   {vi: "Chiến trận / cổ đại", keywords: [sword clash, horse gallop, war drums, arrows, battle crowd, gong]}
+  tien:         {vi: "Tiền / kinh tế",      keywords: [coins, cash register, money, stamp]}
+  cong_nghe:    {vi: "Công nghệ / khoa học", keywords: [sci-fi, beep, machine, electric, glitch]}
+  hai:          {vi: "Hài / nhẹ nhàng",     keywords: [cartoon, boing, ding, record scratch]}
+music_groups:
+  hanh_dong:    {vi: "Hành động / căng",    keywords: [epic, action, trailer, intense]}
+  tai_lieu:     {vi: "Tài liệu / bí ẩn",    keywords: [documentary, mystery, investigation, suspense]}
+  cam_hung:     {vi: "Truyền cảm hứng",     keywords: [inspiring, uplifting, motivational, corporate]}
+  cam_dong:     {vi: "Cảm động / buồn",     keywords: [emotional, sad piano, melancholy, strings]}
+  thien_nhien:  {vi: "Thiên nhiên",         keywords: [nature documentary, ambient, orchestral calm]}
+  nhe_nhang:    {vi: "Nhẹ nhàng / đời sống", keywords: [acoustic, soft, lofi, positive]}
+  phuong_dong:  {vi: "Phương Đông / cổ trang", keywords: [chinese traditional, guzheng, erhu, asian epic, taiko]}
+  nhat_ban:     {vi: "Nhật Bản",            keywords: [japanese, koto, shakuhachi, japanese lofi]}
+  han_quoc:     {vi: "Hàn Quốc",            keywords: [korean traditional, gayageum, k-pop instrumental]}
+  trap:         {vi: "Trap / hip-hop",      keywords: [trap beat, hip hop instrumental, phonk]}
+  hai:          {vi: "Hài / vui nhộn",      keywords: [funny, quirky, comedy, ukulele]}
+  toi:          {vi: "Tối / kinh dị",       keywords: [dark ambient, horror, creepy]}
+# Nguồn tải tay (dùng trong ô chọn khi nhập thư mục). credit: có phải ghi nguồn khi đăng không.
+manual_sources:
+  pixabay:       {vi: "Pixabay (Sound Effects / Music)", license: "Pixabay Content License", credit: false}
+  mixkit:        {vi: "Mixkit", license: "Mixkit License", credit: false}
+  youtube_audio: {vi: "YouTube Audio Library", license: "YouTube Audio Library (xem từng bài)", credit: false}
+  incompetech:   {vi: "Incompetech (Kevin MacLeod)", license: "CC BY 4.0", credit: true}
+  own:           {vi: "Tự làm / của khách", license: "Sở hữu", credit: false}
+  other:         {vi: "Khác (tự ghi giấy phép)", license: "", credit: false}

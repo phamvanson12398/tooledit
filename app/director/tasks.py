@@ -161,6 +161,21 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
     return director.run("hooks", variables, HookSet, extra_check=extra)
 
 
+def cap_per_mood(items: list, per_mood: int, total: int) -> list:
+    """Kho lớn → prompt dài, tốn hạn mức Claude Pro. Mỗi nhóm (mood) chỉ liệt kê vài mục, luân phiên giữa các nhóm
+    để danh sách vẫn đa dạng. Mục không có nhóm (nhạc/SFX từ CapCut) coi như mỗi mục một nhóm."""
+    groups: dict[str, list] = {}
+    for i, it in enumerate(items):
+        groups.setdefault(it.mood or f"_{i}", []).append(it)
+    picked, rnd = [], 0
+    while len(picked) < total and rnd < per_mood:
+        for g in groups.values():
+            if rnd < len(g) and len(picked) < total:
+                picked.append(g[rnd])
+        rnd += 1
+    return picked
+
+
 def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=None, hook_s: float = 0.0,
               music_items: list | None = None, sfx_items: list | None = None, decor_items: list | None = None,
               business: bool = False,
@@ -190,13 +205,15 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     duration = sc["duration"]
     vertical = sc["height"] > sc["width"]
     segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
+    lim = config.load("director").get("prompt_limits", {})
     music_lines = [
         f"- {m.name} ({m.category}{', tâm trạng: ' + m.mood if m.mood else ''}"
         f"{', Commercial' if m.commercial else ''}{', Pro' if m.is_vip else ''}, "
         f"{m.material.get('duration', 0) / 1e6:.0f}s)"
-        for m in (music_items or [])
+        for m in cap_per_mood(music_items or [], lim.get("music_per_mood", 4), lim.get("music_total", 60))
     ]
-    sfx_lines = [f"- {m.name}{' (' + m.mood + ')' if m.mood else ''}" for m in (sfx_items or [])]
+    sfx_lines = [f"- {m.name}{' (' + m.mood + ')' if m.mood else ''}"
+                 for m in cap_per_mood(sfx_items or [], lim.get("sfx_per_mood", 3), lim.get("sfx_total", 90))]
     decor = {k: [i for i in (decor_items or []) if i.kind == k] for k in ("video_effect", "sticker", "transition", "filter")}
 
     def lines(kind: str) -> str:

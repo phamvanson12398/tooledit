@@ -13,7 +13,7 @@ from pathlib import Path
 
 from app import config
 
-from . import freesound, ledger
+from . import freesound, ledger, openverse
 from .local import scan_local
 
 # từ khóa nhận ra SFX trong kho CapCut theo tên (tên bài CapCut thường là tiếng Anh)
@@ -57,10 +57,11 @@ def job_missing(jobs_root: Path) -> tuple[dict[str, set[str]], dict[str, set[str
 
 def scan_resources(drafts_root: Path, jobs_root: Path, assets_root: Path = ledger.ASSETS_ROOT, *,
                    download: bool = False, api_key: str = "", client=None, probe=None,
-                   capcut_items: list | None = None) -> ScanReport:
+                   capcut_items: list | None = None, openverse_client=None) -> ScanReport:
     cfg = config.load("assets")
     fs = cfg.get("freesound", {})
-    rep = ScanReport(download_enabled=bool(download and api_key))
+    sources = [x for x in cfg.get("sources", ["freesound"]) if x != "freesound" or api_key]
+    rep = ScanReport(download_enabled=bool(download and sources))
 
     if capcut_items is None:
         from app.capcut_writer.library import scan_drafts
@@ -103,35 +104,77 @@ def scan_resources(drafts_root: Path, jobs_root: Path, assets_root: Path = ledge
                           "have": have + (capcut_music if not jobs else 0),
                           "status": "còn thiếu" if needed else "có sẵn", "jobs": jobs})
 
+    # nhóm tài nguyên để làm giàu kho (README nguồn tài nguyên): mỗi nhóm cần ít nhất N file
+    targets = cfg.get("group_targets") or {"sfx": 3, "music": 2}
+    for kind, key in (("sfx", "sfx_groups"), ("music", "music_groups")):
+        for tag, g in (cfg.get(key) or {}).items():
+            have = sum(1 for i in local if i.kind == kind and i.mood == tag)
+            target = int(targets.get(kind, 2))
+            rep.needs.append({"kind": kind, "tag": tag, "keywords": list(g.get("keywords") or [tag]),
+                              "label": f"{'SFX' if kind == 'sfx' else 'Nhạc'} · {g.get('vi', tag)}",
+                              "why": f"làm giàu kho (cần ≥ {target})", "have": have, "target": target,
+                              "status": "có sẵn" if have >= target else "còn thiếu", "jobs": []})
+
     if rep.download_enabled:
+        stop: set[str] = set()  # nguồn đã báo lỗi nặng (sai key / quá tải) → không gọi tiếp
         for need in rep.needs:
             if need["status"] != "còn thiếu":
                 continue
             is_sfx = need["kind"] == "sfx"
             lo, hi = fs.get("sfx_seconds", [0.1, 3.0]) if is_sfx else fs.get("music_seconds", [30, 180])
-            count = int(fs.get("sfx_per_kind", 2) if is_sfx else fs.get("music_per_mood", 1))
-            try:
-                sounds = freesound.search(api_key, need["query"], min_s=lo, max_s=hi, count=count, client=client)
-                for s in sounds:
-                    path = freesound.download(s, Path(assets_root) / need["kind"] / need["tag"], client=client)
-                    rep.downloaded.append(ledger.add(
-                        assets_root, path, source="freesound", url=s.get("url", ""), license=s.get("license", ""),
-                        author=s.get("username", ""), duration_us=int(float(s.get("duration") or 0) * 1_000_000),
-                        extra={"name": s.get("name", ""), "tag": need["tag"], "kind": need["kind"]}))
-            except freesound.FreesoundError as exc:
-                rep.errors.append(str(exc))
-                if "401" in str(exc):
+            if need.get("target"):
+                want = need["target"] - need["have"]
+            else:
+                want = int(fs.get("sfx_per_kind", 2) if is_sfx else fs.get("music_per_mood", 1))
+            keywords = need.get("keywords") or [need["query"]]
+            got = 0
+            for kw in keywords:
+                for src in sources:
+                    if got >= want or src in stop:
+                        continue
+                    try:
+                        got += _fetch(src, kw, need, want - got, lo, hi, assets_root, api_key,
+                                      client if src == "freesound" else (openverse_client or client), rep)
+                    except (freesound.FreesoundError, openverse.OpenverseError) as exc:
+                        rep.errors.append(str(exc))
+                        if "401" in str(exc) or "429" in str(exc):
+                            stop.add(src)
+                if got >= want:
                     break
-                continue
-            if sounds:
-                need["status"] = "đã tải"
-                need["have"] += len(sounds)
+            if got:
+                need["status"] = "đã tải"  # số file thật sự có nằm ở cột "Đang có"
+                need["have"] += got
                 rep.jobs_to_redo += need["jobs"]
             else:
-                rep.errors.append(f"Freesound không có file CC0 phù hợp cho '{need['query']}'")
+                rep.errors.append(f"Chưa tìm được file CC0 phù hợp cho '{need['label']}'")
         if rep.downloaded:
             rep.local = {}
             for i in local_items():
                 rep.local[i.kind] = rep.local.get(i.kind, 0) + 1
     rep.jobs_to_redo = sorted(set(rep.jobs_to_redo))
     return rep
+
+
+def _fetch(src: str, keyword: str, need: dict, count: int, lo: float, hi: float, assets_root: Path, api_key: str,
+           client, rep: ScanReport) -> int:
+    """Tìm + tải tối đa `count` file cho một nhu cầu từ một nguồn; ghi sổ nguồn. Trả số file đã tải."""
+    folder = Path(assets_root) / need["kind"] / need["tag"]
+    extra = {"tag": need["tag"], "kind": need["kind"], "keyword": keyword}
+    n = 0
+    if src == "freesound":
+        for s in freesound.search(api_key, keyword, min_s=lo, max_s=hi, count=count, client=client):
+            path = freesound.download(s, folder, client=client)
+            rep.downloaded.append(ledger.add(
+                assets_root, path, source="freesound", url=s.get("url", ""), license=s.get("license", ""),
+                author=s.get("username", ""), duration_us=int(float(s.get("duration") or 0) * 1_000_000),
+                extra={**extra, "name": s.get("name", "")}))
+            n += 1
+    elif src == "openverse":
+        for s in openverse.search(keyword, min_s=lo, max_s=hi, count=count, client=client):
+            path = openverse.download(s, folder, client=client)
+            rep.downloaded.append(ledger.add(
+                assets_root, path, source=f"openverse/{s.get('provider', '')}",
+                url=s.get("foreign_landing_url", ""), license=openverse.license_text(s), author=s.get("creator", ""),
+                duration_us=int((s.get("duration") or 0) * 1000), extra={**extra, "name": s.get("title", "")}))
+            n += 1
+    return n

@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 18 — Làm giàu kho tài nguyên (theo README_NguonTaiNguyen) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`.
+2. **Tự tải (Freesound + Openverse, chỉ CC0 / Public Domain):** trang chủ → ô Kho tài nguyên → để tick
+   "Tự tải thêm cái còn thiếu" → **🔍 Quét & làm giàu kho**. Không có key Freesound vẫn tải được từ Openverse.
+   Lần đầu có thể mất vài phút (14 nhóm SFX × 3 file + 12 nhóm nhạc × 2 bài). Trang kết quả liệt kê từng nhóm và file vừa tải.
+   Kiểm tra: `assets\sfx\chuyen_canh\`, `assets\music\cam_dong\`… có file; `assets\CREDITS.csv` mở bằng Excel được.
+3. **Nhập tay (Pixabay, Mixkit, YouTube Audio Library, Incompetech):** tải file về, xếp thư mục như README
+   (ví dụ `KhoTaiNguyen\SFX\ChuyenCanh`, `KhoTaiNguyen\Nhac\CamDong`) → **📁 Nhập cả thư mục** → Chọn thư mục… →
+   chọn nguồn → **Nhập vào kho**. Xem file có vào đúng nhóm không.
+4. Với **Incompetech** (bắt buộc ghi tác giả): dựng một video có dùng bài đó → file `deliver\video01_captions.txt`
+   có phần "GHI NGUỒN" ở cuối.
+5. Nghe thử vài file tải về; file nào dở thì xóa khỏi `assets\...` (kho ít mà chuẩn hơn kho nhiều mà rác).
+
 ## Bước 17 — Cắt theo nhịp nhạc, dò tiếng cười, góc máy cho giải trí, vlog giữ âm thanh hiện trường `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`. Cần **tạo job MỚI** (bước phân tích mới dò tiếng cười và tạo bản âm thanh lọc nhẹ).

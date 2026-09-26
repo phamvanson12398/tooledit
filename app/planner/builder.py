@@ -28,6 +28,7 @@ class BuildResult:
     duration_us: int
     missing_assets: list[dict] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    used_local: list[str] = field(default_factory=list)  # file trong kho assets/ đã dùng (để ghi nguồn)
 
 
 def _style(d: dict) -> TextStyle:
@@ -192,6 +193,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     w = DraftWriter(template, drafts_root, name)
     missing: list[dict] = []
     notes: list[str] = []
+    used_local: list[str] = []
     anims_in = [a for a in template.library if a.kind == "text_animation" and a.category == "in"]
     transition = next((i for i in template.library if i.kind == "transition"), None)
     subtitle_style, emph_style = _style(style.get("subtitle", {})), _style(style.get("emphasis", {}))
@@ -416,6 +418,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         if item is not None:
             length = min(item.material.get("duration", SEC), 3 * SEC, max(1, tmap.end - t))
             _add_audio_item(w, item, target_start=t, duration=length, volume=0.8)
+            if item.material.get("local"):
+                used_local.append(item.material["path"])
         else:
             missing.append({"kind": "sfx", "what": s.kind, "video": video_index, "at_s": round(t / SEC, 2),
                             "purpose_vi": s.reason_vi})
@@ -443,7 +447,10 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                                                  round(mcfg.get("fade_s", 0.25) * SEC)))
             t += seg_len
 
-    return BuildResult(writer=w, duration_us=tmap.end, missing_assets=missing, notes=notes)
+    if music is not None and music.material.get("local"):
+        used_local.append(music.material["path"])
+    return BuildResult(writer=w, duration_us=tmap.end, missing_assets=missing, notes=notes,
+                       used_local=sorted(set(used_local)))
 
 
 def _fallback_sfx(library, kind: str):
