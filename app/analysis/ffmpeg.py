@@ -24,16 +24,18 @@ def run(args: list[str], exe: str | None = None) -> None:
         raise RuntimeError(f"FFmpeg lỗi: {result.stderr.strip()[-800:]}")
 
 
-def audio_filter(cfg: dict | None = None) -> str:
+def audio_filter(cfg: dict | None = None, denoise_key: str = "denoise") -> str:
     a = (cfg or config.load("analysis")).get("audio", {})
-    denoise = a.get("denoise", "afftdn=nf=-25")
+    denoise = a.get(denoise_key, "afftdn=nf=-25" if denoise_key == "denoise" else "")
     loud = f"loudnorm=I={a.get('target_lufs', -14)}:TP={a.get('true_peak', -1.5)}:LRA={a.get('lra', 11)}"
     return ",".join(x for x in (denoise, loud) if x)
 
 
-def clean_audio_args(src: Path, dst: Path, cfg: dict | None = None) -> list[str]:
-    """Âm thanh đã lọc ồn + chuẩn hóa độ to, WAV 48 kHz stereo để đưa vào CapCut."""
-    return ["-i", str(src), "-vn", "-af", audio_filter(cfg), "-ar", "48000", "-ac", "2", str(dst)]
+def clean_audio_args(src: Path, dst: Path, cfg: dict | None = None, light: bool = False) -> list[str]:
+    """Âm thanh đã lọc ồn + chuẩn hóa độ to, WAV 48 kHz stereo để đưa vào CapCut.
+    light=True: lọc ồn rất nhẹ (hoặc không), giữ âm thanh hiện trường — dùng cho vlog / du lịch."""
+    af = audio_filter(cfg, "denoise_light" if light else "denoise")
+    return ["-i", str(src), "-vn", "-af", af, "-ar", "48000", "-ac", "2", str(dst)]
 
 
 def whisper_audio_args(src: Path, dst: Path) -> list[str]:

@@ -116,6 +116,15 @@ def db_to_gain(db: float) -> float:
     return min(1.0, 10 ** (db / 20.0))
 
 
+def pick_music(template: DraftTemplate, plan: EditPlan):
+    """Bài đạo diễn chọn; không có thì nhạc local cùng mức năng lượng; không có nữa thì None."""
+    music = next((m for m in template.library if m.kind == "music" and m.name == plan.music.name), None)
+    if music is None:
+        music = next((m for m in template.library if m.kind == "music" and m.material.get("local")
+                      and m.mood == plan.music.energy), None)
+    return music
+
+
 def duck_keyframes(seg_start: int, seg_end: int, intervals, v_speech: float, v_gap: float,
                    fade_us: int) -> list[Keyframe]:
     """Keyframe âm lượng cho một đoạn nhạc: thấp khi có thoại, cao hơn ở khoảng trống."""
@@ -173,7 +182,7 @@ def subject_center(subjects: dict, start: float, end: float) -> float:
 
 def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTemplate, drafts_root: Path,
           name: str, style: dict, *, hook: HookOption | None = None, voice: tuple[Path, int] | None = None,
-          clean_audio: Path | None = None, video_index: int = 1) -> BuildResult:
+          clean_audio: Path | None = None, video_index: int = 1, beats_fn=None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu."""
     safe = config.load("safe_area")
     sub_cfg = config.load("subtitles")
@@ -243,6 +252,28 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                             "at_s": 0.0, "purpose_vi": f"Voice hook: {hook.line}"})
 
     # ---------- clip chính ----------
+    # ---------- cắt theo nhịp nhạc: dời điểm cắt về beat gần nhất ----------
+    music = pick_music(template, plan)
+    beats_out: list[float] = []
+    bcfg = style.get("beat_sync") or {}
+    if bcfg.get("enabled") and music is not None:
+        from app.planner.beats import beats_for_music, looped_beats, snap_cuts
+
+        try:
+            raw_beats = (beats_fn or beats_for_music)(music)
+        except Exception as exc:  # không có FFmpeg / file nhịp hỏng: dựng bình thường, không theo nhịp
+            raw_beats = []
+            notes.append(f"Không lấy được nhịp của bài '{music.name}': {exc}")
+        if raw_beats:
+            est_total = hook_us / SEC + sum((c.source_end - c.source_start) / c.speed for c in plan.clips) + 5
+            beats_out = looped_beats(raw_beats, music.material.get("duration", 0) / SEC, est_total)
+            words = [(wd["start"], wd["end"]) for sg in tr.get("segments", []) for wd in (sg.get("words") or [])]
+            clips, n = snap_cuts([c.model_dump() for c in plan.clips], hook_us / SEC, beats_out, words,
+                                 sc["duration"], bcfg.get("tolerance_s", 0.3))
+            plan = plan.model_copy(update={"clips": [type(plan.clips[0]).model_validate(c) for c in clips]})
+            notes.append(f"Cắt theo nhịp nhạc '{music.name}': dời {n}/{max(0, len(clips) - 1)} điểm cắt về đúng beat.")
+        else:
+            notes.append(f"Bài '{music.name}' chưa có dữ liệu nhịp — không cắt theo nhịp.")
     tmap = TimeMap(plan.clips, offset_us=hook_us)
     replay_cfg = style.get("replay_label") or {}
     replay_text = (replay_cfg.get("text") or {}).get(u.language, "REPLAY")
@@ -258,6 +289,10 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             [t, [[cx - 0.05, cy - 0.08, 0.1, 0.16, 0.0]]] for t, cx, cy in subjects.get("points", [])]
         people = persons_from_faces(faces)
         speech = [{"start": sg["start"], "end": sg["end"]} for sg in tr.get("segments", [])]
+        if cam_cfg.get("reactions") and analysis.get("events"):  # giải trí: cắt sang người đang cười
+            from app.planner.camera import merge_reactions
+
+            speech = merge_reactions(speech, analysis["events"])
         since_wide, shot_count = 0.0, {"close": 0, "medium": 0, "wide": 0}
     for idx, (clip, p) in enumerate(zip(plan.clips, tmap.placed)):
         ratio = ratio_for(clip.ratio)
@@ -314,6 +349,12 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         t = tmap.to_out(e.source_time)
         if t is None:
             continue
+        if beats_out:  # chữ nhấn hiện đúng nhịp nhạc
+            from app.planner.beats import nearest_beat
+
+            b = nearest_beat(t / SEC, beats_out, bcfg.get("text_tolerance_s", 0.2))
+            if b is not None and b * SEC < tmap.end - SEC // 2:
+                t = round(b * SEC)
         dur = min(round(e.duration * SEC), tmap.end - t)
         colored = dataclasses.replace(emph_style, color=palette[i % len(palette)])
         w.add_text(e.text, start=t, duration=dur, x=pos["x"], y=pos["center"] if e.position == "center"
@@ -380,10 +421,6 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                             "purpose_vi": s.reason_vi})
 
     # ---------- nhạc nền + ducking ----------
-    music = next((m for m in template.library if m.kind == "music" and m.name == plan.music.name), None)
-    if music is None:  # đạo diễn không chọn được bài → thử nhạc local cùng mức năng lượng
-        music = next((m for m in template.library if m.kind == "music" and m.material.get("local")
-                      and m.mood == plan.music.energy), None)
     if music is None:
         missing.append({"kind": "music", "what": plan.music.mood_vi, "energy": plan.music.energy,
                         "video": video_index, "at_s": 0.0,

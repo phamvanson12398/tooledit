@@ -441,6 +441,12 @@ class Runner:
         style = load_style(job.data.get("style_used") or self._style_name(job))
         a = load_analysis(analysis)
         clean = analysis / "audio" / "clean_00.wav"
+        if (style.get("audio") or {}).get("clean") == "light":  # vlog: lọc ồn nhẹ, giữ âm thanh hiện trường
+            light = analysis / "audio" / "light_00.wav"
+            if light.is_file():
+                clean = light
+            else:
+                self.log("Job phân tích trước khi có bản lọc ồn nhẹ — dùng bản lọc ồn thường (tạo job mới để có).")
         drafts, missing = [], []
         for v in self.videos(job):
             i = v["index"]

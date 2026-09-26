@@ -28,6 +28,9 @@ Footage dài {{duration}} giây; đoạn dùng được {{range}} giây. Hãy ch
 ## Khoảnh khắc đáng chú ý
 {{key_moments}}
 
+## Sự kiện âm thanh (máy tự dò — tiếng cười thường KHÔNG có trong transcript)
+{{audio_events}}
+
 ## Cảnh (giây)
 {{scenes}}
 

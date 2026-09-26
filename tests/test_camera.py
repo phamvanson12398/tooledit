@@ -90,3 +90,19 @@ def test_static_logo_is_not_a_person():
         f[1].append([0.05, 0.05, 0.06, 0.08, 0.0])  # logo mặt cười đứng yên ở góc
     people = persons_from_faces(faces)
     assert len(people) == 2 and all(p.cx > 0.2 for p in people)
+
+
+def test_reaction_cut_to_laughing_person():
+    from app.planner.camera import merge_reactions
+
+    # người trái nói suốt 0–12s; 6–8s có tiếng cười và người PHẢI cử động miệng (đang cười)
+    faces = two_people(lambda t: 1 if 6.0 <= t < 8.0 else 0)
+    people = persons_from_faces(faces)
+    speech = [{"start": 0.0, "end": 12.0}]
+    merged = merge_reactions(speech, [{"start": 6.0, "end": 8.0, "kind": "laugh"}])
+    assert merged == [{"start": 0.0, "end": 6.0}, {"start": 6.0, "end": 8.0}, {"start": 8.0, "end": 12.0}]
+    cfg = {**CFG, "max_hold_s": 3.0, "min_shot_s": 0.8}
+    shots, _ = plan_shots(0.0, 12.0, merged, faces, people, cfg)
+    react = [s for s in shots if s.person == 1]
+    assert react and react[0].start == 6.0 and react[0].kind == "close"
+    assert merge_reactions(speech, [{"start": 1, "end": 2, "kind": "shout"}]) == speech  # hét khi nói: không cắt

@@ -25,6 +25,9 @@ Kiểu hook khách ưa thích (nếu có): {{preferred_hooks}}
 ## Tên riêng đúng (dùng khi viết)
 {{name_corrections}}
 
+## Sự kiện âm thanh (máy tự dò — tiếng cười thường KHÔNG có trong transcript)
+{{audio_events}}
+
 ## Khoảnh khắc đáng chú ý
 {{key_moments}}
 

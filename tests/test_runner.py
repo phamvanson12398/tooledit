@@ -180,3 +180,18 @@ def test_apply_segments_validation(tmp_path):
         r.apply_segments(job, [{"start": 0, "end": 160}])
     with pytest.raises(ValueError):
         r.apply_segments(job, [])
+
+
+def test_vlog_uses_light_denoised_audio(tmp_path):
+    jobs, job = prepare(tmp_path, JobOptions())
+    job.data["style"] = "vlog"
+    audio = jobs / "j1" / "analysis" / "audio"
+    audio.mkdir(parents=True, exist_ok=True)
+    for name in ("clean_00.wav", "light_00.wav"):
+        (audio / name).write_bytes(b"RIFF")
+    r = make_runner(tmp_path, jobs)
+    job = r.run(job)
+    assert job.status == Status.done, job.message
+    draft = Path(job.data["draft"])
+    content = (draft / "draft_content.json").read_text(encoding="utf-8")
+    assert "light_00.wav" in content and "clean_00.wav" not in content

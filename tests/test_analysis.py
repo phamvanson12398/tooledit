@@ -1,3 +1,4 @@
+import json
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -130,6 +131,9 @@ def test_pipeline_end_to_end(tmp_path: Path, monkeypatch):
     for name in ("transcript.json", "scenes.json", "subjects.json", "frames.json"):
         assert (out / name).is_file()
     assert (out / "audio" / "clean_00.wav").stat().st_size > 0
+    assert (out / "audio" / "light_00.wav").stat().st_size > 0  # bản lọc ồn nhẹ cho vlog
+    events = json.loads((out / "audio_events.json").read_text(encoding="utf-8"))
+    assert events[0]["footage"] == 0 and isinstance(events[0]["events"], list)
     assert not (out / "audio" / "whisper_00.wav").exists()
     assert result["frames"] and (out / result["frames"][0]["file"]).is_file()
     assert result["transcripts"][0]["segments"][0]["text"] == "hello"

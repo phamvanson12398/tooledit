@@ -71,6 +71,7 @@ class LibraryItem:
     category: str = ""
     commercial: bool = False  # nhãn Commercial của CapCut: draft không ghi, lấy từ config/capcut_labels.yaml
     mood: str = ""            # nhãn tâm trạng do người dùng ghi trong config/capcut_labels.yaml
+    beats_path: str = ""      # file nhịp .beat CapCut tạo trong cache (chỉ đọc mốc thời gian để cắt theo nhịp)
 
     def to_json(self) -> dict:
         return {
@@ -81,6 +82,7 @@ class LibraryItem:
             "category": self.category,
             "commercial": self.commercial,
             "mood": self.mood,
+            "beats_path": self.beats_path,
             "material": self.material,
         }
 
@@ -95,6 +97,7 @@ class LibraryItem:
             category=data.get("category", ""),
             commercial=data.get("commercial", False),
             mood=data.get("mood", ""),
+            beats_path=data.get("beats_path", ""),
         )
 
 
@@ -245,9 +248,11 @@ def extract_library(timeline: dict, kv: dict) -> list[LibraryItem]:
         add("transition", mat, mat.get("resource_id", ""), mat.get("name", ""), mat.get("category_name", ""))
     for mat in m.get("stickers", []):
         add("sticker", mat, mat.get("resource_id", ""), mat.get("name", ""), mat.get("category_name", ""))
+    beats = _beats_paths(timeline)
     for mat in m.get("audios", []):
         if mat.get("music_id") and mat.get("type") != "extract_music":
             add(audio_kind(mat), mat, mat["music_id"], mat.get("name", ""), mat.get("category_name", ""))
+            items[-1].beats_path = beats.get(mat["id"], "")
     seen = set()
     for mat in m.get("material_animations", []):
         for anim in mat.get("animations", []):
@@ -256,6 +261,21 @@ def extract_library(timeline: dict, kv: dict) -> list[LibraryItem]:
             seen.add(anim.get("resource_id"))
             add("text_animation", anim, anim.get("resource_id", ""), anim.get("name", ""), anim.get("type", ""))
     return items
+
+
+def _beats_paths(timeline: dict) -> dict[str, str]:
+    """id vật liệu âm thanh → đường dẫn file nhịp (.beat) của segment dùng nó (vật liệu phụ "beats")."""
+    beats = {b["id"]: (b.get("ai_beats") or {}).get("beats_path", "")
+             for b in timeline.get("materials", {}).get("beats", []) if isinstance(b, dict) and "id" in b}
+    out: dict[str, str] = {}
+    for track in timeline.get("tracks", []):
+        if track.get("type") != "audio":
+            continue
+        for seg in track.get("segments", []):
+            for ref in seg.get("extra_material_refs", []):
+                if beats.get(ref):
+                    out.setdefault(seg.get("material_id", ""), beats[ref])
+    return out
 
 
 SFX_MAX_US = 6_000_000  # âm thanh thư viện ngắn hơn 6 giây coi là SFX

@@ -2,6 +2,8 @@
 
 Kết quả trong jobs/<job_id>/analysis/:
     audio/clean_NN.wav     âm thanh đã lọc ồn + chuẩn hóa (đưa vào CapCut thay tiếng gốc)
+    audio/light_NN.wav     chỉ chuẩn hóa độ to, lọc ồn rất nhẹ — giữ âm thanh hiện trường (vlog)
+    audio_events.json      [{footage, events[{start, end, kind: laugh|cheer|shout|marker, strength}]}]
     transcript.json        [{footage, language, segments[words]}]
     scenes.json            [{footage, duration, width, height, scenes[]}]
     frames/NN_ttt.jpg      khung hình nhỏ gửi cho đạo diễn
@@ -34,7 +36,7 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
     out = job.dir(jobs_root) / "analysis"
     (out / "audio").mkdir(parents=True, exist_ok=True)
     (out / "frames").mkdir(parents=True, exist_ok=True)
-    transcripts, scenes_all, subjects_all, frames_all = [], [], [], []
+    transcripts, scenes_all, subjects_all, frames_all, events_all = [], [], [], [], []
 
     for i, src in enumerate(job.footage):
         src = Path(src)
@@ -46,14 +48,26 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
         if info.has_audio:
             progress("Làm sạch âm thanh (lọc ồn, chuẩn hóa độ to)")
             ffmpeg.run(ffmpeg.clean_audio_args(src, out / "audio" / f"clean_{tag}.wav", cfg))
+            ffmpeg.run(ffmpeg.clean_audio_args(src, out / "audio" / f"light_{tag}.wav", cfg, light=True))
             whisper_wav = out / "audio" / f"whisper_{tag}.wav"
             ffmpeg.run(ffmpeg.whisper_audio_args(src, whisper_wav))
             progress("Nhận dạng thoại (có thể mất vài phút)")
             tr = transcribe_fn(whisper_wav, log=progress)
             transcripts.append({"footage": i, **tr.model_dump()})
+            progress("Dò tiếng cười / hò reo / cao trào trong âm thanh")
+            try:
+                from app.analysis.audio_events import analyze_audio_events
+
+                segs = tr.model_dump()["segments"]
+                events_all.append({"footage": i, "events": analyze_audio_events(
+                    whisper_wav, segs, cfg.get("audio_events") or None)})
+            except Exception as exc:  # không để lỗi phụ làm hỏng cả bước phân tích
+                progress(f"Bỏ qua dò sự kiện âm thanh: {exc}")
+                events_all.append({"footage": i, "events": []})
             whisper_wav.unlink(missing_ok=True)
         else:
             transcripts.append({"footage": i, "language": None, "segments": []})
+            events_all.append({"footage": i, "events": []})
 
         progress("Dò cảnh")
         sc = cfg.get("scenes", {})
@@ -78,4 +92,5 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
     _write(out / "scenes.json", scenes_all)
     _write(out / "subjects.json", subjects_all)
     _write(out / "frames.json", frames_all)
+    _write(out / "audio_events.json", events_all)
     return {"transcripts": transcripts, "scenes": scenes_all, "subjects": subjects_all, "frames": frames_all}

@@ -89,6 +89,32 @@ def active_person(faces: list, people: list[Person], start: float, end: float,
     return i
 
 
+def merge_reactions(speech: list[dict], events: list[dict],
+                    kinds: tuple[str, ...] = ("laugh", "cheer", "marker")) -> list[dict]:
+    """Chèn các đoạn cười / hò reo vào danh sách câu thoại (không chồng nhau): trong lúc cười, cảnh cắt sang người
+    đang cười (người có miệng cử động nhiều nhất) — cảnh phản ứng kiểu show giải trí."""
+    reacts = sorted(({"start": e["start"], "end": e["end"]} for e in events if e.get("kind") in kinds),
+                    key=lambda x: x["start"])
+    if not reacts:
+        return speech
+    out: list[dict] = []
+    for s in sorted(speech, key=lambda x: x["start"]):
+        pieces = [(s["start"], s["end"])]
+        for r in reacts:  # khoét phần trùng với đoạn cười ra khỏi câu thoại
+            nxt = []
+            for a, b in pieces:
+                if r["end"] <= a or r["start"] >= b:
+                    nxt.append((a, b))
+                    continue
+                if r["start"] > a:
+                    nxt.append((a, r["start"]))
+                if r["end"] < b:
+                    nxt.append((r["end"], b))
+            pieces = nxt
+        out += [{"start": a, "end": b} for a, b in pieces if b - a > 0.05]
+    return sorted(out + reacts, key=lambda x: x["start"])
+
+
 def plan_shots(clip_start: float, clip_end: float, speech: list[dict], faces: list, people: list[Person],
                cfg: dict, opening: bool = False, since_wide: float = 0.0) -> tuple[list[Shot], float]:
     """Chia một clip thành các cảnh. speech: câu thoại [{start, end}] (giây gốc).

@@ -4,7 +4,8 @@ fits_vi: show giải trí, trò chơi, thử thách, hài, phản ứng, nhiều
 description_vi: Chữ to nhiều màu có viền, bình luận chêm, zoom giật khi phản ứng, SFX vui, nhịp nhanh.
 
 director_brief: |
-  - Bắt mọi khoảnh khắc phản ứng/tiếng cười; cắt nhanh, bỏ khoảng chết.
+  - Bắt mọi khoảnh khắc phản ứng/tiếng cười (xem danh sách sự kiện âm thanh máy dò được); cắt nhanh, bỏ khoảng chết.
+  - Góc máy do code tự làm: cận người đang nói, cắt sang người đang cười khi có tiếng cười; giữ trọn tràng cười.
   - Chữ nhấn kiểu bình luận chêm của editor (giọng người xem/editor, vui, ngắn) - vẫn phải đúng với cái đang diễn ra,
     không gán lời cho nhân vật. Tối đa 1 chữ nhấn / 4 giây. Xen kẽ position center và top.
   - Zoom "punch" ở mỗi phản ứng lớn; có thể dày hơn các kiểu khác nhưng không liên tục.
@@ -18,6 +19,19 @@ title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 zoom: {punch_scale: 1.18, punch_in_s: 0.1, slow_scale: 1.1}
 music: {duck_db: -10, fade_s: 0.2}   # nhạc -5 dB, có thoại hạ thêm 10 dB
 hook: {min_s: 3.0, max_s: 5.0}
+beat_sync: {enabled: true, tolerance_s: 0.25, text_tolerance_s: 0.2}  # cắt + chữ trúng nhịp (không cắt mất chữ)
+
+# Góc máy tự động (như podcast nhưng nhịp nhanh hơn) + cắt sang người đang cười / phản ứng (dò từ âm thanh).
+camera:
+  mode: speaker
+  reactions: true        # lúc có tiếng cười / hò reo: cắt cận người đang cười
+  close_zoom: 1.8
+  medium_zoom: 1.3
+  face_max: 0.5
+  max_hold_s: 3.0        # đổi cận ↔ trung nhanh hơn podcast
+  min_shot_s: 0.8
+  wide_open_s: 1.5
+  wide_every_s: 12
 
 # Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)
 decor_brief: "Màu mè: hiệu ứng ở mọi phản ứng lớn, 4–8 sticker/emoji, chuyển cảnh vui 3–5 lần, filter tươi."

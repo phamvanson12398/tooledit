@@ -1,5 +1,22 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 17 — Cắt theo nhịp nhạc, dò tiếng cười, góc máy cho giải trí, vlog giữ âm thanh hiện trường `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`. Cần **tạo job MỚI** (bước phân tích mới dò tiếng cười và tạo bản âm thanh lọc nhẹ).
+2. **Dò tiếng cười / hò reo / hét**: trong nhật ký job có dòng "Dò tiếng cười / hò reo / cao trào". Mở file
+   `jobs\<job>\analysis\audio_events.json`, so vài mốc `laugh` với video xem có đúng chỗ cười không.
+3. **Giải trí / hài**: chọn kiểu **Giải trí / show / hài**. Trong draft: cận người đang nói, đổi cận ↔ trung nhanh
+   (~3 giây), lúc có tiếng cười thì **cắt sang người đang cười**; chữ nhấn / SFX / zoom rơi đúng chỗ cười.
+4. **Vlog / du lịch**: chọn kiểu **Vlog**. Nghe âm thanh hiện trường (sóng, phố, gió) có còn rõ hơn trước không.
+   (Muốn lọc ồn nhẹ/mạnh hơn: `denoise_light` trong `config/analysis.yaml`, `afftdn=nf=-40` → số âm hơn = nhẹ hơn.)
+5. **Cắt theo nhịp nhạc** (Vlog, Giải trí, Cắt nhanh): nhật ký có dòng "Cắt theo nhịp nhạc '<bài>': dời X/Y điểm cắt"
+   hoặc "Bài '<bài>' chưa có dữ liệu nhịp". Trong CapCut bật hiển thị nhịp của bài nhạc (nếu có) và xem điểm cắt
+   có trúng nhịp không.
+   - Nhạc thư viện CapCut: tool đọc file nhịp `.beat` của CapCut. **Chưa biết chắc định dạng file này** — nếu nhật ký
+     báo "chưa có dữ liệu nhịp", hãy gửi Claude 1 file trong `%LOCALAPPDATA%\CapCut\User Data\Cache\music\`
+     có đuôi `.beat` (file nhỏ, chỉ chứa mốc nhịp, không phải nhạc).
+   - Nhạc trong kho `assets\music` (Freesound / file của bạn): tool tự dò nhịp, luôn dùng được.
+
 ## Bước 16 — Nhạc nền mức gốc -5 dB, node lên xuống theo lời thoại `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`. Vào job cũ bấm **🔁 Dựng lại draft** (không tốn lượt AI).

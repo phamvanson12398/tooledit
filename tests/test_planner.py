@@ -382,3 +382,59 @@ def test_music_base_minus_5db_and_duck_nodes(tmp_path):
     assert round(db_to_gain(-5), 4) in values  # không thoại: -5 dB
     assert round(db_to_gain(-5 + style["music"]["duck_db"]), 4) in values  # có thoại: hạ xuống
     assert values <= {round(db_to_gain(-5), 4), round(db_to_gain(-5 + style["music"]["duck_db"]), 4)}
+
+
+def test_snap_cuts_to_beats_safely():
+    from app.planner.beats import looped_beats, snap_cuts
+
+    clips = [{"source_start": 0.0, "source_end": 3.1, "speed": 1.0, "replay": False},
+             {"source_start": 10.0, "source_end": 13.0, "speed": 1.0, "replay": False},
+             {"source_start": 20.0, "source_end": 22.0, "speed": 1.0, "replay": False}]
+    beats = [0.5 * k for k in range(40)]  # 120 BPM
+    out, n = snap_cuts(clips, 0.0, beats, [], 60.0, 0.3)
+    assert out[0]["source_end"] == 3.0  # cắt sớm 0.1s về beat 3.0
+    assert n == 1 and out[1]["source_end"] == 13.0  # điểm cắt thứ 2 (6.0s) đã trúng nhịp sẵn
+    # có chữ ở 2.9–3.12 → không được cắt sớm (sẽ mất chữ)
+    out2, _ = snap_cuts(clips, 0.0, beats, [(2.9, 3.12)], 60.0, 0.3)
+    assert out2[0]["source_end"] != 3.0
+    # kéo dài không được lấn sang clip khác
+    tight = [{"source_start": 0.0, "source_end": 3.9, "speed": 1.0}, {"source_start": 3.9, "source_end": 6.0, "speed": 1.0}]
+    out3, _ = snap_cuts(tight, 0.0, beats, [(3.7, 3.95)], 60.0, 0.3)
+    assert out3[0]["source_end"] == 3.9  # không kéo tới 4.0 (lấn clip sau), không cắt sớm (mất chữ)
+    assert looped_beats([0.5, 1.0], 2.0, 5.0) == [0.5, 1.0, 2.5, 3.0, 4.5, 5.0]
+
+
+def test_parse_capcut_beat_file(tmp_path):
+    from app.planner.beats import parse_beat_file
+
+    f = tmp_path / "a.beat"
+    f.write_text(json.dumps({"beats": {"list": [500, 1000, 1500, 2000, 2500, 3000]}}))
+    assert parse_beat_file(f) == [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]  # ms → giây
+    f.write_text("0.52\n1.04\n1.56\n2.08\n")
+    assert parse_beat_file(f) == [0.52, 1.04, 1.56, 2.08]
+    f.write_bytes(b"\x00\x01\x02")
+    assert parse_beat_file(f) == []
+
+
+def test_builder_beat_sync_moves_cuts_and_text(tmp_path):
+    from app.styles import load_style
+
+    style = load_style("vlog")
+    p = load("plan.json")
+    p["clips"] = [{"source_start": 1.0, "source_end": 6.1}, {"source_start": 7.3, "source_end": 22.0},
+                  {"source_start": 23.1, "source_end": 45.0}]
+    p["emphasis"] = [{"source_time": 8.0, "text": "A"}]
+    plan = EditPlan.model_validate(p)
+    u = Understanding.model_validate(load("understand.json"))
+    a = _analysis()
+    a["transcript"]["segments"] = []
+    res = build(plan, u, a, DraftTemplate(SAMPLE), tmp_path, "beat", style,
+                beats_fn=lambda item: [0.5 * k for k in range(200)])
+    tl = res.writer.build_timeline()
+    segs = next(t for t in tl["tracks"] if t["type"] == "video")["segments"]
+    cuts = [s["target_timerange"]["start"] for s in segs[1:]]
+    assert cuts and all(c % 500_000 == 0 for c in cuts), cuts  # mọi điểm cắt trúng nhịp 0.5s
+    texts = {json.loads(m["content"])["text"]: m["id"] for m in tl["materials"]["texts"]}
+    a_seg = next(s for t in tl["tracks"] if t["type"] == "text" for s in t["segments"] if s["material_id"] == texts["A"])
+    assert a_seg["target_timerange"]["start"] % 500_000 == 0  # chữ nhấn hiện đúng nhịp
+    assert any("Cắt theo nhịp nhạc" in n for n in res.notes)

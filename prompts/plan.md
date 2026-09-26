@@ -53,6 +53,10 @@ Liều lượng theo phong cách: {{decor_brief}}
 ## Khoảnh khắc đáng chú ý
 {{key_moments}}
 
+## Sự kiện âm thanh (máy tự dò — tiếng cười thường KHÔNG có trong transcript)
+{{audio_events}}
+Dùng các mốc này: giữ trọn tiếng cười / phản ứng (đừng cắt ngang), đặt chữ nhấn, SFX, zoom punch đúng lúc cười hoặc cao trào.
+
 ## Cảnh (giây)
 {{scenes}}
 

@@ -46,6 +46,7 @@ music:
 hook:
   min_s: 3.0
   max_s: 5.0
+beat_sync: {enabled: true, tolerance_s: 0.25, text_tolerance_s: 0.2}
 
 # Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)
 decor_brief: "Sinh động: 1 hiệu ứng hình mỗi 8–12 giây ở điểm nhấn, 2–4 sticker cảm xúc cả video, chuyển cảnh 2–4 lần khi đổi ý, có filter."

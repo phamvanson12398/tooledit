@@ -4,6 +4,14 @@ audio:
   true_peak: -1.5
   lra: 11
   denoise: "afftdn=nf=-25"  # lọc ồn nhẹ
+  denoise_light: "afftdn=nf=-40"   # lọc ồn rất nhẹ cho vlog/du lịch (giữ tiếng sóng, phố...); "" = không lọc
+
+# Dò tiếng cười / hò reo / hét (so với độ to trung bình của footage)
+audio_events:
+  rise_db: 10.0          # to hơn mức trung bình bao nhiêu dB thì tính là sự kiện
+  floor_db: -35.0
+  min_len_s: 0.4
+  laugh_mod: 0.25        # độ dao động nhịp nhàng 3–8 Hz để coi là tiếng cười
 
 # Dò cảnh (PySceneDetect ContentDetector)
 scenes:

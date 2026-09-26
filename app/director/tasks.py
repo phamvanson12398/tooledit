@@ -18,8 +18,11 @@ def load_analysis(analysis_dir: Path, footage: int = 0) -> dict:
 
     frames = [f for f in json.loads((analysis_dir / "frames.json").read_text(encoding="utf-8"))
               if f.get("footage") == footage]
+    events = None  # None = job cũ chưa dò sự kiện âm thanh
+    if (analysis_dir / "audio_events.json").is_file():
+        events = pick("audio_events.json").get("events", [])
     return {"transcript": pick("transcript.json"), "scenes": pick("scenes.json"),
-            "subjects": pick("subjects.json"), "frames": frames}
+            "subjects": pick("subjects.json"), "frames": frames, "events": events}
 
 
 def format_transcript(segments: list[dict], max_chars: int = 12000) -> str:
@@ -81,8 +84,12 @@ def _segments_in(segments: list[dict], start: float, end: float) -> list[dict]:
     return [s for s in segments if s["end"] > start and s["start"] < end]
 
 
-def _shared_context(u, segments: list[dict]) -> dict:
+def _shared_context(u, segments: list[dict], events: list[dict] | None = None) -> dict:
+    from app.analysis.audio_events import events_for_prompt
+
     return {
+        "audio_events": ("(chưa phân tích — job cũ)" if events is None else
+                         events_for_prompt(events, u.usable_range.start, u.usable_range.end)),
         "summary": u.summary_vi,
         "sensitive_notes": "\n".join(f"- {n}" for n in u.sensitive_notes_vi) or "(không có)",
         "name_corrections": "\n".join(f"- {c.wrong} → {c.right}" for c in u.name_corrections) or "(không có)",
@@ -114,7 +121,7 @@ def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0):
     duration = a["scenes"]["duration"]
     segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
     min_raw, max_raw = cfg.get("min_raw_s", 55), cfg.get("max_raw_s", 300)
-    variables = {**_shared_context(u, segs), "duration": f"{duration:.1f}",
+    variables = {**_shared_context(u, segs, a.get("events")), "duration": f"{duration:.1f}",
                  "min_video_s": cfg.get("min_video_s", 60), "max_video_s": cfg.get("max_video_s", 150),
                  "min_raw_s": min_raw, "max_raw_s": max_raw,
                  "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in a["scenes"]["scenes"]) or "(không có)",
@@ -134,7 +141,7 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
     duration = a["scenes"]["duration"]
     segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
     max_chars = HOOK_MAX_CHARS.get(u.language, 40)
-    variables = {**_shared_context(u, segs), "video_index": video_index,
+    variables = {**_shared_context(u, segs, a.get("events")), "video_index": video_index,
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language), "max_chars": max_chars,
                  "preferred_hooks": ", ".join(preferred_hooks or []) or "chưa có"}
     lo, hi = u.usable_range.start - 0.5, u.usable_range.end + 0.5
@@ -196,7 +203,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         return "\n".join(f"- {i.name}{' (' + i.category + ')' if i.category else ''}" for i in decor[kind]) or "(trống)"
     b = u.burned_in_text
     variables = {
-        **_shared_context(u, segs), "video_index": video_index,
+        **_shared_context(u, segs, a.get("events")), "video_index": video_index,
         "style_name": style.get("name", ""), "style_description": style.get("description_vi", ""),
         "style_brief": style.get("director_brief", ""), "hook_s": f"{hook_s:.1f}",
         "width": sc["width"], "height": sc["height"],
@@ -282,7 +289,7 @@ def make_captions(director: Director, analysis_dir: Path, u, plan, *, hook=None,
     a = load_analysis(analysis_dir, footage)
     kept = [s for s in a["transcript"].get("segments", [])
             if any(s["end"] > c.source_start and s["start"] < c.source_end for c in plan.clips)]
-    variables = {**_shared_context(u, kept), "video_index": video_index,
+    variables = {**_shared_context(u, kept, a.get("events")), "video_index": video_index,
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language),
                  "market": MARKETS.get(u.language, "TikTok"),
                  "hook": f"{hook.line} ({hook.line_vi})" if hook else "không có hook"}

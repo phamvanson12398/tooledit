@@ -4,8 +4,9 @@ fits_vi: quay đời sống, du lịch, ăn uống, một ngày của..., cảnh
 description_vi: Kể chuyện theo hành trình, nhịp vừa, nhạc nền là linh hồn, cắt theo nhịp nhạc, chữ ít và nhẹ nhàng.
 
 director_brief: |
-  - Kể theo trình tự thời gian/hành trình; mỗi cảnh 2–6 giây, cắt ở động tác hoặc chuyển cảnh tự nhiên.
-  - Giữ âm thanh hiện trường ở khoảnh khắc đẹp; chỗ không thoại để nhạc dẫn dắt.
+  - Kể theo trình tự thời gian/hành trình; mỗi cảnh 2–6 giây, cắt ở động tác hoặc chuyển cảnh tự nhiên
+    (code tự dời điểm cắt và chữ nhấn về đúng nhịp của bài nhạc bạn chọn).
+  - Giữ âm thanh hiện trường ở khoảnh khắc đẹp (tool đã lọc ồn rất nhẹ để giữ không khí); chỗ không thoại để nhạc dẫn dắt.
   - Chữ nhấn ít (tối đa 1 / 10 giây): địa điểm, món ăn, cảm xúc ngắn.
   - Zoom "slow" là chính; "punch" hầu như không dùng.
   - Nhạc nền nổi bật hơn các kiểu khác (acoustic/chill/pop nhẹ), chọn đúng tâm trạng; chỉ hạ khi có thoại.
@@ -18,6 +19,10 @@ title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 zoom: {punch_scale: 1.08, punch_in_s: 0.3, slow_scale: 1.08}
 music: {duck_db: -8, fade_s: 0.5}   # nhạc -5 dB, có thoại hạ thêm 8 dB
 hook: {min_s: 3.0, max_s: 5.0}
+beat_sync: {enabled: true, tolerance_s: 0.4, text_tolerance_s: 0.25}   # cắt cảnh + chữ trúng nhịp nhạc
+
+# Âm thanh: dùng bản lọc ồn RẤT NHẸ (config/analysis.yaml → denoise_light) để giữ tiếng sóng, phố, gió...
+audio: {clean: light}
 
 # Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)
 decor_brief: "Nhẹ nhàng: 1–3 hiệu ứng lấp lánh/ánh sáng, 2–4 sticker dễ thương, chuyển cảnh mềm khi đổi địa điểm, filter tông ấm."
