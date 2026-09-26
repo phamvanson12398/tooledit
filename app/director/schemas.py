@@ -156,6 +156,8 @@ class PlanClip(BaseModel):
     source_end: float = Field(gt=0)
     speed: float = Field(default=1.0, ge=0.25, le=2.0, description="<1 = quay chậm (replay), >1 = tua nhanh")
     replay: bool = Field(default=False, description="true = tua lại chậm một đoạn đã dùng (được phép lặp footage)")
+    repeat: bool = Field(default=False, description="true = lặp lại đoạn đã/sẽ dùng ở tốc độ thường (cold open mở đầu, "
+                                                    "nhắc lại câu chốt) — được phép trùng footage")
     ratio: Ratio | None = Field(default=None, description="khung riêng cho clip; null = khung mặc định")
     purpose_vi: str = ""
 
@@ -256,7 +258,16 @@ def repair_plan(plan: EditPlan, duration: float, max_fix_overlap: float = 1.0) -
         if not c.replay and c.speed < 1.0:
             fixes.append(f"clip {c.source_start}-{c.source_end}: không phải replay → tốc độ 1.0")
             c.speed = 1.0
-    normal = sorted((c for c in clips if not c.replay), key=lambda c: c.source_start)
+    for i, c in enumerate(clips):  # clip nằm gọn trong clip khác = cold open / nhắc lại → đánh dấu repeat
+        if c.replay or c.repeat:
+            continue
+        if any(j != i and not o.replay and not o.repeat and o.source_start - 0.05 <= c.source_start
+               and c.source_end <= o.source_end + 0.05 and (o.source_end - o.source_start) > (c.source_end - c.source_start)
+               for j, o in enumerate(clips)):
+            fixes.append(f"clip {c.source_start}-{c.source_end} lặp lại đoạn có trong clip khác → đánh dấu repeat "
+                         "(mở đầu / nhắc lại)")
+            c.repeat = True
+    normal = sorted((c for c in clips if not c.replay and not c.repeat), key=lambda c: c.source_start)
     for a, b in zip(normal, normal[1:]):  # chồng nhau chút ít: cắt đầu clip sau cho khớp
         ov = a.source_end - b.source_start
         if 0.05 < ov <= max_fix_overlap and b.source_end - a.source_end >= 0.5:
@@ -286,7 +297,7 @@ def repair_plan(plan: EditPlan, duration: float, max_fix_overlap: float = 1.0) -
 def check_reorder(plan: EditPlan, min_share: float = 0.25, max_clip_s: float | None = None) -> list[str]:
     """Kiểu giải trí "đảo lung tung": đủ nhiều lần nhảy ngược thời gian, clip ngắn."""
     errors = []
-    normal = [c for c in plan.clips if not c.replay]
+    normal = [c for c in plan.clips if not c.replay and not c.repeat]
     cuts = max(1, len(normal) - 1)
     backs = sum(1 for a, b in zip(normal, normal[1:]) if b.source_start < a.source_start)
     need = max(2, round(min_share * cuts))
@@ -317,7 +328,7 @@ def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: floa
                max_s: float = 150.0, available: float | None = None) -> list[str]:
     """available: số giây footage dành cho video này (mặc định = duration); dùng cho luật tối thiểu 60s."""
     errors = check_ranges([TimeRange(start=c.source_start, end=c.source_end) for c in plan.clips], duration, "clip")
-    normal = [c for c in plan.clips if not c.replay]
+    normal = [c for c in plan.clips if not c.replay and not c.repeat]
     for i, a in enumerate(normal):  # mọi cặp (kể cả khi đảo thứ tự), trừ clip replay được phép lặp
         for b in normal[i + 1:]:
             if b.source_start < a.source_end - 0.05 and b.source_end > a.source_start + 0.05:

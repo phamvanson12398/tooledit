@@ -507,3 +507,17 @@ def test_director_run_applies_repair_before_retry():
                  EditPlan, extra_check=lambda p: check_plan(p, 60.0, min_s=10), repair=lambda p: repair_plan(p, 60.0))
     assert len(d.calls) == 1 and plan.clips[1].source_start == 20.0  # một lần là xong
     assert any(l.startswith("Tự sửa:") for l in logs)
+
+
+def test_cold_open_clip_becomes_repeat_not_error():
+    """Lỗi thật: clip 345.4-348.5 nằm gọn trong 341.4-353.4 (mở đầu bằng khoảnh khắc đắt) → repeat, không phải lỗi."""
+    from app.director.schemas import repair_plan
+
+    p = EditPlan.model_validate({**load("plan.json"), "emphasis": [], "zooms": [], "sfx": [], "transitions": [],
+                                 "clips": [{"source_start": 345.4, "source_end": 348.5},
+                                           {"source_start": 300.0, "source_end": 341.4},
+                                           {"source_start": 341.4, "source_end": 353.4}]})
+    fixed, notes = repair_plan(p, 400.0)
+    assert fixed.clips[0].repeat and not fixed.clips[2].repeat
+    assert not [e for e in check_plan(fixed, 400.0, min_s=10) if "chồng nhau" in e]
+    assert any("repeat" in n for n in notes)

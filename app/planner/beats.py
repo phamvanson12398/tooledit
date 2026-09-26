@@ -59,7 +59,7 @@ def snap_cuts(clips: list[dict], hook_s: float, beats: list[float], words: list[
                 ok = (new_end - c["source_start"]) / speed >= min_clip_s and \
                     not _word_inside(words, new_end, c["source_end"])
             else:  # kéo dài
-                others = [o for j, o in enumerate(clips) if j != i and not o.get("replay")]
+                others = [o for j, o in enumerate(clips) if j != i and not o.get("replay") and not o.get("repeat")]
                 ok = new_end <= footage_s and not _word_straddles(words, new_end) and not any(
                     o["source_start"] < new_end and o["source_end"] > c["source_end"] for o in others)
             if ok and (best is None or abs(d) < abs(best[0])):

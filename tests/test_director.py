@@ -140,3 +140,26 @@ def test_cap_per_mood_keeps_variety():
     names = [g.name for g in got]
     assert len(got) == 8 and {"pop0", "whoosh0", "boom0", "CapCut Hit"} <= set(names)
     assert sum(n.startswith("pop") for n in names) <= 3
+
+
+def test_match_and_repair_resource_names():
+    from app.director.schemas import EditPlan
+    from app.director.tasks import match_name, repair_names
+    from tests.test_planner import load
+
+    effects = ["Lệch flash", "Rung nhẹ"]
+    assert match_name("Lệch flash (Đang thịnh hành)", effects) == "Lệch flash"  # lỗi thật trong nhật ký
+    assert match_name('"Rung nhẹ"', effects) == "Rung nhẹ"
+    assert match_name("lệch FLASH", effects) == "Lệch flash"
+    assert match_name("Lấp lánh mùa đông (remen)", ["Lấp lánh mùa đông"]) == "Lấp lánh mùa đông"
+    assert match_name("Cái gì đó khác hẳn", effects) is None
+    p = EditPlan.model_validate({**load("plan.json"),
+                                 "effects": [{"source_time": 19.3, "name": "Lệch flash (Đang thịnh hành)"},
+                                             {"source_time": 20.0, "name": "Không có thật"}],
+                                 "transitions": [{"after_clip": 0, "name": "Lấp lánh mùa đông (remen)"}],
+                                 "music": {"name": "keep it high", "mood_vi": "vui", "energy": "mid"}})
+    fixed, notes = repair_names(p, {"video_effect": effects, "transition": ["Lấp lánh mùa đông"]},
+                                {"Keep It High"}, set())
+    assert [e.name for e in fixed.effects] == ["Lệch flash"]
+    assert fixed.transitions[0].name == "Lấp lánh mùa đông" and fixed.music.name == "Keep It High"
+    assert any("bỏ hiệu ứng 'Không có thật'" in n for n in notes)

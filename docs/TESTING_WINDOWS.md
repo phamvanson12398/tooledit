@@ -4,7 +4,9 @@
 
 1. `git pull`, đóng và mở lại `start.bat`. Vào job giải trí bị lỗi → **Chạy lại bước này** (hoặc 🎬 Lập lại kế hoạch dựng).
 2. Nhật ký: nếu AI có lỗi vặt (chồng nhau vài phần giây, replay quên quay chậm, chữ nằm ngoài clip) sẽ thấy dòng
-   "Tự sửa: …" thay vì "chưa hợp lệ" rồi gọi lại AI — nhanh hơn nhiều.
+   "Tự sửa: …" thay vì "chưa hợp lệ" rồi gọi lại AI — nhanh hơn nhiều. Cũng tự sửa: clip mở đầu lặp lại đoạn phía sau
+   (đánh dấu "repeat"), tên hiệu ứng/chuyển cảnh/nhạc viết lệch (ví dụ thêm "(Đang thịnh hành)") → khớp tên thật trong kho
+   hoặc bỏ nếu không có.
 3. Mở draft: dựng theo thứ tự (có thể mở bằng 1 khoảnh khắc đắt), **góc máy đổi liên tục** (~2.5 giây đổi cận ↔ trung,
    cắt sang người đang nói / đang cười), mọi cảnh đều có chuyển động.
 4. Muốn đổi góc nhanh/chậm hơn: `max_hold_s` trong phần `camera` của `styles/entertainment.yaml`.

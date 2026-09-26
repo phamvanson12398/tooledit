@@ -216,8 +216,8 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                  for m in cap_per_mood(sfx_items or [], lim.get("sfx_per_mood", 3), lim.get("sfx_total", 90))]
     decor = {k: [i for i in (decor_items or []) if i.kind == k] for k in ("video_effect", "sticker", "transition", "filter")}
 
-    def lines(kind: str) -> str:
-        return "\n".join(f"- {i.name}{' (' + i.category + ')' if i.category else ''}" for i in decor[kind]) or "(trống)"
+    def lines(kind: str) -> str:  # tên trong ngoặc kép, nhóm tách riêng — để đạo diễn không chép nhầm nhóm vào tên
+        return "\n".join(f'- "{i.name}"{"  · nhóm: " + i.category if i.category else ""}' for i in decor[kind]) or "(trống)"
     b = u.burned_in_text
     variables = {
         **_shared_context(u, segs, a.get("events")), "video_index": video_index,
@@ -283,8 +283,77 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
 
     from app.director.schemas import repair_plan
 
-    return director.run("plan", variables, EditPlan, images, extra_check=extra,
-                        repair=lambda p: repair_plan(p, min(duration, u.usable_range.end + 0.5)))
+    def repair(p):
+        p, fixes = repair_plan(p, min(duration, u.usable_range.end + 0.5))
+        p, more = repair_names(p, {k: [i.name for i in v] for k, v in decor.items()}, names, sfx_names)
+        return p, fixes + more
+
+    return director.run("plan", variables, EditPlan, images, extra_check=extra, repair=repair)
+
+
+def match_name(name: str, valid: list[str] | set[str]) -> str | None:
+    """Tên đạo diễn viết → tên thật trong kho: đúng y hệt; bỏ ngoặc kép / phần "(...)" cuối; không phân biệt hoa
+    thường; gần giống (≥ 80%). Không khớp → None."""
+    import difflib
+    import re
+
+    valid = list(valid)
+    if name in valid:
+        return name
+    cleaned = re.sub(r"\s*[（(][^()（）]*[)）]\s*$", "", name.strip().strip('"“”「」')).strip()
+    for cand in (cleaned, name.strip().strip('"“”')):
+        if cand in valid:
+            return cand
+    low = {v.casefold(): v for v in valid}
+    for cand in (cleaned, name):
+        if cand.casefold() in low:
+            return low[cand.casefold()]
+    close = difflib.get_close_matches(cleaned, valid, n=1, cutoff=0.8) or \
+        difflib.get_close_matches(name, valid, n=1, cutoff=0.8)
+    return close[0] if close else None
+
+
+def repair_names(plan, decor_names: dict[str, list[str]], music_names: set[str], sfx_names: set[str]):
+    """Sửa tên tài nguyên viết sai chút ít; trang trí không khớp thì bỏ (không bắt đạo diễn làm lại),
+    nhạc/SFX không khớp thì để trống (bộ dựng tự tìm bài / tiếng cùng loại hoặc ghi vào danh sách cần bổ sung)."""
+    fixes: list[str] = []
+    upd: dict = {}
+
+    def fix_list(field: str, kind: str, label: str):
+        kept = []
+        for it in getattr(plan, field):
+            m = match_name(it.name, decor_names.get(kind, []))
+            if m is None:
+                fixes.append(f"bỏ {label} '{it.name}' (không có trong kho)")
+                continue
+            if m != it.name:
+                fixes.append(f"{label} '{it.name}' → '{m}'")
+            kept.append(it.model_copy(update={"name": m}))
+        upd[field] = kept
+
+    fix_list("effects", "video_effect", "hiệu ứng")
+    fix_list("stickers", "sticker", "sticker")
+    fix_list("transitions", "transition", "chuyển cảnh")
+    if plan.filter:
+        m = match_name(plan.filter, decor_names.get("filter", []))
+        if m != plan.filter:
+            fixes.append(f"filter '{plan.filter}' → {repr(m) if m else 'bỏ (không có trong kho)'}")
+        upd["filter"] = m
+    if plan.music.name:
+        m = match_name(plan.music.name, music_names)
+        if m != plan.music.name:
+            fixes.append(f"nhạc '{plan.music.name}' → {repr(m) if m else 'để trống (tool tự chọn nhạc cùng mức năng lượng)'}")
+            upd["music"] = plan.music.model_copy(update={"name": m})
+    sfx = []
+    for x in plan.sfx:
+        if x.name:
+            m = match_name(x.name, sfx_names)
+            if m != x.name:
+                fixes.append(f"SFX '{x.name}' → {repr(m) if m else 'để trống (tool tự tìm tiếng cùng loại)'}")
+                x = x.model_copy(update={"name": m})
+        sfx.append(x)
+    upd["sfx"] = sfx
+    return plan.model_copy(update=upd), fixes
 
 
 FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video mẫu chủ dự án chọn): nền đen, khối video 16:9 ở giữa,
@@ -300,7 +369,8 @@ FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video m
 
 
 COLD_OPEN_RULE = """Các clip theo thứ tự thời gian, không chồng nhau. Được phép (khuyến khích) MỞ ĐẦU bằng 1 clip
-  ngắn 1–3 giây lấy khoảnh khắc buồn cười / sốc nhất ở phía sau (cold open), rồi dựng từ đầu theo thứ tự."""
+  ngắn 1–3 giây lấy khoảnh khắc buồn cười / sốc nhất ở phía sau (cold open) — đặt "repeat": true cho clip đó
+  (được trùng footage với clip dựng sau) — rồi dựng từ đầu theo thứ tự."""
 
 
 REORDER_RULE = """ĐẢO THỨ TỰ CLIP (kiểu giải trí — khách muốn người xem không nhận ra video gốc): KHÔNG dựng theo
