@@ -234,7 +234,8 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                                        if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
         "arrow_brief": arrow_brief,
         "order_rule": (REORDER_RULE.format(max_clip=style.get("pacing", {}).get("max_clip_s", 4))
-                       if style.get("reorder") else "Các clip theo đúng thứ tự thời gian, không chồng nhau."),
+                       if style.get("reorder") else COLD_OPEN_RULE if style.get("cold_open")
+                       else "Các clip theo đúng thứ tự thời gian, không chồng nhau."),
         "burned_in": (f"có, ở {', '.join(b.regions)}. {b.note_vi}" if b.present else "không"),
         "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
         "sfx_list": "\n".join(sfx_lines) or "(kho SFX trống — đặt name = null, tool sẽ ghi vào danh sách cần bổ sung)",
@@ -280,7 +281,10 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             errors.append(f"video_index phải là {video_index}")
         return errors
 
-    return director.run("plan", variables, EditPlan, images, extra_check=extra)
+    from app.director.schemas import repair_plan
+
+    return director.run("plan", variables, EditPlan, images, extra_check=extra,
+                        repair=lambda p: repair_plan(p, min(duration, u.usable_range.end + 0.5)))
 
 
 FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video mẫu chủ dự án chọn): nền đen, khối video 16:9 ở giữa,
@@ -293,6 +297,10 @@ FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video m
   Phải ĐÚNG nội dung có thật trong footage; không hứa điều video không có; không lộ hết "lời giải".
 - `topic_label`: nhãn ngắn chủ đề đoạn nói chuyện (ví dụ "同期のパンチ佐藤さんについて"), hoặc rỗng nếu footage đã có sẵn.
   `title_top` để rỗng."""
+
+
+COLD_OPEN_RULE = """Các clip theo thứ tự thời gian, không chồng nhau. Được phép (khuyến khích) MỞ ĐẦU bằng 1 clip
+  ngắn 1–3 giây lấy khoảnh khắc buồn cười / sốc nhất ở phía sau (cold open), rồi dựng từ đầu theo thứ tự."""
 
 
 REORDER_RULE = """ĐẢO THỨ TỰ CLIP (kiểu giải trí — khách muốn người xem không nhận ra video gốc): KHÔNG dựng theo

@@ -48,7 +48,10 @@ class Director(ABC):
         """Gửi prompt, trả về đối tượng JSON (chưa validate)."""
 
     def run(self, task: str, variables: dict, model: type[T], images: list[Path] | None = None,
-            extra_check: Callable[[T], list[str]] | None = None) -> T:
+            extra_check: Callable[[T], list[str]] | None = None,
+            repair: Callable[[T], tuple[T, list[str]]] | None = None) -> T:
+        """repair: tự sửa lỗi vặt rõ ràng (chồng nhau vài phần giây, quên tốc độ replay...) trước khi kiểm tra —
+        đỡ phải gọi lại đạo diễn (mỗi lần gọi mất vài phút và tốn hạn mức Claude Pro)."""
         prompt = render_prompt(task, variables)
         schema = model.model_json_schema()
         feedback = ""
@@ -56,6 +59,10 @@ class Director(ABC):
             raw = self._complete(task, prompt + feedback, schema, images or [])
             try:
                 result = model.model_validate(raw)
+                if repair is not None:
+                    result, fixes = repair(result)
+                    for f in fixes:
+                        self.log(f"Tự sửa: {f}")
                 problems = extra_check(result) if extra_check else []
                 if not problems:
                     return result

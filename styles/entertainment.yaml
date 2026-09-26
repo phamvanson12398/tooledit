@@ -3,16 +3,16 @@ name_vi: Giải trí / show / hài (kiểu 예능)
 fits_vi: show giải trí, trò chơi, thử thách, hài, phản ứng, nhiều tiếng cười
 description_vi: Chữ to nhiều màu có viền, bình luận chêm, zoom giật khi phản ứng, SFX vui, nhịp nhanh.
 
-# Chủ dự án yêu cầu 27/09: đảo thứ tự "lung tung phèng", người xem không nhận ra video gốc,
-# KHÔNG cảnh nào để nguyên như gốc — cảnh nào cũng có chỉnh sửa, sinh động.
-reorder: true                                  # đạo diễn phải dựng phi tuyến (code kiểm tra)
-pacing: {max_clip_s: 4, reorder_share: 0.3}    # clip ≤ 4s; ≥ 30% điểm cắt là nhảy ngược thời gian
+# Chủ dự án 27/09: KHÔNG cảnh nào để nguyên như gốc — cảnh nào cũng có chỉnh sửa, sinh động.
+# (Đã thử bắt đảo thứ tự nhiều → AI khó làm, chủ dự án bỏ: thay bằng đổi góc máy bắt nhân vật liên tục.)
+reorder: false                                 # true = bắt dựng phi tuyến (đảo thứ tự) — hiện tắt
+cold_open: true                                # cho phép mở đầu bằng 1 khoảnh khắc đắt rồi dựng theo thứ tự
+pacing: {max_clip_s: 4, reorder_share: 0.3}    # chỉ dùng khi reorder: true
 motion: {every_clip: true, max_scale: 1.2}     # code tự thêm chuyển động cho mọi cảnh chưa có zoom
 
 director_brief: |
-  - DỰNG PHI TUYẾN: mở bằng khoảnh khắc buồn cười / sốc nhất, rồi mới quay về bối cảnh; xen kẽ trước–sau,
-    cắt qua lại giữa người nói và người phản ứng, lặp câu chốt bằng replay quay chậm; clip ngắn 1–4 giây.
-    Mục tiêu: người xem không nhận ra thứ tự video gốc, nhưng vẫn hiểu chuyện và KHÔNG bị hiểu sai.
+  - Có thể mở bằng 1 khoảnh khắc buồn cười / sốc nhất (cold open) rồi dựng theo thứ tự; lặp câu chốt bằng replay
+    quay chậm (replay phải có speed 0.35–0.6). Góc máy đổi liên tục do code tự làm (cận người nói, người cười).
   - Bắt mọi khoảnh khắc phản ứng/tiếng cười (xem danh sách sự kiện âm thanh máy dò được); cắt nhanh, bỏ khoảng chết.
   - Góc máy do code tự làm: cận người đang nói, cắt sang người đang cười khi có tiếng cười; giữ trọn tràng cười.
   - Chữ nhấn kiểu bình luận chêm của editor (giọng người xem/editor, vui, ngắn) - vẫn phải đúng với cái đang diễn ra,
@@ -38,7 +38,7 @@ camera:
   close_zoom: 1.8
   medium_zoom: 1.3
   face_max: 0.5
-  max_hold_s: 3.0        # đổi cận ↔ trung nhanh hơn podcast
+  max_hold_s: 2.5        # đổi góc liên tục: ~2.5 giây đổi cận ↔ trung một lần (chủ dự án 27/09)
   min_shot_s: 0.8
   wide_open_s: 1.5
   wide_every_s: 12

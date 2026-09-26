@@ -1,17 +1,13 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
-## Bước 19 — Giải trí: đảo thứ tự, không cảnh nào để nguyên gốc `[CẦN KIỂM TRA TRÊN MÁY]`
+## Bước 19 — Giải trí: đổi góc máy liên tục, không cảnh nào để nguyên gốc; tool tự sửa lỗi vặt của AI `[CẦN KIỂM TRA TRÊN MÁY]`
 
-1. `git pull`, đóng và mở lại `start.bat`. Job cũ kiểu Giải trí: bấm **🎬 Lập lại kế hoạch dựng** (AI dựng lại phi tuyến);
-   hoặc tạo job mới, chọn **Giải trí / show / hài**.
-2. Mở draft trong CapCut, xem:
-   - Video mở bằng khoảnh khắc buồn cười/sốc nhất, các đoạn **không theo thứ tự gốc**, xen kẽ trước–sau, có replay câu chốt.
-   - Clip ngắn (≤ 4 giây), **mọi cảnh đều chuyển động** (đẩy vào / lia / kéo ra / giật / nghiêng) hoặc được cắt cận;
-     không cảnh nào đứng yên như footage gốc.
-   - Nhiều hiệu ứng, sticker, chuyển cảnh hơn trước; filter đổi tông.
-   - Vẫn xem hiểu chuyện, không bị ghép sai nghĩa.
-3. Nếu chuyển động làm khối video lấn lên dòng tiêu đề: giảm `max_scale` (1.2 → 1.15) trong `styles/entertainment.yaml`.
-   Muốn đảo nhiều / ít hơn: `reorder_share` (0.3 = ít nhất 30% điểm cắt là nhảy ngược thời gian).
+1. `git pull`, đóng và mở lại `start.bat`. Vào job giải trí bị lỗi → **Chạy lại bước này** (hoặc 🎬 Lập lại kế hoạch dựng).
+2. Nhật ký: nếu AI có lỗi vặt (chồng nhau vài phần giây, replay quên quay chậm, chữ nằm ngoài clip) sẽ thấy dòng
+   "Tự sửa: …" thay vì "chưa hợp lệ" rồi gọi lại AI — nhanh hơn nhiều.
+3. Mở draft: dựng theo thứ tự (có thể mở bằng 1 khoảnh khắc đắt), **góc máy đổi liên tục** (~2.5 giây đổi cận ↔ trung,
+   cắt sang người đang nói / đang cười), mọi cảnh đều có chuyển động.
+4. Muốn đổi góc nhanh/chậm hơn: `max_hold_s` trong phần `camera` của `styles/entertainment.yaml`.
 
 ## Bước 18 — Làm giàu kho tài nguyên (theo README_NguonTaiNguyen) `[CẦN KIỂM TRA TRÊN MÁY]`
 

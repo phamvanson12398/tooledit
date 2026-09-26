@@ -242,6 +242,47 @@ def clips_duration(clips: list[PlanClip]) -> float:
     return sum((c.source_end - c.source_start) / c.speed for c in clips)
 
 
+def repair_plan(plan: EditPlan, duration: float, max_fix_overlap: float = 1.0) -> tuple[EditPlan, list[str]]:
+    """Sửa các lỗi vặt mà không cần hỏi lại đạo diễn. Lỗi thật (chồng nhau nhiều, sai thời lượng) vẫn để kiểm tra bắt."""
+    fixes: list[str] = []
+    clips = [c.model_copy() for c in plan.clips]
+    for c in clips:
+        if c.source_end > duration:
+            fixes.append(f"clip {c.source_start}-{c.source_end}: cắt đuôi về hết footage ({duration:.1f}s)")
+            c.source_end = round(duration, 2)
+        if c.replay and c.speed >= 1.0:
+            fixes.append(f"clip replay {c.source_start}-{c.source_end}: đặt tốc độ 0.5 (quay chậm)")
+            c.speed = 0.5
+        if not c.replay and c.speed < 1.0:
+            fixes.append(f"clip {c.source_start}-{c.source_end}: không phải replay → tốc độ 1.0")
+            c.speed = 1.0
+    normal = sorted((c for c in clips if not c.replay), key=lambda c: c.source_start)
+    for a, b in zip(normal, normal[1:]):  # chồng nhau chút ít: cắt đầu clip sau cho khớp
+        ov = a.source_end - b.source_start
+        if 0.05 < ov <= max_fix_overlap and b.source_end - a.source_end >= 0.5:
+            fixes.append(f"clip {b.source_start}-{b.source_end} chồng {ov:.2f}s lên clip trước → bắt đầu từ {a.source_end}")
+            b.source_start = a.source_end
+    clips = [c for c in clips if c.source_end - c.source_start >= 0.2]
+
+    def inside(t: float) -> bool:
+        return any(c.source_start - 0.05 <= t <= c.source_end + 0.05 for c in clips)
+
+    upd: dict = {"clips": clips}
+    for field, attr, label in (("emphasis", "source_time", "chữ nhấn"), ("zooms", "source_start", "zoom"),
+                               ("sfx", "source_time", "SFX"), ("effects", "source_time", "hiệu ứng"),
+                               ("stickers", "source_time", "sticker"), ("arrows", "source_time", "mũi tên")):
+        items = getattr(plan, field)
+        kept = [x for x in items if inside(getattr(x, attr))]
+        if len(kept) < len(items):
+            fixes.append(f"bỏ {len(items) - len(kept)} {label} nằm ngoài các clip được giữ")
+        upd[field] = kept
+    trans = [t for t in plan.transitions if t.after_clip < len(clips) - 1]
+    if len(trans) < len(plan.transitions):
+        fixes.append(f"bỏ {len(plan.transitions) - len(trans)} chuyển cảnh đặt sau clip cuối")
+    upd["transitions"] = trans
+    return plan.model_copy(update=upd), fixes
+
+
 def check_reorder(plan: EditPlan, min_share: float = 0.25, max_clip_s: float | None = None) -> list[str]:
     """Kiểu giải trí "đảo lung tung": đủ nhiều lần nhảy ngược thời gian, clip ngắn."""
     errors = []

@@ -445,7 +445,7 @@ def test_entertainment_reorder_rule_and_every_clip_moves(tmp_path):
     from app.styles import load_style
 
     style = load_style("entertainment")
-    assert style["reorder"] and style["motion"]["every_clip"]
+    assert not style["reorder"] and style["cold_open"] and style["motion"]["every_clip"]  # chủ dự án bỏ đảo thứ tự
     base = load("plan.json")
     linear = EditPlan.model_validate({**base, "clips": [{"source_start": a, "source_end": a + 3} for a in (1, 5, 9, 13, 17)]})
     assert check_reorder(linear, 0.3, 4)  # dựng theo thứ tự thời gian → bị bắt làm lại
@@ -468,3 +468,42 @@ def test_entertainment_reorder_rule_and_every_clip_moves(tmp_path):
     assert len(segs) == 6 and all(s["common_keyframes"] for s in segs)
     kinds = {tuple(sorted(k["property_type"] for k in s["common_keyframes"])) for s in segs}
     assert len(kinds) >= 3  # đẩy/kéo (scale), lia (scale + x), nghiêng (scale + rotation)
+
+
+def test_repair_plan_fixes_small_mistakes_from_real_log():
+    """Lỗi thật trong nhật ký của chủ dự án: chồng 0.1s và replay quên quay chậm → code tự sửa, không hỏi lại AI."""
+    from app.director.schemas import repair_plan
+
+    base = load("plan.json")
+    p = EditPlan.model_validate({**base, "emphasis": [{"source_time": 115.0, "text": "X"}], "zooms": [], "sfx": [],
+                                 "transitions": [{"after_clip": 5, "name": "t"}], "clips": [
+        {"source_start": 108.9, "source_end": 111.2}, {"source_start": 111.1, "source_end": 113.7},
+        {"source_start": 145.4, "source_end": 148.8, "replay": True, "speed": 1.0},
+        {"source_start": 120.0, "source_end": 175.0}]})
+    fixed, notes = repair_plan(p, 173.8)
+    assert fixed.clips[1].source_start == 111.2  # hết chồng nhau
+    assert fixed.clips[2].speed == 0.5  # replay quay chậm
+    assert fixed.clips[3].source_end == 173.8  # không vượt footage
+    assert not fixed.emphasis and not fixed.transitions  # chữ ngoài clip / chuyển cảnh sai chỗ bị bỏ
+    assert len(notes) == 5
+    errs = check_plan(fixed, 173.8, min_s=10)
+    assert not [e for e in errs if "chồng nhau" in e or "quay chậm" in e]
+    # chồng nhau nhiều (lỗi thật) thì không tự sửa
+    big = EditPlan.model_validate({**base, "clips": [{"source_start": 10, "source_end": 20},
+                                                     {"source_start": 15, "source_end": 25}]})
+    fixed2, _ = repair_plan(big, 173.8)
+    assert any("chồng nhau" in e for e in check_plan(fixed2, 173.8, min_s=1))
+
+
+def test_director_run_applies_repair_before_retry():
+    from app.director.schemas import repair_plan
+
+    bad = {**_short_plan(), "clips": [{"source_start": 1.0, "source_end": 20.0},
+                                      {"source_start": 19.9, "source_end": 45.0}]}
+    d = FakeDirector(responses={"plan": bad})
+    logs = []
+    d.log = logs.append
+    plan = d.run("plan", {k: "x" for k in __import__("re").findall(r"\{\{(\w+)\}\}", (ROOT / "prompts" / "plan.md").read_text(encoding="utf-8"))},
+                 EditPlan, extra_check=lambda p: check_plan(p, 60.0, min_s=10), repair=lambda p: repair_plan(p, 60.0))
+    assert len(d.calls) == 1 and plan.clips[1].source_start == 20.0  # một lần là xong
+    assert any(l.startswith("Tự sửa:") for l in logs)
