@@ -203,3 +203,25 @@ def test_web_import_folder(tmp_path):
     assert "Đã nhập 1 file" in page and "dam_dong" in page
     assert (tmp_path / "assets" / "sfx" / "dam_dong" / "crowd_cheer_pb.mp3").is_file()
     assert "Không nhập được" in client.post("/assets/import-folder", data={"folder": str(tmp_path / "khong_co")}).text
+
+
+def test_web_import_capcut_zip(tmp_path):
+    import io
+    import zipfile
+
+    from tests.test_planner import SAMPLE
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for f in SAMPLE.rglob("*"):
+            if f.is_file():
+                zf.write(f, Path("DuAnMau") / f.relative_to(SAMPLE))
+    app = create_app(tmp_path / "jobs", assets_root=tmp_path / "assets", settings_path=tmp_path / "l.yaml",
+                     scan_fn=lambda d, k: None)
+    client = TestClient(app)
+    assert "Lấy hiệu ứng / nhạc từ một dự án CapCut" in client.get("/").text
+    page = client.post("/assets/import-capcut", data={"mood": "vui"},
+                       files={"zipfile": ("duan.zip", buf.getvalue(), "application/zip")}).text
+    assert "capcut_template" in page and "cần CapCut tải" in page and "chuyển cảnh" in page
+    assert (tmp_path / "assets" / "capcut_library.json").is_file()
+    assert "Chưa chọn dự án" in client.post("/assets/import-capcut", data={}).text

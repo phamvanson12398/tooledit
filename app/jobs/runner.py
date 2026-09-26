@@ -97,6 +97,12 @@ def resolve_template(log=lambda m: None) -> Path:
                        "Chọn lại ở trang chủ (⚙️ Dự án mẫu CapCut).")
 
 
+def _load_labels_safe() -> dict:
+    from app.capcut_writer.template import _load_labels
+
+    return _load_labels()
+
+
 class Runner:
     def __init__(self, jobs_root: Path, *, director=None, analyze_fn=None, probe_duration_fn=None,
                  drafts_dir: Path | None = None, template_dir: Path | None = None,
@@ -141,6 +147,13 @@ class Runner:
             added = tpl.merge_items(scan_drafts(drafts_root()))
             tpl._apply_labels(_load_labels())
             self.log(f"Kho tài nguyên tự quét từ CapCut: thêm {added} mục")
+        if self._template_dir is None:  # tài nguyên đã nhập từ dự án CapCut (kể cả dự án đã xóa / từ máy khác)
+            from app.assets.capcut_import import load_imported
+
+            added = tpl.merge_items(load_imported())
+            tpl._apply_labels(_load_labels_safe())
+            if added:
+                self.log(f"Kho nhập từ dự án CapCut: thêm {added} mục")
         if self._template_dir is None:
             from app.assets.local import scan_local
 

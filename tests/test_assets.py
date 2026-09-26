@@ -186,3 +186,69 @@ def test_credit_lines_for_cc_by_files(tmp_path, monkeypatch):
     monkeypatch.setattr(ledger, "ASSETS_ROOT", assets)
     lines = Runner._credits([str(f), str(g), "C:/khac/file.mp3"])
     assert lines == ['"Sad Song" by Kevin MacLeod — CC BY 4.0 (https://incompetech.com/x)']
+
+
+def test_import_capcut_project_into_library(tmp_path, monkeypatch):
+    import shutil as sh
+
+    from app.assets import capcut_import
+    from tests.test_planner import SAMPLE
+
+    assets, drafts = tmp_path / "assets", tmp_path / "CapCutDrafts"
+    drafts.mkdir()
+    res = capcut_import.import_project(SAMPLE, assets, mood="vui", copy_to=drafts)
+    kinds = {r["kind"] for r in res["items"]}
+    assert {"music", "video_effect", "transition", "filter", "sticker"} <= kinds
+    assert res["added"] == len(res["items"]) and res["need_download"] == len(res["items"])  # cache ở máy khác
+    assert res["copied_to"] and (Path(res["copied_to"]) / "draft_content.json").is_file()
+    assert not capcut_import.load_imported(assets)  # chưa tải về máy → chưa dùng
+    every = capcut_import.load_imported(assets, require_cached=False)
+    assert all(i.mood == "vui" for i in every if i.kind == "music")
+    # giả như CapCut đã tải: file cache có thật → dùng được ngay
+    music = next(i for i in every if i.kind == "music")
+    cache = tmp_path / "cache.mp3"
+    cache.write_bytes(b"x")
+    store = capcut_import.load_store(assets)
+    for d in store:
+        if d["resource_id"] == music.resource_id:
+            d["material"]["path"] = str(cache)
+    capcut_import.store_path(assets).write_text(json.dumps({"items": store}), encoding="utf-8")
+    assert [i.name for i in capcut_import.load_imported(assets)] == [music.name]
+    # nhập lại: không trùng
+    again = capcut_import.import_project(SAMPLE, assets)
+    assert again["added"] == 0
+    # file âm thanh riêng của người dùng trong dự án được chép vào kho; nhạc thư viện CapCut thì không
+    proj = tmp_path / "proj"
+    sh.copytree(SAMPLE, proj)
+    own = tmp_path / "my_voice.wav"
+    own.write_bytes(b"RIFF")
+    for f in (proj / "draft_content.json", capcut_import.main_timeline_path(proj)):
+        tl = json.loads(f.read_text(encoding="utf-8-sig"))
+        for a in tl["materials"]["audios"]:
+            if a.get("type") == "extract_music":
+                a["path"] = str(own)
+        f.write_text(json.dumps(tl), encoding="utf-8")
+    res3 = capcut_import.import_project(proj, assets)
+    assert res3["local_audio"] == ["my_voice_cc.wav"]
+    assert not list(assets.rglob("*.mp3"))  # không chép nhạc CapCut ra ngoài
+
+
+def test_find_draft_in_zip_and_block_zip_slip(tmp_path):
+    import zipfile
+
+    from app.assets import capcut_import
+    from tests.test_planner import SAMPLE
+
+    z = tmp_path / "p.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        for f in SAMPLE.rglob("*"):
+            if f.is_file():
+                zf.write(f, Path("MyProject") / f.relative_to(SAMPLE))
+    out = capcut_import.safe_extract(z, tmp_path / "x")
+    assert capcut_import.find_draft_dir(out).name == "MyProject"
+    bad = tmp_path / "bad.zip"
+    with zipfile.ZipFile(bad, "w") as zf:
+        zf.writestr("../../evil.txt", "x")
+    import pytest
+    with pytest.raises(ValueError):
+        capcut_import.safe_extract(bad, tmp_path / "y")

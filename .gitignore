@@ -46,3 +46,5 @@ node_modules/
 /config/local.yaml
 assets/**/*.beats.json
 assets/CREDITS.csv
+assets/capcut_library.json
+assets/.imports/

@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 20 — Lấy hiệu ứng / nhạc từ một dự án CapCut vào kho `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`.
+2. Trang chủ → ô Kho tài nguyên → **📦 Lấy hiệu ứng / nhạc từ một dự án CapCut**. Chọn MỘT cách:
+   - chọn dự án trong danh sách (dự án CapCut trên máy), hoặc
+   - tải lên file **.zip** của thư mục dự án (dự án từ máy khác: nén thư mục trong
+     `%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft\<tên dự án>`), hoặc
+   - chọn thư mục dự án.
+   Có thể ghi nhãn tâm trạng cho nhạc (vd "vui"). Bấm **Lấy tài nguyên**.
+3. Trang kết quả liệt kê từng hiệu ứng / chuyển cảnh / sticker / nhạc: "✅ dùng được ngay" hoặc "⏳ cần CapCut tải".
+   Với "cần CapCut tải": dự án đã được chép vào CapCut → mở nó trong CapCut 1 lần, chờ tải xong, đóng lại.
+4. Tạo job mới: đạo diễn AI có thể chọn các hiệu ứng / nhạc đó (kể cả khi sau này bạn xóa dự án gốc trong CapCut).
+
 ## Bước 19 — Giải trí: đổi góc máy liên tục, không cảnh nào để nguyên gốc; tool tự sửa lỗi vặt của AI `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`. Vào job giải trí bị lỗi → **Chạy lại bước này** (hoặc 🎬 Lập lại kế hoạch dựng).

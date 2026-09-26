@@ -234,6 +234,57 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     def pick_folder():
         return pick_folder_dialog()
 
+    @app.post("/assets/import-capcut", response_class=HTMLResponse)
+    async def import_capcut(draft: str = Form(""), folder: str = Form(""), mood: str = Form(""),
+                            copy_to_capcut: str | None = Form(None), zipfile: UploadFile | None = File(None)):
+        from app.assets.capcut_import import find_draft_dir, import_project, safe_extract
+
+        esc = html.escape
+        try:
+            from_capcut = False
+            if zipfile is not None and zipfile.filename:
+                work = assets_root / ".imports" / time.strftime("%Y%m%d_%H%M%S")
+                work.mkdir(parents=True, exist_ok=True)
+                zpath = work / "project.zip"
+                with open(zpath, "wb") as f:
+                    shutil.copyfileobj(zipfile.file, f)
+                src = find_draft_dir(safe_extract(zpath, work / "x"))
+            elif folder.strip():
+                src = find_draft_dir(Path(folder.strip().strip('"')))
+            elif draft.strip():
+                src, from_capcut = Path(draft), True
+            else:
+                raise ValueError("Chưa chọn dự án: chọn trong danh sách, tải lên .zip hoặc chọn thư mục.")
+            if src is None:
+                raise ValueError("Không tìm thấy dự án CapCut (thiếu draft_content.json) trong file / thư mục đã chọn.")
+            copy_to = None
+            if copy_to_capcut and not from_capcut:
+                from app.jobs.runner import drafts_root
+
+                try:
+                    copy_to = drafts_root()
+                except Exception:
+                    copy_to = None
+            res = import_project(src, assets_root, mood=mood.strip(), copy_to=copy_to)
+        except Exception as exc:
+            return _page("Lỗi", f"<div class='card'><h2>Không lấy được tài nguyên</h2><pre>{esc(str(exc))}</pre>"
+                         "<p><a class='btn light' href='/'>🏠 Về trang chủ</a></p></div>")
+        rows = "".join(f"<tr><td>{esc(r['kind_vi'])}</td><td>{esc(r['name'])}</td>"
+                       f"<td>{'✅ dùng được ngay' if r['cached'] else '⏳ cần CapCut tải'}</td>"
+                       f"<td>{'mới' if r['new'] else 'đã có'}</td></tr>" for r in res["items"])
+        tip = ""
+        if res["need_download"]:
+            where = (f"Dự án đã được chép vào CapCut ({esc(res['copied_to'])}). " if res["copied_to"] else "")
+            tip = (f"<div class='note'>{where}{res['need_download']} tài nguyên CapCut chưa tải về máy này: mở dự án "
+                   f"<b>{esc(res['project'])}</b> trong CapCut 1 lần (chờ tải xong), đóng lại — lần dựng sau tool tự dùng được.</div>")
+        audio = (f"<p>Đã chép {len(res['local_audio'])} file âm thanh riêng của bạn trong dự án vào kho: "
+                 f"{esc(', '.join(res['local_audio']))}</p>" if res["local_audio"] else "")
+        body = (f"<div class='topnav'><a class='btn light small' href='/'>🏠 Về trang chủ</a></div>"
+                f"<div class='card'><h2>📦 Dự án “{esc(res['project'])}”: {len(res['items'])} tài nguyên "
+                f"({res['added']} mới, {res['ready']} dùng được ngay)</h2>{tip}{audio}"
+                f"<table><tr><th>Loại</th><th>Tên</th><th>Trạng thái</th><th></th></tr>{rows}</table></div>")
+        return _page("Lấy tài nguyên từ dự án", body)
+
     @app.post("/assets/import-folder", response_class=HTMLResponse)
     def import_folder_page(folder: str = Form(...), kind: str = Form("auto"), source: str = Form("other"),
                            license: str = Form(""), author: str = Form("")):
@@ -463,6 +514,12 @@ def _resource_tools(has_key: bool) -> str:
     sources = "".join(f"<option value='{k}'>{esc(v.get('vi', k))}{' — phải ghi nguồn' if v.get('credit') else ''}</option>"
                       for k, v in (cfg.get("manual_sources") or {}).items())
     key_state = "✅ đã lưu key" if has_key else "chưa có key — vẫn tải được từ Openverse"
+    try:
+        from app.jobs.runner import drafts_root, list_drafts
+
+        drafts = "".join(f"<option value='{esc(str(d))}'>{esc(n)}</option>" for d, n in list_drafts(drafts_root()))
+    except Exception:
+        drafts = ""
     return f"""
     <form method="post" action="/resources/scan" onsubmit="this.querySelector('button').innerHTML='<span class=spinner></span> Đang quét / tải… (có thể vài phút)'">
       <label class="tg" style="margin-top:12px"><input type="checkbox" name="download" checked>
@@ -492,6 +549,22 @@ def _resource_tools(has_key: bool) -> str:
         <p><button type="submit" class="btn small">Nhập vào kho</button></p>
         <p class="muted">Không nhập file giấy phép NonCommercial (NC) hoặc NoDerivatives (ND). Không lấy file từ CapCut/TikTok ra.</p>
       </form></details>
+    <details><summary class="muted">📦 Lấy hiệu ứng / nhạc từ một dự án CapCut</summary>
+      <form class="upload" method="post" action="/assets/import-capcut" enctype="multipart/form-data"
+            onsubmit="this.querySelector('button[type=submit]').innerHTML='<span class=spinner></span> Đang đọc dự án…'">
+        <p class="muted">Dự án đang có trong CapCut trên máy đã được tự quét. Dùng ô này để <b>giữ lại</b> tài nguyên của một
+        dự án (kể cả khi sau này xóa nó), gắn nhãn tâm trạng cho nhạc, hoặc lấy từ <b>dự án ở máy khác</b> (nén .zip gửi sang).
+        Chọn MỘT trong ba cách:</p>
+        <label>1) Dự án trong CapCut trên máy này</label><select name="draft"><option value="">— không chọn —</option>{drafts}</select>
+        <label style="margin-top:8px;display:block">2) Hoặc tải lên file .zip của thư mục dự án</label>
+        <input type="file" name="zipfile" accept=".zip">
+        <label style="margin-top:8px;display:block">3) Hoặc chọn thư mục dự án</label>
+        <div class="row"><input type="text" id="cc_folder" name="folder" placeholder="Thư mục dự án CapCut">
+        <button type="button" class="btn light small" onclick="pickFolder('cc_folder')">📂 Chọn…</button></div>
+        <div class="row" style="margin-top:8px"><input type="text" name="mood" placeholder="Nhãn tâm trạng cho nhạc (vd: vui, căng, buồn) — không bắt buộc"></div>
+        <label class="tg" style="margin-top:8px"><input type="checkbox" name="copy_to_capcut" checked>
+          Chép dự án (zip / thư mục ngoài) vào CapCut để mở 1 lần cho CapCut tải tài nguyên</label>
+        <p><button type="submit" class="btn small">Lấy tài nguyên</button></p></form></details>
     <details><summary class="muted">➕ Thêm một file âm thanh</summary>
       <form class="upload" method="post" action="/assets/upload" enctype="multipart/form-data">
         <div class="row"><select name="kind"><option value="sfx">SFX</option><option value="music">Nhạc nền</option></select>
@@ -500,9 +573,9 @@ def _resource_tools(has_key: bool) -> str:
         <button class="btn small" type="submit">Thêm vào kho</button>
         <p class="muted">Chỉ thêm file bạn có quyền dùng. Nguồn được ghi vào sổ assets/ledger.json.</p></form></details>
     <script>
-    async function pickFolder(){{
+    async function pickFolder(id){{
       try{{const r=await fetch('/api/pick-folder');const d=await r.json();
-        if(d.path) document.getElementById('folder').value=d.path; else if(d.error) alert(d.error);}}
+        if(d.path) document.getElementById(id||'folder').value=d.path; else if(d.error) alert(d.error);}}
       catch(e){{alert('Không mở được hộp thoại: '+e);}}
     }}
     </script>"""
