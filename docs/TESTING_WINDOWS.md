@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 19 — Giải trí: đảo thứ tự, không cảnh nào để nguyên gốc `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`. Job cũ kiểu Giải trí: bấm **🎬 Lập lại kế hoạch dựng** (AI dựng lại phi tuyến);
+   hoặc tạo job mới, chọn **Giải trí / show / hài**.
+2. Mở draft trong CapCut, xem:
+   - Video mở bằng khoảnh khắc buồn cười/sốc nhất, các đoạn **không theo thứ tự gốc**, xen kẽ trước–sau, có replay câu chốt.
+   - Clip ngắn (≤ 4 giây), **mọi cảnh đều chuyển động** (đẩy vào / lia / kéo ra / giật / nghiêng) hoặc được cắt cận;
+     không cảnh nào đứng yên như footage gốc.
+   - Nhiều hiệu ứng, sticker, chuyển cảnh hơn trước; filter đổi tông.
+   - Vẫn xem hiểu chuyện, không bị ghép sai nghĩa.
+3. Nếu chuyển động làm khối video lấn lên dòng tiêu đề: giảm `max_scale` (1.2 → 1.15) trong `styles/entertainment.yaml`.
+   Muốn đảo nhiều / ít hơn: `reorder_share` (0.3 = ít nhất 30% điểm cắt là nhảy ngược thời gian).
+
 ## Bước 18 — Làm giàu kho tài nguyên (theo README_NguonTaiNguyen) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`.

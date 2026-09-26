@@ -176,6 +176,33 @@ def zoom_keyframes(zooms, clip, style_zoom: dict) -> list[Keyframe]:
     return kfs if len(kfs) > 1 else []
 
 
+MOTION_PATTERNS = ("push", "pan_right", "pull", "punch", "pan_left", "tilt")
+
+
+def auto_motion(n: int, dur_us: int, cfg: dict) -> list[Keyframe]:
+    """Chuyển động tự động cho cảnh chưa có zoom — để không cảnh nào đứng yên như footage gốc.
+    Luân phiên: đẩy vào, lia phải, kéo ra, giật vào, lia trái, nghiêng nhẹ. Scale tối đa max_scale (mặc định 1.2)
+    để khối video không lấn lên dòng tiêu đề; lia ngang luôn nhỏ hơn phần phóng to nên không lộ mép đen."""
+    top = float(cfg.get("max_scale", 1.2))
+    mid = 1.0 + (top - 1.0) * 0.75
+    shift = (mid - 1.0) * 0.6  # nửa khung; < phần dư mỗi bên (mid - 1) → không lộ viền
+    end = max(1, dur_us)
+    kind = (cfg.get("patterns") or MOTION_PATTERNS)[n % len(cfg.get("patterns") or MOTION_PATTERNS)]
+    if kind == "push":
+        return [Keyframe("scale", 0, 1.0), Keyframe("scale", end, mid)]
+    if kind == "pull":
+        return [Keyframe("scale", 0, top), Keyframe("scale", end, 1.03)]
+    if kind == "punch":
+        hit = min(end, round(0.25 * SEC))
+        return [Keyframe("scale", 0, top), Keyframe("scale", hit, 1.06), Keyframe("scale", end, 1.1)]
+    if kind in ("pan_right", "pan_left"):
+        sign = 1 if kind == "pan_right" else -1
+        return [Keyframe("scale", 0, mid), Keyframe("scale", end, mid),
+                Keyframe("x", 0, -sign * shift), Keyframe("x", end, sign * shift)]
+    return [Keyframe("scale", 0, mid), Keyframe("scale", end, mid),  # tilt: nghiêng nhẹ như máy cầm tay
+            Keyframe("rotation", 0, -1.5), Keyframe("rotation", end, 1.5)]
+
+
 def subject_center(subjects: dict, start: float, end: float) -> float:
     pts = [cx for t, cx, _ in subjects.get("points", []) if start <= t <= end]
     return sum(pts) / len(pts) if pts else 0.5
@@ -282,6 +309,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     replay_style = _style(replay_cfg) if replay_cfg else emph_style
     lib = {(i.kind, i.name): i for i in template.library}
     trans_after = {t.after_clip: lib.get(("transition", t.name)) for t in plan.transitions}
+    motion_cfg = style.get("motion") or {}
+    motion_on, motion_n = bool(motion_cfg.get("every_clip")), 0
     cam_cfg = style.get("camera") or {}
     camera_on = cam_cfg.get("mode") == "speaker"
     if camera_on:  # góc máy theo người đang nói (podcast)
@@ -306,6 +335,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             for j, sh in enumerate(shots):
                 sub = dataclasses.replace(p, source_start=sh.start, source_end=sh.end, out_start=bounds[j])
                 kfs = zoom_keyframes(plan.zooms, sub, style.get("zoom", {}))
+                if not kfs and motion_on:  # không cảnh nào giữ nguyên như gốc
+                    kfs, motion_n = auto_motion(motion_n, bounds[j + 1] - bounds[j], motion_cfg), motion_n + 1
                 w.add_video(src, target_start=bounds[j], duration=bounds[j + 1] - bounds[j],
                             source_start=round(sh.start * SEC), speed=clip.speed,
                             crop=shot_crop(sh, people, ratio, src.width, src.height, cam_cfg,
@@ -316,6 +347,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         else:
             kfs = zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
                 [Keyframe("scale", 0, 1.0), Keyframe("scale", p.out_duration, style.get("zoom", {}).get("slow_scale", 1.12))]
+            if not kfs and motion_on:
+                kfs, motion_n = auto_motion(motion_n, p.out_duration, motion_cfg), motion_n + 1
             w.add_video(src, target_start=p.out_start, duration=p.out_duration,
                         source_start=round(clip.source_start * SEC), speed=clip.speed,
                         crop=crop_for(ratio, clip.source_start, clip.source_end),

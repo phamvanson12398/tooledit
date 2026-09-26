@@ -242,6 +242,23 @@ def clips_duration(clips: list[PlanClip]) -> float:
     return sum((c.source_end - c.source_start) / c.speed for c in clips)
 
 
+def check_reorder(plan: EditPlan, min_share: float = 0.25, max_clip_s: float | None = None) -> list[str]:
+    """Kiểu giải trí "đảo lung tung": đủ nhiều lần nhảy ngược thời gian, clip ngắn."""
+    errors = []
+    normal = [c for c in plan.clips if not c.replay]
+    cuts = max(1, len(normal) - 1)
+    backs = sum(1 for a, b in zip(normal, normal[1:]) if b.source_start < a.source_start)
+    need = max(2, round(min_share * cuts))
+    if len(normal) >= 4 and backs < need:
+        errors.append(f"cần ĐẢO THỨ TỰ nhiều hơn: mới có {backs} lần nhảy ngược thời gian, cần ≥ {need} "
+                      "(mở bằng khoảnh khắc đắt nhất, xen kẽ trước–sau, lặp lại câu chốt bằng replay)")
+    if max_clip_s:
+        for c in normal:
+            if (c.source_end - c.source_start) / c.speed > max_clip_s + 0.5:
+                errors.append(f"clip {c.source_start}-{c.source_end} dài quá {max_clip_s:.0f}s — chia nhỏ, xen cảnh khác vào")
+    return errors
+
+
 def check_titles(plan: EditPlan, max_chars: int) -> list[str]:
     """Bố cục 4 dòng tiêu đề: đủ 2 dòng trên + 2 dòng dưới, mỗi dòng ngắn để chữ to."""
     errors = []
@@ -260,9 +277,10 @@ def check_plan(plan: EditPlan, duration: float, hook_s: float = 0.0, min_s: floa
     """available: số giây footage dành cho video này (mặc định = duration); dùng cho luật tối thiểu 60s."""
     errors = check_ranges([TimeRange(start=c.source_start, end=c.source_end) for c in plan.clips], duration, "clip")
     normal = [c for c in plan.clips if not c.replay]
-    for a, b in zip(normal, normal[1:]):
-        if b.source_start < a.source_end - 0.05 and b.source_end > a.source_start:
-            errors.append(f"clip {a.source_start}-{a.source_end} và {b.source_start}-{b.source_end} chồng nhau")
+    for i, a in enumerate(normal):  # mọi cặp (kể cả khi đảo thứ tự), trừ clip replay được phép lặp
+        for b in normal[i + 1:]:
+            if b.source_start < a.source_end - 0.05 and b.source_end > a.source_start + 0.05:
+                errors.append(f"clip {a.source_start}-{a.source_end} và {b.source_start}-{b.source_end} chồng nhau")
     total = clips_duration(plan.clips) + hook_s
     usable = (duration if available is None else available) + hook_s
     if total > max_s:

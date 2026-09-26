@@ -6,7 +6,7 @@ Phong cách: **{{style_name}}** — {{style_description}}
 ## Ràng buộc
 - Thời lượng video (kể cả hook {{hook_s}} giây) phải từ 60 đến 150 giây. Nếu footage dùng được quá ngắn thì
   giữ tối đa có thể, không kéo dài nhân tạo.
-- Chỉ dùng footage trong đoạn {{range}} giây. Các clip theo đúng thứ tự thời gian, không chồng nhau.
+- Chỉ dùng footage trong đoạn {{range}} giây. {{order_rule}}
 - Mọi mốc giây là giây trong FOOTAGE GỐC (code tự tính ra thời gian trên timeline).
 - Chữ nhấn phải đúng với lời thoại thật ở gần mốc đó; dùng tên riêng đúng. Không vi phạm điều cấm.
 - Phụ đề thoại, ducking nhạc, vị trí chữ trong vùng an toàn: code tự làm, bạn KHÔNG cần liệt kê.

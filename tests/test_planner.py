@@ -438,3 +438,33 @@ def test_builder_beat_sync_moves_cuts_and_text(tmp_path):
     a_seg = next(s for t in tl["tracks"] if t["type"] == "text" for s in t["segments"] if s["material_id"] == texts["A"])
     assert a_seg["target_timerange"]["start"] % 500_000 == 0  # chữ nhấn hiện đúng nhịp
     assert any("Cắt theo nhịp nhạc" in n for n in res.notes)
+
+
+def test_entertainment_reorder_rule_and_every_clip_moves(tmp_path):
+    from app.director.schemas import check_reorder
+    from app.styles import load_style
+
+    style = load_style("entertainment")
+    assert style["reorder"] and style["motion"]["every_clip"]
+    base = load("plan.json")
+    linear = EditPlan.model_validate({**base, "clips": [{"source_start": a, "source_end": a + 3} for a in (1, 5, 9, 13, 17)]})
+    assert check_reorder(linear, 0.3, 4)  # dựng theo thứ tự thời gian → bị bắt làm lại
+    mixed = EditPlan.model_validate({**base, "clips": [{"source_start": a, "source_end": a + 3} for a in (13, 1, 17, 5, 9)]})
+    assert check_reorder(mixed, 0.3, 4) == []
+    long = EditPlan.model_validate({**base, "clips": [{"source_start": 13, "source_end": 25}, {"source_start": 1, "source_end": 4}]})
+    assert any("dài quá" in e for e in check_reorder(long, 0.3, 4))
+    # chồng nhau được phát hiện cả khi không liền kề
+    over = EditPlan.model_validate({**base, "clips": [{"source_start": 10, "source_end": 14}, {"source_start": 1, "source_end": 3},
+                                                      {"source_start": 12, "source_end": 13}]})
+    assert any("chồng nhau" in e for e in check_plan(over, 173.8, min_s=1))
+
+    # dựng: mọi clip đều có keyframe chuyển động, và các kiểu chuyển động khác nhau
+    plan = EditPlan.model_validate({**base, "clips": [{"source_start": a, "source_end": a + 3} for a in (13, 1, 17, 5, 9, 21)],
+                                    "zooms": [], "emphasis": [], "sfx": [], "transitions": [], "effects": [], "stickers": []})
+    u = Understanding.model_validate(load("understand.json"))
+    style_nocam = {k: v for k, v in style.items() if k not in ("camera", "beat_sync")}
+    res = build(plan, u, _analysis(), DraftTemplate(SAMPLE), tmp_path, "ent", style_nocam)
+    segs = next(t for t in res.writer.build_timeline()["tracks"] if t["type"] == "video")["segments"]
+    assert len(segs) == 6 and all(s["common_keyframes"] for s in segs)
+    kinds = {tuple(sorted(k["property_type"] for k in s["common_keyframes"])) for s in segs}
+    assert len(kinds) >= 3  # đẩy/kéo (scale), lia (scale + x), nghiêng (scale + rotation)

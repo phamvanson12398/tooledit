@@ -181,7 +181,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
               business: bool = False,
               reframe: bool = False, default_ratio: str = "4:3", video_index: int = 1, footage: int = 0):
     from app import config
-    from app.director.schemas import EditPlan, check_plan, check_titles
+    from app.director.schemas import EditPlan, check_plan, check_reorder, check_titles
 
     from app.styles import layout_for
 
@@ -233,6 +233,8 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                          if four else ("- Bố cục không có dòng tiêu đề: để `title_top`, `titles_top`, `titles_bottom` rỗng."
                                        if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
         "arrow_brief": arrow_brief,
+        "order_rule": (REORDER_RULE.format(max_clip=style.get("pacing", {}).get("max_clip_s", 4))
+                       if style.get("reorder") else "Các clip theo đúng thứ tự thời gian, không chồng nhau."),
         "burned_in": (f"có, ở {', '.join(b.regions)}. {b.note_vi}" if b.present else "không"),
         "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
         "sfx_list": "\n".join(sfx_lines) or "(kho SFX trống — đặt name = null, tool sẽ ghi vào danh sách cần bổ sung)",
@@ -267,6 +269,9 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             errors.append(f"khách doanh nghiệp: bài '{plan.music.name}' không có nhãn Commercial")
         if four:
             errors += check_titles(plan, title_max)
+        if style.get("reorder"):
+            errors += check_reorder(plan, style.get("pacing", {}).get("reorder_share", 0.25),
+                                    style.get("pacing", {}).get("max_clip_s"))
         if not style.get("arrows") and plan.arrows:
             errors.append("kiểu dựng này không dùng mũi tên: để `arrows` rỗng")
         if not reframe and not fixed and any(c.ratio and c.ratio != plan.default_ratio for c in plan.clips):
@@ -288,6 +293,13 @@ FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video m
   Phải ĐÚNG nội dung có thật trong footage; không hứa điều video không có; không lộ hết "lời giải".
 - `topic_label`: nhãn ngắn chủ đề đoạn nói chuyện (ví dụ "同期のパンチ佐藤さんについて"), hoặc rỗng nếu footage đã có sẵn.
   `title_top` để rỗng."""
+
+
+REORDER_RULE = """ĐẢO THỨ TỰ CLIP (kiểu giải trí — khách muốn người xem không nhận ra video gốc): KHÔNG dựng theo
+  thứ tự thời gian. Mở bằng khoảnh khắc đắt / buồn cười nhất (cold open), rồi nhảy về bối cảnh, xen kẽ trước–sau,
+  cắt qua lại giữa câu nói và phản ứng, lặp lại câu chốt bằng clip replay. Mỗi clip ngắn (≤ {max_clip}s), không
+  chồng nhau (trừ replay). Vẫn phải xem hiểu được và KHÔNG tạo nghĩa sai: giữ trọn câu nói, không ghép phản ứng
+  vào một câu hỏi/tình huống khác để bịa ra điều không xảy ra."""
 
 
 ARROW_BRIEF = """- `arrows`: mũi tên xanh chỉ ĐÚNG chi tiết mà lời bình đang nói tới (găng tay tung đòn, chân bước, bóng, cầu thủ),
