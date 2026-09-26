@@ -41,8 +41,7 @@ zoom:
   punch_in_s: 0.15
   slow_scale: 1.1
 music:
-  volume_speech: 0.12   # âm lượng nhạc khi có thoại (ducking)
-  volume_gap: 0.35      # âm lượng nhạc khi không thoại
+  duck_db: -10          # nhạc gốc -5 dB (config/audio.yaml); khi có thoại hạ thêm 10 dB
   fade_s: 0.25
 hook:
   min_s: 3.0

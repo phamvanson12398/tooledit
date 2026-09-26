@@ -20,7 +20,7 @@ emphasis: {size: 20, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.
            background: {color: "#E53935", round_radius: 0.25}}
 title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0], background: {color: "#000000", alpha: 0.55, round_radius: 0.2}}
 zoom: {punch_scale: 1.1, punch_in_s: 0.2, slow_scale: 1.06}
-music: {volume_speech: 0.06, volume_gap: 0.18, fade_s: 0.4}
+music: {duck_db: -14, fade_s: 0.4}   # nhạc -5 dB, có thoại hạ thêm 14 dB
 hook: {min_s: 3.0, max_s: 5.0}
 
 # Góc máy tự động theo người đang nói (app/planner/camera.py). Chủ dự án yêu cầu 26/09: tránh giữ góc quay gốc,

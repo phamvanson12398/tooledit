@@ -27,7 +27,7 @@ replay_label: {size: 18, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width
                background: {color: "#000000", alpha: 0.7, round_radius: 0.1}, text: {ja: "リプレイ", ko: "리플레이", en: "REPLAY"}}
 title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 zoom: {punch_scale: 1.2, punch_in_s: 0.1, slow_scale: 1.12}
-music: {volume_speech: 0.14, volume_gap: 0.45, fade_s: 0.2}
+music: {duck_db: -9, fade_s: 0.2}   # nhạc -5 dB, có thoại hạ thêm 9 dB
 hook: {min_s: 3.0, max_s: 5.0}
 
 # Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)

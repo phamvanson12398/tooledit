@@ -111,6 +111,11 @@ def add_title_lines(w: DraftWriter, plan: EditPlan, four: dict, start: int, end:
     return placed
 
 
+def db_to_gain(db: float) -> float:
+    """dB → hệ số âm lượng tuyến tính của CapCut (1.0 = 0 dB; -5 dB ≈ 0.562)."""
+    return min(1.0, 10 ** (db / 20.0))
+
+
 def duck_keyframes(seg_start: int, seg_end: int, intervals, v_speech: float, v_gap: float,
                    fade_us: int) -> list[Keyframe]:
     """Keyframe âm lượng cho một đoạn nhạc: thấp khi có thoại, cao hơn ở khoảng trống."""
@@ -385,9 +390,10 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                         "purpose_vi": f"Nhạc nền ({plan.music.energy}) — không có bài phù hợp trong danh mục"})
     else:
         mcfg = style.get("music", {})
-        gain = float(config.load("audio").get("music_gain", 1.0))  # chỉnh chung độ to nhạc nền
-        v_speech = min(1.0, mcfg.get("volume_speech", 0.12) * gain)
-        v_gap = min(1.0, mcfg.get("volume_gap", 0.35) * gain)
+        acfg = config.load("audio")
+        base_db = float(acfg.get("music_base_db", -5.0))  # mức gốc khi không có thoại
+        duck_db = float(mcfg.get("duck_db", acfg.get("duck_db", -10.0)))  # hạ thêm khi có thoại
+        v_gap, v_speech = db_to_gain(base_db), db_to_gain(base_db + duck_db)
         intervals = speech_intervals(cues)
         if hook is not None:
             intervals = [(0, hook_us), *intervals]  # hạ nhạc dưới voice hook

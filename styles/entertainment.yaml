@@ -16,7 +16,7 @@ hook_text: {size: 34, color: [1, 0.85, 0], stroke_color: [0, 0, 0], stroke_width
 emphasis: {size: 24, color: [1, 0.4, 0.7], stroke_color: [1, 1, 1], stroke_width: 0.16}
 title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 zoom: {punch_scale: 1.18, punch_in_s: 0.1, slow_scale: 1.1}
-music: {volume_speech: 0.12, volume_gap: 0.4, fade_s: 0.2}
+music: {duck_db: -10, fade_s: 0.2}   # nhạc -5 dB, có thoại hạ thêm 10 dB
 hook: {min_s: 3.0, max_s: 5.0}
 
 # Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)

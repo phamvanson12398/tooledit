@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 16 — Nhạc nền mức gốc -5 dB, node lên xuống theo lời thoại `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`. Vào job cũ bấm **🔁 Dựng lại draft** (không tốn lượt AI).
+2. Mở draft trong CapCut, bấm vào đoạn nhạc nền → bảng Âm thanh:
+   - Ở chỗ **không có thoại**, âm lượng hiện **-5.0 dB**.
+   - Có các **node (keyframe) âm lượng**: đầu mỗi câu thoại nhạc hạ xuống (ví dụ -15 dB), hết câu nhạc lên lại -5 dB,
+     mỗi lần chuyển có fade ngắn. Kiểm tra CapCut hiển thị đúng số dB (nếu thấy số khác -5.0, chụp gửi Claude).
+3. Chỉnh: mức gốc `music_base_db` trong `config/audio.yaml`; mức hạ khi có thoại `duck_db` trong
+   `styles/<kiểu>.yaml` (podcast -14, vlog -8, thể thao -9, còn lại -10). Rồi Dựng lại draft.
+
 ## Bước 15 — Podcast: góc máy tự cắt cận người đang nói `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`.
@@ -15,11 +25,7 @@
 5. Nếu cận quá sát / chưa đủ: sửa `close_zoom` (2.0) / `medium_zoom` (1.4) trong `styles/podcast.yaml`;
    đổi cảnh nhanh/chậm hơn: `max_hold_s`. Rồi bấm **🔁 Dựng lại draft**.
 
-## Bước 14 — Nhạc nền to hơn 30% `[CẦN KIỂM TRA TRÊN MÁY]`
-
-1. `git pull`, đóng và mở lại `start.bat`. Vào job cũ bấm **🔁 Dựng lại draft** (không tốn lượt AI), hoặc tạo job mới.
-2. Mở draft trong CapCut, nghe: nhạc nền to hơn trước ~30%, vẫn tự nhỏ lại khi có người nói.
-3. Muốn to/nhỏ nữa: sửa `music_gain` trong `config/audio.yaml` (1.3 = +30%, 1.5 = +50%, 1.0 = như cũ), rồi Dựng lại draft.
+## Bước 14 — (thay bằng Bước 16: nhạc nền theo dB)
 
 ## Bước 13 — Chia video dài thành nhiều video `[CẦN KIỂM TRA TRÊN MÁY]`
 
