@@ -244,15 +244,41 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     replay_style = _style(replay_cfg) if replay_cfg else emph_style
     lib = {(i.kind, i.name): i for i in template.library}
     trans_after = {t.after_clip: lib.get(("transition", t.name)) for t in plan.transitions}
+    cam_cfg = style.get("camera") or {}
+    camera_on = cam_cfg.get("mode") == "speaker"
+    if camera_on:  # góc máy theo người đang nói (podcast)
+        from app.planner.camera import persons_from_faces, plan_shots, shot_crop
+
+        faces = subjects.get("faces") or [  # phân tích cũ (chưa có dữ liệu từng mặt): dùng mặt chính
+            [t, [[cx - 0.05, cy - 0.08, 0.1, 0.16, 0.0]]] for t, cx, cy in subjects.get("points", [])]
+        people = persons_from_faces(faces)
+        speech = [{"start": sg["start"], "end": sg["end"]} for sg in tr.get("segments", [])]
+        since_wide, shot_count = 0.0, {"close": 0, "medium": 0, "wide": 0}
     for idx, (clip, p) in enumerate(zip(plan.clips, tmap.placed)):
         ratio = ratio_for(clip.ratio)
-        kfs = zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
-            [Keyframe("scale", 0, 1.0), Keyframe("scale", p.out_duration, style.get("zoom", {}).get("slow_scale", 1.12))]
-        w.add_video(src, target_start=p.out_start, duration=p.out_duration,
-                    source_start=round(clip.source_start * SEC), speed=clip.speed,
-                    crop=crop_for(ratio, clip.source_start, clip.source_end),
-                    volume=0.0 if (clean_audio or clip.replay) else 1.0,
-                    keyframes=kfs or None, transition=trans_after.get(idx), **bg_kwargs(ratio))
+        last_trans = trans_after.get(idx)
+        if camera_on and not clip.replay and ratio != "full":
+            shots, since_wide = plan_shots(clip.source_start, clip.source_end, speech, faces, people, cam_cfg,
+                                           opening=idx == 0, since_wide=since_wide)
+            bounds = [p.out_start + round((sh.start - clip.source_start) / clip.speed * SEC) for sh in shots] + [p.out_end]
+            for j, sh in enumerate(shots):
+                sub = dataclasses.replace(p, source_start=sh.start, source_end=sh.end, out_start=bounds[j])
+                kfs = zoom_keyframes(plan.zooms, sub, style.get("zoom", {}))
+                w.add_video(src, target_start=bounds[j], duration=bounds[j + 1] - bounds[j],
+                            source_start=round(sh.start * SEC), speed=clip.speed,
+                            crop=shot_crop(sh, people, ratio, src.width, src.height, cam_cfg,
+                                           fallback_cx=subject_center(subjects, sh.start, sh.end)),
+                            volume=0.0 if clean_audio else 1.0, keyframes=kfs or None,
+                            transition=last_trans if j == len(shots) - 1 else None, **bg_kwargs(ratio))
+                shot_count[sh.kind] += 1
+        else:
+            kfs = zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
+                [Keyframe("scale", 0, 1.0), Keyframe("scale", p.out_duration, style.get("zoom", {}).get("slow_scale", 1.12))]
+            w.add_video(src, target_start=p.out_start, duration=p.out_duration,
+                        source_start=round(clip.source_start * SEC), speed=clip.speed,
+                        crop=crop_for(ratio, clip.source_start, clip.source_end),
+                        volume=0.0 if (clean_audio or clip.replay) else 1.0,
+                        keyframes=kfs or None, transition=last_trans, **bg_kwargs(ratio))
         if clean_audio and not clip.replay:  # replay quay chậm: tắt tiếng gốc, để nhạc/SFX dẫn
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed)
@@ -260,6 +286,10 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             rpos = positions(ratio)
             w.add_text(replay_text, start=p.out_start, duration=p.out_duration, x=rpos["x"], y=rpos["top"],
                        style=replay_style, animations=anims_in[:1])
+
+    if camera_on:
+        notes.append(f"Góc máy theo người nói: {len(people)} người, {shot_count['close']} cảnh cận, "
+                     f"{shot_count['medium']} trung, {shot_count['wide']} toàn.")
 
     # ---------- chữ ----------
     main_ratio = ratio_for(None)

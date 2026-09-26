@@ -382,3 +382,34 @@ def test_music_gain_makes_music_louder(tmp_path):
     assert gain == 1.3
     top = round(style["music"]["volume_gap"] * gain, 3)
     assert any(abs(v - top) < 1e-6 for v in values), values
+
+
+def test_podcast_camera_cuts_to_speaker(tmp_path):
+    """Kiểu podcast: một clip dài được cắt thành nhiều cảnh cận/trung/toàn theo người đang nói."""
+    from app.styles import load_style
+    from tests.test_camera import two_people
+
+    style = load_style("podcast")
+    assert style["camera"]["mode"] == "speaker"
+    p = load("plan.json")
+    p.update({"clips": [{"source_start": 0.0, "source_end": 30.0}], "emphasis": [], "zooms": [], "sfx": [],
+              "transitions": []})
+    plan = EditPlan.model_validate(p)
+    u = Understanding.model_validate(load("understand.json"))
+    a = _analysis()
+    a["subjects"] = {"points": [], "faces": two_people(lambda t: 0 if t < 12 else 1)}
+    a["transcript"]["segments"] = [{"start": 0.5, "end": 11.8, "text": "", "words": []},
+                                   {"start": 12.0, "end": 29.5, "text": "", "words": []}]
+    res = build(plan, u, a, DraftTemplate(SAMPLE), tmp_path, "pod", style)
+    tl = res.writer.build_timeline()
+    segs = next(t for t in tl["tracks"] if t["type"] == "video")["segments"]
+    mats = {m["id"]: m for m in tl["materials"]["videos"]}
+    crops = [mats[s["material_id"]]["crop"] for s in segs]
+    assert len(segs) >= 6  # nhiều góc thay vì một cảnh 30 giây
+    assert crops[0]["upper_left_x"] == 0.0 and crops[0]["lower_right_x"] == 1.0  # mở đầu toàn cảnh
+    lefts = {round(c["upper_left_x"], 3) for c in crops[1:]}
+    assert len(lefts) >= 2  # có cảnh cận người trái và người phải
+    starts = [s["target_timerange"]["start"] for s in segs]
+    ends = [s["target_timerange"]["start"] + s["target_timerange"]["duration"] for s in segs]
+    assert starts[1:] == ends[:-1] and ends[-1] == res.duration_us  # liền mạch
+    assert any("Góc máy theo người nói" in n for n in res.notes)

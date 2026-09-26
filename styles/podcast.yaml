@@ -6,10 +6,10 @@ description_vi: Giữ trọn ý của người nói, cắt khoảng lặng và c
 director_brief: |
   - Chọn 1–3 ý đắt nhất, mỗi ý phải có mở–giải thích–chốt; KHÔNG cắt giữa câu, không đổi nghĩa lời người nói.
   - Cắt khoảng lặng > 0.5 giây, "ờ/à/えーと/음", câu lặp. Không tăng tốc (speed = 1.0).
-  - Khung 1:1 khi cận mặt một người (nếu được đổi khung), 4:3 khi thấy cả hai người.
+  - GÓC MÁY DO CODE TỰ LÀM: tool tự cắt cận người đang nói, đổi cận ↔ trung cảnh khi câu dài, toàn cảnh lúc mở
+    đầu / khi không rõ ai nói / thỉnh thoảng để định vị. Vì vậy hãy chọn clip theo LƯỢT NÓI trọn câu (không cắt giữa câu) để cắt cảnh đẹp.
   - Chữ nhấn: trích nguyên văn câu gây chú ý nhất (ngắn gọn), tối đa 1 chữ nhấn / 8 giây, đặt position center.
-  - Zoom "slow" nhẹ khi người nói kể chuyện, "punch" chỉ khi có câu chốt/tiếng cười.
-  - Tiêu đề dải trên (title_top) nên có: chủ đề của đoạn nói chuyện.
+  - Zoom: rất ít, chỉ "punch" ở câu chốt/tiếng cười (khung đã được cắt cận sẵn).
   - Nhạc nền rất nhỏ, không át lời (lofi/piano/ambient), có thể null nếu đoạn nói đã đủ cuốn.
   - SFX rất ít (chỉ ở câu chốt).
 
@@ -22,6 +22,18 @@ title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0], background: {color:
 zoom: {punch_scale: 1.1, punch_in_s: 0.2, slow_scale: 1.06}
 music: {volume_speech: 0.06, volume_gap: 0.18, fade_s: 0.4}
 hook: {min_s: 3.0, max_s: 5.0}
+
+# Góc máy tự động theo người đang nói (app/planner/camera.py). Chủ dự án yêu cầu 26/09: tránh giữ góc quay gốc,
+# đổi góc nhiều và hợp lý nhất có thể.
+camera:
+  mode: speaker          # speaker = cắt cận người đang nói; bỏ dòng này để giữ nguyên khung gốc
+  close_zoom: 2.0        # cận mặt: phóng ~2 lần
+  medium_zoom: 1.4       # trung cảnh
+  face_max: 0.45         # mặt không cao quá 45% khung cắt (tránh cận quá sát)
+  max_hold_s: 4.5        # một người nói lâu: cứ ~4.5 giây đổi cận ↔ trung một lần
+  min_shot_s: 1.2        # cảnh ngắn nhất; câu xen ngắn hơn không cắt sang người kia
+  wide_open_s: 2.0       # mở đầu video bằng toàn cảnh 2 giây
+  wide_every_s: 20       # ~20 giây chưa có toàn cảnh thì chèn một cảnh toàn
 
 # Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)
 decor_brief: "Tiết chế: 0–2 hiệu ứng, 0–2 sticker, chuyển cảnh chỉ khi đổi chủ đề, filter nhẹ."

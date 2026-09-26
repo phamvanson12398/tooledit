@@ -5,7 +5,7 @@ Kết quả trong jobs/<job_id>/analysis/:
     transcript.json        [{footage, language, segments[words]}]
     scenes.json            [{footage, duration, width, height, scenes[]}]
     frames/NN_ttt.jpg      khung hình nhỏ gửi cho đạo diễn
-    subjects.json          [{footage, points[(t, cx, cy)], face_count_max}]
+    subjects.json          [{footage, points[(t, cx, cy)], face_count_max, faces[[t, [[x,y,w,h,motion]...]]]}]
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from typing import Callable
 from app import config
 from app.analysis import ffmpeg
 from app.analysis.scenes import detect_scenes, frame_times
-from app.analysis.subjects import main_subject_track, scan_video
+from app.analysis.subjects import faces_compact, main_subject_track, scan_video
 from app.analysis.transcribe import transcribe
 from app.capcut_writer.media import probe_video
 from app.jobs.job import Job
@@ -72,7 +72,7 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
         sj = cfg.get("subjects", {})
         faces = scan_video(src, sj.get("sample_every_s", 0.5), sj.get("min_face_frac", 0.06))
         track = main_subject_track(faces, sj.get("smooth_window", 5), sj.get("max_pan_per_s", 0.25))
-        subjects_all.append({"footage": i, **track.model_dump()})
+        subjects_all.append({"footage": i, **track.model_dump(), "faces": faces_compact(faces)})
 
     _write(out / "transcript.json", transcripts)
     _write(out / "scenes.json", scenes_all)

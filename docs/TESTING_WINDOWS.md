@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 15 — Podcast: góc máy tự cắt cận người đang nói `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng và mở lại `start.bat`.
+2. Tạo **job MỚI** (để bước phân tích đo cử động miệng từng người) với một đoạn podcast / phỏng vấn 2 người,
+   chọn kiểu **Podcast / phỏng vấn / talk show**. (Job cũ bấm Dựng lại draft vẫn có cắt cận, nhưng chỉ bám người
+   chính, không biết ai đang nói.)
+3. Mở draft trong CapCut, xem:
+   - Mở đầu ~2 giây toàn cảnh, sau đó cắt **cận người đang nói**; đổi người nói → cắt sang người kia đúng đầu câu.
+   - Một người nói lâu → cứ ~4–5 giây đổi cận ↔ trung cảnh; ~20 giây có một cảnh toàn.
+   - Câu xen ngắn ("ừ", "はい") không làm nhảy cảnh.
+   - Mặt không bị cắt mất, hình không quá vỡ khi cận (footage 1080p phóng 2 lần).
+4. Nhật ký job có dòng "Góc máy theo người nói: 2 người, … cảnh cận, … trung, … toàn".
+5. Nếu cận quá sát / chưa đủ: sửa `close_zoom` (2.0) / `medium_zoom` (1.4) trong `styles/podcast.yaml`;
+   đổi cảnh nhanh/chậm hơn: `max_hold_s`. Rồi bấm **🔁 Dựng lại draft**.
+
 ## Bước 14 — Nhạc nền to hơn 30% `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng và mở lại `start.bat`. Vào job cũ bấm **🔁 Dựng lại draft** (không tốn lượt AI), hoặc tạo job mới.
