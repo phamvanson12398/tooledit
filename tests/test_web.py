@@ -233,3 +233,18 @@ def test_web_parallel_setting(tmp_path):
     assert "Đang chạy <b>0/3</b> luồng" in client.get("/").text
     client.post("/settings/parallel", data={"n": "5"})
     assert "Đang chạy <b>0/5</b> luồng" in client.get("/").text
+
+
+def test_home_never_full_reloads_while_jobs_run(tmp_path):
+    """Lỗi thật: trang chủ tải lại mỗi 3 giây khi có video chạy → mất file/lựa chọn đang nhập."""
+    from pathlib import Path as P
+
+    jobs = tmp_path / "jobs"
+    Job.create(jobs, [P("C:/f/a.mp4")], job_id="r1")
+    app = create_app(jobs, settings_path=tmp_path / "l.yaml", scan_fn=lambda d, k: None)
+    app.state.worker.active.add("r1")  # giả như đang chạy
+    client = TestClient(app)
+    home = client.get("/").text
+    assert 'http-equiv="refresh"' not in home and "/api/jobs-panel" in home
+    panel = client.get("/api/jobs-panel").text
+    assert "đang chạy" in panel and "r1" in panel and "1/3" in panel

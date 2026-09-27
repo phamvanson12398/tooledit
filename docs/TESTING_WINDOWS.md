@@ -6,6 +6,8 @@
 2. Trang chủ, ô **🗂️ Các video**: dòng "Đang chạy 0/3 luồng · chạy cùng lúc: [3]". Đổi số nếu muốn (1–6).
 3. Tạo liên tiếp 2–3 job (ví dụ 1 podcast, 1 video hài, 1 vlog) — không cần đợi job trước xong.
    - Danh sách hiện "đang chạy" cho từng video; quá số luồng thì hiện "xếp hàng #1".
+   - Trong lúc video khác đang chạy, trang chủ KHÔNG tự tải lại nữa (chỉ danh sách video tự cập nhật) → chọn file,
+     chọn kiểu dựng, tick tùy chọn bình thường.
    - Bước **phân tích** chạy lần lượt (GPU): trang job của video sau hiện "Đang đợi lượt phân tích (GPU)…".
    - Bước **hỏi đạo diễn AI** tối đa 2 video cùng lúc.
 4. Theo dõi GPU / RAM (Task Manager). Nếu máy chậm hoặc Claude báo hết hạn mức nhanh: giảm số luồng ở trang chủ,

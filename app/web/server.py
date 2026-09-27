@@ -206,11 +206,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                     continue
         return jobs
 
-    @app.get("/", response_class=HTMLResponse)
-    def index():
-        from app.styles import available_styles
-
-        has_key = bool(app_settings.load(settings_path).get("freesound_api_key"))
+    def jobs_panel() -> str:
+        """Danh sách video + số luồng đang chạy — phần DUY NHẤT của trang chủ tự cập nhật (qua /api/jobs-panel),
+        để không làm mất file / lựa chọn người dùng đang nhập ở form tạo video."""
         queued_ids = worker.queued_ids()
 
         def badge(j: Job) -> str:
@@ -224,11 +222,23 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             f"<a class='job' href='/jobs/{j.job_id}'><div><div class='name'>{html.escape(Path(j.footage[0]).name)}</div>"
             f"<div class='sub'>{j.job_id} · {html.escape(j.data.get('style_used') or j.data.get('style') or '')} · "
             f"{STEP_VI.get(j.step, j.step)}</div></div>{badge(j)}</a>" for j in list_jobs())
+        status = (f"<p class='muted'>Đang chạy <b>{len(worker.active)}/{max_jobs()}</b> luồng"
+                  f"{f', {len(queued_ids)} xếp hàng' if queued_ids else ''}</p>")
+        return status + (jobs_html or "<p class='muted'>Chưa có video nào.</p>")
+
+    @app.get("/api/jobs-panel", response_class=HTMLResponse)
+    def jobs_panel_api():
+        return HTMLResponse(jobs_panel())
+
+    @app.get("/", response_class=HTMLResponse)
+    def index():
+        from app.styles import available_styles
+
+        has_key = bool(app_settings.load(settings_path).get("freesound_api_key"))
         n_max = max_jobs()
         opts = "".join(f"<option value='{n}' {'selected' if n == n_max else ''}>{n}</option>" for n in range(1, 7))
         threads = (f"<form method='post' action='/settings/parallel' class='row' style='align-items:center;gap:8px'>"
-                   f"<span class='muted'>Đang chạy <b>{len(worker.active)}/{n_max}</b> luồng"
-                   f"{f', {len(queued_ids)} xếp hàng' if queued_ids else ''} · chạy cùng lúc:</span>"
+                   f"<span class='muted'>Số video chạy cùng lúc:</span>"
                    f"<select name='n' onchange='this.form.submit()' style='width:auto'>{opts}</select></form>")
         style_cards = ["<label class='style'><input type='radio' name='style' value='auto' checked>"
                        "<b>✨ AI tự chọn</b><span>Đạo diễn xem nội dung rồi chọn kiểu phù hợp</span></label>"]
@@ -257,7 +267,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>
         </form></div></div>
         <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary()}{_resource_tools(has_key)}{_template_setting()}</div>
-        <div class="card jobs"><h2>🗂️ Các video</h2>{threads}{jobs_html or "<p class='muted'>Chưa có video nào.</p>"}
+        <div class="card jobs"><h2>🗂️ Các video</h2>{threads}<div id="jobs-panel">{jobs_panel()}</div>
         <p class='muted'>Mỗi video chạy trên một luồng riêng (ví dụ luồng 1 podcast, luồng 2 video hài). Bước phân tích
         dùng GPU nên lần lượt từng video; hỏi đạo diễn AI tối đa 2 video cùng lúc (chung hạn mức Claude Pro).</p></div></div></div>
         <script>
@@ -268,7 +278,15 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             else m.textContent=d.error||'Chưa chọn file.';}}catch(e){{m.textContent='Không mở được hộp thoại: '+e;}}
         }}
         </script>"""
-        return _page("Tool dựng video", body, refresh=bool(worker.active or worker.queue))
+        body += """<script>
+        // Chỉ cập nhật danh sách video mỗi 3 giây (KHÔNG tải lại cả trang → không mất file / lựa chọn đang nhập)
+        setInterval(async () => {
+          if (document.hidden) return;
+          try { const r = await fetch('/api/jobs-panel'); if (r.ok) document.getElementById('jobs-panel').innerHTML = await r.text(); }
+          catch (e) {}
+        }, 3000);
+        </script>"""
+        return _page("Tool dựng video", body)
 
     @app.get("/api/pick-file")
     def pick_file():
