@@ -225,3 +225,11 @@ def test_web_import_capcut_zip(tmp_path):
     assert "capcut_template" in page and "cần CapCut tải" in page and "chuyển cảnh" in page
     assert (tmp_path / "assets" / "capcut_library.json").is_file()
     assert "Chưa chọn dự án" in client.post("/assets/import-capcut", data={}).text
+
+
+def test_web_parallel_setting(tmp_path):
+    app = create_app(tmp_path / "jobs", settings_path=tmp_path / "l.yaml", scan_fn=lambda d, k: None)
+    client = TestClient(app)
+    assert "Đang chạy <b>0/3</b> luồng" in client.get("/").text
+    client.post("/settings/parallel", data={"n": "5"})
+    assert "Đang chạy <b>0/5</b> luồng" in client.get("/").text

@@ -88,48 +88,71 @@ STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "c
 
 
 class Worker:
-    """Chạy job trong luồng nền, lần lượt từng job."""
+    """Chạy nhiều job song song (mỗi job một luồng), tối đa `max_jobs()` cùng lúc; job thêm sau xếp hàng.
+    Bước nặng (phân tích GPU, hỏi AI, ghi draft) còn được giới hạn riêng trong app/jobs/limits.py."""
 
-    def __init__(self, jobs_root: Path, runner_factory):
+    def __init__(self, jobs_root: Path, runner_factory, max_jobs=None):
         self.jobs_root = jobs_root
         self.runner_factory = runner_factory
+        self.max_jobs = max_jobs or (lambda: 1)
         self.lock = threading.Lock()
-        self.active: str | None = None
+        self.active: set[str] = set()
+        self.queue: list[tuple[str, object]] = []
+
+    def queued_ids(self) -> list[str]:
+        with self.lock:
+            return [j for j, _ in self.queue]
+
+    def remove_queued(self, job_id: str) -> bool:
+        with self.lock:
+            n = len(self.queue)
+            self.queue = [q for q in self.queue if q[0] != job_id]
+            return len(self.queue) < n
 
     def start(self, job_id: str, action=None) -> bool:
-        if not self.lock.acquire(blocking=False):
-            return False
-        self.active = job_id
-
-        def work():
-            try:
-                log_path = Job.dir_for(self.jobs_root, job_id) / "log.txt"
-
-                def log(msg: str) -> None:
-                    with open(log_path, "a", encoding="utf-8") as f:
-                        f.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
-
-                runner = self.runner_factory(self.jobs_root, log)
-                job = Job.load(self.jobs_root, job_id)
-                if action:
-                    action(runner, job)
-                if job.status == Status.pending:
-                    runner.run(job)
-                else:
-                    runner.resume(job)
-            except Exception as exc:  # lỗi ngoài dự kiến: ghi vào job để hiện trên giao diện
-                try:
-                    job = Job.load(self.jobs_root, job_id)
-                    job.fail(f"Lỗi: {exc}")
-                    job.save(self.jobs_root)
-                except Exception:
-                    pass
-            finally:
-                self.active = None
-                self.lock.release()
-
-        threading.Thread(target=work, daemon=True).start()
+        """Chạy job (hoặc xếp hàng nếu đủ luồng). False nếu job đang chạy / đã trong hàng đợi."""
+        with self.lock:
+            if job_id in self.active or any(j == job_id for j, _ in self.queue):
+                return False
+            if len(self.active) >= max(1, int(self.max_jobs())):
+                self.queue.append((job_id, action))
+                return True
+            self.active.add(job_id)
+        threading.Thread(target=self._work, args=(job_id, action), daemon=True).start()
         return True
+
+    def _work(self, job_id: str, action) -> None:
+        try:
+            log_path = Job.dir_for(self.jobs_root, job_id) / "log.txt"
+
+            def log(msg: str) -> None:
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+
+            runner = self.runner_factory(self.jobs_root, log)
+            job = Job.load(self.jobs_root, job_id)
+            if action:
+                action(runner, job)
+            if job.status == Status.pending:
+                runner.run(job)
+            else:
+                runner.resume(job)
+        except Exception as exc:  # lỗi ngoài dự kiến: ghi vào job để hiện trên giao diện
+            try:
+                job = Job.load(self.jobs_root, job_id)
+                job.fail(f"Lỗi: {exc}")
+                job.save(self.jobs_root)
+            except Exception:
+                pass
+        finally:
+            nxt = None
+            with self.lock:
+                self.active.discard(job_id)
+                if self.queue and len(self.active) < max(1, int(self.max_jobs())):
+                    nxt = self.queue.pop(0)
+                    self.active.add(nxt[0])
+            if nxt:
+                threading.Thread(target=self._work, args=nxt, daemon=True).start()
 
 
 def _page(title: str, body: str, refresh: bool = False) -> HTMLResponse:
@@ -163,7 +186,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
 
         runner_factory = lambda root, log: Runner(root, log=log)  # noqa: E731
     app = FastAPI(title="Tool dựng video TikTok")
-    worker = Worker(Path(jobs_root), runner_factory)
+    def max_jobs() -> int:  # đổi được trên giao diện (config/local.yaml), mặc định theo config/app.yaml
+        local = app_settings.load(settings_path).get("parallel_jobs")
+        return int(local or (app_config.load("app").get("parallel") or {}).get("jobs", 3))
+
+    worker = Worker(Path(jobs_root), runner_factory, max_jobs)
     app.state.worker = worker
 
     def list_jobs() -> list[Job]:
@@ -184,10 +211,25 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         from app.styles import available_styles
 
         has_key = bool(app_settings.load(settings_path).get("freesound_api_key"))
+        queued_ids = worker.queued_ids()
+
+        def badge(j: Job) -> str:
+            if j.job_id in worker.active:
+                return "<span class='badge b-running'><span class='spinner'></span> đang chạy</span>"
+            if j.job_id in queued_ids:
+                return f"<span class='badge b-waiting'>xếp hàng #{queued_ids.index(j.job_id) + 1}</span>"
+            return f"<span class='badge b-{j.status.value}'>{STATUS_VI[j.status.value]}</span>"
+
         jobs_html = "".join(
             f"<a class='job' href='/jobs/{j.job_id}'><div><div class='name'>{html.escape(Path(j.footage[0]).name)}</div>"
-            f"<div class='sub'>{j.job_id} · {STEP_VI.get(j.step, j.step)}</div></div>"
-            f"<span class='badge b-{j.status.value}'>{STATUS_VI[j.status.value]}</span></a>" for j in list_jobs())
+            f"<div class='sub'>{j.job_id} · {html.escape(j.data.get('style_used') or j.data.get('style') or '')} · "
+            f"{STEP_VI.get(j.step, j.step)}</div></div>{badge(j)}</a>" for j in list_jobs())
+        n_max = max_jobs()
+        opts = "".join(f"<option value='{n}' {'selected' if n == n_max else ''}>{n}</option>" for n in range(1, 7))
+        threads = (f"<form method='post' action='/settings/parallel' class='row' style='align-items:center;gap:8px'>"
+                   f"<span class='muted'>Đang chạy <b>{len(worker.active)}/{n_max}</b> luồng"
+                   f"{f', {len(queued_ids)} xếp hàng' if queued_ids else ''} · chạy cùng lúc:</span>"
+                   f"<select name='n' onchange='this.form.submit()' style='width:auto'>{opts}</select></form>")
         style_cards = ["<label class='style'><input type='radio' name='style' value='auto' checked>"
                        "<b>✨ AI tự chọn</b><span>Đạo diễn xem nội dung rồi chọn kiểu phù hợp</span></label>"]
         for key, st in available_styles().items():
@@ -215,7 +257,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>
         </form></div></div>
         <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary()}{_resource_tools(has_key)}{_template_setting()}</div>
-        <div class="card jobs"><h2>🗂️ Các video</h2>{jobs_html or "<p class='muted'>Chưa có video nào.</p>"}</div></div></div>
+        <div class="card jobs"><h2>🗂️ Các video</h2>{threads}{jobs_html or "<p class='muted'>Chưa có video nào.</p>"}
+        <p class='muted'>Mỗi video chạy trên một luồng riêng (ví dụ luồng 1 podcast, luồng 2 video hài). Bước phân tích
+        dùng GPU nên lần lượt từng video; hỏi đạo diễn AI tối đa 2 video cùng lúc (chung hạn mức Claude Pro).</p></div></div></div>
         <script>
         async function pick(){{
           const m=document.getElementById('pickmsg'); m.textContent='Đang mở hộp thoại chọn file…';
@@ -224,7 +268,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             else m.textContent=d.error||'Chưa chọn file.';}}catch(e){{m.textContent='Không mở được hộp thoại: '+e;}}
         }}
         </script>"""
-        return _page("Tool dựng video", body, refresh=worker.active is not None)
+        return _page("Tool dựng video", body, refresh=bool(worker.active or worker.queue))
 
     @app.get("/api/pick-file")
     def pick_file():
@@ -333,7 +377,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             return _page(f"Job {job_id}", "<div class='card'><span class='spinner'></span> Đang cập nhật trạng thái…"
                          "</div>", refresh=True)
         d = job.dir(Path(jobs_root))
-        running = worker.active == job_id
+        running = job_id in worker.active
+        queued = job_id in worker.queued_ids()
         status = "running" if running else job.status.value
         cur = STEPS.index(job.step)
         chips = []
@@ -354,16 +399,22 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                  f"<span class='muted'>{'Đang chạy — có thể về trang chủ, job vẫn chạy tiếp' if running else ''}</span></div>",
                  head + "</div>"]
         if running:
-            parts.append(f"<div class='card'><span class='spinner'></span> Đang <b>{STEP_VI.get(job.step, job.step)}</b>… "
-                         "trang tự làm mới.</div>")
+            waiting_turn = job.message.startswith("Đang đợi lượt")
+            parts.append(f"<div class='card'><span class='spinner'></span> "
+                         + (f"{html.escape(job.message)}" if waiting_turn else
+                            f"Đang <b>{STEP_VI.get(job.step, job.step)}</b>…")
+                         + " Trang tự làm mới.</div>")
+        elif queued:
+            parts.append(f"<div class='card'>⏳ <b>Đang xếp hàng</b> — đợi một luồng trống (đang chạy {len(worker.active)}/"
+                         f"{max_jobs()} video). Có thể tăng số video chạy cùng lúc ở trang chủ.</div>")
         else:
             parts.append(_step_panel(job, d))
         log = _read(d / "log.txt")
         if log:
             parts.append(f"<div class='card'><h2>📝 Nhật ký</h2><pre>{html.escape(log[-4000:])}</pre></div>")
-        if not running:
+        if not running and not queued:
             parts.append(_manage_panel(job))
-        return _page(f"Job {job_id}", "".join(parts), refresh=running)
+        return _page(f"Job {job_id}", "".join(parts), refresh=running or queued)
 
     @app.post("/jobs/{job_id}/continue")
     def cont(job_id: str):
@@ -404,6 +455,19 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     @app.post("/settings/freesound")
     def save_freesound(key: str = Form("")):
         app_settings.save({"freesound_api_key": key.strip()}, settings_path)
+        return RedirectResponse("/", status_code=303)
+
+    @app.post("/settings/parallel")
+    def save_parallel(n: int = Form(3)):
+        app_settings.save({"parallel_jobs": max(1, min(6, n))}, settings_path)
+        with worker.lock:  # tăng số luồng: cho job đang xếp hàng chạy luôn
+            starts = []
+            while worker.queue and len(worker.active) < max_jobs():
+                nxt = worker.queue.pop(0)
+                worker.active.add(nxt[0])
+                starts.append(nxt)
+        for nxt in starts:
+            threading.Thread(target=worker._work, args=nxt, daemon=True).start()
         return RedirectResponse("/", status_code=303)
 
     @app.post("/settings/template")
@@ -459,7 +523,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     @app.post("/jobs/{job_id}/delete")
     def delete(job_id: str):
         d = Job.dir_for(Path(jobs_root), job_id)
-        if worker.active != job_id and (d / "job.json").is_file():
+        worker.remove_queued(job_id)
+        if job_id not in worker.active and (d / "job.json").is_file():
             shutil.rmtree(d, ignore_errors=True)
         return RedirectResponse("/", status_code=303)
 

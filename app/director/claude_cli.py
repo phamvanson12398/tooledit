@@ -76,9 +76,10 @@ class ClaudeCodeDirector(Director):
         self.workspace = Path(cfg.get("workspace") or default_workspace())
 
     def _prepare_workdir(self, task: str, images: list[Path]) -> Path:
-        workdir = self.workspace / task
-        if workdir.exists():
-            shutil.rmtree(workdir)
+        # thư mục riêng cho MỖI lần gọi: nhiều job chạy song song không ghi đè ảnh của nhau
+        import uuid
+
+        workdir = self.workspace / f"{task}_{uuid.uuid4().hex[:8]}"
         workdir.mkdir(parents=True)
         for img in images:
             shutil.copy2(img, workdir / Path(img).name)
@@ -95,6 +96,8 @@ class ClaudeCodeDirector(Director):
             raise DirectorError("Không tìm thấy lệnh `claude`. Cài Claude Code (docs/SETUP_WINDOWS.md mục 5).") from exc
         except subprocess.TimeoutExpired as exc:
             raise DirectorError(f"Đạo diễn không trả lời sau {self.cfg.get('timeout_s', 900)} giây.") from exc
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
         if proc.returncode != 0 and not proc.stdout.strip():
             raise DirectorError(f"Claude Code lỗi (mã {proc.returncode}): {proc.stderr.strip()[:800]}")
         return parse_output(proc.stdout)

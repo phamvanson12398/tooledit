@@ -253,14 +253,22 @@ class Runner:
 
     def run(self, job: Job) -> Job:
         """Chạy các bước cho tới khi xong hoặc gặp điểm dừng / lỗi. Lưu job.json sau mỗi bước."""
+        from app.jobs.limits import slot
+
+        def waiting(what: str) -> None:  # video khác đang dùng tài nguyên này → đợi lượt
+            job._log(f"Đang đợi lượt {what} (video khác đang dùng)…")
+            job.save(self.jobs_root)
+            self.log(f"Đợi lượt {what}…")
+
         while job.status == Status.pending:
             step = job.step
-            job.start()
-            job.save(self.jobs_root)
-            try:
-                getattr(self, f"step_{step}")(job)
-            except Exception as exc:  # báo lỗi tiếng Việt, giữ nguyên bước để chạy lại
-                job.fail(f"Lỗi ở bước {step}: {exc}")
+            with slot(step, on_wait=waiting):
+                job.start()
+                job.save(self.jobs_root)
+                try:
+                    getattr(self, f"step_{step}")(job)
+                except Exception as exc:  # báo lỗi tiếng Việt, giữ nguyên bước để chạy lại
+                    job.fail(f"Lỗi ở bước {step}: {exc}")
             job.save(self.jobs_root)
             if job.status == Status.running:  # bước không tự đổi trạng thái → xong, sang bước sau
                 job.advance()

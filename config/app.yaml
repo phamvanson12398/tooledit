@@ -1,0 +1,7 @@
+# Chạy nhiều video cùng lúc (mỗi video một "luồng"). Chủ dự án yêu cầu 27/09.
+parallel:
+  jobs: 3          # số video chạy cùng lúc (đổi được trên giao diện); video thêm vào sau sẽ xếp hàng
+  # Bước nặng dùng chung tài nguyên máy nên phải lần lượt / giới hạn:
+  analyze: 1       # phân tích (Whisper dùng GPU GTX 1080 Ti) — 1 video một lúc cho khỏi tràn bộ nhớ GPU
+  director: 2      # số lần hỏi đạo diễn AI cùng lúc (dùng chung hạn mức Claude Pro)
+  write: 2         # ghi draft CapCut
