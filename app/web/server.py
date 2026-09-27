@@ -193,6 +193,27 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     worker = Worker(Path(jobs_root), runner_factory, max_jobs)
     app.state.worker = worker
 
+    def keep_days() -> float:
+        local = app_settings.load(settings_path).get("cleanup_days")
+        return float(app_config.load("app").get("cleanup_days", 2) if local is None else local)
+
+    def cleanup_now() -> list[str]:
+        from app.jobs.cleanup import cleanup_jobs
+
+        return cleanup_jobs(Path(jobs_root), keep_days(), skip=set(worker.active) | set(worker.queued_ids()))
+
+    app.state.cleanup_now = cleanup_now
+
+    def cleanup_loop() -> None:  # dọn lúc mở tool, rồi mỗi giờ một lần
+        while True:
+            try:
+                cleanup_now()
+            except Exception:
+                pass
+            time.sleep(3600)
+
+    threading.Thread(target=cleanup_loop, daemon=True).start()
+
     def list_jobs() -> list[Job]:
         root = Path(jobs_root)
         if not root.is_dir():
@@ -237,9 +258,16 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         has_key = bool(app_settings.load(settings_path).get("freesound_api_key"))
         n_max = max_jobs()
         opts = "".join(f"<option value='{n}' {'selected' if n == n_max else ''}>{n}</option>" for n in range(1, 7))
+        kd = keep_days()
+        day_opts = "".join(f"<option value='{v}' {'selected' if float(v) == kd else ''}>{label}</option>"
+                           for v, label in (("0", "không tự xóa"), ("1", "1 ngày"), ("2", "2 ngày"), ("3", "3 ngày"),
+                                            ("7", "7 ngày")))
         threads = (f"<form method='post' action='/settings/parallel' class='row' style='align-items:center;gap:8px'>"
                    f"<span class='muted'>Số video chạy cùng lúc:</span>"
-                   f"<select name='n' onchange='this.form.submit()' style='width:auto'>{opts}</select></form>")
+                   f"<select name='n' onchange='this.form.submit()' style='width:auto'>{opts}</select></form>"
+                   f"<form method='post' action='/settings/cleanup' class='row' style='align-items:center;gap:8px;margin-top:6px'>"
+                   f"<span class='muted'>Tự xóa job không hoạt động quá:</span>"
+                   f"<select name='days' onchange='this.form.submit()' style='width:auto'>{day_opts}</select></form>")
         style_cards = ["<label class='style'><input type='radio' name='style' value='auto' checked>"
                        "<b>✨ AI tự chọn</b><span>Đạo diễn xem nội dung rồi chọn kiểu phù hợp</span></label>"]
         for key, st in available_styles().items():
@@ -486,6 +514,12 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 starts.append(nxt)
         for nxt in starts:
             threading.Thread(target=worker._work, args=nxt, daemon=True).start()
+        return RedirectResponse("/", status_code=303)
+
+    @app.post("/settings/cleanup")
+    def save_cleanup(days: float = Form(2)):
+        app_settings.save({"cleanup_days": max(0.0, min(30.0, days))}, settings_path)
+        cleanup_now()
         return RedirectResponse("/", status_code=303)
 
     @app.post("/settings/template")

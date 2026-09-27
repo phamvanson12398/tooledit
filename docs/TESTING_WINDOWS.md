@@ -1,5 +1,13 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 22 — Tự xóa job không hoạt động quá 2 ngày `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Lúc mở, tool tự dọn một lần, sau đó mỗi giờ một lần.
+2. Trang chủ, ô 🗂️ Các video: "Tự xóa job không hoạt động quá: [2 ngày]" — đổi được (1/2/3/7 ngày hoặc không tự xóa).
+3. Job cũ hơn 2 ngày (tính từ lần hoạt động gần nhất) biến khỏi danh sách; job đang chạy / xếp hàng không bị xóa.
+4. Kiểm tra: draft trong CapCut và file footage gốc vẫn còn. Lưu ý: caption (`deliver\...captions.txt`) nằm trong
+   thư mục job nên cũng bị xóa theo — copy caption ra trước nếu cần giữ lâu.
+
 ## Bước 21 — Chạy nhiều video cùng lúc (nhiều luồng) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

@@ -5,3 +5,7 @@ parallel:
   analyze: 1       # phân tích (Whisper dùng GPU GTX 1080 Ti) — 1 video một lúc cho khỏi tràn bộ nhớ GPU
   director: 2      # số lần hỏi đạo diễn AI cùng lúc (dùng chung hạn mức Claude Pro)
   write: 2         # ghi draft CapCut
+
+# Tự xóa job không hoạt động quá N ngày (0 = không tự xóa). Đổi được trên giao diện.
+# Chỉ xóa dữ liệu trong jobs/ (phân tích, kế hoạch, caption...); footage gốc và draft trong CapCut không bị xóa.
+cleanup_days: 2
