@@ -58,12 +58,15 @@ def understand(director: Director, analysis_dir: Path, client_style: str | None 
     styles = available_styles()
 
     def extra(r) -> list[str]:
-        errors = check_ranges([*r.key_moments, r.usable_range], sc["duration"], "mốc")
+        errors = check_ranges([*r.key_moments, r.usable_range, *r.policy_issues], sc["duration"], "mốc")
         if r.suggested_style not in styles:
             errors.append(f"suggested_style '{r.suggested_style}' không có; chọn một trong: {', '.join(styles)}")
         return errors
 
-    return director.run("understand", variables, Understanding, images, extra_check=extra)
+    from app.director.policy import add_auto_issues
+
+    u = director.run("understand", variables, Understanding, images, extra_check=extra)
+    return add_auto_issues(u, tr.get("segments", []))  # + từ tục máy tự dò trong transcript
 
 
 def apply_name_corrections(text: str, corrections) -> str:
@@ -86,8 +89,10 @@ def _segments_in(segments: list[dict], start: float, end: float) -> list[dict]:
 
 def _shared_context(u, segments: list[dict], events: list[dict] | None = None) -> dict:
     from app.analysis.audio_events import events_for_prompt
+    from app.director.policy import policy_for_prompt
 
     return {
+        "policy_cuts": policy_for_prompt(u, u.usable_range.start, u.usable_range.end),
         "audio_events": ("(chưa phân tích — job cũ)" if events is None else
                          events_for_prompt(events, u.usable_range.start, u.usable_range.end)),
         "summary": u.summary_vi,
@@ -146,8 +151,20 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
                  "preferred_hooks": ", ".join(preferred_hooks or []) or "chưa có"}
     lo, hi = u.usable_range.start - 0.5, u.usable_range.end + 0.5
 
+    from app.director.policy import cut_ranges, find_bad_words, overlap_s
+
+    banned = cut_ranges(u)
+
     def extra(r) -> list[str]:
         errors = check_hooks(r, duration, max_chars)
+        for i, o in enumerate(r.options, 1):
+            for what, t in (("footage", o.footage), ("nguồn", o.source)):
+                if overlap_s(t.start, t.end, banned) > 0.05:
+                    errors.append(f"hook {i}: {what} {t.start:.1f}–{t.end:.1f}s chạm đoạn vi phạm chính sách TikTok "
+                                  "(sẽ bị cắt) — chọn đoạn khác")
+            bad = find_bad_words(f"{o.line} {o.onscreen_text}", u.language)
+            if bad:
+                errors.append(f"hook {i}: có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         if restrict:
@@ -251,9 +268,14 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     sfx_names = {m.name for m in (sfx_items or [])}
     commercial = {m.name for m in (music_items or []) if m.commercial}
 
+    from app.director.policy import check_policy, cut_ranges, load_cfg, overlap_s, repair_policy
+
+    banned = cut_ranges(u)
+    available = u.usable_range.end - u.usable_range.start - overlap_s(u.usable_range.start, u.usable_range.end, banned)
+
     def extra(plan) -> list[str]:
-        errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s,
-                            available=u.usable_range.end - u.usable_range.start)
+        errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s, available=available)
+        errors += check_policy(plan, banned, u.language)
         if any(c.source_start < u.usable_range.start - 0.5 for c in plan.clips):
             errors.append(f"có clip bắt đầu trước đoạn dùng được ({u.usable_range.start:.1f}s)")
         if plan.music.name and plan.music.name not in names:
@@ -284,7 +306,9 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     from app.director.schemas import repair_plan
 
     def repair(p):
+        p, cut = repair_policy(p, banned, load_cfg().get("min_piece_s", 0.5))
         p, fixes = repair_plan(p, min(duration, u.usable_range.end + 0.5))
+        fixes = cut + fixes
         p, more = repair_names(p, {k: [i.name for i in v] for k, v in decor.items()}, names, sfx_names)
         return p, fixes + more
 
@@ -400,9 +424,16 @@ def make_captions(director: Director, analysis_dir: Path, u, plan, *, hook=None,
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language),
                  "market": MARKETS.get(u.language, "TikTok"),
                  "hook": f"{hook.line} ({hook.line_vi})" if hook else "không có hook"}
-    return director.run("captions", variables, Captions,
-                        extra_check=lambda r: check_captions(r)
-                        + ([] if r.video_index == video_index else [f"video_index phải là {video_index}"]))
+    from app.director.policy import find_bad_words
+
+    def extra(r) -> list[str]:
+        errors = check_captions(r) + ([] if r.video_index == video_index else [f"video_index phải là {video_index}"])
+        bad = find_bad_words(" ".join([r.caption, *r.hashtags]), u.language)
+        if bad:
+            errors.append(f"caption/hashtag có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
+        return errors
+
+    return director.run("captions", variables, Captions, extra_check=extra)
 
 
 def captions_text(c) -> str:

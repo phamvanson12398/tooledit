@@ -10,6 +10,9 @@
 ## Điều cấm
 {{sensitive_notes}}
 
+## Đoạn vi phạm chính sách TikTok (đã bị cắt khỏi video — không nhắc tới)
+{{policy_cuts}}
+
 ## Tên riêng đúng
 {{name_corrections}}
 

@@ -19,6 +19,10 @@ Footage dài {{duration}} giây; đoạn dùng được {{range}} giây. Hãy ch
 ## Điều cấm
 {{sensitive_notes}}
 
+## Đoạn vi phạm chính sách TikTok (sẽ bị CẮT khỏi video)
+{{policy_cuts}}
+Không chọn video mà nội dung chính nằm trong các đoạn này; nếu phần còn lại sau khi cắt không đủ trọn vẹn thì bỏ và ghi lý do vào `dropped`.
+
 ## Tóm tắt toàn bộ
 {{summary}}
 

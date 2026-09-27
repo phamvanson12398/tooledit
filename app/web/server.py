@@ -822,6 +822,24 @@ def pick_file_dialog() -> dict:
     return {"path": str(Path(path)) if path else ""}
 
 
+def _policy_html(d: Path, start: float = 0.0, end: float = 1e9) -> str:
+    """Bảng các đoạn vi phạm chính sách TikTok sẽ bị cắt (trong khoảng start–end của footage)."""
+    from app.director.schemas import POLICY_VI
+
+    data = json.loads(_read(d / "plan" / "understanding.json") or "{}")
+    rows = [p for p in data.get("policy_issues") or [] if p["end"] > start and p["start"] < end]
+    if not rows:
+        return ""
+    esc = html.escape
+    body = "".join(f"<tr><td>{p['start']:.1f}–{p['end']:.1f}s</td><td>{esc(POLICY_VI.get(p['category'], p['category']))}</td>"
+                   f"<td>{esc(p.get('reason_vi', ''))}{' <span class=muted>(máy tự dò)</span>' if p.get('auto') else ''}</td></tr>"
+                   for p in rows)
+    return ("<details><summary><b>🚫 Đoạn vi phạm chính sách TikTok — đã/sẽ cắt bỏ "
+            f"({len(rows)})</b></summary><table><tr><th>Giây</th><th>Loại</th><th>Lý do</th></tr>{body}</table>"
+            "<p class='muted'>Muốn giữ một đoạn (AI đánh dấu nhầm): xóa nó khỏi plan/understanding.json rồi "
+            "bấm \"🎬 Lập lại kế hoạch dựng\".</p></details>")
+
+
 def _segments_panel(job: Job, d: Path) -> str:
     """Bảng duyệt chia video: các video (sửa được điểm cắt, bỏ tick để bỏ) + các đoạn bị bỏ (tick để dựng thêm)."""
     esc = html.escape
@@ -851,6 +869,7 @@ def _segments_panel(job: Job, d: Path) -> str:
             f"<form method='post' action='/jobs/{job.job_id}/segments'>"
             f"<h2 style='margin-top:14px'>Video sẽ dựng</h2><table>{head}{vids}</table>"
             + (f"<h2 style='margin-top:18px'>Đoạn bị bỏ</h2><table>{head}{dropped}</table>" if dropped else "")
+            + _policy_html(d)
             + "<p><button type='submit' class='btn'>✅ Xác nhận và dựng tiếp</button></p></form></div>")
 
 
@@ -903,7 +922,7 @@ def _step_panel(job: Job, d: Path) -> str:
         if job.step == "confirm_genre" and u.is_file():
             data = json.loads(_read(u))
             extra = (f"<p>Phong cách đề xuất: {esc(data.get('suggested_style', ''))}</p>"
-                     f"<p>Ghi chú editor: {esc(data.get('editor_notes', ''))}</p>")
+                     f"<p>Ghi chú editor: {esc(data.get('editor_notes', ''))}</p>{_policy_html(d)}")
         return f"<div class='card'><pre>{esc(job.message)}</pre>{extra}{_continue_button(job)}</div>"
     if job.status == Status.done:
         drafts = job.data.get("drafts") or [{"index": 1, "draft": job.data.get("draft", ""),
@@ -921,6 +940,8 @@ def _step_panel(job: Job, d: Path) -> str:
                 if titles:
                     parts.append("<p><b>Dòng tiêu đề:</b></p><pre>" + esc("\n".join(titles)) + "</pre>")
                 parts.append(f"<p><b>Ghi chú editor:</b> {esc(pdata.get('editor_notes', ''))}</p>")
+            if dr.get("start") is not None:
+                parts.append(_policy_html(d, float(dr["start"]), float(dr["end"])))
             cap = _read(d / "deliver" / f"video{i:02d}_captions.txt")
             if cap:
                 parts.append(f"<details><summary><b>📣 Caption + hashtag</b></summary><pre>{esc(cap)}</pre></details>")

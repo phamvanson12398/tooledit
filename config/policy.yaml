@@ -1,0 +1,16 @@
+# Tuân thủ Nguyên tắc cộng đồng TikTok (https://www.tiktok.com/community-guidelines).
+# Đạo diễn AI đánh dấu các đoạn vi phạm ở bước "hiểu nội dung"; tool CẮT BỎ các đoạn đó khỏi mọi video,
+# không dùng trong hook, không viết lên màn hình.
+
+enabled: true
+pad_s: 0.15          # cắt rộng thêm mỗi bên (giây) để không sót nửa chữ
+min_piece_s: 0.5     # mẩu clip còn lại sau khi cắt ngắn hơn mức này thì bỏ luôn
+merge_gap_s: 0.6     # hai đoạn vi phạm cách nhau ít hơn mức này thì gộp làm một
+
+# Từ tục máy tự dò trong transcript (có mốc giây từng từ) và trong chữ trên màn hình / hook / caption.
+# Tiếng Anh: khớp theo đầu từ ("fuck" bắt cả "fucking"). Tiếng Hàn / Nhật: khớp chuỗi con.
+# Danh sách cố ý ngắn để tránh cắt nhầm — thêm từ nếu cần. Đạo diễn AI vẫn tự phát hiện các trường hợp khác.
+bad_words:
+  en: [fuck, motherfuck, shit, bitch, cunt, asshole, dickhead, bastard]
+  ko: [씨발, 시발, 씨바, 개새끼, 개새기, 병신, 좆, 존나, 지랄, 미친놈, 미친년]
+  ja: [死ね, ぶっ殺す, 殺すぞ, くたばれ]

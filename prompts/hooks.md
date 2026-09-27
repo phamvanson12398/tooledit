@@ -19,6 +19,9 @@ Kiểu hook khách ưa thích (nếu có): {{preferred_hooks}}
 ## Điều cấm (từ bước hiểu nội dung)
 {{sensitive_notes}}
 
+## Đoạn vi phạm chính sách TikTok (sẽ bị CẮT — hook không được dùng hay nhắc tới)
+{{policy_cuts}}
+
 ## Tóm tắt nội dung
 {{summary}}
 

@@ -44,6 +44,10 @@ Liều lượng theo phong cách: {{decor_brief}}
 ## Điều cấm
 {{sensitive_notes}}
 
+## Đoạn vi phạm chính sách TikTok — BẮT BUỘC CẮT BỎ
+{{policy_cuts}}
+Không clip nào (kể cả replay, repeat) được chứa các đoạn trên; cắt clip trước/sau chúng sao cho câu chuyện vẫn liền mạch. Chữ trên màn hình không được lặp lại hay ám chỉ nội dung vi phạm.
+
 ## Tóm tắt nội dung
 {{summary}}
 

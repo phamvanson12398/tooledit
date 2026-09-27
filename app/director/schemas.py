@@ -30,6 +30,27 @@ class BurnedInText(BaseModel):
     note_vi: str = ""
 
 
+PolicyCategory = Literal[
+    "violence", "dangerous_acts", "self_harm", "sexual", "minor_safety", "hate", "harassment", "profanity",
+    "illegal", "drugs_alcohol_tobacco", "gambling", "weapons", "misinformation", "privacy", "other"]
+POLICY_VI = {
+    "violence": "bạo lực / máu me", "dangerous_acts": "hành vi nguy hiểm, dễ bị bắt chước",
+    "self_harm": "tự hại / tự tử", "sexual": "khiêu dâm / gợi dục", "minor_safety": "an toàn trẻ vị thành niên",
+    "hate": "phát ngôn thù ghét, kỳ thị", "harassment": "quấy rối, lăng mạ, bắt nạt", "profanity": "chửi thề / từ tục",
+    "illegal": "hoạt động phạm pháp", "drugs_alcohol_tobacco": "ma túy / rượu bia / thuốc lá",
+    "gambling": "cờ bạc", "weapons": "vũ khí", "misinformation": "thông tin sai lệch gây hại",
+    "privacy": "lộ thông tin cá nhân (số điện thoại, địa chỉ, biển số...)", "other": "khác",
+}
+
+
+class PolicyIssue(TimeRange):
+    """Đoạn footage vi phạm Nguyên tắc cộng đồng TikTok → bị cắt khỏi mọi video (không dùng cả trong hook)."""
+
+    category: PolicyCategory
+    reason_vi: str = Field(description="vi phạm gì, ngắn gọn (tiếng Việt)")
+    auto: bool = Field(default=False, description="true = máy tự dò (từ tục trong transcript), không phải đạo diễn")
+
+
 class Understanding(BaseModel):
     """Kết quả bước 'AI hiểu nội dung' (mục 3.3 CLAUDE.md)."""
 
@@ -47,6 +68,8 @@ class Understanding(BaseModel):
     burned_in_text: BurnedInText
     sensitive_notes_vi: list[str] = Field(
         default_factory=list, description="điều KHÔNG được viết/ám chỉ trên màn hình hay trong hook")
+    policy_issues: list[PolicyIssue] = Field(
+        default_factory=list, description="đoạn vi phạm Nguyên tắc cộng đồng TikTok — sẽ bị CẮT BỎ (mốc giây gốc)")
     editor_notes: str = Field(description="giải thích ngắn các nhận định chính (tiếng Việt)")
 
 

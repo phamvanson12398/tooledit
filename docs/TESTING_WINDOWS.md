@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 23 — Tuân thủ chính sách TikTok: đoạn vi phạm tự bị cắt `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Tính năng áp dụng cho **job mới** (job cũ: bấm "Chạy lại" từ bước
+   AI hiểu nội dung, hoặc tạo job mới).
+2. Chọn một footage có vài câu chửi thề / đoạn nhạy cảm (ví dụ vlog có người văng tục, video có đoạn cãi nhau).
+3. Nhật ký sau bước "AI hiểu nội dung": dòng "Phát hiện N đoạn vi phạm chính sách TikTok (~X s) — sẽ cắt bỏ."
+4. Trang job (bước xác nhận nội dung, bảng chia video, trang Xong): mục **🚫 Đoạn vi phạm chính sách TikTok** — bấm
+   để xem từng đoạn (giây, loại vi phạm, lý do; "máy tự dò" = từ tục tool tự tìm trong lời thoại).
+5. Mở draft trong CapCut, tua tới các mốc đó: phần vi phạm phải KHÔNG còn (clip bị cắt quanh chỗ đó), hook không
+   dùng đoạn đó, chữ trên màn hình và caption không có từ tục.
+6. Nếu AI đánh dấu nhầm (cắt mất đoạn hay): mở `jobs\<job>\plan\understanding.json`, xóa mục đó trong
+   `policy_issues`, rồi bấm "🎬 Lập lại kế hoạch dựng".
+7. Danh sách từ tục máy tự dò nằm trong `config\policy.yaml` (`bad_words`) — thêm/bớt từ tùy ý; `enabled: false`
+   để tắt hẳn tính năng.
+
 ## Bước 22 — Tự xóa job không hoạt động quá 2 ngày `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Lúc mở, tool tự dọn một lần, sau đó mỗi giờ một lần.

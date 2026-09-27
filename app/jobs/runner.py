@@ -295,6 +295,9 @@ class Runner:
         (plan_dir / "understanding.json").write_text(u.model_dump_json(indent=2), encoding="utf-8")
         job.data["summary_vi"] = u.summary_vi
         job.data["suggested_style"] = u.suggested_style
+        if u.policy_issues:
+            total = sum(x.end - x.start for x in u.policy_issues)
+            self.log(f"Phát hiện {len(u.policy_issues)} đoạn vi phạm chính sách TikTok (~{total:.0f}s) — sẽ cắt bỏ.")
 
     def step_confirm_genre(self, job: Job) -> None:
         u = self._understanding(job)
@@ -452,6 +455,8 @@ class Runner:
 
     def step_write(self, job: Job) -> None:
         from app.director.schemas import EditPlan
+        from app.director.policy import cut_ranges, repair_policy
+        from app.director.policy import load_cfg as policy_cfg
         from app.director.tasks import load_analysis
         from app.planner import hook_io
         from app.planner.builder import build
@@ -472,18 +477,23 @@ class Runner:
         for v in self.videos(job):
             i = v["index"]
             plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
+            u_v = self._u_for(job, v)
+            plan, cut = repair_policy(plan, cut_ranges(u_v), policy_cfg().get("min_piece_s", 0.5))
+            for c in cut:  # lưới an toàn: đoạn vi phạm được đánh dấu sau khi đã có kế hoạch dựng
+                self.log(f"[video {i:02d}] {c}")
             hook, voice = None, None
             if job.options.hook:
                 hook = self._hook_for(d, i)
                 vpath = hook_io.find_voice(d, i)
                 voice = (vpath, self._voice_duration(vpath)) if vpath else None
             name = f"{job.options.client_id or 'khach'}_{job.job_id}_video{i:02d}"
-            res = build(plan, self._u_for(job, v), a, tpl, self._drafts_dir or drafts_root(), name, style,
+            res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                         hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
                         video_index=i)
             out = res.writer.save(overwrite=True)
             dur = round(res.duration_us / 1_000_000, 1)
             drafts.append({"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),
+                           "start": v["start"], "end": v["end"],
                            "short": dur < config.load("split").get("min_video_s", 60),
                            "credits": self._credits(res.used_local)})
             missing += res.missing_assets
