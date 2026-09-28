@@ -17,6 +17,7 @@ audio_events:
 scenes:
   threshold: 27.0
   min_scene_len_s: 0.6
+  frame_skip: 1           # 1 = chỉ xét 1/2 số khung (nhanh gần gấp đôi); 0 = xét mọi khung (chậm, chính xác nhất)
 
 # Trích khung hình gửi cho đạo diễn (giữ nhỏ để tiết kiệm hạn mức Claude Pro)
 frames:

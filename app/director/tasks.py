@@ -151,7 +151,7 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
                  "preferred_hooks": ", ".join(preferred_hooks or []) or "chưa có"}
     lo, hi = u.usable_range.start - 0.5, u.usable_range.end + 0.5
 
-    from app.director.policy import cut_ranges, find_bad_words, overlap_s
+    from app.director.policy import cut_ranges, find_forbidden, overlap_s
 
     banned = cut_ranges(u)
 
@@ -162,7 +162,7 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
                 if overlap_s(t.start, t.end, banned) > 0.05:
                     errors.append(f"hook {i}: {what} {t.start:.1f}–{t.end:.1f}s chạm đoạn vi phạm chính sách TikTok "
                                   "(sẽ bị cắt) — chọn đoạn khác")
-            bad = find_bad_words(f"{o.line} {o.onscreen_text}", u.language)
+            bad = find_forbidden(f"{o.line} {o.onscreen_text}", u.language)
             if bad:
                 errors.append(f"hook {i}: có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
         if r.video_index != video_index:
@@ -424,11 +424,11 @@ def make_captions(director: Director, analysis_dir: Path, u, plan, *, hook=None,
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language),
                  "market": MARKETS.get(u.language, "TikTok"),
                  "hook": f"{hook.line} ({hook.line_vi})" if hook else "không có hook"}
-    from app.director.policy import find_bad_words
+    from app.director.policy import find_forbidden
 
     def extra(r) -> list[str]:
         errors = check_captions(r) + ([] if r.video_index == video_index else [f"video_index phải là {video_index}"])
-        bad = find_bad_words(" ".join([r.caption, *r.hashtags]), u.language)
+        bad = find_forbidden(" ".join([r.caption, *r.hashtags]), u.language)
         if bad:
             errors.append(f"caption/hashtag có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
         return errors

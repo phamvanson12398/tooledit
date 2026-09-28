@@ -1,5 +1,27 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 24 — Không nhắc nền tảng khác ngoài TikTok `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Tạo job mới (job cũ: 🎬 Lập lại kế hoạch dựng để caption/chữ được
+   kiểm tra lại; muốn cắt cả lời thoại thì chạy lại từ bước AI hiểu nội dung).
+2. Chọn footage có câu kiểu "subscribe my YouTube", "유튜브 구독과 좋아요", "チャンネル登録よろしく" hoặc nhắc Instagram.
+3. Trang job → mục **🚫 Đoạn vi phạm chính sách TikTok**: có dòng loại "nhắc tới nền tảng khác ngoài TikTok".
+   Mở draft trong CapCut, tua tới mốc đó: câu nhắc nền tảng khác đã bị cắt.
+4. Mở `deliver\videoNN_captions.txt`: caption và hashtag không có YouTube / Instagram / #shorts / #reels / #쇼츠...
+5. Nếu footage có logo/watermark YouTube, Instagram suốt video: tool không cắt được, AI sẽ ghi chú ở "Điều cấm" —
+   hãy tự che/crop trong CapCut. Danh sách từ nằm ở `config\policy.yaml` (`other_platforms`), thêm bớt tùy ý.
+
+## Bước 24 — Video thứ 2 không phải đợi video 1 phân tích xong; có % tiến độ `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Tạo liên tiếp 2 job. Trước đây video 2 phải đợi video 1 xong CẢ bước phân tích (có khi 10–20 phút). Bây giờ:
+   - hai video phân tích cùng lúc; chỉ riêng lúc **nhận dạng thoại** (GPU) là lần lượt — nhật ký video 2 hiện
+     "Đang đợi lượt GPU (nhận dạng thoại) — video khác đang dùng GPU…" rồi tự chạy tiếp;
+   - "Dò cảnh… 10% / 20% …" và "Dò khuôn mặt… 10% …" hiện dần trong nhật ký, không còn đứng im lâu.
+3. Dò cảnh nhanh hơn khoảng gấp đôi (chỉ xét 1/2 số khung). Nếu thấy bỏ sót điểm chuyển cảnh: sửa `frame_skip: 0`
+   trong `config\analysis.yaml`.
+4. Nếu máy quá chậm khi 2 video phân tích cùng lúc (CPU 100%): sửa `analyze: 1` trong `config\app.yaml`.
+
 ## Bước 23 — Tuân thủ chính sách TikTok: đoạn vi phạm tự bị cắt `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Tính năng áp dụng cho **job mới** (job cũ: bấm "Chạy lại" từ bước

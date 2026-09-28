@@ -180,6 +180,8 @@ Mọi prompt gửi cho đạo diễn đều mở đầu bằng một phần vai 
   hành vi nguy hiểm, tự hại, gợi dục, an toàn trẻ em, thù ghét/quấy rối, chửi thề, ma túy/rượu/cờ bạc/vũ khí, tin sai
   gây hại, lộ thông tin cá nhân) bị CẮT BỎ: đạo diễn đánh dấu `policy_issues`, máy tự dò thêm từ tục trong transcript
   (`config/policy.yaml`), code tự cắt clip chạm vào các đoạn đó, hook/chữ trên màn hình/caption không được dùng.
+  Cập nhật 28/09: caption, hashtag, chữ trên màn hình, hook và lời thoại **không được nhắc nền tảng khác ngoài TikTok**
+  (YouTube, Instagram, "subscribe/구독/チャンネル登録"...) — lời thoại thì cắt, chữ thì đạo diễn phải viết lại.
 - **Tự duyệt trước khi trả kết quả**: như một editor duyệt lại bản dựng của mình, đạo diễn phải tự kiểm tra trước khi trả JSON: mỗi hiệu ứng có lý do không, có chỗ nào quá dày hoặc quá nhạt không, video có trọn vẹn và đứng được một mình không, hook có đúng nội dung không, thời lượng có trong giới hạn không. Trong output có trường `editor_notes` (tiếng Việt, ngắn) giải thích các quyết định chính để người dùng hiểu vì sao dựng như vậy; trường này hiển thị trên giao diện ở các bước duyệt.
 
 Phần vai trò chỉ viết một lần, dùng chung; các template riêng từng việc chỉ mô tả nhiệm vụ cụ thể.

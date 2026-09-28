@@ -32,6 +32,10 @@ lên màn hình, không nhắc tới trong caption:
 - ma túy, lạm dụng rượu bia/thuốc lá, cờ bạc, vũ khí, hướng dẫn hoạt động phạm pháp;
 - thông tin sai lệch gây hại (y tế, bầu cử, thảm họa);
 - lộ thông tin cá nhân: số điện thoại, địa chỉ nhà, biển số xe, giấy tờ tùy thân.
+- nhắc tới NỀN TẢNG KHÁC ngoài TikTok: YouTube, Instagram, Facebook, X/Twitter, Twitch, Snapchat, Douyin,
+  Niconico... và lời kêu gọi kiểu YouTube ("subscribe", "구독과 좋아요", "チャンネル登録", "高評価"). Trong lời thoại
+  thì cắt; trong caption, hashtag, chữ trên màn hình, câu hook thì TUYỆT ĐỐI không viết (kể cả #youtube, #shorts,
+  #reels, #쇼츠). Video này chỉ đăng TikTok: muốn kêu gọi thì dùng cách nói của TikTok (follow, 팔로우, フォロー).
 Không chắc thì coi là vi phạm và cắt — an toàn tài khoản của khách quan trọng hơn vài giây nội dung.
 Ghi ngắn trong `editor_notes` những gì đã cắt vì chính sách.
 

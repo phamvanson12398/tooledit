@@ -51,8 +51,14 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
             ffmpeg.run(ffmpeg.clean_audio_args(src, out / "audio" / f"light_{tag}.wav", cfg, light=True))
             whisper_wav = out / "audio" / f"whisper_{tag}.wav"
             ffmpeg.run(ffmpeg.whisper_audio_args(src, whisper_wav))
-            progress("Nhận dạng thoại (có thể mất vài phút)")
-            tr = transcribe_fn(whisper_wav, log=progress)
+            from app.jobs.limits import group_slot
+
+            def gpu_busy(what: str) -> None:
+                progress(f"Đang đợi lượt {what} — video khác đang dùng GPU…")
+
+            with group_slot("gpu", on_wait=gpu_busy):  # chỉ 1 video dùng GPU một lúc
+                progress("Nhận dạng thoại (có thể mất vài phút)")
+                tr = transcribe_fn(whisper_wav, log=progress)
             transcripts.append({"footage": i, **tr.model_dump()})
             progress("Dò tiếng cười / hò reo / cao trào trong âm thanh")
             try:
@@ -71,7 +77,8 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
 
         progress("Dò cảnh")
         sc = cfg.get("scenes", {})
-        scenes = detect_scenes(src, sc.get("threshold", 27.0), sc.get("min_scene_len_s", 0.6), duration)
+        scenes = detect_scenes(src, sc.get("threshold", 27.0), sc.get("min_scene_len_s", 0.6), duration,
+                               frame_skip=int(sc.get("frame_skip", 1)), progress=progress)
         scenes_all.append({"footage": i, "path": src.as_posix(), "duration": duration, "width": info.width,
                            "height": info.height, "scenes": [s.model_dump() for s in scenes]})
 
@@ -84,7 +91,7 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
 
         progress("Dò khuôn mặt / chủ thể")
         sj = cfg.get("subjects", {})
-        faces = scan_video(src, sj.get("sample_every_s", 0.5), sj.get("min_face_frac", 0.06))
+        faces = scan_video(src, sj.get("sample_every_s", 0.5), sj.get("min_face_frac", 0.06), progress=progress)
         track = main_subject_track(faces, sj.get("smooth_window", 5), sj.get("max_pan_per_s", 0.25))
         subjects_all.append({"footage": i, **track.model_dump(), "faces": faces_compact(faces)})
 

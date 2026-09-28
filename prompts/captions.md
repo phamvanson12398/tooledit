@@ -5,6 +5,8 @@
 - `hashtags`: 3–8 hashtag bằng ngôn ngữ của video, có dấu #, không dấu cách; trộn hashtag chủ đề cụ thể và
   vài hashtag phổ biến của thị trường ({{market}}).
 - `caption_vi`, `hashtags_vi`: bản dịch tiếng Việt để chủ dự án hiểu.
+- KHÔNG nhắc nền tảng nào khác ngoài TikTok (YouTube, Instagram, Facebook, X, Shorts, Reels...), kể cả trong
+  hashtag (#youtube #shorts #reels #쇼츠 #릴스 đều cấm) và không kêu gọi kiểu YouTube (subscribe, 구독, チャンネル登録).
 - Video này là một video độc lập: không nhắc "phần 1/2", không "xem phần tiếp theo".
 
 ## Điều cấm

@@ -125,3 +125,40 @@ def test_policy_panel_html(tmp_path):
     assert "bạo lực" in h and "máu &lt;b&gt;" in h and "máy tự dò" in h
     assert "bạo lực" not in _policy_html(tmp_path, 50, 100)
     assert _policy_html(tmp_path, 20, 30) == ""
+
+
+def test_find_platforms_real_config():
+    from app.director.policy import find_forbidden, find_platforms
+
+    assert find_platforms("Check my YouTube channel!", "en") == ["youtube"]
+    assert "유튜브" in find_platforms("유튜브 구독과 좋아요 부탁해요", "ko")
+    assert "チャンネル登録" in find_platforms("チャンネル登録よろしく", "ja")
+    assert find_platforms("youtube 見てね", "ja") == ["youtube"]  # tên Latin trong video tiếng Nhật
+    assert find_platforms("インスタント麺と短いshortsの話 高評価のお店", "ja") == []  # từ dễ nhầm không bị bắt
+    assert find_forbidden("#fyp #shorts #youtube", "en") == ["youtube"]
+    assert find_platforms("youtube", "en", {"enabled": False}) == []
+
+
+def test_transcript_platform_mentions_cut_short_sentence():
+    cfg = {**CFG, "platform_sentence_s": 6.0, "other_platforms": {"en": ["youtube"], "ko": ["유튜브"]}}
+    segs = [{"start": 10, "end": 13, "text": " Subscribe on YouTube!", "words": [
+        {"start": 10.0, "end": 10.6, "word": " Subscribe"}, {"start": 11.0, "end": 11.5, "word": " YouTube"}]},
+            {"start": 20, "end": 30, "text": " long story I saw on youtube and then we went home", "words": [
+                {"start": 20.0, "end": 21.0, "word": " long"}, {"start": 24.0, "end": 24.4, "word": " youtube"}]}]
+    hits = transcript_hits(segs, "en", cfg)
+    assert [(h.start, h.end, h.category) for h in hits] == [(10, 13, "other_platform"), (24.0, 24.4, "other_platform")]
+
+
+def test_captions_reject_other_platform(tmp_path):
+    from app.director.tasks import make_captions
+
+    a = make_analysis(tmp_path, duration=60.0)
+    u = understand(FakeDirector(), a)
+    plan = EditPlan.model_validate(_short_plan())
+    good = load("captions.json")
+    bad = {**good, "hashtags": good["hashtags"][:-1] + ["#youtube"],
+           "hashtags_vi": good["hashtags_vi"]}
+    d = FakeDirector(responses={"captions": [bad, good]})
+    make_captions(d, a, u, plan)
+    assert len(d.calls) == 2 and "youtube" in d.calls[1]["prompt"]
+    assert "nền tảng nào khác ngoài TikTok" in d.calls[0]["prompt"]

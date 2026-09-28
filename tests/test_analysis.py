@@ -166,3 +166,30 @@ def test_scan_video_samples_sequentially(tmp_path):
                     "-pix_fmt", "yuv420p", str(video)], check=True)
     frames = scan_video(video, every_s=0.5)
     assert [round(f.t, 2) for f in frames] == [0.0, 0.5, 1.0, 1.5, 2.0, 2.5]
+
+
+def _two_color_video(path, fps=25, a=75, b=100):
+    import cv2
+    import numpy as np
+
+    w = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), fps, (160, 120))
+    for i in range(a + b):
+        f = np.zeros((120, 160, 3), np.uint8)
+        f[:] = (0, 0, 255) if i < a else (255, 0, 0)
+        w.write(f)
+    w.release()
+    return path
+
+
+def test_detect_scenes_chunked_with_progress(tmp_path):
+    from app.analysis.scenes import detect_scenes
+    from app.analysis.subjects import scan_video
+
+    v = _two_color_video(tmp_path / "t.avi")
+    logs = []
+    scenes = detect_scenes(v, duration=7.0, frame_skip=1, progress=logs.append, chunk_s=1)
+    assert len(scenes) == 2 and abs(scenes[0].end - 3.0) < 0.1 and scenes[1].end == 7.0
+    assert logs and all(m.startswith("Dò cảnh…") for m in logs)
+    logs.clear()
+    scan_video(v, progress=logs.append)
+    assert logs and all(m.startswith("Dò khuôn mặt…") for m in logs)

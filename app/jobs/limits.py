@@ -1,7 +1,8 @@
 """Giới hạn tài nguyên khi nhiều video (job) chạy song song.
 
-Mỗi bước của job thuộc một nhóm; mỗi nhóm có số "chỗ" (config/app.yaml → parallel). Ví dụ phân tích chỉ 1 chỗ:
-video A đang nhận dạng thoại trên GPU thì video B phải đợi, nhưng video B vẫn có thể hỏi đạo diễn AI cùng lúc.
+Mỗi bước của job thuộc một nhóm; mỗi nhóm có số "chỗ" (config/app.yaml → parallel). Riêng GPU chỉ khóa đúng
+lúc nhận dạng thoại (Whisper): video A đang nhận dạng thoại thì video B đợi GPU, nhưng B vẫn dò cảnh / dò mặt (CPU)
+hoặc hỏi đạo diễn AI cùng lúc.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from app import config
 
 STEP_GROUP = {"analyze": "analyze", "understand": "director", "segment": "director", "hooks": "director",
               "plan": "director", "captions": "director", "write": "write"}
-GROUP_VI = {"analyze": "phân tích (GPU)", "director": "hỏi đạo diễn AI", "write": "ghi draft CapCut"}
+GROUP_VI = {"analyze": "phân tích", "gpu": "GPU (nhận dạng thoại)", "director": "hỏi đạo diễn AI", "write": "ghi draft CapCut"}
 _SEMS: dict[str, threading.Semaphore] = {}
 _LOCK = threading.Lock()
 
@@ -29,7 +30,12 @@ def _sem(group: str) -> threading.Semaphore:
 @contextmanager
 def slot(step: str, on_wait=None):
     """Giữ một chỗ của nhóm tài nguyên trong lúc chạy bước; hết chỗ thì gọi on_wait() rồi đợi."""
-    group = STEP_GROUP.get(step)
+    with group_slot(STEP_GROUP.get(step), on_wait):
+        yield
+
+
+@contextmanager
+def group_slot(group: str | None, on_wait=None):
     if group is None:
         yield
         return

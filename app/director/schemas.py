@@ -32,14 +32,15 @@ class BurnedInText(BaseModel):
 
 PolicyCategory = Literal[
     "violence", "dangerous_acts", "self_harm", "sexual", "minor_safety", "hate", "harassment", "profanity",
-    "illegal", "drugs_alcohol_tobacco", "gambling", "weapons", "misinformation", "privacy", "other"]
+    "illegal", "drugs_alcohol_tobacco", "gambling", "weapons", "misinformation", "privacy", "other_platform", "other"]
 POLICY_VI = {
     "violence": "bạo lực / máu me", "dangerous_acts": "hành vi nguy hiểm, dễ bị bắt chước",
     "self_harm": "tự hại / tự tử", "sexual": "khiêu dâm / gợi dục", "minor_safety": "an toàn trẻ vị thành niên",
     "hate": "phát ngôn thù ghét, kỳ thị", "harassment": "quấy rối, lăng mạ, bắt nạt", "profanity": "chửi thề / từ tục",
     "illegal": "hoạt động phạm pháp", "drugs_alcohol_tobacco": "ma túy / rượu bia / thuốc lá",
     "gambling": "cờ bạc", "weapons": "vũ khí", "misinformation": "thông tin sai lệch gây hại",
-    "privacy": "lộ thông tin cá nhân (số điện thoại, địa chỉ, biển số...)", "other": "khác",
+    "privacy": "lộ thông tin cá nhân (số điện thoại, địa chỉ, biển số...)",
+    "other_platform": "nhắc tới nền tảng khác ngoài TikTok (YouTube, Instagram...)", "other": "khác",
 }
 
 

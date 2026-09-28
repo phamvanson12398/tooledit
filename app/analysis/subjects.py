@@ -96,7 +96,7 @@ def mouth_motion(gray_a, gray_b, box: Box) -> float:
 
 
 def scan_video(video: Path, every_s: float = 0.5, min_face_frac: float = 0.06,
-               max_width: int = 640, motion_gap: int = 3) -> list[FrameSubjects]:
+               max_width: int = 640, motion_gap: int = 3, progress=None) -> list[FrameSubjects]:
     """Đọc video tuần tự (grab bỏ qua khung không cần, nhanh hơn nhiều so với tua từng mốc)
     và thu nhỏ khung về tối đa max_width trước khi dò mặt. Tọa độ trả về vẫn chuẩn hóa 0..1.
     Mỗi mốc đọc thêm một khung cách `motion_gap` khung để đo miệng ai đang cử động (người đang nói)."""
@@ -111,10 +111,17 @@ def scan_video(video: Path, every_s: float = 0.5, min_face_frac: float = 0.06,
     cap = cv2.VideoCapture(str(video))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     step = max(motion_gap + 1, int(round(fps * every_s)))
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
     out = []
     idx = 0
+    last_pct = 0
     while True:
         if idx % step == 0:
+            if progress and total > 0:  # báo tiến độ mỗi 10% (video dài dò mặt mất vài phút)
+                pct = int(idx / total * 100)
+                if pct // 10 > last_pct // 10 and pct < 100:
+                    progress(f"Dò khuôn mặt… {pct}%")
+                    last_pct = pct
             t = idx / fps
             ok, frame = cap.read()
             if not ok:

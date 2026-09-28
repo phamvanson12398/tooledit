@@ -14,6 +14,9 @@ Xem transcript và các khung hình dưới đây, rồi cho biết:
 - `policy_issues`: MỌI đoạn vi phạm Nguyên tắc cộng đồng TikTok (xem phần "Chính sách TikTok" ở trên) — mốc giây gốc,
   `category`, lý do tiếng Việt. Các đoạn này sẽ bị CẮT BỎ khỏi video. Đánh dấu hẹp đúng chỗ vi phạm (một câu chửi
   thề thì chỉ đoạn câu đó), không đánh dấu cả phút nếu chỉ vài giây vi phạm. Không có thì để [];
+  Lời thoại hoặc chữ trên hình nhắc tới nền tảng khác (YouTube, Instagram, "구독과 좋아요", "チャンネル登録"...) cũng là
+  vi phạm (`category: other_platform`). Logo/watermark nền tảng khác nằm suốt video thì không đánh dấu cắt, mà ghi vào
+  `burned_in_text` và `sensitive_notes_vi` để người dùng che/crop;
 - `sensitive_notes_vi`: điều không được viết hay ám chỉ trên màn hình/hook (ví dụ câu đùa giả định dễ bị
   hiểu là sự thật, chuyện riêng tư, cáo buộc).
 

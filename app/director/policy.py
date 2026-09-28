@@ -18,24 +18,42 @@ def load_cfg() -> dict:
     return config.load("policy") or {}
 
 
+def _find(text: str, lists: dict, langs: list[str]) -> list[str]:
+    hits = []
+    low = text.lower()
+    for lang in langs:
+        for w in lists.get(lang) or []:
+            w = str(w).lower()
+            if lang == "en":  # khớp theo đầu từ: "fuck" bắt "fucking", "pushit" thì không
+                if re.search(rf"(?<![a-z0-9]){re.escape(w)}", low):
+                    hits.append(w)
+            elif w in low:
+                hits.append(w)
+    return hits
+
+
 def find_bad_words(text: str, language: str | None = None, cfg: dict | None = None) -> list[str]:
     """Từ tục có trong text. language=None: kiểm tra mọi ngôn ngữ."""
     cfg = load_cfg() if cfg is None else cfg
     if not cfg.get("enabled", True) or not text:
         return []
     lists = cfg.get("bad_words") or {}
-    langs = [language] if language in lists else list(lists)
-    hits = []
-    low = text.lower()
-    for lang in langs:
-        for w in lists.get(lang) or []:
-            w = str(w).lower()
-            if lang == "en":
-                if re.search(rf"(?<![a-z]){re.escape(w)}", low):
-                    hits.append(w)
-            elif w in low:
-                hits.append(w)
-    return hits
+    return _find(text, lists, [language] if language in lists else list(lists))
+
+
+def find_platforms(text: str, language: str | None = None, cfg: dict | None = None) -> list[str]:
+    """Tên / lời kêu gọi của nền tảng khác (YouTube, Instagram...). Luôn xét mọi ngôn ngữ, vì video tiếng Hàn/Nhật
+    vẫn hay nói "YouTube" bằng chữ Latin."""
+    cfg = load_cfg() if cfg is None else cfg
+    if not cfg.get("enabled", True) or not text:
+        return []
+    lists = cfg.get("other_platforms") or {}
+    return _find(text, lists, list(lists))
+
+
+def find_forbidden(text: str, language: str | None = None, cfg: dict | None = None) -> list[str]:
+    """Mọi thứ không được xuất hiện trong chữ trên màn hình / hook / caption / hashtag trên TikTok."""
+    return find_bad_words(text, language, cfg) + find_platforms(text, language, cfg)
 
 
 def merge_ranges(ranges: list[tuple[float, float]], gap: float = 0.0) -> list[tuple[float, float]]:
@@ -48,25 +66,38 @@ def merge_ranges(ranges: list[tuple[float, float]], gap: float = 0.0) -> list[tu
     return [(round(s, 3), round(e, 3)) for s, e in out]
 
 
-def transcript_hits(segments: list[dict], language: str | None, cfg: dict | None = None) -> list[PolicyIssue]:
-    """Từ tục trong lời thoại → đoạn cần cắt (theo mốc từng từ; không có mốc từ thì cả câu)."""
-    cfg = load_cfg() if cfg is None else cfg
+def _word_hits(segments: list[dict], language: str | None, cfg: dict, finder, whole_sentence_s: float = 0.0
+               ) -> list[tuple[float, float]]:
+    """Đoạn lời thoại chứa từ bị cấm: theo mốc từng từ; câu ngắn ≤ whole_sentence_s giây thì cắt cả câu."""
     ranges: list[tuple[float, float]] = []
     for s in segments:
-        if not find_bad_words(s.get("text", ""), language, cfg):
+        if not finder(s.get("text", ""), language, cfg):
+            continue
+        if whole_sentence_s and s["end"] - s["start"] <= whole_sentence_s:
+            ranges.append((s["start"], s["end"]))
             continue
         words = s.get("words") or []
-        hit = [(w["start"], w["end"]) for w in words if find_bad_words(w.get("word", ""), language, cfg)]
+        hit = [(w["start"], w["end"]) for w in words if finder(w.get("word", ""), language, cfg)]
         if not hit and words:  # từ tục bị tách thành nhiều "từ" (tiếng Hàn/Nhật): tìm cụm từ liền nhau chứa nó
             for span in range(2, 5):  # cụm ngắn nhất trước, để không cắt lan sang từ vô hại
                 hit = [(words[i]["start"], words[i + span - 1]["end"]) for i in range(len(words) - span + 1)
-                       if find_bad_words("".join(w.get("word", "") for w in words[i:i + span]), language, cfg)]
+                       if finder("".join(w.get("word", "") for w in words[i:i + span]), language, cfg)]
                 if hit:
                     break
         ranges += hit or [(s["start"], s["end"])]
-    return [PolicyIssue(start=a, end=max(b, a + 0.05), category="profanity", auto=True,
-                        reason_vi="từ tục trong lời thoại (máy tự dò)")
-            for a, b in merge_ranges(ranges, cfg.get("merge_gap_s", 0.6))]
+    return merge_ranges(ranges, cfg.get("merge_gap_s", 0.6))
+
+
+def transcript_hits(segments: list[dict], language: str | None, cfg: dict | None = None) -> list[PolicyIssue]:
+    """Từ tục + nhắc nền tảng khác trong lời thoại → đoạn cần cắt."""
+    cfg = load_cfg() if cfg is None else cfg
+    out = [PolicyIssue(start=a, end=max(b, a + 0.05), category="profanity", auto=True,
+                       reason_vi="từ tục trong lời thoại (máy tự dò)")
+           for a, b in _word_hits(segments, language, cfg, find_bad_words)]
+    out += [PolicyIssue(start=a, end=max(b, a + 0.05), category="other_platform", auto=True,
+                        reason_vi="nhắc tới nền tảng khác ngoài TikTok (máy tự dò)")
+            for a, b in _word_hits(segments, language, cfg, find_platforms, cfg.get("platform_sentence_s", 6.0))]
+    return sorted(out, key=lambda p: p.start)
 
 
 def add_auto_issues(u, segments: list[dict], cfg: dict | None = None):
@@ -147,7 +178,7 @@ def check_policy(plan, ranges: list[tuple[float, float]], language: str | None, 
         if overlap_s(c.source_start, c.source_end, ranges) > 0.05:
             errors.append(f"clip {c.source_start}-{c.source_end} chứa đoạn vi phạm chính sách TikTok — phải bỏ đoạn đó")
     for t in onscreen_texts(plan):
-        bad = find_bad_words(t, language, cfg)
+        bad = find_forbidden(t, language, cfg)
         if bad:
             errors.append(f"chữ trên màn hình '{t}' có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
     return errors

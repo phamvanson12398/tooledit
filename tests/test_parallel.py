@@ -86,5 +86,40 @@ def test_analyze_step_one_at_a_time_director_two(monkeypatch):
     for t in ts:
         t.join()
     assert peak == {"analyze": 1, "director": 2}
-    assert "phân tích (GPU)" in waits  # có báo đợi lượt
+    assert "phân tích" in waits  # có báo đợi lượt
+    limits.reset()
+
+
+def test_gpu_lock_only_around_transcription(monkeypatch):
+    """Analyze 2 chỗ nhưng GPU 1 chỗ: 2 video phân tích song song, chỉ phần Whisper là lần lượt."""
+    from app import config
+
+    monkeypatch.setattr(config, "load", lambda name: {"parallel": {"analyze": 2, "gpu": 1}} if name == "app" else {})
+    limits.reset()
+    peak = {"analyze": 0, "gpu": 0}
+    now = {"analyze": 0, "gpu": 0}
+    waits = []
+    lk = threading.Lock()
+
+    def bump(k, d):
+        with lk:
+            now[k] += d
+            peak[k] = max(peak[k], now[k])
+
+    def work():
+        with limits.slot("analyze"):
+            bump("analyze", 1)
+            with limits.group_slot("gpu", on_wait=waits.append):
+                bump("gpu", 1)
+                time.sleep(0.1)
+                bump("gpu", -1)
+            time.sleep(0.1)
+            bump("analyze", -1)
+
+    ts = [threading.Thread(target=work) for _ in range(2)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    assert peak == {"analyze": 2, "gpu": 1} and waits == ["GPU (nhận dạng thoại)"]
     limits.reset()

@@ -14,3 +14,17 @@ bad_words:
   en: [fuck, motherfuck, shit, bitch, cunt, asshole, dickhead, bastard]
   ko: [씨발, 시발, 씨바, 개새끼, 개새기, 병신, 좆, 존나, 지랄, 미친놈, 미친년]
   ja: [死ね, ぶっ殺す, 殺すぞ, くたばれ]
+
+# Nhắc tới nền tảng khác ngoài TikTok (tên nền tảng, lời kêu gọi kiểu YouTube "subscribe / 구독 / チャンネル登録").
+# Không được có trong caption, hashtag, chữ trên màn hình, câu hook; trong lời thoại thì bị CẮT.
+# Luôn xét cả 3 danh sách với mọi video (video tiếng Hàn/Nhật vẫn hay nói "YouTube").
+# Câu thoại ngắn (≤ platform_sentence_s giây) chứa tên nền tảng thì cắt cả câu, câu dài thì chỉ cắt đúng từ đó.
+# Cố ý không đưa từ dễ nhầm (vd "shorts" = quần short, "インスタント" = mì ăn liền) — đạo diễn AI tự nhận ra các ca khác.
+platform_sentence_s: 6.0
+other_platforms:
+  en: [youtube, youtuber, instagram, facebook, twitch, twitter, snapchat, douyin, kuaishou, bilibili, niconico,
+       weibo, patreon, onlyfans, discord, subscribe, "hit the bell", "yt shorts", "ig reels", "instagram reels"]
+  ko: [유튜브, 유투브, 유튜버, 인스타, 페이스북, 트위터, 트위치, 아프리카tv, 아프리카티비, 치지직, 쇼츠, 릴스,
+       "구독과 좋아요", "구독 좋아요", "구독, 좋아요", 구독버튼, "구독 버튼", "채널 구독", "알림 설정"]
+  ja: [ユーチューブ, ユーチューバー, インスタグラム, インスタライブ, フェイスブック, ツイッター, ツイキャス,
+       ニコニコ動画, ニコ生, チャンネル登録, 高評価ボタン, 高評価お願い, "高評価と"]
