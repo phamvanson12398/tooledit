@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 30 — Phản chiếu ngang một số cảnh (chế độ Đổi ngôn ngữ / dựng lại) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job Đổi ngôn ngữ cũ: bấm **🔁 Dựng lại draft** (job phân tích từ
+   trước vẫn dùng được; muốn AI đánh giá lại có chữ/logo hay không thì tạo job mới).
+2. Nhật ký bước ghi draft: "Phản chiếu ngang N cảnh (để bản dựng khác bản gốc)".
+3. Mở draft trong CapCut, chọn từng clip → mục **Phản chiếu** (Mirror) của các cảnh được lật phải đang bật. Kiểm tra:
+   - khoảng 40% số cảnh bị lật, cảnh mở đầu giữ nguyên; trong cùng một cảnh, các cú cắt cùng chiều;
+   - phụ đề / tiêu đề / sticker KHÔNG bị ngược (chỉ hình video bị lật);
+   - footage có chữ in sẵn, logo, bảng hiệu, nhãn sản phẩm: tool tự KHÔNG lật (tránh chữ ngược) — nếu vẫn thấy chữ
+     ngược ở cảnh nào, bỏ tick Phản chiếu cảnh đó trong CapCut và báo lại.
+4. Chỉnh tỉ lệ trong `config\dub.yaml` → `style_override` → `mirror: {share: 0.4}` (0 = tắt, 0.5 = một nửa số cảnh).
+   Muốn dùng cho kiểu dựng khác: thêm dòng `mirror: {share: 0.3}` vào `styles\<kiểu>.yaml`.
+
 ## Bước 29 — Khung video đúng như bạn chọn (4:3 / 1:1 / 16:9) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 Trước đây bố cục "4 dòng tiêu đề" luôn ép khối video 16:9, bỏ qua lựa chọn 4:3 / 1:1. Đã sửa.

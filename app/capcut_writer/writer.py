@@ -238,8 +238,9 @@ class DraftWriter:
         transition_duration: int | None = None,
         background_blur: float | None = None,
         background_color: str | None = None,
+        flip_horizontal: bool = False,
     ) -> dict:
-        """Thêm một clip. background_blur (0–1): lấp phần trống bằng bản mờ của chính video;
+        """Thêm một clip. flip_horizontal: phản chiếu ngang (clip.flip.horizontal như CapCut 9.5.0 tự ghi). background_blur (0–1): lấp phần trống bằng bản mờ của chính video;
         background_color ('#RRGGBBAA'): lấp bằng màu trơn (theo định dạng BackgroundFilling của pyCapCut). duration là thời lượng trên timeline; nguồn dùng duration*speed."""
         source_duration = round(duration * speed)
         if source_start < 0 or source_start + source_duration > source.duration:
@@ -265,6 +266,7 @@ class DraftWriter:
         if speed_mat is not None:
             speed_mat["speed"] = speed
         self._set_clip(seg, x=x, y=y, scale=scale)
+        seg["clip"]["flip"] = {"vertical": False, "horizontal": bool(flip_horizontal)}
         canvas = self._extra(seg, "canvases")
         if canvas is not None and (background_blur is not None or background_color is not None):
             if background_blur is not None:

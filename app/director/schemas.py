@@ -67,6 +67,8 @@ class Understanding(BaseModel):
     usable_range: TimeRange = Field(description="đoạn chứa mạch nội dung chính, bỏ phần thừa đầu/cuối")
     name_corrections: list[NameCorrection] = Field(default_factory=list)
     burned_in_text: BurnedInText
+    mirror_ok: bool = Field(default=True, description="false nếu hình có nhiều chữ / logo / bảng hiệu / nhãn sản phẩm "
+                                                      "(phản chiếu sẽ thành chữ ngược)")
     sensitive_notes_vi: list[str] = Field(
         default_factory=list, description="điều KHÔNG được viết/ám chỉ trên màn hình hay trong hook")
     policy_issues: list[PolicyIssue] = Field(

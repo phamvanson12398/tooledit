@@ -31,6 +31,9 @@ style_override:
   reorder: false
   cold_open: false
   motion: {every_clip: true, max_scale: 1.2}
+  # Phản chiếu ngang một phần cảnh (chủ dự án yêu cầu 01/10): ~40% số cảnh, rải đều, theo cảnh (cùng cảnh cùng chiều).
+  # Tự TẮT khi footage có chữ in sẵn / logo / bảng hiệu (AI báo ở bước hiểu nội dung) để không lộ chữ ngược.
+  mirror: {share: 0.4, min_scenes: 3, skip_burned_in: true}
 # Góc máy bám người (chỉ dùng khi phong cách chưa có cấu hình camera riêng)
 camera_default:
   mode: speaker

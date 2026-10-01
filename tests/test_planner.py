@@ -584,3 +584,34 @@ def test_runner_passes_chosen_ratio(tmp_path):
     job.data["default_ratio"] = "auto"
     assert layout_for(r._style(job, "podcast"))["block_ratio"] == "16:9"
     assert layout_for(r._style(job, "sports_analysis"))["block_ratio"] == "9:10"
+
+
+def test_mirror_some_scenes_but_not_when_text_on_screen(tmp_path):
+    from app.planner.builder import mirror_picker
+
+    u = Understanding.model_validate({**load("understand.json"), "burned_in_text": {"present": False}})
+    scenes = [{"start": float(i * 10), "end": float(i * 10 + 10)} for i in range(10)]
+    pick = mirror_picker({"mirror": {"share": 0.4}}, u, scenes, 20)
+    flags = [pick(i * 10 + 5) for i in range(10)]
+    assert sum(flags) == 4 and not flags[0]  # ~40% số cảnh, cảnh mở đầu giữ nguyên
+    assert pick(21) == pick(28)  # cùng một cảnh → cùng chiều (người không nhảy qua lại)
+    assert not any(mirror_picker({}, u, scenes, 20)(t) for t in range(100))  # kiểu dựng không bật → không lật
+    text = u.model_copy(update={"burned_in_text": u.burned_in_text.model_copy(update={"present": True})})
+    assert not any(mirror_picker({"mirror": {"share": 0.4}}, text, scenes, 20)(t) for t in range(100))
+    logo = u.model_copy(update={"mirror_ok": False})
+    assert not any(mirror_picker({"mirror": {"share": 0.4}}, logo, scenes, 20)(t) for t in range(100))
+    one_take = mirror_picker({"mirror": {"share": 0.5}}, u, scenes[:1], 6)  # 1 cảnh dài → theo clip
+    assert [one_take(0, i) for i in range(6)] == [False, True, False, True, False, True]
+
+    # dựng thật: clip được lật có flip.horizontal = true trong draft
+    from app.styles import load_style
+
+    plan = EditPlan.model_validate({**load("plan.json"), "clips": [
+        {"source_start": 1, "source_end": 6}, {"source_start": 7, "source_end": 12}, {"source_start": 13, "source_end": 18},
+        {"source_start": 19, "source_end": 24}]})
+    an = _analysis()
+    an["scenes"]["scenes"] = scenes
+    res = build(plan, u, an, DraftTemplate(SAMPLE), tmp_path, "mir", {**load_style("jp_telop"), "mirror": {"share": 0.5}})
+    tl = res.writer.build_timeline()
+    flips = [s["clip"]["flip"]["horizontal"] for t in tl["tracks"] if t["type"] == "video" for s in t["segments"]]
+    assert True in flips and False in flips and any("Phản chiếu ngang" in n for n in res.notes)

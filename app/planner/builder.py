@@ -203,6 +203,27 @@ def auto_motion(n: int, dur_us: int, cfg: dict) -> list[Keyframe]:
             Keyframe("rotation", 0, -1.5), Keyframe("rotation", end, 1.5)]
 
 
+def mirror_picker(style: dict, u, scenes: list[dict], n_clips: int):
+    """Chọn cảnh phản chiếu ngang (để bản dựng khác bản gốc). Theo CẢNH (cùng một cảnh thì cùng chiều, người không
+    nhảy qua lại giữa các cú cắt trong cảnh); footage chỉ 1–2 cảnh dài thì theo clip. Rải đều theo tỉ lệ `share`.
+    Tắt khi hình có chữ in sẵn / logo (chữ sẽ bị ngược). Trả hàm (giây gốc, số thứ tự clip) → True/False."""
+    cfg = style.get("mirror") or {}
+    share = float(cfg.get("share", 0.0))
+    b = u.burned_in_text
+    if share <= 0 or not getattr(u, "mirror_ok", True) or (b.present and cfg.get("skip_burned_in", True)):
+        return lambda t, i=0: False
+
+    def pick(k: int) -> bool:  # rải đều theo tỉ lệ share (0.4 → cảnh thứ 3, 5, 8, 10…); cảnh mở đầu giữ nguyên
+        return int((k + 1) * share) > int(k * share)
+
+    starts = sorted(s["start"] for s in scenes)
+    if len(starts) >= int(cfg.get("min_scenes", 3)):
+        import bisect
+
+        return lambda t, i=0: pick(max(0, bisect.bisect_right(starts, t + 1e-6) - 1))
+    return lambda t, i=0: pick(i)
+
+
 def subject_center(subjects: dict, start: float, end: float) -> float:
     pts = [cx for t, cx, _ in subjects.get("points", []) if start <= t <= end]
     return sum(pts) / len(pts) if pts else 0.5
@@ -259,6 +280,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             return None
         return block_crop(src.width, src.height, ratio, center_x=subject_center(subjects, start, end))
 
+    mirrored = mirror_picker(style, u, sc.get("scenes") or [], len(plan.clips))
+    n_mirror = 0
+
     # ---------- hook ----------
     hook_us = 0
     if hook is not None:
@@ -286,7 +310,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                    [Keyframe("scale", 0, 1.18), Keyframe("scale", min(dur, 250_000), 1.05), Keyframe("scale", dur, 1.12)])
             w.add_video(src, target_start=start, duration=dur, source_start=round(h_start * SEC),
                         crop=crop_for(ratio, h_start, h_start + dur / SEC), volume=0.15, keyframes=kfs,
-                        transition=transition if start + dur >= hook_us else None, **bg_kwargs(ratio))
+                        transition=transition if start + dur >= hook_us else None,
+                        flip_horizontal=mirrored(h_start, 1 if kind == "punch" else 0), **bg_kwargs(ratio))
         pos = positions(ratio)
         w.add_text(hook.onscreen_text, start=0, duration=hook_us, x=pos["x"], y=pos["center"] if four else pos["top"],
                    style=hook_style, animations=hook_anims)
@@ -391,7 +416,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                                            fallback_cx=subject_center(subjects, sh.start, sh.end)),
                             volume=0.0 if clean_audio else 1.0,
                             keyframes=(kfs or []) + ([] if clean_audio else orig_volume(bounds[j], bounds[j + 1])) or None,
-                            transition=last_trans if j == len(shots) - 1 else None, **bg_kwargs(ratio))
+                            transition=last_trans if j == len(shots) - 1 else None,
+                            flip_horizontal=mirrored(sh.start, idx), **bg_kwargs(ratio))
+                n_mirror += mirrored(sh.start, idx)
                 shot_count[sh.kind] += 1
         else:
             kfs = zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
@@ -404,7 +431,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                         volume=0.0 if (clean_audio or clip.replay) else 1.0,
                         keyframes=(kfs or []) + ([] if (clean_audio or clip.replay) else
                                                  orig_volume(p.out_start, p.out_end)) or None,
-                        transition=last_trans, **bg_kwargs(ratio))
+                        transition=last_trans, flip_horizontal=mirrored(clip.source_start, idx), **bg_kwargs(ratio))
+            n_mirror += mirrored(clip.source_start, idx)
         if clean_audio and not clip.replay:  # replay quay chậm: tắt tiếng gốc, để nhạc/SFX dẫn
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed,
@@ -414,6 +442,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             w.add_text(replay_text, start=p.out_start, duration=p.out_duration, x=rpos["x"], y=rpos["top"],
                        style=replay_style, animations=anims_in[:1])
 
+    if n_mirror:
+        notes.append(f"Phản chiếu ngang {n_mirror} cảnh (để bản dựng khác bản gốc).")
     if camera_on:
         notes.append(f"Góc máy theo người nói: {len(people)} người, {shot_count['close']} cảnh cận, "
                      f"{shot_count['medium']} trung, {shot_count['wide']} toàn.")
@@ -481,7 +511,11 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             continue
         ratio = ratio_for(None)
         crop = crop_for(ratio, p.source_start, p.source_end)
-        target = block_point(a.x, a.y, crop, ratio) if ratio != "full" else ((a.x - 0.5) * 2, -(a.y - 0.5) * 2)
+        ax = 1.0 - a.x if mirrored(a.source_time, plan.clips.index(next(
+            c for c in plan.clips if c.source_start <= a.source_time <= c.source_end))) else a.x  # cảnh lật → lật mũi tên
+        if ax != a.x and crop is not None:
+            crop = dataclasses.replace(crop, left=1.0 - crop.right, right=1.0 - crop.left)
+        target = block_point(ax, a.y, crop, ratio) if ratio != "full" else ((ax - 0.5) * 2, -(a.y - 0.5) * 2)
         if target is None:
             notes.append(f"Mũi tên ở {a.source_time}s chỉ vào chỗ nằm ngoài khung đã cắt — bỏ qua.")
             continue

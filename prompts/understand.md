@@ -11,6 +11,7 @@ Xem transcript và các khung hình dưới đây, rồi cho biết:
 - `name_corrections`: tên riêng/từ mà transcript tự động nghe sai, kèm căn cứ (chữ trên khung hình, ngữ cảnh).
   Chỉ ghi khi chắc chắn; phụ đề sẽ tự thay theo bảng này;
 - `burned_in_text`: footage gốc có sẵn chữ in trên hình không, ở vùng nào (để bố cục tránh chồng chữ);
+- `mirror_ok`: false nếu trong hình thường thấy chữ, logo, bảng hiệu, nhãn sản phẩm, số áo (phản chiếu sẽ lộ chữ ngược);
 - `policy_issues`: MỌI đoạn vi phạm Nguyên tắc cộng đồng TikTok (xem phần "Chính sách TikTok" ở trên) — mốc giây gốc,
   `category`, lý do tiếng Việt. Các đoạn này sẽ bị CẮT BỎ khỏi video. Đánh dấu hẹp đúng chỗ vi phạm (một câu chửi
   thề thì chỉ đoạn câu đó), không đánh dấu cả phút nếu chỉ vài giây vi phạm. Không có thì để [];
