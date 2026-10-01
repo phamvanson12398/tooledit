@@ -11,9 +11,17 @@ từng câu) và phụ đề chính là các câu này. Kế hoạch dựng đã
   {{max_cps}} ký tự/giây (không tính dấu cách, dấu câu). Nói gọn lại nếu câu gốc dài — giữ ý chính, không bịa thêm.
 - Văn nói tự nhiên của người bản xứ ({{market}}), đúng giọng điệu nhân vật (đùa thì đùa, nghiêm thì nghiêm).
   Không dịch từng chữ. Tên riêng: {{name_corrections}}
-- Đoạn chỉ có tiếng cười, tiếng hét, âm thanh hiện trường thì KHÔNG cần câu thuyết minh (để tiếng gốc).
+- `kind`: "dub" = câu dịch lời thoại gốc; "narration" = LỜI DẪN viết thêm cho chỗ không có giọng nói.
+- Tiếng cười, hò reo ngắn thì để nguyên tiếng gốc (giữ khoảnh khắc).
 - Không nhắc nền tảng nào khác ngoài TikTok, không chửi thề, không nhắc nội dung đã bị cắt vì chính sách.
 - `text_vi`: nghĩa tiếng Việt để chủ dự án hiểu.
+
+## Chỗ KHÔNG có giọng nói — BẮT BUỘC viết lời dẫn (`kind: "narration"`)
+{{silent_gaps}}
+Mỗi chỗ trên phải có lời dẫn phủ ít nhất một nửa thời lượng (có thể 1–3 câu, mỗi câu nằm gọn trong một clip).
+Lời dẫn như người dẫn chuyện TikTok: tả điều ĐANG thấy trên hình (xem khung hình), dẫn dắt sang đoạn sau, nói cảm xúc
+của khoảnh khắc, đặt câu hỏi gợi tò mò. KHÔNG bịa sự kiện, con số, tên, lời nhân vật không có trong footage; không
+"spoil" điều sắp xảy ra nếu chưa thấy. Giọng văn liền mạch với các câu thuyết minh xung quanh.
 
 ## Điều cấm
 {{sensitive_notes}}

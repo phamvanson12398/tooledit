@@ -7,6 +7,13 @@ original_db_no_voice: -6       # câu chưa có file thuyết minh: tiếng gố
 max_speed: 1.25                # file thuyết minh dài hơn chỗ trống → tăng tốc tối đa mức này
 line_s: [1.5, 9.0]             # mỗi câu thuyết minh dài 1.5–9 giây (một ý trọn vẹn)
 
+# Chỗ KHÔNG có giọng nói (chủ dự án chốt 01/10): AI phải viết thêm LỜI DẪN để lồng voice.
+narration:
+  min_gap_s: 3.0               # khoảng lặng thoại từ 3 giây trở lên (trên video đã dựng) là phải có lời dẫn
+  cover_ratio: 0.5             # lời dẫn phủ ít nhất 50% khoảng lặng đó
+  keep_reactions: true         # khoảng lặng chủ yếu là tiếng cười / hò reo thì để nguyên (giữ khoảnh khắc)
+  frames: 8                    # gửi tối đa 8 khung hình ở các khoảng lặng để AI tả đúng cảnh
+
 # Tốc độ nói tối đa (ký tự / giây, không tính dấu cách, dấu câu) — để câu dịch đọc kịp trong chỗ trống.
 max_cps: {ja: 8.0, ko: 7.0, en: 16.0}
 

@@ -67,7 +67,7 @@ def test_make_dub_prompt(tmp_path):
     u = understand(FakeDirector(), a).dubbed_to("ko")
     d = FakeDirector()
     s = make_dub(d, a, u, EditPlan.model_validate(_short_plan()))
-    assert len(s.lines) == 3
+    assert len(s.lines) == 5
     prompt = d.calls[0]["prompt"]
     assert "thuyết minh bằng **tiếng Hàn**" in prompt and "Footage gốc nói tiếng Nhật" in prompt
     assert "clip 0: 1.0–45.0s" in prompt
@@ -92,14 +92,14 @@ def test_full_dub_job(tmp_path):
     script = (jobs / "j1" / "dub_scripts.txt").read_text(encoding="utf-8")
     assert "저 스모 선수" in script and "video01_dub03.wav" in script
     vdir = jobs / "j1" / "voice"
-    for n in (1, 2, 3):
+    for n in (1, 2, 3, 4, 5):
         (vdir / f"video01_dub{n:02d}.wav").write_bytes(b"RIFF")
     job = r.resume(job)
     assert job.status == Status.done, job.message
     draft = Path(job.data["draft"])
     content = json.loads((draft / "draft_content.json").read_text(encoding="utf-8"))
     audio_paths = [m.get("path", "") for m in content["materials"]["audios"]]
-    assert sum("video01_dub" in p for p in audio_paths) == 3
+    assert sum("video01_dub" in p for p in audio_paths) == 5
     texts = " ".join(m.get("content", "") for m in content["materials"]["texts"])
     assert "스모" in texts and "こんにちは" not in texts  # phụ đề là câu dịch, không phải lời gốc
     plan = json.loads((jobs / "j1" / "plan" / "edit_plan_video01.json").read_text(encoding="utf-8"))
@@ -116,7 +116,7 @@ def test_dub_skip_and_redo(tmp_path):
     job = r.resume(job)
     assert job.status == Status.done, job.message
     missing = json.loads((jobs / "j1" / "missing_assets.json").read_text(encoding="utf-8"))
-    assert sum(m["kind"] == "voice" for m in missing) == 2
+    assert sum(m["kind"] == "voice" for m in missing) == 4
     r.redo(job, "dub")
     assert not list((jobs / "j1" / "plan").glob("dub_video*.json"))
     assert (jobs / "j1" / "voice" / "video01_dub01_cu.wav").is_file()
@@ -173,10 +173,45 @@ def test_web_dub_flow(tmp_path):
     page = client.get(f"/jobs/{jid}").text
     assert "Thu voice thuyết minh" in page and "video01_dub03" in page and "저 스모 선수" in page
     # chọn 3 file tên tùy ý một lượt → tự xếp theo thứ tự
-    files = [("files", (f"{n}.wav", b"RIFF", "audio/wav")) for n in (1, 2, 3)]
+    files = [("files", (f"{n}.wav", b"RIFF", "audio/wav")) for n in (1, 2, 3, 4, 5)]
     client.post(f"/jobs/{jid}/dub-voice", data={"video": "1"}, files=files, follow_redirects=False)
     wait_idle(app)
-    assert (jobs / jid / "voice" / "video01_dub03.wav").is_file()
+    assert (jobs / jid / "voice" / "video01_dub05.wav").is_file()
     job = Job.load(jobs, jid)
     assert job.status.value == "done", job.message
     assert "Voice thuyết minh" in client.get(f"/jobs/{jid}").text
+
+
+def test_silent_gaps_and_narration_check():
+    from app.director.tasks import check_narration, silent_gaps
+
+    plan = EditPlan.model_validate({**_short_plan(), "clips": [
+        {"source_start": 0, "source_end": 10}, {"source_start": 20, "source_end": 30},
+        {"source_start": 25, "source_end": 27, "speed": 0.5, "replay": True}]})
+    segs = [{"start": 0, "end": 2, "text": "a", "words": [{"start": 0.0, "end": 2.0, "word": "a"}]},
+            {"start": 21, "end": 29, "text": "b", "words": [{"start": 21.0, "end": 29.0, "word": "b"}]}]
+    cfg = {"narration": {"min_gap_s": 3.0, "cover_ratio": 0.5, "keep_reactions": True}}
+    gaps = silent_gaps(plan, segs, [], cfg)
+    # 2–10s clip 1 + 20–21s clip 2 liền nhau trên video = 9s lặng; cuối clip 2 chỉ 1s; replay không tính
+    assert len(gaps) == 1 and gaps[0]["pieces"] == [(2.0, 10.0), (20.0, 21.0)]
+    script = DubScript.model_validate({"video_index": 1, "editor_notes": "", "lines": [
+        {"kind": "narration", "source_start": 3, "source_end": 6, "text": "x", "text_vi": "x"}]})
+    assert check_narration(script, plan, gaps, cfg)  # 3s < 50% của 9s
+    script.lines.append(script.lines[0].model_copy(update={"source_start": 6.5, "source_end": 9.5}))
+    assert check_narration(script, plan, gaps, cfg) == []
+    # khoảng lặng chủ yếu là tiếng cười → giữ nguyên, không bắt lời dẫn
+    assert silent_gaps(plan, segs, [{"start": 2, "end": 10, "kind": "laugh"}], cfg) == []
+
+
+def test_dub_prompt_lists_silent_gaps(tmp_path):
+    a = make_analysis(tmp_path)
+    u = understand(FakeDirector(), a).dubbed_to("ko")
+    d = FakeDirector()
+    make_dub(d, a, u, EditPlan.model_validate(_short_plan()))
+    prompt = d.calls[0]["prompt"]
+    assert "BẮT BUỘC viết lời dẫn" in prompt and "giây gốc 3.0–45.0" in prompt
+    assert d.calls[0]["images"]  # gửi khung hình ở chỗ lặng để tả đúng cảnh
+    bad = {**FIX, "lines": FIX["lines"][:3]}  # thiếu lời dẫn → gọi lại
+    d2 = FakeDirector(responses={"dub": [bad, FIX]})
+    make_dub(d2, a, u, EditPlan.model_validate(_short_plan()))
+    assert len(d2.calls) == 2 and "chưa có lời dẫn" in d2.calls[1]["prompt"]

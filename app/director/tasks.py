@@ -483,6 +483,76 @@ def speech_chars(text: str) -> int:
     return sum(1 for ch in text if not ch.isspace() and not unicodedata.category(ch).startswith("P"))
 
 
+def silent_gaps(plan, segments: list[dict], events: list[dict] | None = None, cfg: dict | None = None) -> list[dict]:
+    """Chỗ KHÔNG có giọng nói trên video đã dựng (đủ dài) → cần lời dẫn.
+    Trả [{out_start, out_end (µs), pieces: [(giây gốc đầu, cuối)]}]. Clip replay / lặp lại không tính (nhạc dẫn)."""
+    from app.planner.timeline import SEC, TimeMap
+
+    cfg = (config.load("dub") if cfg is None else cfg).get("narration") or {}
+    min_gap = round(float(cfg.get("min_gap_s", 3.0)) * SEC)
+    tmap = TimeMap(plan.clips)
+    busy: list[tuple[int, int]] = []  # khoảng có thoại hoặc không cần lời dẫn (µs trên video)
+    words = [(w["start"], w["end"]) for s in segments for w in (s.get("words") or [])] or \
+        [(s["start"], s["end"]) for s in segments]
+    for c, p in zip(plan.clips, tmap.placed):
+        if c.replay or c.repeat:
+            busy.append((p.out_start, p.out_end))
+            continue
+        for a, b in words:
+            a, b = max(a, c.source_start), min(b, c.source_end)
+            if b > a:
+                busy.append((p.out_start + round((a - c.source_start) / c.speed * SEC),
+                             p.out_start + round((b - c.source_start) / c.speed * SEC)))
+    busy.sort()
+    gaps, t = [], 0
+    for a, b in busy + [(tmap.end, tmap.end)]:
+        if a - t >= min_gap:
+            gaps.append((t, a))
+        t = max(t, b)
+
+    def pieces(g0: int, g1: int) -> list[tuple[float, float]]:
+        out = []
+        for c, p in zip(plan.clips, tmap.placed):
+            a, b = max(g0, p.out_start), min(g1, p.out_end)
+            if b > a and not c.replay and not c.repeat:
+                out.append((round(c.source_start + (a - p.out_start) / SEC * c.speed, 2),
+                            round(c.source_start + (b - p.out_start) / SEC * c.speed, 2)))
+        return out
+
+    out = []
+    for g0, g1 in gaps:
+        src = pieces(g0, g1)
+        if cfg.get("keep_reactions", True) and events and src:
+            react = sum(max(0.0, min(e["end"], b) - max(e["start"], a)) for a, b in src for e in events
+                        if e.get("kind") in ("laugh", "cheer"))
+            if react >= 0.6 * sum(b - a for a, b in src):
+                continue  # tiếng cười / hò reo: giữ nguyên khoảnh khắc
+        out.append({"out_start": g0, "out_end": g1, "pieces": src})
+    return out
+
+
+def check_narration(script, plan, gaps: list[dict], cfg: dict | None = None) -> list[str]:
+    """Mỗi chỗ không có giọng nói phải có lời dẫn phủ đủ."""
+    from app.planner.timeline import SEC, TimeMap
+
+    ratio = float(((config.load("dub") if cfg is None else cfg).get("narration") or {}).get("cover_ratio", 0.5))
+    tmap = TimeMap(plan.clips)
+    spans = []
+    for ln in script.lines:
+        a, b = tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)
+        if a is not None and b is not None:
+            spans.append((a, b))
+    errors = []
+    for g in gaps:
+        g0, g1 = g["out_start"], g["out_end"]
+        cov = sum(max(0, min(b, g1) - max(a, g0)) for a, b in spans)
+        if cov < ratio * (g1 - g0):
+            where = ", ".join(f"{a:.1f}–{b:.1f}s" for a, b in g["pieces"])
+            errors.append(f"chỗ không có giọng nói ở giây gốc {where} ({(g1 - g0) / SEC:.1f}s) chưa có lời dẫn đủ "
+                          f"(cần phủ ≥ {ratio:.0%}) — viết thêm câu kind=\"narration\"")
+    return errors
+
+
 def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]:
     from app.director.policy import find_forbidden
     from app.planner.timeline import SEC, TimeMap
@@ -537,11 +607,25 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
                  "market": MARKETS.get(u.language, "TikTok"), "line_min": lo, "line_max": hi,
                  "max_cps": (cfg.get("max_cps") or {}).get(u.language, 10),
                  "hook": f"{hook.line} ({hook.line_vi})" if hook else "không có hook", "clips": clips}
+    gaps = silent_gaps(plan, segs, a.get("events"), cfg)
+    images = []
+    if gaps:
+        ncfg = cfg.get("narration") or {}
+        pool = [f for f in a["frames"] if any(x - 0.5 <= f["t"] <= y + 0.5 for g in gaps for x, y in g["pieces"])]
+        frames = pick_evenly(pool, int(ncfg.get("frames", 8)))
+        images = [analysis_dir / f["file"] for f in frames]
+        variables["silent_gaps"] = "\n".join(
+            f"- giây gốc {', '.join(f'{x:.1f}–{y:.1f}' for x, y in g['pieces'])} "
+            f"({(g['out_end'] - g['out_start']) / 1e6:.1f}s trên video)" for g in gaps) + \
+            ("\nKhung hình ở các chỗ này (mở bằng Read để xem đang có gì):\n" +
+             "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) if frames else "")
+    else:
+        variables["silent_gaps"] = "(không có — video có thoại gần như liên tục)"
 
     def extra(r) -> list[str]:
-        errors = check_dub(r, plan, u.language, cfg)
+        errors = check_dub(r, plan, u.language, cfg) + check_narration(r, plan, gaps, cfg)
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors
 
-    return director.run("dub", variables, DubScript, extra_check=extra)
+    return director.run("dub", variables, DubScript, images, extra_check=extra)

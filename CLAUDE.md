@@ -85,6 +85,8 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   `voice/videoNN_dubMM.wav`) + phụ đề, tiêu đề, chữ nhấn, hook, caption bằng ngôn ngữ đích. Tiếng gốc hạ nhỏ dưới voice.
 - "Khác bản gốc ~80%": đổi khung/cắt cận bám người, zoom + chuyển động mọi clip, filter, nhạc + hook + tiêu đề mới;
   **không đảo thứ tự cảnh**. Cấu hình trong `config/dub.yaml`.
+- Chỗ **không có giọng nói** (lặng ≥ 3 giây trên video đã dựng): AI phải viết thêm **lời dẫn** (`kind: narration`) để
+  lồng voice, tả đúng cảnh đang thấy (có gửi khung hình), không bịa; chỗ tiếng cười/hò reo giữ nguyên.
 
 ## 6. Khung hình
 

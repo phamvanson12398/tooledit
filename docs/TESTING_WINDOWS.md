@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 26 — Đổi ngôn ngữ: chỗ không có giọng nói được viết thêm lời dẫn `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job Đổi ngôn ngữ đã có thuyết minh cũ: bấm **🌐 Viết lại thuyết minh**.
+2. Chọn footage có đoạn dài không ai nói (cảnh đi đường, nấu ăn, cảnh quay toàn...).
+3. Bảng **🎙️ Thu voice thuyết minh**: các câu có nhãn **🗣️ lời dẫn** là câu AI viết thêm cho chỗ không có giọng nói
+   (file `dub_scripts.txt` ghi `[LỜI DẪN]`). Đọc nghĩa tiếng Việt: lời dẫn phải tả đúng cảnh đang thấy, không bịa.
+4. Thu và tải lên như các câu khác. Mở draft: mọi khoảng lặng từ 3 giây trở lên đều có voice (trừ chỗ tiếng cười /
+   hò reo — giữ nguyên tiếng gốc cho có không khí).
+5. Chỉnh trong `config\dub.yaml` → `narration`: `min_gap_s` (lặng bao lâu thì cần lời dẫn), `cover_ratio`,
+   `keep_reactions: false` nếu muốn lồng voice cả lên chỗ tiếng cười.
+
 ## Bước 25 — Chế độ "Đổi ngôn ngữ" (thuyết minh + phụ đề, dựng lại khác bản gốc) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

@@ -448,6 +448,8 @@ def check_captions(c: Captions) -> list[str]:
 # ---------------- Thuyết minh (chế độ Đổi ngôn ngữ) ----------------
 
 class DubLine(BaseModel):
+    kind: Literal["dub", "narration"] = Field(
+        default="dub", description="dub = dịch lời thoại gốc; narration = lời dẫn viết thêm cho chỗ KHÔNG có giọng nói")
     source_start: float = Field(ge=0, description="giây GỐC bắt đầu đoạn thoại được thuyết minh (nằm trong clip được giữ)")
     source_end: float = Field(gt=0, description="giây GỐC kết thúc")
     text: str = Field(description="câu thuyết minh bằng NGÔN NGỮ ĐÍCH, văn nói tự nhiên của người bản xứ")

@@ -326,7 +326,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                                  f"{max_speed}x nhưng vẫn tràn {(end - b) / SEC:.1f}s — nên thu lại ngắn hơn.")
             else:
                 missing.append({"kind": "voice", "what": f"video{video_index:02d}_dub{i:02d}.wav", "video": video_index,
-                                "at_s": round(a / SEC, 2), "purpose_vi": f"Thuyết minh: {ln.text}"})
+                                "at_s": round(a / SEC, 2),
+                                "purpose_vi": f"{'Lời dẫn' if ln.kind == 'narration' else 'Thuyết minh'}: {ln.text}"})
             dub_slots.append((i, a, end, ln.text, v, speed))
         voiced = [(a, e) for _, a, e, _, v, _ in dub_slots if v]
         o_hi = db_to_gain(float(dcfg.get("original_db_no_voice", -6)))
