@@ -90,6 +90,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   **không đảo thứ tự cảnh**. Cấu hình trong `config/dub.yaml`.
   Cập nhật 01/10: **phản chiếu ngang** ~40% số cảnh (theo cảnh, cùng cảnh cùng chiều; tự tắt khi hình có chữ/logo —
   `mirror_ok` / `burned_in_text`), cấu hình `style_override.mirror` trong `config/dub.yaml`.
+- **Bản địa hóa (chủ dự án chốt 01/10):** kịch bản (thuyết minh, lời dẫn, hook, tiêu đề, caption) viết THEO NƯỚC của khán
+  giả đích — giọng, cách hài, tên riêng, đơn vị, tiền tệ, giải thích chi tiết văn hóa lạ, điều nên tránh
+  (`config/localize.yaml`); câu được bản địa hóa ghi `adapt_vi`. Giữ đúng sự việc, không bịa.
 - Chỗ **không có giọng nói**: AI viết thêm **lời dẫn** (`kind: narration`) để lồng voice, nhưng **chỉ ở cảnh hay /
   hành động đáng chú ý** (vd nấu ăn: lúc thêm gia vị), không nói liên tục (tối đa ~60% thời gian lặng); mỗi câu ghi
   `action_vi`, tả đúng cảnh đang thấy (có gửi khung hình), không bịa; chỗ tiếng cười/hò reo giữ nguyên.

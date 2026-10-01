@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 31 — Đổi ngôn ngữ: kịch bản viết theo nước của khán giả (bản địa hóa) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: **✍️ Viết hook mới** + **🎬 Lập lại kế hoạch dựng** +
+   **🌐 Viết lại thuyết minh** (hoặc tạo job mới).
+2. Thử video tiếng Trung / Hàn đổi sang tiếng Nhật (hoặc Anh). Trong bảng thu voice, câu nào AI đổi cho hợp khán giả
+   có dòng **🌏 Bản địa hóa: …** (vd so món lạ với món Nhật quen, đổi đơn vị, đổi cách đùa).
+3. Đọc nghĩa tiếng Việt: giọng có tự nhiên như người nước đó nói không (Nhật: です・ます nhẹ nhàng; Hàn: 해요체;
+   Anh: thân mật kiểu TikTok Mỹ), chi tiết văn hóa lạ có được giải thích ngắn không, có đúng sự việc trong video không.
+4. Hook, tiêu đề, caption cũng viết theo cách của nước đó.
+5. Muốn chỉnh hướng dẫn cho từng nước: `config\localize.yaml` (giọng, đơn vị, điều nên tránh, từ không dùng).
+
 ## Bước 30 — Phản chiếu ngang một số cảnh (chế độ Đổi ngôn ngữ / dựng lại) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job Đổi ngôn ngữ cũ: bấm **🔁 Dựng lại draft** (job phân tích từ

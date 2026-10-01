@@ -118,7 +118,27 @@ def translate_note(u) -> str:
             f"THUYẾT MINH + PHỤ ĐỀ bằng {d} cho khán giả {d}: mọi chữ trên màn hình, tiêu đề, hook, caption, hashtag "
             f"viết bằng {d} — dịch Ý tự nhiên như người bản xứ nói, không dịch từng chữ, không để sót chữ {s}. "
             f"Tên riêng giữ cách đọc quen thuộc với khán giả đích. Nếu footage có chữ {s} in sẵn trên hình, ghi rõ "
-            "trong editor_notes để người dùng che trong CapCut.\n")
+            "trong editor_notes để người dùng che trong CapCut.\n" + localize_brief(u))
+
+
+def localize_brief(u) -> str:
+    """Viết theo NƯỚC của khán giả đích (không chỉ dịch chữ): giọng, cách hài, tên riêng, đơn vị, điều nên tránh."""
+    if u.source_language == u.language:
+        return ""
+    m = (config.load("localize").get("markets") or {}).get(u.language) or {}
+    if not m:
+        return ""
+    return (f"\n### BẢN ĐỊA HÓA cho {m.get('audience', u.language)}\n"
+            "Viết như một người bản xứ làm video cho chính khán giả nước mình — người xem phải hiểu ngay và thấy gần gũi. "
+            "Chi tiết văn hóa của nước gốc mà khán giả đích không biết thì giải thích ngắn hoặc so sánh với thứ quen thuộc "
+            "của họ; câu đùa không hợp thì đổi cách nói cho buồn cười theo kiểu nước họ (giữ đúng ý, không bịa sự việc).\n"
+            + (m.get("brief") or ""))
+
+
+def localize_violations(text: str, language: str) -> list[str]:
+    """Từ không hợp khán giả đích (vd đơn vị đo kiểu Mỹ với khán giả Nhật / Hàn)."""
+    terms = ((config.load("localize").get("markets") or {}).get(language) or {}).get("avoid_terms") or []
+    return [t for t in terms if t and t in (text or "")]
 
 
 def for_video(u, video: dict):
@@ -181,6 +201,9 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
                 if overlap_s(t.start, t.end, banned) > 0.05:
                     errors.append(f"hook {i}: {what} {t.start:.1f}–{t.end:.1f}s chạm đoạn vi phạm chính sách TikTok "
                                   "(sẽ bị cắt) — chọn đoạn khác")
+            odd = localize_violations(f"{o.intro} {o.line} {o.onscreen_text}", u.language)
+            if odd and u.source_language != u.language:
+                errors.append(f"hook {i}: '{', '.join(odd)}' không quen với khán giả này — đổi cách nói")
             bad = find_forbidden(f"{o.intro} {o.line} {o.onscreen_text}", u.language)
             if bad:
                 errors.append(f"hook {i}: có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
@@ -463,6 +486,9 @@ def make_captions(director: Director, analysis_dir: Path, u, plan, *, hook=None,
 
     def extra(r) -> list[str]:
         errors = check_captions(r) + ([] if r.video_index == video_index else [f"video_index phải là {video_index}"])
+        odd = localize_violations(r.caption, u.language) if u.source_language != u.language else []
+        if odd:
+            errors.append(f"caption có '{', '.join(odd)}' không quen với khán giả này — đổi cách nói")
         bad = find_forbidden(" ".join([r.caption, *r.hashtags]), u.language)
         if bad:
             errors.append(f"caption/hashtag có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
@@ -623,6 +649,9 @@ def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]
         if a < last_end - 50_000:
             errors.append(f"câu {i} chồng lên câu trước hoặc sai thứ tự")
         last_end = max(last_end, b)
+        odd = localize_violations(ln.text, language)
+        if odd:
+            errors.append(f"câu {i}: '{', '.join(odd)}' không quen với khán giả này — đổi sang đơn vị / cách nói của họ")
         bad = find_forbidden(ln.text, language)
         if bad:
             errors.append(f"câu {i} có từ không được phép trên TikTok ({', '.join(bad)})")
@@ -650,7 +679,7 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language),
                  "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
                  "market": MARKETS.get(u.language, "TikTok"), "line_min": lo, "line_max": hi,
-                 "max_cps": (cfg.get("max_cps") or {}).get(u.language, 10),
+                 "max_cps": (cfg.get("max_cps") or {}).get(u.language, 10), "localize_brief": localize_brief(u),
                  "hook": f"{hook_text(hook)} ({hook_text(hook, vi=True)})" if hook else "không có hook", "clips": clips}
     gaps = silent_gaps(plan, segs, a.get("events"), cfg)
     images = []

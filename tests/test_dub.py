@@ -248,3 +248,25 @@ def test_silent_opening_requires_cooking_style_narration(tmp_path):
     assert len(d.calls) == 2 and "MỞ ĐẦU IM LẶNG" in d.calls[0]["prompt"] and "gợi tò mò cách làm" in d.calls[0]["prompt"]
     # mở đầu có thoại → không bắt buộc
     assert opening_gap(silent_gaps(EditPlan.model_validate(_short_plan()), segs, [])) is None
+
+
+def test_localized_for_target_country(tmp_path):
+    from app.director.tasks import localize_brief, localize_violations
+
+    u = Understanding.model_validate(GOOD)  # gốc tiếng Nhật
+    assert localize_brief(u) == ""  # không đổi ngôn ngữ → không cần
+    ko = u.dubbed_to("ko")
+    brief = localize_brief(ko)
+    assert "khán giả TikTok Hàn Quốc" in brief and "해요체" in brief and "원" in brief
+    assert "BẢN ĐỊA HÓA" in translate_note(ko)  # hook / kế hoạch dựng / caption cũng nhận hướng dẫn này
+    assert localize_violations("3마일 정도 걸었어요", "ko") == ["마일"]
+    assert localize_violations("about 3 miles", "en") == []
+    # kịch bản thuyết minh: prompt có phần bản địa hóa; dùng đơn vị lạ → bị gọi lại
+    a = make_analysis(tmp_path)
+    uk = understand(FakeDirector(), a).dubbed_to("ko")
+    bad = json.loads(json.dumps(FIX))
+    bad["lines"][0]["text"] = "3마일이나 걸었대요."
+    d = FakeDirector(responses={"dub": [bad, FIX]})
+    make_dub(d, a, uk, EditPlan.model_validate(_short_plan()))
+    assert "khán giả TikTok Hàn Quốc" in d.calls[0]["prompt"] and "adapt_vi" in d.calls[0]["prompt"]
+    assert len(d.calls) == 2 and "không quen với khán giả" in d.calls[1]["prompt"]

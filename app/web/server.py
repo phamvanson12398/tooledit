@@ -936,7 +936,9 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                         f"<span class='muted'>~{ln.source_end - ln.source_start:.1f}s</span></td>"
                         f"<td>{('<span class=tag>🗣️ lời dẫn: ' + esc(ln.action_vi) + '</span> ') if ln.kind == 'narration' else ''}"
                         f"{esc(ln.text)}"
-                        f"<br><span class='muted'>🇻🇳 {esc(ln.text_vi)}</span></td></tr>")
+                        f"<br><span class='muted'>🇻🇳 {esc(ln.text_vi)}</span>"
+                        + (f"<br><span class='muted'>🌏 Bản địa hóa: {esc(ln.adapt_vi)}</span>" if ln.adapt_vi else "")
+                        + "</td></tr>")
         done = sum(1 for i in range(1, len(script.lines) + 1) if dub_io.find_line_voice(d, v, i))
         forms.append(
             f"<h2 style='margin-top:14px'>🎬 Video {v:02d} — đã có {done}/{len(script.lines)} câu</h2>"

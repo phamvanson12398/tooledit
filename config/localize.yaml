@@ -1,0 +1,31 @@
+# Bản địa hóa kịch bản khi Đổi ngôn ngữ (chủ dự án yêu cầu 01/10): viết THEO NƯỚC của khán giả đích để họ hiểu và
+# thích — không chỉ dịch chữ. Hướng dẫn này được ghép vào prompt hook / kế hoạch dựng / thuyết minh / caption.
+markets:
+  ja:
+    audience: "khán giả TikTok Nhật Bản"
+    brief: |
+      - Giọng: です・ます nhẹ nhàng thân thiện cho lời dẫn; lời nhân vật thì theo tính cách (thân mật dùng タメ口).
+        Tiết chế cảm thán phóng đại; hài kiểu Nhật là ツッコミ (bắt bẻ nhẹ) và nói giảm, không châm chọc gay gắt.
+      - Tên người / địa danh nước ngoài viết katakana theo cách đọc quen của người Nhật; món ăn nước ngoài thì kèm
+        so sánh với món Nhật quen thuộc nếu giúp dễ hình dung (vd "お好み焼きみたいな…").
+      - Đơn vị: mét, kg, độ C, gram, ml; tiền tệ nước ngoài thì quy ra khoảng 円 nếu là chi tiết quan trọng.
+      - Tránh: chủ đề lịch sử/chính trị gây tranh cãi giữa các nước, đùa về thảm họa, lời nói thiếu tôn trọng người lớn tuổi.
+    avoid_terms: [マイル, ポンド, フィート, 華氏, オンス, インチ]
+  ko:
+    audience: "khán giả TikTok Hàn Quốc"
+    brief: |
+      - Giọng: 해요체 tự nhiên cho lời dẫn; lời nhân vật theo quan hệ (bạn bè 반말, người lạ / lớn tuổi 존댓말).
+        Hài kiểu 예능: bình luận chêm ngắn, phản ứng mạnh nhưng không xúc phạm.
+      - Tên nước ngoài viết theo 외래어 표기 quen dùng; món / phong tục lạ thì so với thứ người Hàn biết (vd "부침개 같은…").
+      - Đơn vị: mét, kg, độ C, gram, ml; tiền tệ nước ngoài quy ra khoảng 원 nếu là chi tiết quan trọng.
+      - Tránh: tranh cãi lịch sử / lãnh thổ giữa các nước, so sánh hạ thấp quốc gia, đùa về ngoại hình.
+    avoid_terms: [마일, 파운드, 피트, 화씨, 온스, 인치]
+  en:
+    audience: "khán giả TikTok nói tiếng Anh (chủ yếu Mỹ)"
+    brief: |
+      - Giọng: thân mật, nhịp nhanh, câu ngắn kiểu TikTok Mỹ ("Okay so…", "wait for it"), không văn viết.
+      - Tên riêng châu Á giữ nguyên dạng Latin thông dụng; món / phong tục lạ giải thích bằng 2–3 chữ hoặc so với thứ
+        quen ở Mỹ (vd "kind of like a savory pancake").
+      - Đơn vị: chi tiết đo lường quan trọng thì nói theo kiểu Mỹ (°F, pounds, inches) hoặc kèm cả hai; tiền quy ra khoảng USD.
+      - Tránh: định kiến về châu Á, đùa giọng nói / phát âm, từ lóng xúc phạm.
+    avoid_terms: []

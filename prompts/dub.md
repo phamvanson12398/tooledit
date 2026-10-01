@@ -4,6 +4,8 @@ Footage gốc nói {{source_name}}. Bản TikTok này được thuyết minh b�
 từng câu) và phụ đề chính là các câu này. Kế hoạch dựng đã chọn xong các clip; dưới đây là lời thoại gốc của các clip
 được giữ, theo đúng thứ tự trên video.
 
+{{localize_brief}}
+
 ## Luật
 - Mỗi câu (`lines`) thuyết minh cho một đoạn thoại gốc: `source_start`–`source_end` là giây GỐC, nằm gọn trong
   MỘT clip được giữ (xem danh sách clip), các câu theo thứ tự, không chồng nhau.
@@ -15,6 +17,8 @@ từng câu) và phụ đề chính là các câu này. Kế hoạch dựng đã
 - Tiếng cười, hò reo ngắn thì để nguyên tiếng gốc (giữ khoảnh khắc).
 - Không nhắc nền tảng nào khác ngoài TikTok, không chửi thề, không nhắc nội dung đã bị cắt vì chính sách.
 - `text_vi`: nghĩa tiếng Việt để chủ dự án hiểu.
+- `adapt_vi`: câu nào bạn BẢN ĐỊA HÓA (đổi ví dụ, so sánh, đơn vị, cách đùa cho hợp khán giả đích) thì ghi ngắn đổi gì,
+  vì sao (tiếng Việt); câu dịch thẳng thì để trống.
 
 ## Chỗ KHÔNG có giọng nói — lời dẫn ở CẢNH HAY / HÀNH ĐỘNG đáng chú ý (`kind: "narration"`)
 {{silent_gaps}}

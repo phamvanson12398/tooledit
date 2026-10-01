@@ -50,7 +50,8 @@ def write_dub_scripts(job_dir: Path, scripts: dict[int, DubScript]) -> Path:
         for i, ln in enumerate(s.lines, 1):
             tag = f"  [LỜI DẪN — {ln.action_vi or 'chỗ không có giọng nói'}]" if ln.kind == "narration" else ""
             lines += [f"{line_name(v, i)}.wav  (~{ln.source_end - ln.source_start:.1f}s){tag}", f"  Câu: {ln.text}",
-                      f"  Nghĩa: {ln.text_vi}", ""]
+                      f"  Nghĩa: {ln.text_vi}"]
+            lines += ([f"  Bản địa hóa: {ln.adapt_vi}"] if ln.adapt_vi else []) + [""]
     path = Path(job_dir) / "dub_scripts.txt"
     path.write_text("\n".join(lines), encoding="utf-8")
     (Path(job_dir) / "voice").mkdir(exist_ok=True)
