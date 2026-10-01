@@ -13,6 +13,13 @@ narration:
   min_gap_s: 2.0               # khoảng lặng thoại từ 2 giây trở lên được đưa cho AI xem để tìm hành động đáng nói
   max_cover_ratio: 0.6         # tổng lời dẫn tối đa 60% thời gian lặng (để có chỗ thở)
   keep_reactions: true         # khoảng lặng chủ yếu là tiếng cười / hò reo thì không lồng lời dẫn
+  # Mở đầu im lặng (vd chỉ show món ăn / sản phẩm, chưa ai nói): BẮT BUỘC có lời dẫn mở đầu kiểu video nấu ăn —
+  # gần gũi, gợi thèm, gợi tò mò cách làm (chủ dự án chốt 01/10).
+  opening:
+    enabled: true
+    within_s: 1.0              # khoảng lặng bắt đầu trong 1 giây đầu video (sau hook) = mở đầu im lặng
+    min_len_s: 2.0             # và dài từ 2 giây
+    start_by_s: 1.0            # lời dẫn mở đầu phải cất lên trong 1 giây đầu của khoảng lặng đó
   frames: 12                   # gửi tối đa 12 khung hình ở các khoảng lặng để AI thấy hành động
 
 # Tốc độ nói tối đa (ký tự / giây, không tính dấu cách, dấu câu) — để câu dịch đọc kịp trong chỗ trống.

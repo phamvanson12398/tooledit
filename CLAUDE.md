@@ -88,6 +88,8 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - Chỗ **không có giọng nói**: AI viết thêm **lời dẫn** (`kind: narration`) để lồng voice, nhưng **chỉ ở cảnh hay /
   hành động đáng chú ý** (vd nấu ăn: lúc thêm gia vị), không nói liên tục (tối đa ~60% thời gian lặng); mỗi câu ghi
   `action_vi`, tả đúng cảnh đang thấy (có gửi khung hình), không bịa; chỗ tiếng cười/hò reo giữ nguyên.
+- Video **mở đầu im lặng** (vd chỉ show món ăn / sản phẩm): BẮT BUỘC có lời dẫn mở đầu ngay từ cảnh đầu, giọng như
+  video nấu ăn — gần gũi, gợi thèm, gợi tò mò cách làm (`narration.opening` trong `config/dub.yaml`).
 
 ## 6. Khung hình
 

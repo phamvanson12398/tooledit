@@ -225,3 +225,26 @@ def test_dub_prompt_lists_silent_gaps(tmp_path):
     d2 = FakeDirector(responses={"dub": [bad, FIX]})
     make_dub(d2, a, u, EditPlan.model_validate(_short_plan()))
     assert len(d2.calls) == 2 and "action_vi" in d2.calls[1]["prompt"]
+
+
+def test_silent_opening_requires_cooking_style_narration(tmp_path):
+    from app.director.tasks import check_narration, opening_gap, silent_gaps
+
+    a = make_analysis(tmp_path)  # lời thoại duy nhất ở 1–3s
+    u = understand(FakeDirector(), a).dubbed_to("ko")
+    plan = EditPlan.model_validate({**_short_plan(), "clips": [{"source_start": 3.0, "source_end": 45.0}]})
+    segs = [{"start": 1.0, "end": 3.0, "text": "こんにちは", "words": []}]
+    gaps = silent_gaps(plan, segs, [])
+    assert opening_gap(gaps) is not None  # mở đầu im lặng (show món)
+    no_open = DubScript.model_validate({**FIX, "lines": FIX["lines"][3:]})  # lời dẫn chỉ ở 30s, 38s
+    assert any("mở đầu im lặng" in e for e in check_narration(no_open, plan, gaps))
+    opened = no_open.model_copy(update={"lines": [no_open.lines[0].model_copy(update={
+        "source_start": 3.2, "source_end": 6.0, "text": "와, 이 윤기 좀 보세요.", "action_vi": "show món thành phẩm"}),
+        *no_open.lines]})
+    assert check_narration(opened, plan, gaps) == []
+    # qua đạo diễn: lần đầu thiếu lời dẫn mở đầu → bị gọi lại, prompt có hướng dẫn giọng video nấu ăn
+    d = FakeDirector(responses={"dub": [no_open.model_dump(), opened.model_dump()]})
+    make_dub(d, a, u, plan)
+    assert len(d.calls) == 2 and "MỞ ĐẦU IM LẶNG" in d.calls[0]["prompt"] and "gợi tò mò cách làm" in d.calls[0]["prompt"]
+    # mở đầu có thoại → không bắt buộc
+    assert opening_gap(silent_gaps(EditPlan.model_validate(_short_plan()), segs, [])) is None

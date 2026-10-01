@@ -18,7 +18,7 @@ từng câu) và phụ đề chính là các câu này. Kế hoạch dựng đã
 
 ## Chỗ KHÔNG có giọng nói — lời dẫn ở CẢNH HAY / HÀNH ĐỘNG đáng chú ý (`kind: "narration"`)
 {{silent_gaps}}
-Xem khung hình, tìm trong các chỗ trên những khoảnh khắc ĐÁNG NÓI rồi mới viết lời dẫn, đặt câu bắt đầu đúng lúc
+{{opening_note}}Xem khung hình, tìm trong các chỗ trên những khoảnh khắc ĐÁNG NÓI rồi mới viết lời dẫn, đặt câu bắt đầu đúng lúc
 hành động bắt đầu. Ví dụ video nấu ăn: lúc thêm gia vị ("Giờ thêm một thìa nước mắm"), lật miếng thịt, món chín /
 bày ra đĩa; vlog: lúc tới nơi mới, cảnh đẹp vừa hiện ra; thể thao: pha bóng đẹp. Chỗ chỉ là thao tác lặp lại, đi lại,
 chờ đợi thì KHÔNG nói — để nhạc và âm thanh hiện trường. Không cần lấp mọi chỗ trống; tổng lời dẫn tối đa khoảng 60%

@@ -531,6 +531,20 @@ def silent_gaps(plan, segments: list[dict], events: list[dict] | None = None, cf
     return out
 
 
+def opening_gap(gaps: list[dict], cfg: dict | None = None) -> dict | None:
+    """Video mở đầu bằng cảnh im lặng (vd show món ăn / sản phẩm) → khoảng lặng đó, để bắt buộc lời dẫn mở đầu."""
+    from app.planner.timeline import SEC
+
+    ocfg = ((config.load("dub") if cfg is None else cfg).get("narration") or {}).get("opening") or {}
+    if not ocfg.get("enabled", True) or not gaps:
+        return None
+    g = gaps[0]
+    if g["out_start"] <= float(ocfg.get("within_s", 1.0)) * SEC and \
+            g["out_end"] - g["out_start"] >= float(ocfg.get("min_len_s", 2.0)) * SEC:
+        return g
+    return None
+
+
 def check_narration(script, plan, gaps: list[dict], cfg: dict | None = None) -> list[str]:
     """Lời dẫn chỉ nói ở cảnh hay / hành động đáng chú ý trong chỗ không có giọng nói — không nói liên tục:
     phải ghi rõ hành động (action_vi), nằm trong khoảng lặng (không đè lời thoại), tổng thời lượng không quá dày."""
@@ -554,6 +568,16 @@ def check_narration(script, plan, gaps: list[dict], cfg: dict | None = None) -> 
             errors.append(f"câu {i} (lời dẫn) {ln.source_start}-{ln.source_end}s đè lên lời thoại — chỉ đặt lời dẫn ở "
                           "chỗ không có giọng nói")
         used += inside
+    og = opening_gap(gaps, cfg)
+    if og is not None:
+        from app.planner.timeline import SEC
+
+        by = og["out_start"] + round(float((ncfg.get("opening") or {}).get("start_by_s", 1.0)) * SEC)
+        starts = [tmap.to_out(ln.source_start) for ln in script.lines if ln.kind == "narration"]
+        if not any(t is not None and og["out_start"] - SEC // 2 <= t <= by for t in starts):
+            x, y = og["pieces"][0]
+            errors.append(f"video mở đầu im lặng (giây gốc {x:.1f}–{y:.1f}, đang show món / sản phẩm): BẮT BUỘC có câu "
+                          f"lời dẫn mở đầu bắt đầu ngay từ ~{x:.1f}s — gần gũi, gợi thèm, gợi tò mò cách làm")
     if silent and used > max_ratio * silent:
         errors.append(f"lời dẫn quá dày ({used / silent:.0%} thời gian lặng, tối đa {max_ratio:.0%}) — chỉ nói ở cảnh hay / "
                       "hành động đáng chú ý, chỗ khác để nhạc và âm thanh hiện trường")
@@ -634,6 +658,14 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
              "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) if frames else "")
     else:
         variables["silent_gaps"] = "(không có — video có thoại gần như liên tục)"
+
+    og = opening_gap(gaps, cfg)
+    variables["opening_note"] = (
+        f"\n**MỞ ĐẦU IM LẶNG** (giây gốc {og['pieces'][0][0]:.1f}–{og['pieces'][0][1]:.1f}): video mở bằng cảnh chưa ai nói "
+        "(thường là show thành phẩm — món ăn, sản phẩm). BẮT BUỘC đệm lời dẫn mở đầu, cất lên ngay từ đầu cảnh, giọng "
+        "như các video nấu ăn TikTok: gần gũi như nói với bạn bè, gợi thèm (tả màu, độ giòn, nước sốt... đúng cái đang "
+        "thấy), rồi gợi tò mò cách làm (vd \"Món này làm dễ hơn bạn nghĩ nhiều, xem nhé\"). 1–2 câu, ngắn, tự nhiên; "
+        "không hứa điều video không có (không nói \"chỉ 5 phút\" nếu không thấy).\n" if og else "")
 
     def extra(r) -> list[str]:
         errors = check_dub(r, plan, u.language, cfg) + check_narration(r, plan, gaps, cfg)

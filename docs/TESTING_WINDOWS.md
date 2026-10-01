@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 27 — Mở đầu chỉ show món ăn / sản phẩm, không ai nói → tự đệm lời dẫn mở đầu `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🌐 Viết lại thuyết minh**.
+2. Chọn video nấu ăn mở đầu bằng cảnh show món thành phẩm (chưa ai nói), bật **🌐 Đổi ngôn ngữ**.
+3. Bảng thu voice: câu đầu tiên là **🗣️ lời dẫn: show món thành phẩm** (hoặc tương tự), bắt đầu ngay đầu video.
+   Đọc nghĩa tiếng Việt: giọng gần gũi như video nấu ăn, gợi thèm (tả đúng món đang thấy) và gợi tò mò cách làm;
+   không hứa điều video không có.
+4. Thu, tải lên, mở draft: voice mở đầu cất lên ngay cảnh đầu tiên.
+5. Tắt nếu không muốn: `config\dub.yaml` → `narration` → `opening` → `enabled: false`.
+
 ## Bước 26 — Đổi ngôn ngữ: lời dẫn ở cảnh hay / hành động đáng chú ý `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job Đổi ngôn ngữ đã có thuyết minh cũ: bấm **🌐 Viết lại thuyết minh**.
