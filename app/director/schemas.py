@@ -153,6 +153,11 @@ HOOK_TYPES_VI = {
 
 class HookOption(BaseModel):
     hook_type: HookType
+    intro: str = Field(default="", description="1–2 câu ĐỜI THƯỜNG dẫn vào trước câu hook (ngôn ngữ của video), "
+                                               "nói như kể chuyện với bạn bè")
+    intro_vi: str = Field(default="", description="bản dịch tiếng Việt của intro")
+    intro_footage: TimeRange | None = Field(default=None, description="footage chạy dưới phần intro (3–6 giây), "
+                                                                      "cảnh bối cảnh / đời thường")
     line: str = Field(description="câu hook để thu voice, văn nói tự nhiên bằng NGÔN NGỮ CỦA VIDEO")
     line_vi: str = Field(description="bản dịch tiếng Việt")
     onscreen_text: str = Field(description="chữ lớn dải trên, từ khóa ngắn bằng ngôn ngữ của video")
@@ -168,10 +173,29 @@ class HookSet(BaseModel):
     editor_notes: str
 
 
-def check_hooks(hs: HookSet, duration: float, max_chars: int) -> list[str]:
+def _sentences(text: str) -> int:
+    import re
+
+    return len([s for s in re.split(r"[.!?。！？…]+", text) if s.strip()])
+
+
+def check_hooks(hs: HookSet, duration: float, max_chars: int, intro_max_chars: int | None = None) -> list[str]:
+    """intro_max_chars: bật yêu cầu 1–2 câu đời thường trước câu hook (chủ dự án chốt 01/10)."""
     errors = []
     for i, o in enumerate(hs.options, 1):
         errors += check_ranges([o.footage, o.source], duration, f"hook {i}")
+        if intro_max_chars:
+            if not o.intro.strip() or o.intro_footage is None:
+                errors.append(f"hook {i}: thiếu `intro` (1–2 câu đời thường trước câu hook) hoặc `intro_footage`")
+            else:
+                errors += check_ranges([o.intro_footage], duration, f"hook {i} intro")
+                ispan = o.intro_footage.end - o.intro_footage.start
+                if not 2.0 <= ispan <= 8.0:
+                    errors.append(f"hook {i}: intro_footage dài {ispan:.1f}s, cần khoảng 3–6 giây")
+                if len(o.intro) > intro_max_chars:
+                    errors.append(f"hook {i}: intro dài {len(o.intro)} ký tự, tối đa {intro_max_chars} (1–2 câu ngắn)")
+                if _sentences(o.intro) > 2:
+                    errors.append(f"hook {i}: intro chỉ 1–2 câu")
         span = o.footage.end - o.footage.start
         if not 2.0 <= span <= 6.0:
             errors.append(f"hook {i}: đoạn footage dài {span:.1f}s, cần khoảng 3–5 giây")

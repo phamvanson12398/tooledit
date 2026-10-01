@@ -50,8 +50,8 @@ def hook_table(sets: list[HookSet]) -> str:
         lines.append(f"=== VIDEO {s.video_index:02d} ===")
         for i, o in enumerate(s.options, 1):
             lines += [
-                f"[{i}] ({HOOK_TYPES_VI[o.hook_type]}) {o.line}",
-                f"    Dịch: {o.line_vi}",
+                f"[{i}] ({HOOK_TYPES_VI[o.hook_type]}) {(o.intro + ' ' if o.intro else '')}{o.line}",
+                f"    Dịch: {(o.intro_vi + ' ' if o.intro_vi else '')}{o.line_vi}",
                 f"    Chữ trên màn: {o.onscreen_text} | Footage: {o.footage.start:.1f}–{o.footage.end:.1f}s"
                 f" | Nguồn: {o.source.start:.1f}–{o.source.end:.1f}s",
                 f"    Nhạc/SFX: {o.music_sfx_vi} | Vì sao: {o.why_vi}",
@@ -66,7 +66,12 @@ def write_hook_scripts(job_dir: Path, sets: list[HookSet], choices: dict[int, in
     lines = ["CÂU HOOK CẦN THU (thu xong tải file lên ở trang job, chấp nhận .wav / .mp3 / .m4a)", ""]
     for v in sorted(choices):
         o = by_index[v].options[choices[v] - 1]
-        lines += [f"{voice_name(v)}.wav", f"  Câu: {o.line}", f"  Nghĩa: {o.line_vi}", ""]
+        if o.intro:
+            lines += [f"{voice_name(v)}.wav  (đọc liền mạch câu dẫn rồi câu hook trong CÙNG một file)",
+                      f"  Câu dẫn: {o.intro}", f"  Nghĩa:   {o.intro_vi}",
+                      f"  Câu hook: {o.line}", f"  Nghĩa:   {o.line_vi}", ""]
+        else:
+            lines += [f"{voice_name(v)}.wav", f"  Câu: {o.line}", f"  Nghĩa: {o.line_vi}", ""]
     path = Path(job_dir) / "hook_scripts.txt"
     path.write_text("\n".join(lines), encoding="utf-8")
     (Path(job_dir) / "voice").mkdir(exist_ok=True)

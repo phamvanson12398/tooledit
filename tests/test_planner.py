@@ -147,8 +147,13 @@ def test_build_draft_end_to_end(tmp_path):
     kinds = [t["type"] for t in tl["tracks"]]
     assert kinds.count("video") >= 1 and "text" in kinds and kinds.count("audio") >= 2
     video_segs = [s for t in tl["tracks"] if t["type"] == "video" for s in t["segments"]]
-    assert len(video_segs) == 4 and video_segs[0]["target_timerange"]["start"] == 0  # hook + 3 clip
-    assert video_segs[1]["target_timerange"]["start"] == 3_700_000  # hook = voice + 0.2s
+    # hook = 2 cảnh (câu dẫn đời thường trên intro_footage + câu hook trên footage) + 3 clip
+    assert len(video_segs) == 5 and video_segs[0]["target_timerange"]["start"] == 0
+    intro, line = video_segs[0], video_segs[1]
+    assert intro["source_timerange"]["start"] == round(hs.options[0].intro_footage.start * 1_000_000)
+    assert line["source_timerange"]["start"] == round(hs.options[0].footage.start * 1_000_000)
+    assert line["target_timerange"]["start"] == intro["target_timerange"]["duration"]
+    assert video_segs[2]["target_timerange"]["start"] == 3_700_000  # hook = voice + 0.2s
     assert res.duration_us == tl["duration"]
     texts = [json.loads(m["content"])["text"] for m in tl["materials"]["texts"]]
     assert "なぜ病院に？" in texts and "嫌われた" in texts and any(t.startswith("貴闘力") for t in texts)
@@ -521,3 +526,20 @@ def test_cold_open_clip_becomes_repeat_not_error():
     assert fixed.clips[0].repeat and not fixed.clips[2].repeat
     assert not [e for e in check_plan(fixed, 400.0, min_s=10) if "chồng nhau" in e]
     assert any("repeat" in n for n in notes)
+
+
+def test_hook_needs_casual_intro_before_hook(tmp_path):
+    from app.director.schemas import check_hooks
+
+    hs = HookSet.model_validate(load("hooks.json"))
+    assert check_hooks(hs, 173.8, 32, intro_max_chars=45) == []
+    bare = hs.model_copy(update={"options": [o.model_copy(update={"intro": "", "intro_footage": None})
+                                             for o in hs.options]})
+    errs = check_hooks(bare, 173.8, 32, intro_max_chars=45)
+    assert len([e for e in errs if "thiếu `intro`" in e]) == 3
+    long = hs.model_copy(update={"options": [hs.options[0].model_copy(update={"intro": "あ。い。う。"}), *hs.options[1:]]})
+    assert any("1–2 câu" in e for e in check_hooks(long, 173.8, 32, intro_max_chars=45))
+    # file thu voice: đọc câu dẫn rồi câu hook trong cùng một file
+    hook_io.save_hooks(tmp_path, [hs], {1: 1})
+    text = hook_io.write_hook_scripts(tmp_path, [hs], {1: 1}).read_text(encoding="utf-8")
+    assert "Câu dẫn: 昔の相撲の話" in text and "Câu hook: 嫌われ者" in text and "CÙNG một file" in text

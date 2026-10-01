@@ -45,7 +45,8 @@ music:
   fade_s: 0.25
 hook:
   min_s: 3.0
-  max_s: 5.0
+  max_s: 12.0          # câu dẫn đời thường (1–2 câu) + câu hook
+  intro_default_s: 8.0
 beat_sync: {enabled: true, tolerance_s: 0.25, text_tolerance_s: 0.2}
 
 # Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)

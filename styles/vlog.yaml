@@ -18,7 +18,7 @@ emphasis: {size: 20, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.
 title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 zoom: {punch_scale: 1.08, punch_in_s: 0.3, slow_scale: 1.08}
 music: {duck_db: -8, fade_s: 0.5}   # nhạc -5 dB, có thoại hạ thêm 8 dB
-hook: {min_s: 3.0, max_s: 5.0}
+hook: {min_s: 3.0, max_s: 12.0, intro_default_s: 8.0}  # câu dẫn đời thường + câu hook
 beat_sync: {enabled: true, tolerance_s: 0.4, text_tolerance_s: 0.25}   # cắt cảnh + chữ trúng nhịp nhạc
 
 # Âm thanh: dùng bản lọc ồn RẤT NHẸ (config/analysis.yaml → denoise_light) để giữ tiếng sóng, phố, gió...

@@ -466,7 +466,8 @@ class Runner:
             if job.options.hook:
                 hook = self._hook_for(d, i)
                 voice = hook_io.find_voice(d, i)
-                hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else 4.0
+                hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else \
+                    (8.0 if hook and hook.intro.strip() else 4.0)
             self.log(f"Lập kế hoạch dựng video {i:02d}…")
             plan = make_plan(self.director, analysis, self._u_for(job, v), self._style(job, style_name), hook=hook,
                              hook_s=hook_s, video_index=i,

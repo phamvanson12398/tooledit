@@ -117,7 +117,7 @@ def _split_director():
     h2 = copy.deepcopy(h1)
     h2["video_index"] = 2
     for o in h2["options"]:
-        for k in ("footage", "source"):
+        for k in ("footage", "source", "intro_footage"):
             o[k] = {"start": o[k]["start"] + 80, "end": o[k]["end"] + 80}
     base = {**load("plan.json"), "emphasis": [], "zooms": [], "sfx": [], "effects": [], "stickers": [],
             "transitions": [], "arrows": []}

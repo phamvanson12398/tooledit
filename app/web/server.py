@@ -972,7 +972,9 @@ def _step_panel(job: Job, d: Path) -> str:
                 items.append(
                     f"<label class='hook'><input type='radio' name='choice_{s.video_index}' value='{i}' "
                     f"{'checked' if i == 1 else ''}> <span class='tag'>Phương án {i} · {esc(HOOK_TYPES_VI[o.hook_type])}"
-                    f"</span><div class='line'>{esc(o.line)}</div><div>🇻🇳 {esc(o.line_vi)}</div>"
+                    f"</span>"
+                    + (f"<div class='muted'>💬 Câu dẫn: {esc(o.intro)}<br>🇻🇳 {esc(o.intro_vi)}</div>" if o.intro else "")
+                    + f"<div class='line'>{esc(o.line)}</div><div>🇻🇳 {esc(o.line_vi)}</div>"
                     f"<div class='muted'>Chữ trên màn: <b>{esc(o.onscreen_text)}</b> · Footage "
                     f"{o.footage.start:.1f}–{o.footage.end:.1f}s · Nguồn {o.source.start:.1f}–{o.source.end:.1f}s</div>"
                     f"<div class='muted'>Vì sao: {esc(o.why_vi)}</div></label>")

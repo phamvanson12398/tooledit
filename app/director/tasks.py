@@ -81,6 +81,7 @@ def apply_name_corrections(text: str, corrections) -> str:
 
 LANGUAGE_NAMES = {"ja": "tiếng Nhật", "ko": "tiếng Hàn", "en": "tiếng Anh", "zh": "tiếng Trung"}
 HOOK_MAX_CHARS = {"ja": 32, "ko": 30, "en": 70}  # đọc được trong ~4 giây
+HOOK_INTRO_MAX_CHARS = {"ja": 45, "ko": 45, "en": 120}  # 1–2 câu đời thường dẫn vào (~4–5 giây)
 
 
 def _segments_in(segments: list[dict], start: float, end: float) -> list[dict]:
@@ -160,8 +161,10 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
     duration = a["scenes"]["duration"]
     segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
     max_chars = HOOK_MAX_CHARS.get(u.language, 40)
+    intro_max = HOOK_INTRO_MAX_CHARS.get(u.language, 60)
     variables = {**_shared_context(u, segs, a.get("events")), "video_index": video_index,
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language), "max_chars": max_chars,
+                 "intro_max_chars": intro_max,
                  "preferred_hooks": ", ".join(preferred_hooks or []) or "chưa có"}
     lo, hi = u.usable_range.start - 0.5, u.usable_range.end + 0.5
 
@@ -170,26 +173,35 @@ def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
     banned = cut_ranges(u)
 
     def extra(r) -> list[str]:
-        errors = check_hooks(r, duration, max_chars)
+        errors = check_hooks(r, duration, max_chars, intro_max)
         for i, o in enumerate(r.options, 1):
-            for what, t in (("footage", o.footage), ("nguồn", o.source)):
+            ranges = [("footage", o.footage), ("nguồn", o.source)] + \
+                ([("intro_footage", o.intro_footage)] if o.intro_footage else [])
+            for what, t in ranges:
                 if overlap_s(t.start, t.end, banned) > 0.05:
                     errors.append(f"hook {i}: {what} {t.start:.1f}–{t.end:.1f}s chạm đoạn vi phạm chính sách TikTok "
                                   "(sẽ bị cắt) — chọn đoạn khác")
-            bad = find_forbidden(f"{o.line} {o.onscreen_text}", u.language)
+            bad = find_forbidden(f"{o.intro} {o.line} {o.onscreen_text}", u.language)
             if bad:
                 errors.append(f"hook {i}: có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         if restrict:
             for i, o in enumerate(r.options, 1):
-                for what, t in (("footage", o.footage), ("nguồn", o.source)):
+                for what, t in [("footage", o.footage), ("nguồn", o.source)] + \
+                        ([("intro_footage", o.intro_footage)] if o.intro_footage else []):
                     if t.start < lo or t.end > hi:
                         errors.append(f"hook {i}: {what} {t.start:.1f}–{t.end:.1f}s nằm ngoài video này "
                                       f"({u.usable_range.start:.1f}–{u.usable_range.end:.1f}s)")
         return errors
 
     return director.run("hooks", variables, HookSet, extra_check=extra)
+
+
+def hook_text(hook, vi: bool = False) -> str:
+    """Toàn bộ lời hook cần đọc: câu đời thường dẫn vào + câu hook."""
+    parts = [hook.intro_vi, hook.line_vi] if vi else [hook.intro, hook.line]
+    return " ".join(p.strip() for p in parts if p and p.strip())
 
 
 def cap_per_mood(items: list, per_mood: int, total: int) -> list:
@@ -274,7 +286,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         "transition_list": lines("transition"), "filter_list": lines("filter"),
         "decor_brief": style.get("decor_brief", ""),
         "business_note": "Khách là doanh nghiệp: CHỈ chọn bài có nhãn Commercial." if business else "",
-        "hook": (f"{hook.line} ({hook.line_vi}) — footage {hook.footage.start:.1f}–{hook.footage.end:.1f}s"
+        "hook": (f"{hook_text(hook)} ({hook_text(hook, vi=True)}) — footage {hook.footage.start:.1f}–{hook.footage.end:.1f}s"
                  if hook else "không có hook"),
         "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in sc["scenes"]),
     }
@@ -444,7 +456,7 @@ def make_captions(director: Director, analysis_dir: Path, u, plan, *, hook=None,
     variables = {**_shared_context(u, kept, a.get("events")), "video_index": video_index,
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language),
                  "market": MARKETS.get(u.language, "TikTok"),
-                 "hook": f"{hook.line} ({hook.line_vi})" if hook else "không có hook"}
+                 "hook": f"{hook_text(hook)} ({hook_text(hook, vi=True)})" if hook else "không có hook"}
     from app.director.policy import find_forbidden
 
     def extra(r) -> list[str]:
@@ -637,7 +649,7 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
                  "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
                  "market": MARKETS.get(u.language, "TikTok"), "line_min": lo, "line_max": hi,
                  "max_cps": (cfg.get("max_cps") or {}).get(u.language, 10),
-                 "hook": f"{hook.line} ({hook.line_vi})" if hook else "không có hook", "clips": clips}
+                 "hook": f"{hook_text(hook)} ({hook_text(hook, vi=True)})" if hook else "không có hook", "clips": clips}
     gaps = silent_gaps(plan, segs, a.get("events"), cfg)
     images = []
     if gaps:

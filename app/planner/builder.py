@@ -263,16 +263,30 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     hook_us = 0
     if hook is not None:
         hcfg = style.get("hook", {})
-        want = voice[1] + 200_000 if voice else round(hcfg.get("min_s", 3.0) * SEC)
+        has_intro = bool(hook.intro.strip())
+        no_voice_s = hcfg.get("intro_default_s", 8.0) if has_intro else hcfg.get("min_s", 3.0)
+        want = voice[1] + 200_000 if voice else round(no_voice_s * SEC)
         hook_us = max(round(hcfg.get("min_s", 3.0) * SEC), want)
-        if voice and voice[1] > hcfg.get("max_s", 5.0) * SEC:
-            notes.append(f"Voice hook dài {voice[1] / SEC:.1f}s, vượt {hcfg.get('max_s', 5.0)}s khuyến nghị.")
-        h_start = min(hook.footage.start, max(0.0, sc["duration"] - hook_us / SEC))
+        max_s = hcfg.get("max_s", 12.0)
+        if voice and voice[1] > max_s * SEC:
+            notes.append(f"Voice hook dài {voice[1] / SEC:.1f}s, vượt {max_s}s khuyến nghị.")
         ratio = ratio_for(None)
-        w.add_video(src, target_start=0, duration=hook_us, source_start=round(h_start * SEC),
-                    crop=crop_for(ratio, h_start, h_start + hook_us / SEC), volume=0.15,
-                    keyframes=[Keyframe("scale", 0, 1.0), Keyframe("scale", hook_us, 1.12)],
-                    transition=transition, **bg_kwargs(ratio))
+        # câu dẫn đời thường chạy trên cảnh bối cảnh, câu hook chạy trên cảnh mạnh; chia theo độ dài lời
+        from app.director.tasks import speech_chars
+
+        n_intro, n_line = speech_chars(hook.intro), max(1, speech_chars(hook.line))
+        intro_us = round(hook_us * n_intro / (n_intro + n_line)) if has_intro else 0
+        shots = [(0, intro_us, hook.intro_footage or hook.footage, "slow"),
+                 (intro_us, hook_us - intro_us, hook.footage, "punch")]
+        for start, dur, rng, kind in shots:
+            if dur <= 0:
+                continue
+            h_start = min(rng.start, max(0.0, sc["duration"] - dur / SEC))
+            kfs = ([Keyframe("scale", 0, 1.0), Keyframe("scale", dur, 1.08)] if kind == "slow" else
+                   [Keyframe("scale", 0, 1.18), Keyframe("scale", min(dur, 250_000), 1.05), Keyframe("scale", dur, 1.12)])
+            w.add_video(src, target_start=start, duration=dur, source_start=round(h_start * SEC),
+                        crop=crop_for(ratio, h_start, h_start + dur / SEC), volume=0.15, keyframes=kfs,
+                        transition=transition if start + dur >= hook_us else None, **bg_kwargs(ratio))
         pos = positions(ratio)
         w.add_text(hook.onscreen_text, start=0, duration=hook_us, x=pos["x"], y=pos["center"] if four else pos["top"],
                    style=hook_style, animations=hook_anims)
@@ -280,7 +294,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             w.add_local_audio(voice[0], voice[1], target_start=0, duration=voice[1])
         else:
             missing.append({"kind": "voice", "what": f"video{video_index:02d}_hook.wav", "video": video_index,
-                            "at_s": 0.0, "purpose_vi": f"Voice hook: {hook.line}"})
+                            "at_s": 0.0, "purpose_vi": f"Voice hook: {(hook.intro + ' ' + hook.line).strip()}"})
 
     # ---------- clip chính ----------
     # ---------- cắt theo nhịp nhạc: dời điểm cắt về beat gần nhất ----------

@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 28 — Hook dài hơn: 1–2 câu đời thường rồi mới vào câu hook `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **✍️ Viết hook mới** (hook cũ chưa có câu dẫn).
+2. Bảng **🎣 Chọn hook**: mỗi phương án có **💬 Câu dẫn** (1–2 câu bình thường, gần gũi) + câu hook (in đậm).
+3. `hook_scripts.txt`: đọc LIỀN MẠCH câu dẫn rồi câu hook trong CÙNG một file `video01_hook.wav` (~6–12 giây).
+4. Mở draft: phần hook có 2 cảnh — câu dẫn chạy trên cảnh bối cảnh (zoom chậm), câu hook chạy trên cảnh mạnh
+   (zoom giật). Điểm chuyển cảnh tool ước lượng theo độ dài chữ — nếu lệch so với giọng đọc, kéo lại trong CapCut.
+5. Hook dài hơn 12 giây: nhật ký nhắc "vượt 12s khuyến nghị" — nên thu nhanh/gọn hơn.
+
 ## Bước 27 — Mở đầu chỉ show món ăn / sản phẩm, không ai nói → tự đệm lời dẫn mở đầu `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🌐 Viết lại thuyết minh**.

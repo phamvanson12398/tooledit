@@ -71,6 +71,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - Với mỗi video, đạo diễn đưa **3 phương án hook**, mỗi phương án gồm: câu hook bằng **ngôn ngữ của video** (văn nói tự nhiên của người bản xứ, không dịch từ tiếng Việt), bản dịch tiếng Việt, đoạn footage chạy bên dưới (giây bắt đầu–kết thúc trong footage gốc), kiểu nhạc/hiệu ứng đi kèm, và kiểu hook.
 - Các kiểu hook: tua thẳng đến cao trào, câu hỏi bỏ lửng, tương phản, hé lộ một nửa, con số/chi tiết lạ.
 - Hook nằm trong khoảng 3–5 giây đầu: câu ngắn, hình chuyển động nhanh, chữ lớn nhấn từ khóa ở dải trên, cắt ngay trước khi lộ "lời giải".
+- **Cập nhật (chủ dự án chốt 01/10): hook dài hơn** — trước câu hook có **1–2 câu đời thường** (`intro`, gần gũi như kể
+  chuyện với bạn bè) chạy trên cảnh bối cảnh (`intro_footage`), rồi mới tới câu hook trên cảnh mạnh. Thu chung một file
+  voice; tổng hook khoảng 6–12 giây (`hook.max_s` trong styles).
 - Khi chia video, hook mỗi video phải **tự cung cấp bối cảnh**, như thể đây là video duy nhất.
 - **Nguyên tắc cứng: hook phải đúng với nội dung có thật trong footage.** Không hứa điều video không có. Mỗi phương án phải ghi nguồn (mốc giây). Code phải kiểm tra mốc giây được tham chiếu nằm trong footage.
 - Tất cả phương án của mọi video gom vào **một bảng**. Người dùng chọn xong, tool xuất file `hook_scripts.txt` (câu cần thu + tên file tương ứng) để thu voice một lượt.
