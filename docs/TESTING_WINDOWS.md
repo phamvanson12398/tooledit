@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 32 — So sánh video gốc và video đã edit (khác bao nhiêu %) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Xuất video từ CapCut như bình thường (File → Export).
+3. Cách 1 — trang chủ, ô **🔍 So sánh video gốc và video đã edit**: chọn video gốc + video đã xuất → **So sánh**.
+   Cách 2 — trang job đã xong → mở **🔍 So sánh với video gốc** (video gốc đã điền sẵn), chỉ cần chọn file đã xuất.
+4. Trang kết quả: số % khác tổng + từng phần (🖼️ hình, 🔊 tiếng, ⏱️ thời lượng) kèm chi tiết, ví dụ
+   "40% khung hình gần như trùng khung gốc (trong đó 10% là cảnh lật ngang)".
+5. Video dài 5–10 phút có thể mất 1–2 phút. Phần tiếng cần FFmpeg (đã cài theo SETUP_WINDOWS); thiếu thì chỉ tính hình +
+   thời lượng (trang kết quả ghi rõ).
+6. Thử: so một video với CHÍNH nó → khoảng 0%; so hai video khác hẳn nhau → gần 100%. Báo lại nếu con số thấy vô lý.
+
 ## Bước 31 — Đổi ngôn ngữ: kịch bản viết theo nước của khán giả (bản địa hóa) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: **✍️ Viết hook mới** + **🎬 Lập lại kế hoạch dựng** +

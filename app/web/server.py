@@ -170,7 +170,7 @@ def _read(path: Path) -> str:
 
 
 def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root: Path | None = None,
-               settings_path: Path | None = None, scan_fn=None) -> FastAPI:
+               settings_path: Path | None = None, scan_fn=None, compare_fn=None) -> FastAPI:
     from app import settings as app_settings
     from app.assets import ledger
 
@@ -301,7 +301,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <option value="1:1">1:1 (vuông)</option><option value="16:9">16:9 (tràn ngang như video mẫu)</option>
               <option value="auto">Theo kiểu dựng (16:9; thể thao 9:10)</option></select></div></div>
           <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>
-        </form></div></div>
+        </form></div>{_compare_card()}</div>
         <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary()}{_resource_tools(has_key)}{_template_setting()}</div>
         <div class="card jobs"><h2>🗂️ Các video</h2>{threads}<div id="jobs-panel">{jobs_panel()}</div>
         <p class='muted'>Mỗi video chạy trên một luồng riêng (ví dụ luồng 1 podcast, luồng 2 video hài). Bước phân tích
@@ -323,6 +323,26 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         }, 3000);
         </script>"""
         return _page("Tool dựng video", body)
+
+    @app.post("/compare", response_class=HTMLResponse)
+    def compare(original: str = Form(...), edited: str = Form(...), back: str = Form("/")):
+        esc = html.escape
+        o, e = Path(original.strip().strip('"')), Path(edited.strip().strip('"'))
+        missing = [str(x) for x in (o, e) if not x.is_file()]
+        back = back if back.startswith("/") else "/"
+        if missing:
+            return _page("So sánh", f"<div class='card'><h2>Không thấy file</h2><p>{esc(', '.join(missing))}</p>"
+                         f"<p><a class='btn light' href='{esc(back)}'>Quay lại</a></p></div>")
+        if compare_fn is None:
+            from app.analysis.compare import compare_videos as fn
+        else:
+            fn = compare_fn
+        try:
+            r = fn(o, e)
+        except Exception as exc:
+            return _page("So sánh", f"<div class='card'><h2>⚠️ Không so sánh được</h2><pre>{esc(str(exc))}</pre>"
+                         f"<p><a class='btn light' href='{esc(back)}'>Quay lại</a></p></div>")
+        return _page("So sánh", _compare_result_html(r, o, e, back))
 
     @app.get("/api/pick-file")
     def pick_file():
@@ -745,6 +765,61 @@ def _resource_tools(has_key: bool) -> str:
     </script>"""
 
 
+def _compare_card(original: str = "", back: str = "/") -> str:
+    """Ô so sánh video gốc với video đã edit (đã xuất từ CapCut)."""
+    esc = html.escape
+    return f"""<div class="card"><h2>🔍 So sánh video gốc và video đã edit</h2>
+    <p class="muted">Xuất video từ CapCut xong, chọn file gốc và file đã edit — tool ước lượng khác nhau bao nhiêu % về
+    hình, tiếng và thời lượng (chạy trên máy, có thể mất 1–2 phút với video dài).</p>
+    <form method="post" action="/compare">
+      <input type="hidden" name="back" value="{esc(back)}">
+      <div class="field"><label>Video gốc</label><div class="row">
+        <input type="text" id="cmp_original" name="original" value="{esc(original)}" placeholder="Bấm Chọn file…" required>
+        <button type="button" class="btn light" onclick="pickTo('cmp_original')">📂 Chọn file…</button></div></div>
+      <div class="field"><label>Video đã edit (file xuất từ CapCut)</label><div class="row">
+        <input type="text" id="cmp_edited" name="edited" placeholder="Bấm Chọn file…" required>
+        <button type="button" class="btn light" onclick="pickTo('cmp_edited')">📂 Chọn file…</button></div></div>
+      <button type="submit" class="btn">🔍 So sánh</button>
+    </form>
+    <script>
+    async function pickTo(id){{
+      try{{const r=await fetch('/api/pick-file');const d=await r.json();
+        if(d.path) document.getElementById(id).value=d.path; else if(d.error) alert(d.error);}}
+      catch(e){{alert('Không mở được hộp thoại: '+e);}}
+    }}
+    </script></div>"""
+
+
+def _compare_result_html(r, original: Path, edited: Path, back: str) -> str:
+    esc = html.escape
+
+    def bar(pct: float) -> str:
+        color = "#16a34a" if pct >= 60 else ("#d97706" if pct >= 35 else "#dc2626")
+        return (f"<div style='background:#e5e7eb;border-radius:6px;height:12px;width:100%'><div style='width:{pct:.0f}%;"
+                f"height:12px;border-radius:6px;background:{color}'></div></div>")
+
+    rows = [("🖼️ Hình ảnh", r.visual_diff, f"{r.visual_matched:.0f}% khung hình của bản edit gần như trùng một khung gốc"
+             + (f" (trong đó {r.mirrored_share:.0f}% là cảnh lật ngang)" if r.mirrored_share else "")),
+            ("🔊 Âm thanh", r.audio_diff, "đường âm lượng so theo từng đoạn 3 giây" if r.audio_diff is not None
+             else "không đo được"),
+            ("⏱️ Thời lượng", r.duration_diff, f"gốc {r.original_s:.0f}s → edit {r.edited_s:.0f}s")]
+    body = "".join(f"<tr><td><b>{name}</b></td><td style='width:45%'>{bar(v) if v is not None else '—'}</td>"
+                   f"<td><b>{'' if v is None else f'{v:.0f}%'}</b></td><td class='muted'>{esc(note)}</td></tr>"
+                   for name, v, note in rows)
+    verdict = ("Khác rất nhiều so với bản gốc." if r.overall >= 70 else "Khác khá nhiều so với bản gốc." if r.overall >= 50
+               else "Còn khá giống bản gốc — có thể dựng lại mạnh tay hơn (đổi khung, zoom, nhạc, thứ tự lời dẫn…).")
+    notes = "".join(f"<p class='muted'>{esc(n)}</p>" for n in r.notes)
+    return (f"<div class='topnav'><a class='btn light small' href='{esc(back)}'>← Quay lại</a></div>"
+            f"<div class='card'><h2>🔍 Kết quả so sánh</h2>"
+            f"<p class='muted'>Gốc: {esc(str(original))}<br>Edit: {esc(str(edited))}</p>"
+            f"<div style='font-size:42px;font-weight:800'>{r.overall:.0f}% <span style='font-size:18px;font-weight:600'>"
+            f"khác bản gốc</span></div><p>{verdict}</p>{bar(r.overall)}"
+            f"<table style='margin-top:14px'><tr><th>Phần</th><th></th><th>Khác</th><th>Chi tiết</th></tr>{body}</table>"
+            f"{notes}<div class='note'>Đây là ước lượng mức khác biệt về hình và tiếng để bạn tự đánh giá bản edit (tổng = 60% "
+            "hình + 30% tiếng + 10% thời lượng). Đây KHÔNG phải cách TikTok chấm điểm và không bảo đảm gì về phân phối "
+            "video.</div></div>")
+
+
 def _template_setting() -> str:
     """Chọn dự án CapCut làm khuôn (dự án mẫu) ngay trên giao diện."""
     from app.jobs.runner import BUILTIN, drafts_root, list_drafts, resolve_template, template_name
@@ -1035,6 +1110,8 @@ def _step_panel(job: Job, d: Path) -> str:
             cap = _read(d / "deliver" / f"video{i:02d}_captions.txt")
             if cap:
                 parts.append(f"<details><summary><b>📣 Caption + hashtag</b></summary><pre>{esc(cap)}</pre></details>")
+        parts.append("<details><summary><b>🔍 So sánh với video gốc (sau khi xuất từ CapCut)</b></summary>"
+                     + _compare_card(job.footage[0], f"/jobs/{job.job_id}") + "</details>")
         if list((d / "plan").glob("dub_video*.json")):
             parts.append("<details><summary><b>🎙️ Voice thuyết minh (xem kịch bản / tải thêm)</b></summary>"
                          + _dub_panel(job, d, skip=False) + "</details>")
