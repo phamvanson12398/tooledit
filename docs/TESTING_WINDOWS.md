@@ -1,15 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
-## Bước 26 — Đổi ngôn ngữ: chỗ không có giọng nói được viết thêm lời dẫn `[CẦN KIỂM TRA TRÊN MÁY]`
+## Bước 26 — Đổi ngôn ngữ: lời dẫn ở cảnh hay / hành động đáng chú ý `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job Đổi ngôn ngữ đã có thuyết minh cũ: bấm **🌐 Viết lại thuyết minh**.
-2. Chọn footage có đoạn dài không ai nói (cảnh đi đường, nấu ăn, cảnh quay toàn...).
-3. Bảng **🎙️ Thu voice thuyết minh**: các câu có nhãn **🗣️ lời dẫn** là câu AI viết thêm cho chỗ không có giọng nói
-   (file `dub_scripts.txt` ghi `[LỜI DẪN]`). Đọc nghĩa tiếng Việt: lời dẫn phải tả đúng cảnh đang thấy, không bịa.
-4. Thu và tải lên như các câu khác. Mở draft: mọi khoảng lặng từ 3 giây trở lên đều có voice (trừ chỗ tiếng cười /
-   hò reo — giữ nguyên tiếng gốc cho có không khí).
-5. Chỉnh trong `config\dub.yaml` → `narration`: `min_gap_s` (lặng bao lâu thì cần lời dẫn), `cover_ratio`,
-   `keep_reactions: false` nếu muốn lồng voice cả lên chỗ tiếng cười.
+2. Thử video nấu ăn (hoặc vlog) có đoạn dài không ai nói.
+3. Bảng **🎙️ Thu voice thuyết minh**: câu có nhãn **🗣️ lời dẫn: <hành động>** là câu AI viết thêm ở chỗ không có giọng
+   nói, kèm hành động lúc đó (vd "thêm gia vị", "lật miếng thịt"). Kiểm tra:
+   - AI chỉ nói ở cảnh hay / hành động đáng chú ý, KHÔNG nói liên tục; chỗ thao tác lặp lại, chờ đợi để im (nhạc);
+   - lời dẫn tả đúng cái đang thấy (đọc nghĩa tiếng Việt), không bịa nguyên liệu / số lượng.
+4. Thu và tải lên như các câu khác. Mở draft: lời dẫn vang lên đúng lúc hành động bắt đầu.
+5. Chỉnh trong `config\dub.yaml` → `narration`: `max_cover_ratio` (lời dẫn tối đa bao nhiêu % thời gian lặng,
+   mặc định 60%), `min_gap_s`, `keep_reactions`.
 
 ## Bước 25 — Chế độ "Đổi ngôn ngữ" (thuyết minh + phụ đề, dựng lại khác bản gốc) `[CẦN KIỂM TRA TRÊN MÁY]`
 

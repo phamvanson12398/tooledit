@@ -24,14 +24,16 @@
       "source_start": 30.0,
       "source_end": 36.0,
       "text": "조용해진 순간, 그의 표정이 달라졌어요.",
-      "text_vi": "Khoảnh khắc im lặng, nét mặt anh ấy thay đổi."
+      "text_vi": "Khoảnh khắc im lặng, nét mặt anh ấy thay đổi.",
+      "action_vi": "nhân vật dừng lại, nét mặt thay đổi"
     },
     {
       "kind": "narration",
       "source_start": 38.0,
       "source_end": 44.0,
       "text": "과연 그날 무슨 일이 있었던 걸까요?",
-      "text_vi": "Rốt cuộc hôm đó đã xảy ra chuyện gì?"
+      "text_vi": "Rốt cuộc hôm đó đã xảy ra chuyện gì?",
+      "action_vi": "cảnh chuyển sang bệnh viện"
     }
   ],
   "editor_notes": "Gom câu theo ý, nói gọn để đọc kịp trong chỗ trống."

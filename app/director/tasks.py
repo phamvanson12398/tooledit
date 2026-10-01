@@ -532,24 +532,31 @@ def silent_gaps(plan, segments: list[dict], events: list[dict] | None = None, cf
 
 
 def check_narration(script, plan, gaps: list[dict], cfg: dict | None = None) -> list[str]:
-    """Mỗi chỗ không có giọng nói phải có lời dẫn phủ đủ."""
-    from app.planner.timeline import SEC, TimeMap
+    """Lời dẫn chỉ nói ở cảnh hay / hành động đáng chú ý trong chỗ không có giọng nói — không nói liên tục:
+    phải ghi rõ hành động (action_vi), nằm trong khoảng lặng (không đè lời thoại), tổng thời lượng không quá dày."""
+    from app.planner.timeline import TimeMap
 
-    ratio = float(((config.load("dub") if cfg is None else cfg).get("narration") or {}).get("cover_ratio", 0.5))
+    ncfg = (config.load("dub") if cfg is None else cfg).get("narration") or {}
+    max_ratio = float(ncfg.get("max_cover_ratio", 0.6))
     tmap = TimeMap(plan.clips)
-    spans = []
-    for ln in script.lines:
+    errors, used = [], 0
+    silent = sum(g["out_end"] - g["out_start"] for g in gaps)
+    for i, ln in enumerate(script.lines, 1):
+        if ln.kind != "narration":
+            continue
+        if not ln.action_vi.strip():
+            errors.append(f"câu {i} (lời dẫn): ghi `action_vi` — cảnh / hành động đáng nói lúc đó (vd thêm gia vị)")
         a, b = tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)
-        if a is not None and b is not None:
-            spans.append((a, b))
-    errors = []
-    for g in gaps:
-        g0, g1 = g["out_start"], g["out_end"]
-        cov = sum(max(0, min(b, g1) - max(a, g0)) for a, b in spans)
-        if cov < ratio * (g1 - g0):
-            where = ", ".join(f"{a:.1f}–{b:.1f}s" for a, b in g["pieces"])
-            errors.append(f"chỗ không có giọng nói ở giây gốc {where} ({(g1 - g0) / SEC:.1f}s) chưa có lời dẫn đủ "
-                          f"(cần phủ ≥ {ratio:.0%}) — viết thêm câu kind=\"narration\"")
+        if a is None or b is None or b <= a:
+            continue
+        inside = sum(max(0, min(b, g["out_end"]) - max(a, g["out_start"])) for g in gaps)
+        if inside < 0.8 * (b - a):
+            errors.append(f"câu {i} (lời dẫn) {ln.source_start}-{ln.source_end}s đè lên lời thoại — chỉ đặt lời dẫn ở "
+                          "chỗ không có giọng nói")
+        used += inside
+    if silent and used > max_ratio * silent:
+        errors.append(f"lời dẫn quá dày ({used / silent:.0%} thời gian lặng, tối đa {max_ratio:.0%}) — chỉ nói ở cảnh hay / "
+                      "hành động đáng chú ý, chỗ khác để nhạc và âm thanh hiện trường")
     return errors
 
 
@@ -614,10 +621,16 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
         pool = [f for f in a["frames"] if any(x - 0.5 <= f["t"] <= y + 0.5 for g in gaps for x, y in g["pieces"])]
         frames = pick_evenly(pool, int(ncfg.get("frames", 8)))
         images = [analysis_dir / f["file"] for f in frames]
-        variables["silent_gaps"] = "\n".join(
-            f"- giây gốc {', '.join(f'{x:.1f}–{y:.1f}' for x, y in g['pieces'])} "
-            f"({(g['out_end'] - g['out_start']) / 1e6:.1f}s trên video)" for g in gaps) + \
-            ("\nKhung hình ở các chỗ này (mở bằng Read để xem đang có gì):\n" +
+        cuts = [x["start"] for x in a["scenes"].get("scenes", [])]
+
+        def gap_line(g) -> str:
+            inner = [t for t in cuts if any(x < t < y for x, y in g["pieces"])]
+            return (f"- giây gốc {', '.join(f'{x:.1f}–{y:.1f}' for x, y in g['pieces'])} "
+                    f"({(g['out_end'] - g['out_start']) / 1e6:.1f}s trên video)"
+                    + (f" · đổi cảnh ở {', '.join(f'{t:.1f}' for t in inner)}s" if inner else ""))
+
+        variables["silent_gaps"] = "\n".join(gap_line(g) for g in gaps) + \
+            ("\nKhung hình ở các chỗ này (mở bằng Read để xem có hành động gì):\n" +
              "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) if frames else "")
     else:
         variables["silent_gaps"] = "(không có — video có thoại gần như liên tục)"

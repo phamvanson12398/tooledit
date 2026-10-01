@@ -48,7 +48,7 @@ def write_dub_scripts(job_dir: Path, scripts: dict[int, DubScript]) -> Path:
     for v, s in sorted(scripts.items()):
         lines.append(f"=== VIDEO {v:02d} ===")
         for i, ln in enumerate(s.lines, 1):
-            tag = "  [LỜI DẪN — chỗ không có giọng nói]" if ln.kind == "narration" else ""
+            tag = f"  [LỜI DẪN — {ln.action_vi or 'chỗ không có giọng nói'}]" if ln.kind == "narration" else ""
             lines += [f"{line_name(v, i)}.wav  (~{ln.source_end - ln.source_start:.1f}s){tag}", f"  Câu: {ln.text}",
                       f"  Nghĩa: {ln.text_vi}", ""]
     path = Path(job_dir) / "dub_scripts.txt"

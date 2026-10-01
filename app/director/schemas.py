@@ -454,6 +454,7 @@ class DubLine(BaseModel):
     source_end: float = Field(gt=0, description="giây GỐC kết thúc")
     text: str = Field(description="câu thuyết minh bằng NGÔN NGỮ ĐÍCH, văn nói tự nhiên của người bản xứ")
     text_vi: str = Field(description="nghĩa tiếng Việt")
+    action_vi: str = Field(default="", description="với lời dẫn: cảnh / hành động đáng nói đang diễn ra (tiếng Việt)")
 
 
 class DubScript(BaseModel):

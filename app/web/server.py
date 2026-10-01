@@ -933,7 +933,8 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
             have = dub_io.find_line_voice(d, v, i)
             rows.append(f"<tr><td>{'✅' if have else '❌'}</td><td><b>{esc(dub_io.line_name(v, i))}</b><br>"
                         f"<span class='muted'>~{ln.source_end - ln.source_start:.1f}s</span></td>"
-                        f"<td>{'<span class=tag>🗣️ lời dẫn</span> ' if ln.kind == 'narration' else ''}{esc(ln.text)}"
+                        f"<td>{('<span class=tag>🗣️ lời dẫn: ' + esc(ln.action_vi) + '</span> ') if ln.kind == 'narration' else ''}"
+                        f"{esc(ln.text)}"
                         f"<br><span class='muted'>🇻🇳 {esc(ln.text_vi)}</span></td></tr>")
         done = sum(1 for i in range(1, len(script.lines) + 1) if dub_io.find_line_voice(d, v, i))
         forms.append(

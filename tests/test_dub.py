@@ -190,16 +190,25 @@ def test_silent_gaps_and_narration_check():
         {"source_start": 25, "source_end": 27, "speed": 0.5, "replay": True}]})
     segs = [{"start": 0, "end": 2, "text": "a", "words": [{"start": 0.0, "end": 2.0, "word": "a"}]},
             {"start": 21, "end": 29, "text": "b", "words": [{"start": 21.0, "end": 29.0, "word": "b"}]}]
-    cfg = {"narration": {"min_gap_s": 3.0, "cover_ratio": 0.5, "keep_reactions": True}}
+    cfg = {"narration": {"min_gap_s": 2.0, "max_cover_ratio": 0.6, "keep_reactions": True}}
     gaps = silent_gaps(plan, segs, [], cfg)
     # 2–10s clip 1 + 20–21s clip 2 liền nhau trên video = 9s lặng; cuối clip 2 chỉ 1s; replay không tính
     assert len(gaps) == 1 and gaps[0]["pieces"] == [(2.0, 10.0), (20.0, 21.0)]
-    script = DubScript.model_validate({"video_index": 1, "editor_notes": "", "lines": [
-        {"kind": "narration", "source_start": 3, "source_end": 6, "text": "x", "text_vi": "x"}]})
-    assert check_narration(script, plan, gaps, cfg)  # 3s < 50% của 9s
-    script.lines.append(script.lines[0].model_copy(update={"source_start": 6.5, "source_end": 9.5}))
-    assert check_narration(script, plan, gaps, cfg) == []
-    # khoảng lặng chủ yếu là tiếng cười → giữ nguyên, không bắt lời dẫn
+
+    def script(*lines):
+        return DubScript.model_validate({"video_index": 1, "editor_notes": "", "lines": [
+            {"kind": "narration", "text": "x", "text_vi": "x", "action_vi": act, "source_start": a, "source_end": b}
+            for a, b, act in lines]})
+
+    # chỉ nói ở 1 hành động đáng chú ý, không lấp hết chỗ trống → hợp lệ
+    assert check_narration(script((4, 6.5, "thêm gia vị")), plan, gaps, cfg) == []
+    assert check_narration(DubScript.model_validate({"video_index": 1, "editor_notes": "", "lines": [
+        {"source_start": 0, "source_end": 2, "text": "a", "text_vi": "a"}]}), plan, gaps, cfg) == []  # im cũng được
+    errs = check_narration(script((4, 6.5, "")), plan, gaps, cfg)
+    assert any("action_vi" in e for e in errs)
+    assert any("đè lên lời thoại" in e for e in check_narration(script((21, 24, "x")), plan, gaps, cfg))
+    assert any("quá dày" in e for e in check_narration(script((2, 5, "a"), (5, 8, "b")), plan, gaps, cfg))
+    # khoảng lặng chủ yếu là tiếng cười → không đưa cho AI
     assert silent_gaps(plan, segs, [{"start": 2, "end": 10, "kind": "laugh"}], cfg) == []
 
 
@@ -209,9 +218,10 @@ def test_dub_prompt_lists_silent_gaps(tmp_path):
     d = FakeDirector()
     make_dub(d, a, u, EditPlan.model_validate(_short_plan()))
     prompt = d.calls[0]["prompt"]
-    assert "BẮT BUỘC viết lời dẫn" in prompt and "giây gốc 3.0–45.0" in prompt
-    assert d.calls[0]["images"]  # gửi khung hình ở chỗ lặng để tả đúng cảnh
-    bad = {**FIX, "lines": FIX["lines"][:3]}  # thiếu lời dẫn → gọi lại
+    assert "CẢNH HAY / HÀNH ĐỘNG" in prompt and "giây gốc 3.0–45.0" in prompt and "thêm gia vị" in prompt
+    assert d.calls[0]["images"]  # gửi khung hình ở chỗ lặng để thấy hành động
+    bad = json.loads(json.dumps(FIX))
+    bad["lines"][3]["action_vi"] = ""  # lời dẫn không nói rõ hành động → gọi lại
     d2 = FakeDirector(responses={"dub": [bad, FIX]})
     make_dub(d2, a, u, EditPlan.model_validate(_short_plan()))
-    assert len(d2.calls) == 2 and "chưa có lời dẫn" in d2.calls[1]["prompt"]
+    assert len(d2.calls) == 2 and "action_vi" in d2.calls[1]["prompt"]

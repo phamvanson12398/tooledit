@@ -16,12 +16,15 @@ từng câu) và phụ đề chính là các câu này. Kế hoạch dựng đã
 - Không nhắc nền tảng nào khác ngoài TikTok, không chửi thề, không nhắc nội dung đã bị cắt vì chính sách.
 - `text_vi`: nghĩa tiếng Việt để chủ dự án hiểu.
 
-## Chỗ KHÔNG có giọng nói — BẮT BUỘC viết lời dẫn (`kind: "narration"`)
+## Chỗ KHÔNG có giọng nói — lời dẫn ở CẢNH HAY / HÀNH ĐỘNG đáng chú ý (`kind: "narration"`)
 {{silent_gaps}}
-Mỗi chỗ trên phải có lời dẫn phủ ít nhất một nửa thời lượng (có thể 1–3 câu, mỗi câu nằm gọn trong một clip).
-Lời dẫn như người dẫn chuyện TikTok: tả điều ĐANG thấy trên hình (xem khung hình), dẫn dắt sang đoạn sau, nói cảm xúc
-của khoảnh khắc, đặt câu hỏi gợi tò mò. KHÔNG bịa sự kiện, con số, tên, lời nhân vật không có trong footage; không
-"spoil" điều sắp xảy ra nếu chưa thấy. Giọng văn liền mạch với các câu thuyết minh xung quanh.
+Xem khung hình, tìm trong các chỗ trên những khoảnh khắc ĐÁNG NÓI rồi mới viết lời dẫn, đặt câu bắt đầu đúng lúc
+hành động bắt đầu. Ví dụ video nấu ăn: lúc thêm gia vị ("Giờ thêm một thìa nước mắm"), lật miếng thịt, món chín /
+bày ra đĩa; vlog: lúc tới nơi mới, cảnh đẹp vừa hiện ra; thể thao: pha bóng đẹp. Chỗ chỉ là thao tác lặp lại, đi lại,
+chờ đợi thì KHÔNG nói — để nhạc và âm thanh hiện trường. Không cần lấp mọi chỗ trống; tổng lời dẫn tối đa khoảng 60%
+thời gian lặng. Mỗi câu lời dẫn ghi `action_vi` = hành động / cảnh đang diễn ra (tiếng Việt).
+Lời dẫn như người dẫn chuyện TikTok: ngắn, nói điều ĐANG thấy, có thể thêm mẹo / cảm xúc / câu hỏi gợi tò mò. KHÔNG bịa
+nguyên liệu, số lượng, tên, sự kiện không thấy trên hình; không "spoil" điều chưa xảy ra.
 
 ## Điều cấm
 {{sensitive_notes}}
