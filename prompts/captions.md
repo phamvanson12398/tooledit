@@ -1,4 +1,5 @@
 # Nhiệm vụ: viết caption và hashtag TikTok cho video số {{video_index}}
+{{translate_note}}
 
 - `caption`: 1–3 câu bằng **{{language_name}}**, văn phong TikTok tự nhiên của người bản xứ, gợi tò mò nhưng
   ĐÚNG với nội dung video (không hứa điều video không có, không lộ hết "lời giải"). Không chèn hashtag vào caption.

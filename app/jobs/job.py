@@ -22,9 +22,9 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 STEPS = ["analyze", "understand", "confirm_genre", "segment", "review_segments", "hooks", "choose_hook", "voice",
-         "plan", "assets", "write", "captions", "done"]
+         "plan", "dub", "dub_voice", "assets", "write", "captions", "done"]
 
-WAIT_STEPS = {"confirm_genre", "review_segments", "choose_hook", "voice"}
+WAIT_STEPS = {"confirm_genre", "review_segments", "choose_hook", "voice", "dub_voice"}
 
 
 class Status(str, Enum):
@@ -42,6 +42,7 @@ class JobOptions(BaseModel):
     reframe_per_scene: bool = False   # ☐ Đổi khung theo cảnh
     auto_download: bool = False       # ☐ Tự tải tài nguyên thiếu
     confirm_before_build: bool = False  # ☐ Xác nhận trước khi dựng
+    target_language: str = ""         # Đổi ngôn ngữ: "" = giữ nguyên; ko/ja/en = thuyết minh + phụ đề tiếng đó
 
 
 class HistoryEntry(BaseModel):
@@ -127,6 +128,8 @@ class Job(BaseModel):
             return self.options.hook
         if step == "review_segments":
             return self.options.split
+        if step in ("dub", "dub_voice"):
+            return bool(self.options.target_language)
         return True
 
     def resume(self, message: str = "người dùng bấm Tiếp tục") -> None:

@@ -133,7 +133,25 @@ class Runner:
         from app.director.schemas import Understanding
 
         _, _, plan_dir = self._paths(job)
-        return Understanding.model_validate_json((plan_dir / "understanding.json").read_text(encoding="utf-8"))
+        u = Understanding.model_validate_json((plan_dir / "understanding.json").read_text(encoding="utf-8"))
+        target = job.options.target_language
+        return u.dubbed_to(target) if target and target != u.language else u
+
+    def _dubbing(self, job: Job) -> bool:
+        """Đang ở chế độ Đổi ngôn ngữ và tiếng gốc khác tiếng đích."""
+        return bool(job.options.target_language) and not job.data.get("dub_same")
+
+    def _style(self, job: Job, name: str | None = None) -> dict:
+        """Phong cách dựng; chế độ Đổi ngôn ngữ thì ghi đè để bản dựng khác hẳn bản gốc (không đảo cảnh)."""
+        from app.styles import load_style
+
+        style = load_style(name or job.data.get("style_used") or self._style_name(job))
+        if job.options.target_language:
+            dcfg = config.load("dub")
+            style = {**style, **(dcfg.get("style_override") or {})}
+            if not style.get("camera") and dcfg.get("camera_default"):
+                style["camera"] = dcfg["camera_default"]
+        return style
 
     def _template(self):
         from app.capcut_writer import DraftTemplate
@@ -178,7 +196,7 @@ class Runner:
 
     # ---------- chạy ----------
 
-    RECHECK_STEPS = {"review_segments", "choose_hook", "voice"}  # chạy lại bước để kiểm tra điều kiện
+    RECHECK_STEPS = {"review_segments", "choose_hook", "voice", "dub_voice"}  # chạy lại bước để kiểm tra điều kiện
 
     def resume(self, job: Job) -> Job:
         """Người dùng bấm Tiếp tục (đã chọn hook / đã thả voice / đã duyệt) → chạy tiếp."""
@@ -189,7 +207,7 @@ class Runner:
         job.save(self.jobs_root)
         return self.run(job)
 
-    REDO_STEPS = ("segment", "hooks", "choose_hook", "plan", "write")
+    REDO_STEPS = ("segment", "hooks", "choose_hook", "plan", "dub", "write")
 
     def redo(self, job: Job, step: str) -> None:
         """Làm lại từ một bước (nút trên giao diện): chia lại video, viết hook mới, chọn hook khác,
@@ -213,6 +231,14 @@ class Runner:
             # câu hook đổi → voice cũ không còn khớp; giữ bản sao để không mất file
             for old in (d / "voice").glob("video*_hook.*"):
                 old.replace(old.with_name(f"{old.stem}_cu{old.suffix}"))
+        if step in ("segment", "hooks", "choose_hook", "plan", "dub"):
+            # kế hoạch / câu thuyết minh đổi → voice thuyết minh cũ không còn khớp; giữ bản sao
+            for old in (d / "voice").glob("video*_dub*.*"):
+                if not old.stem.endswith("_cu"):
+                    old.replace(old.with_name(f"{old.stem}_cu{old.suffix}"))
+            for f in plan_dir.glob("dub_video*.json"):
+                f.unlink()
+            job.data.pop("dub_skip", None)
         if step in ("segment", "hooks", "choose_hook", "plan"):
             self._clear_plans(d, plan_dir)
         job.step = step
@@ -295,6 +321,17 @@ class Runner:
         (plan_dir / "understanding.json").write_text(u.model_dump_json(indent=2), encoding="utf-8")
         job.data["summary_vi"] = u.summary_vi
         job.data["suggested_style"] = u.suggested_style
+        target = job.options.target_language
+        job.data["source_language"] = u.language
+        if target and target == u.language:
+            job.data["dub_same"] = True
+            self.log(f"Video gốc đã là {target} — không cần thuyết minh, chỉ dựng lại khác bản gốc.")
+        elif target:
+            job.data.pop("dub_same", None)
+            self.log(f"Đổi ngôn ngữ: {u.language} → {target} (thuyết minh + phụ đề {target}).")
+        elif u.language not in ("ko", "ja", "en"):
+            raise ValueError(f"Video gốc nói tiếng '{u.language}': hãy tạo job mới và chọn 'Đổi ngôn ngữ sang' "
+                             "tiếng Hàn / Nhật / Anh.")
         if u.policy_issues:
             total = sum(x.end - x.start for x in u.policy_issues)
             self.log(f"Phát hiện {len(u.policy_issues)} đoạn vi phạm chính sách TikTok (~{total:.0f}s) — sẽ cắt bỏ.")
@@ -414,7 +451,6 @@ class Runner:
     def step_plan(self, job: Job) -> None:
         from app.director.tasks import make_plan
         from app.planner import hook_io
-        from app.styles import load_style
 
         d, analysis, plan_dir = self._paths(job)
         tpl = self._template()
@@ -432,7 +468,7 @@ class Runner:
                 voice = hook_io.find_voice(d, i)
                 hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else 4.0
             self.log(f"Lập kế hoạch dựng video {i:02d}…")
-            plan = make_plan(self.director, analysis, self._u_for(job, v), load_style(style_name), hook=hook,
+            plan = make_plan(self.director, analysis, self._u_for(job, v), self._style(job, style_name), hook=hook,
                              hook_s=hook_s, video_index=i,
                              music_items=[m for m in tpl.library if m.kind == "music"],
                              sfx_items=[m for m in tpl.library if m.kind == "sfx"],
@@ -442,6 +478,46 @@ class Runner:
                              default_ratio=job.data.get("default_ratio")
                              or config.load("capcut").get("default_block", "4:3"))
             out.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+
+    def step_dub(self, job: Job) -> None:
+        """Chế độ Đổi ngôn ngữ: viết câu thuyết minh (ngôn ngữ đích) theo các clip của kế hoạch dựng."""
+        from app.director.schemas import EditPlan
+        from app.director.tasks import make_dub
+        from app.planner import dub_io
+
+        if not self._dubbing(job):
+            return
+        d, analysis, plan_dir = self._paths(job)
+        scripts = {}
+        for v in self.videos(job):
+            i = v["index"]
+            s = dub_io.load_dub(d, i)
+            if s is None:
+                self.log(f"Viết lời thuyết minh video {i:02d}…")
+                plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
+                hook = self._hook_for(d, i) if job.options.hook else None
+                s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i)
+                dub_io.dub_path(d, i).write_text(s.model_dump_json(indent=2), encoding="utf-8")
+            scripts[i] = s
+        path = dub_io.write_dub_scripts(d, scripts)
+        self.log(f"Đã xuất {path} ({sum(len(s.lines) for s in scripts.values())} câu cần thu)")
+
+    def _dub_scripts(self, job: Job) -> dict:
+        from app.planner import dub_io
+
+        d, _, _ = self._paths(job)
+        return {v["index"]: s for v in self.videos(job) if (s := dub_io.load_dub(d, v["index"])) is not None}
+
+    def step_dub_voice(self, job: Job) -> None:
+        from app.planner import dub_io
+
+        if not self._dubbing(job) or job.data.get("dub_skip"):
+            return
+        d, _, _ = self._paths(job)
+        missing = dub_io.missing_lines(d, self._dub_scripts(job))
+        if missing:
+            job.wait(f"Thu voice thuyết minh theo kịch bản bên dưới rồi tải lên. Còn thiếu {len(missing)} file: "
+                     + ", ".join(missing[:8]) + (" …" if len(missing) > 8 else ""))
 
     def _voice_duration(self, voice: Path) -> int:
         if self._probe is None:
@@ -460,11 +536,10 @@ class Runner:
         from app.director.tasks import load_analysis
         from app.planner import hook_io
         from app.planner.builder import build
-        from app.styles import load_style
 
         d, analysis, plan_dir = self._paths(job)
         tpl = self._template()
-        style = load_style(job.data.get("style_used") or self._style_name(job))
+        style = self._style(job)
         a = load_analysis(analysis)
         clean = analysis / "audio" / "clean_00.wav"
         if (style.get("audio") or {}).get("clean") == "light":  # vlog: lọc ồn nhẹ, giữ âm thanh hiện trường
@@ -487,9 +562,20 @@ class Runner:
                 vpath = hook_io.find_voice(d, i)
                 voice = (vpath, self._voice_duration(vpath)) if vpath else None
             name = f"{job.options.client_id or 'khach'}_{job.job_id}_video{i:02d}"
+            dub, dub_voices = None, None
+            if self._dubbing(job):
+                from app.planner import dub_io
+
+                dub = dub_io.load_dub(d, i)
+                if dub is not None:
+                    dub_voices = {}
+                    for n in range(1, len(dub.lines) + 1):
+                        f = dub_io.find_line_voice(d, i, n)
+                        if f is not None:
+                            dub_voices[n] = (f.resolve(), self._voice_duration(f))
             res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                         hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
-                        video_index=i)
+                        video_index=i, dub=dub, dub_voices=dub_voices)
             out = res.writer.save(overwrite=True)
             dur = round(res.duration_us / 1_000_000, 1)
             drafts.append({"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),

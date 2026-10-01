@@ -78,6 +78,14 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - Hồ sơ khách lưu kiểu hook khách ưa thích; tool ghi lại lựa chọn của người dùng để lần sau đề xuất sát hơn.
 - Không tick: vào thẳng nội dung, không hook voice.
 
+## 5b. Chế độ "Đổi ngôn ngữ" (chủ dự án chốt 01/10)
+
+- Video gốc nói tiếng Hàn / Nhật / Anh / **Trung**; bản TikTok là tiếng Hàn / Nhật / Anh khác tiếng gốc.
+- Ngôn ngữ mới thể hiện bằng **cả hai**: voice thuyết minh (chủ dự án tự thu từng câu bằng Voice Studio, file
+  `voice/videoNN_dubMM.wav`) + phụ đề, tiêu đề, chữ nhấn, hook, caption bằng ngôn ngữ đích. Tiếng gốc hạ nhỏ dưới voice.
+- "Khác bản gốc ~80%": đổi khung/cắt cận bám người, zoom + chuyển động mọi clip, filter, nhạc + hook + tiêu đề mới;
+  **không đảo thứ tự cảnh**. Cấu hình trong `config/dub.yaml`.
+
 ## 6. Khung hình
 
 - Canvas mặc định **9:16, 1080×1920**.

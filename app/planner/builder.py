@@ -18,7 +18,7 @@ from app.capcut_writer import (
 from app.capcut_writer.layout import band_centers, fit_scale, row_to_y
 from app.styles import layout_for  # dùng chung với bước lập kế hoạch
 from app.director.schemas import EditPlan, HookOption, Understanding
-from app.planner.subtitles import build_cues, speech_intervals
+from app.planner.subtitles import Cue, build_cues, speech_intervals
 from app.planner.timeline import TimeMap
 
 
@@ -210,8 +210,10 @@ def subject_center(subjects: dict, start: float, end: float) -> float:
 
 def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTemplate, drafts_root: Path,
           name: str, style: dict, *, hook: HookOption | None = None, voice: tuple[Path, int] | None = None,
-          clean_audio: Path | None = None, video_index: int = 1, beats_fn=None) -> BuildResult:
-    """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu."""
+          clean_audio: Path | None = None, video_index: int = 1, beats_fn=None, dub=None,
+          dub_voices: dict[int, tuple[Path, int]] | None = None) -> BuildResult:
+    """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
+    dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch."""
     safe = config.load("safe_area")
     sub_cfg = config.load("subtitles")
     sc, tr, subjects = analysis["scenes"], analysis["transcript"], analysis["subjects"]
@@ -304,6 +306,37 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         else:
             notes.append(f"Bài '{music.name}' chưa có dữ liệu nhịp — không cắt theo nhịp.")
     tmap = TimeMap(plan.clips, offset_us=hook_us)
+    # ---------- thuyết minh (Đổi ngôn ngữ): vị trí từng câu trên timeline ----------
+    dub_slots: list[tuple[int, int, int, str, tuple[Path, int] | None, float]] = []  # (câu, đầu, cuối, chữ, voice, tốc độ)
+    if dub is not None:
+        dcfg = config.load("dub")
+        max_speed = float(dcfg.get("max_speed", 1.25))
+        for i, ln in enumerate(dub.lines, 1):
+            a, b = tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)
+            if a is None or b is None or b <= a:
+                notes.append(f"Câu thuyết minh {i} nằm ngoài các clip được giữ — bỏ qua.")
+                continue
+            v = (dub_voices or {}).get(i)
+            speed, end = 1.0, b
+            if v:
+                speed = min(max_speed, max(1.0, v[1] / (b - a)))
+                end = a + int(v[1] / speed)
+                if v[1] / (b - a) > max_speed:
+                    notes.append(f"Voice câu {i} dài {v[1] / SEC:.1f}s, chỗ trống {(b - a) / SEC:.1f}s: đã tăng tốc "
+                                 f"{max_speed}x nhưng vẫn tràn {(end - b) / SEC:.1f}s — nên thu lại ngắn hơn.")
+            else:
+                missing.append({"kind": "voice", "what": f"video{video_index:02d}_dub{i:02d}.wav", "video": video_index,
+                                "at_s": round(a / SEC, 2), "purpose_vi": f"Thuyết minh: {ln.text}"})
+            dub_slots.append((i, a, end, ln.text, v, speed))
+        voiced = [(a, e) for _, a, e, _, v, _ in dub_slots if v]
+        o_hi = db_to_gain(float(dcfg.get("original_db_no_voice", -6)))
+        o_lo = db_to_gain(float(dcfg.get("original_db", -20)))
+
+    def orig_volume(start: int, end: int) -> list[Keyframe]:
+        """Tiếng gốc khi có thuyết minh: hạ sâu dưới câu đã thu voice, hạ nhẹ ở chỗ khác."""
+        if dub is None:
+            return []
+        return duck_keyframes(start, end, voiced, o_lo, o_hi, 120_000)
     replay_cfg = style.get("replay_label") or {}
     replay_text = (replay_cfg.get("text") or {}).get(u.language, "REPLAY")
     replay_style = _style(replay_cfg) if replay_cfg else emph_style
@@ -341,7 +374,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                             source_start=round(sh.start * SEC), speed=clip.speed,
                             crop=shot_crop(sh, people, ratio, src.width, src.height, cam_cfg,
                                            fallback_cx=subject_center(subjects, sh.start, sh.end)),
-                            volume=0.0 if clean_audio else 1.0, keyframes=kfs or None,
+                            volume=0.0 if clean_audio else 1.0,
+                            keyframes=(kfs or []) + ([] if clean_audio else orig_volume(bounds[j], bounds[j + 1])) or None,
                             transition=last_trans if j == len(shots) - 1 else None, **bg_kwargs(ratio))
                 shot_count[sh.kind] += 1
         else:
@@ -353,10 +387,13 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                         source_start=round(clip.source_start * SEC), speed=clip.speed,
                         crop=crop_for(ratio, clip.source_start, clip.source_end),
                         volume=0.0 if (clean_audio or clip.replay) else 1.0,
-                        keyframes=kfs or None, transition=last_trans, **bg_kwargs(ratio))
+                        keyframes=(kfs or []) + ([] if (clean_audio or clip.replay) else
+                                                 orig_volume(p.out_start, p.out_end)) or None,
+                        transition=last_trans, **bg_kwargs(ratio))
         if clean_audio and not clip.replay:  # replay quay chậm: tắt tiếng gốc, để nhạc/SFX dẫn
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
-                              source_start=round(clip.source_start * SEC), speed=clip.speed)
+                              source_start=round(clip.source_start * SEC), speed=clip.speed,
+                              keyframes=orig_volume(p.out_start, p.out_end) or None)
         if clip.replay:
             rpos = positions(ratio)
             w.add_text(replay_text, start=p.out_start, duration=p.out_duration, x=rpos["x"], y=rpos["top"],
@@ -373,8 +410,17 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     max_chars = ((four or {}).get("subtitle_max_chars") or {}).get(lang) or \
         style.get("subtitle", {}).get("max_chars", {}).get(lang) or \
         sub_cfg.get("limits", {}).get(lang, {}).get("max_chars_per_line", 16)
-    cues = build_cues(tr.get("segments", []), tmap, lang, max_chars, min_cue_s=sub_cfg.get("min_cue_s", 0.35),
-                      gap_merge_s=sub_cfg.get("gap_merge_s", 0.15), corrections=u.name_corrections)
+    if dub is not None:  # phụ đề = câu thuyết minh (ngôn ngữ đích), rải theo thời lượng voice
+        from app.planner.dub_io import split_text, spread_cues
+
+        for _, a, e, _, v, speed in dub_slots:
+            if v:
+                w.add_local_audio(v[0], v[1], target_start=a, duration=e - a, speed=speed)
+        cues = [Cue(s0, e0, t) for _, a, e, text, _, _ in dub_slots
+                for s0, e0, t in spread_cues(split_text(text, lang, max_chars), a, e)]
+    else:
+        cues = build_cues(tr.get("segments", []), tmap, lang, max_chars, min_cue_s=sub_cfg.get("min_cue_s", 0.35),
+                          gap_merge_s=sub_cfg.get("gap_merge_s", 0.15), corrections=u.name_corrections)
     for c in cues:
         w.add_text(c.text, start=c.start, duration=c.end - c.start, x=pos["x"], y=pos["bottom"],
                    style=subtitle_style)

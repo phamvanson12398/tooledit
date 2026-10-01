@@ -1,0 +1,9 @@
+{
+  "video_index": 1,
+  "lines": [
+    {"source_start": 2.0, "source_end": 5.0, "text": "저 스모 선수, 원래 미움받았대요.", "text_vi": "Đô vật sumo đó vốn bị ghét đấy."},
+    {"source_start": 10.0, "source_end": 16.0, "text": "현역 시절부터 다들 그를 싫어했죠. 이유가 있었어요.", "text_vi": "Từ hồi còn thi đấu ai cũng ghét anh ta. Có lý do cả."},
+    {"source_start": 20.0, "source_end": 26.0, "text": "그런데 병원에서 생긴 일이 모든 걸 바꿨어요.", "text_vi": "Nhưng chuyện ở bệnh viện đã thay đổi tất cả."}
+  ],
+  "editor_notes": "Gom câu theo ý, nói gọn để đọc kịp trong chỗ trống."
+}

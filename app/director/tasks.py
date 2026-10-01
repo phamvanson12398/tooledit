@@ -79,7 +79,7 @@ def apply_name_corrections(text: str, corrections) -> str:
 
 # ---------------- Hook và kế hoạch dựng ----------------
 
-LANGUAGE_NAMES = {"ja": "tiếng Nhật", "ko": "tiếng Hàn", "en": "tiếng Anh"}
+LANGUAGE_NAMES = {"ja": "tiếng Nhật", "ko": "tiếng Hàn", "en": "tiếng Anh", "zh": "tiếng Trung"}
 HOOK_MAX_CHARS = {"ja": 32, "ko": 30, "en": 70}  # đọc được trong ~4 giây
 
 
@@ -92,6 +92,7 @@ def _shared_context(u, segments: list[dict], events: list[dict] | None = None) -
     from app.director.policy import policy_for_prompt
 
     return {
+        "translate_note": translate_note(u),
         "policy_cuts": policy_for_prompt(u, u.usable_range.start, u.usable_range.end),
         "audio_events": ("(chưa phân tích — job cũ)" if events is None else
                          events_for_prompt(events, u.usable_range.start, u.usable_range.end)),
@@ -104,6 +105,19 @@ def _shared_context(u, segments: list[dict], events: list[dict] | None = None) -
         ) or "(không có thoại)",
         "range": f"{u.usable_range.start:.1f}–{u.usable_range.end:.1f}",
     }
+
+
+def translate_note(u) -> str:
+    """Chế độ Đổi ngôn ngữ: transcript là tiếng gốc, mọi chữ xuất ra viết bằng ngôn ngữ đích."""
+    src, dst = u.source_language, u.language
+    if src == dst:
+        return ""
+    s, d = LANGUAGE_NAMES.get(src, src), LANGUAGE_NAMES.get(dst, dst)
+    return (f"\n## ĐỔI NGÔN NGỮ: {s} → {d}\nFootage gốc nói {s} (transcript bên dưới là {s}). Bản TikTok này được "
+            f"THUYẾT MINH + PHỤ ĐỀ bằng {d} cho khán giả {d}: mọi chữ trên màn hình, tiêu đề, hook, caption, hashtag "
+            f"viết bằng {d} — dịch Ý tự nhiên như người bản xứ nói, không dịch từng chữ, không để sót chữ {s}. "
+            f"Tên riêng giữ cách đọc quen thuộc với khán giả đích. Nếu footage có chữ {s} in sẵn trên hình, ghi rõ "
+            "trong editor_notes để người dùng che trong CapCut.\n")
 
 
 def for_video(u, video: dict):
@@ -198,7 +212,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
               business: bool = False,
               reframe: bool = False, default_ratio: str = "4:3", video_index: int = 1, footage: int = 0):
     from app import config
-    from app.director.schemas import EditPlan, check_plan, check_reorder, check_titles
+    from app.director.schemas import EditPlan, check_plan, check_remix, check_reorder, check_titles
 
     from app.styles import layout_for
 
@@ -250,7 +264,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                          if four else ("- Bố cục không có dòng tiêu đề: để `title_top`, `titles_top`, `titles_bottom` rỗng."
                                        if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
         "arrow_brief": arrow_brief,
-        "order_rule": (REORDER_RULE.format(max_clip=style.get("pacing", {}).get("max_clip_s", 4))
+        "order_rule": (REMIX_RULE if style.get("remix") else "") + (REORDER_RULE.format(max_clip=style.get("pacing", {}).get("max_clip_s", 4))
                        if style.get("reorder") else COLD_OPEN_RULE if style.get("cold_open")
                        else "Các clip theo đúng thứ tự thời gian, không chồng nhau."),
         "burned_in": (f"có, ở {', '.join(b.regions)}. {b.note_vi}" if b.present else "không"),
@@ -292,6 +306,8 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             errors.append(f"khách doanh nghiệp: bài '{plan.music.name}' không có nhãn Commercial")
         if four:
             errors += check_titles(plan, title_max)
+        if style.get("remix"):
+            errors += check_remix(plan, bool(decor["filter"]))
         if style.get("reorder"):
             errors += check_reorder(plan, style.get("pacing", {}).get("reorder_share", 0.25),
                                     style.get("pacing", {}).get("max_clip_s"))
@@ -392,6 +408,11 @@ FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video m
   `title_top` để rỗng."""
 
 
+REMIX_RULE = """BẢN DỰNG LẠI (khác bản gốc ~80%): giữ đúng THỨ TỰ thời gian của câu chuyện (không đảo cảnh), nhưng
+KHÔNG cảnh nào được giống bản gốc: code tự đổi khung/cắt cận bám người và thêm chuyển động cho mọi clip; bạn phải
+cắt gọn nhịp mạnh (bỏ khoảng lặng, câu thừa), đặt zoom ở các điểm nhấn, chọn filter màu cho cả video (bắt buộc nếu kho
+có filter), nhạc nền mới, tiêu đề / chữ nhấn mới viết bằng ngôn ngữ đích. """
+
 COLD_OPEN_RULE = """Các clip theo thứ tự thời gian, không chồng nhau. Được phép (khuyến khích) MỞ ĐẦU bằng 1 clip
   ngắn 1–3 giây lấy khoảnh khắc buồn cười / sốc nhất ở phía sau (cold open) — đặt "repeat": true cho clip đó
   (được trùng footage với clip dựng sau) — rồi dựng từ đầu theo thứ tự."""
@@ -451,3 +472,76 @@ def captions_text(c) -> str:
         "",
         f"Ghi chú editor: {c.editor_notes}",
     ]) + "\n"
+
+
+# ---------------- Thuyết minh (chế độ Đổi ngôn ngữ) ----------------
+
+def speech_chars(text: str) -> int:
+    """Số ký tự được đọc (bỏ dấu cách, dấu câu) — để ước lượng tốc độ nói."""
+    import unicodedata
+
+    return sum(1 for ch in text if not ch.isspace() and not unicodedata.category(ch).startswith("P"))
+
+
+def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]:
+    from app.director.policy import find_forbidden
+    from app.planner.timeline import SEC, TimeMap
+
+    cfg = config.load("dub") if cfg is None else cfg
+    lo, hi = cfg.get("line_s", [1.5, 9.0])
+    cps = (cfg.get("max_cps") or {}).get(language, 10.0)
+    tmap = TimeMap(plan.clips)
+    errors, last_end = [], -1
+    for i, ln in enumerate(script.lines, 1):
+        clip = tmap.clip_containing((ln.source_start + ln.source_end) / 2)
+        a, b = tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)
+        if clip is None or a is None or b is None or b <= a or not (
+                clip.source_start - 0.05 <= ln.source_start and ln.source_end <= clip.source_end + 0.05):
+            errors.append(f"câu {i} ({ln.source_start}-{ln.source_end}s) phải nằm gọn trong MỘT clip được giữ")
+            continue
+        dur = (b - a) / SEC
+        if dur < lo * 0.6 or dur > hi + 1.0:
+            errors.append(f"câu {i} dài {dur:.1f}s, nên {lo}–{hi}s (gộp hoặc tách câu)")
+        n = speech_chars(ln.text)
+        if dur > 0 and n / dur > cps * 1.15:
+            errors.append(f"câu {i} có {n} ký tự cho {dur:.1f}s (>{cps:.0f} ký tự/giây) — nói gọn lại")
+        if a < last_end - 50_000:
+            errors.append(f"câu {i} chồng lên câu trước hoặc sai thứ tự")
+        last_end = max(last_end, b)
+        bad = find_forbidden(ln.text, language)
+        if bad:
+            errors.append(f"câu {i} có từ không được phép trên TikTok ({', '.join(bad)})")
+    return errors
+
+
+def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0):
+    """Kịch bản thuyết minh theo các clip của kế hoạch dựng (giây gốc), bằng ngôn ngữ đích u.language."""
+    from app.director.schemas import DubScript
+
+    cfg = config.load("dub")
+    a = load_analysis(analysis_dir, footage)
+    segs = a["transcript"].get("segments", [])
+    kept = []
+    for c in plan.clips:
+        if c.replay or c.repeat:
+            continue
+        kept += [s for s in segs if s["end"] > c.source_start and s["start"] < c.source_end and s not in kept]
+    lo, hi = cfg.get("line_s", [1.5, 9.0])
+    clips = "\n".join(f"- clip {i}: {c.source_start:.1f}–{c.source_end:.1f}s"
+                      f"{' (replay quay chậm — không thuyết minh)' if c.replay else ''}"
+                      f"{' (lặp lại — không thuyết minh)' if c.repeat else ''}"
+                      for i, c in enumerate(plan.clips))
+    variables = {**_shared_context(u, kept, a.get("events")), "video_index": video_index,
+                 "language_name": LANGUAGE_NAMES.get(u.language, u.language),
+                 "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
+                 "market": MARKETS.get(u.language, "TikTok"), "line_min": lo, "line_max": hi,
+                 "max_cps": (cfg.get("max_cps") or {}).get(u.language, 10),
+                 "hook": f"{hook.line} ({hook.line_vi})" if hook else "không có hook", "clips": clips}
+
+    def extra(r) -> list[str]:
+        errors = check_dub(r, plan, u.language, cfg)
+        if r.video_index != video_index:
+            errors.append(f"video_index phải là {video_index}")
+        return errors
+
+    return director.run("dub", variables, DubScript, extra_check=extra)

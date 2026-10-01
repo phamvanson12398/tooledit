@@ -1,4 +1,5 @@
 # Nhiệm vụ: lập kế hoạch dựng cho video số {{video_index}}
+{{translate_note}}
 
 Phong cách: **{{style_name}}** — {{style_description}}
 {{style_brief}}

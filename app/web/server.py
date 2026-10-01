@@ -81,7 +81,8 @@ STEP_VI = {
     "analyze": "Phân tích footage", "understand": "AI hiểu nội dung", "confirm_genre": "Chờ xác nhận nội dung",
     "segment": "AI chia video", "review_segments": "Chờ duyệt chia video",
     "hooks": "AI viết hook", "choose_hook": "Chờ chọn hook", "voice": "Chờ file voice",
-    "plan": "AI lập kế hoạch dựng", "assets": "Tìm tài nguyên", "write": "Ghi dự án CapCut",
+    "plan": "AI lập kế hoạch dựng", "dub": "AI viết thuyết minh", "dub_voice": "Chờ voice thuyết minh",
+    "assets": "Tìm tài nguyên", "write": "Ghi dự án CapCut",
     "captions": "AI viết caption", "done": "Xong",
 }
 STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong"}
@@ -288,6 +289,12 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <label class="tg"><input type="checkbox" name="business"> Khách doanh nghiệp (nhạc Commercial)</label>
             <label class="tg"><input type="checkbox" name="confirm"> Xác nhận trước khi dựng</label>
             <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label></div></div>
+          <div class="field"><label>🌐 Đổi ngôn ngữ video (thuyết minh + phụ đề, dựng lại khác bản gốc)</label>
+            <select name="target_language"><option value="">Giữ nguyên ngôn ngữ gốc</option>
+              <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
+              <option value="en">Đổi sang tiếng Anh (English)</option></select>
+            <div class="muted">Video gốc tiếng Hàn / Nhật / Anh / Trung. AI dịch và viết câu thuyết minh, bạn thu voice từng câu
+            bằng Voice Studio rồi tải lên; mọi cảnh được đổi khung, zoom, chuyển động, nhạc + tiêu đề mới (giữ thứ tự cảnh).</div></div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
             <div><label>Khung cho footage ngang</label><select name="ratio"><option value="4:3">4:3</option>
@@ -402,14 +409,15 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     def new_job(footage: str = Form(...), client: str = Form("khach"), hook: str | None = Form(None),
                 reframe: str | None = Form(None), business: str | None = Form(None),
                 confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto"),
-                split: str | None = Form(None)):
+                split: str | None = Form(None), target_language: str = Form("")):
         path = Path(footage.strip().strip('"'))
         if not path.is_file():
             return _page("Lỗi", f"<div class='card'><h2>Không thấy file</h2><p>{html.escape(str(path))}</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         job = Job.create(Path(jobs_root), [path.resolve()], JobOptions(
             client_id=client.strip() or "khach", hook=bool(hook), reframe_per_scene=bool(reframe),
-            confirm_before_build=bool(confirm), split=bool(split)))
+            confirm_before_build=bool(confirm), split=bool(split),
+            target_language=target_language if target_language in ("ko", "ja", "en") else ""))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
         job.save(Path(jobs_root))
         worker.start(job.job_id)
@@ -567,6 +575,41 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         worker.start(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/dub-voice")
+    async def upload_dub_voice(job_id: str, files: list[UploadFile] = File(...), video: int = Form(1)):
+        """Voice thuyết minh: chọn nhiều file một lượt. Tên đúng videoNN_dubMM thì theo tên, còn lại theo thứ tự."""
+        from app.planner import dub_io, hook_io
+
+        d = Job.dir_for(Path(jobs_root), job_id)
+        script = dub_io.load_dub(d, video)
+        if script is None:
+            return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+        good = [f for f in files if Path(f.filename or "").suffix.lower() in hook_io.VOICE_EXTS]
+        bad = [f.filename for f in files if f not in good and f.filename]
+        by_name = {f.filename: f for f in good}
+        vdir = d / "voice"
+        vdir.mkdir(parents=True, exist_ok=True)
+        for name, n in dub_io.match_uploads([f.filename for f in good], video, len(script.lines)):
+            base = dub_io.line_name(video, n)
+            for old in vdir.glob(f"{base}.*"):
+                old.unlink()
+            with open(vdir / f"{base}{Path(name).suffix.lower()}", "wb") as out:
+                shutil.copyfileobj(by_name[name].file, out)
+        if bad:
+            return _page("Lỗi", f"<div class='card'><h2>Có file không hợp lệ</h2><p>Chỉ nhận "
+                         f"{', '.join(hook_io.VOICE_EXTS)}; đã bỏ qua: {html.escape(', '.join(bad))}</p>"
+                         f"<p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
+        worker.start(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/dub-skip")
+    def dub_skip(job_id: str):
+        job = Job.load(Path(jobs_root), job_id)
+        job.data["dub_skip"] = True
+        job.save(Path(jobs_root))
+        worker.start(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/redo")
     def redo(job_id: str, step: str = Form(...)):
         worker.start(job_id, action=lambda runner, job: runner.redo(job, step))
@@ -600,6 +643,9 @@ def _manage_panel(job: Job) -> str:
     if have_plan:
         buttons.append(redo("write", "🔁 Dựng lại draft", "Ghi đè draft CapCut hiện tại? Đóng CapCut trước khi bấm."))
         buttons.append(redo("plan", "🎬 Lập lại kế hoạch dựng", "AI sẽ lập kế hoạch mới và dựng lại draft. Tiếp tục?"))
+    if job.options.target_language and STEPS.index(job.step) > STEPS.index("dub"):
+        buttons.append(redo("dub", "🌐 Viết lại thuyết minh", "AI viết lại câu thuyết minh; voice thuyết minh cũ phải thu "
+                            "lại. Tiếp tục?"))
     if job.options.hook and STEPS.index(job.step) > STEPS.index("choose_hook"):
         buttons.append(redo("choose_hook", "🎣 Chọn hook khác"))
     if job.options.hook and STEPS.index(job.step) > STEPS.index("hooks"):
@@ -873,6 +919,41 @@ def _segments_panel(job: Job, d: Path) -> str:
             + "<p><button type='submit' class='btn'>✅ Xác nhận và dựng tiếp</button></p></form></div>")
 
 
+def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
+    """Chờ voice thuyết minh: kịch bản từng câu + ô tải nhiều file cho từng video + nút bỏ qua."""
+    from app.planner import dub_io
+
+    esc = html.escape
+    forms = []
+    for p in sorted((d / "plan").glob("dub_video*.json")):
+        v = int(p.stem.replace("dub_video", ""))
+        script = dub_io.load_dub(d, v)
+        rows = []
+        for i, ln in enumerate(script.lines, 1):
+            have = dub_io.find_line_voice(d, v, i)
+            rows.append(f"<tr><td>{'✅' if have else '❌'}</td><td><b>{esc(dub_io.line_name(v, i))}</b><br>"
+                        f"<span class='muted'>~{ln.source_end - ln.source_start:.1f}s</span></td>"
+                        f"<td>{esc(ln.text)}<br><span class='muted'>🇻🇳 {esc(ln.text_vi)}</span></td></tr>")
+        done = sum(1 for i in range(1, len(script.lines) + 1) if dub_io.find_line_voice(d, v, i))
+        forms.append(
+            f"<h2 style='margin-top:14px'>🎬 Video {v:02d} — đã có {done}/{len(script.lines)} câu</h2>"
+            f"<details {'open' if done < len(script.lines) else ''}><summary>Kịch bản thuyết minh</summary>"
+            f"<table><tr><th></th><th>File</th><th>Câu cần thu</th></tr>{''.join(rows)}</table></details>"
+            f"<form class='upload' method='post' action='/jobs/{job.job_id}/dub-voice' enctype='multipart/form-data'>"
+            f"<input type='hidden' name='video' value='{v}'>"
+            f"<input type='file' name='files' accept='.wav,.mp3,.m4a,audio/*' multiple required>"
+            f"<br><button type='submit' class='btn small'>📤 Tải lên (chọn nhiều file một lượt)</button></form>")
+    return (f"<div class='card'><h2>🎙️ Thu voice thuyết minh</h2><p>Thu từng câu bằng Voice Studio, đặt tên file đúng như "
+            "cột File (vd <b>video01_dub01.wav</b>) rồi chọn tất cả tải lên một lượt. Nếu file đặt tên kiểu 1.wav, 2.wav… "
+            "tool tự xếp theo thứ tự vào các câu còn thiếu. Đủ file là tool tự dựng tiếp.</p>"
+            f"{''.join(forms)}<p class='muted'>"
+            f"{esc(job.message) if skip else 'Tải thêm voice xong, bấm 🔁 Dựng lại draft ở khung Thao tác.'}</p>"
+            + (f"<form method='post' action='/jobs/{job.job_id}/dub-skip' onsubmit=\"return confirm('Dựng luôn khi chưa đủ "
+               "voice? Câu thiếu voice vẫn có phụ đề, giữ tiếng gốc. Tải voice sau rồi bấm Dựng lại draft.')\">"
+               "<button type='submit' class='btn light small'>⏭️ Dựng luôn (câu thiếu voice chỉ có phụ đề)</button></form>"
+               if skip else "") + "</div>")
+
+
 def _step_panel(job: Job, d: Path) -> str:
     esc = html.escape
     if job.status == Status.error:
@@ -916,6 +997,8 @@ def _step_panel(job: Job, d: Path) -> str:
                 f"<p class='muted'>{esc(job.message)}</p></div>")
     if job.status == Status.waiting and job.step == "review_segments":
         return _segments_panel(job, d)
+    if job.status == Status.waiting and job.step == "dub_voice":
+        return _dub_panel(job, d)
     if job.status == Status.waiting:
         extra = ""
         u = d / "plan" / "understanding.json"
@@ -945,6 +1028,9 @@ def _step_panel(job: Job, d: Path) -> str:
             cap = _read(d / "deliver" / f"video{i:02d}_captions.txt")
             if cap:
                 parts.append(f"<details><summary><b>📣 Caption + hashtag</b></summary><pre>{esc(cap)}</pre></details>")
+        if list((d / "plan").glob("dub_video*.json")):
+            parts.append("<details><summary><b>🎙️ Voice thuyết minh (xem kịch bản / tải thêm)</b></summary>"
+                         + _dub_panel(job, d, skip=False) + "</details>")
         missing = json.loads(_read(d / "missing_assets.json") or "[]")
         if missing:
             rows = "".join(f"<tr><td>{m.get('video', 1):02d}</td><td>{esc(m['kind'])}</td><td>{esc(str(m['what']))}</td><td>{m['at_s']}s</td>"

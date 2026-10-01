@@ -7,7 +7,7 @@ device: cuda            # cuda | cpu | auto
 compute_type: int8_float32
 beam_size: 5
 word_timestamps: true
-languages: [ko, ja, en] # tự nhận, chỉ chấp nhận 3 ngôn ngữ này
+languages: [ko, ja, en, zh] # tự nhận; zh (tiếng Trung) chỉ dùng làm tiếng gốc ở chế độ Đổi ngôn ngữ
 
 # Dự phòng khi không chạy được GPU (thiếu CUDA 12 / cuDNN 9, hết VRAM...)
 fallback:

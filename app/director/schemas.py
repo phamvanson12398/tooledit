@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
-Language = Literal["ko", "ja", "en"]
+Language = Literal["ko", "ja", "en", "zh"]  # zh: chỉ làm tiếng GỐC ở chế độ Đổi ngôn ngữ
 
 
 class TimeRange(BaseModel):
@@ -72,6 +72,18 @@ class Understanding(BaseModel):
     policy_issues: list[PolicyIssue] = Field(
         default_factory=list, description="đoạn vi phạm Nguyên tắc cộng đồng TikTok — sẽ bị CẮT BỎ (mốc giây gốc)")
     editor_notes: str = Field(description="giải thích ngắn các nhận định chính (tiếng Việt)")
+    # Chế độ Đổi ngôn ngữ: tool đổi `language` thành ngôn ngữ ĐÍCH (để hook/chữ/caption viết bằng tiếng đó)
+    # và giữ tiếng gốc của footage ở đây. Không phải trường của đạo diễn.
+    _source_language: str = PrivateAttr(default="")
+
+    @property
+    def source_language(self) -> str:
+        return self._source_language or self.language
+
+    def dubbed_to(self, target: str) -> "Understanding":
+        u = self.model_copy(update={"language": target})
+        u._source_language = self.source_language
+        return u
 
 
 def check_ranges(ranges: list[TimeRange], duration: float, what: str = "mốc") -> list[str]:
@@ -335,6 +347,19 @@ def check_reorder(plan: EditPlan, min_share: float = 0.25, max_clip_s: float | N
     return errors
 
 
+def check_remix(plan: EditPlan, have_filters: bool) -> list[str]:
+    """Bản dựng lại (Đổi ngôn ngữ): giữ thứ tự thời gian, có filter màu, có điểm nhấn zoom."""
+    errors = []
+    normal = [c for c in plan.clips if not c.replay and not c.repeat]
+    if any(b.source_start < a.source_start for a, b in zip(normal, normal[1:])):
+        errors.append("bản dựng lại phải giữ đúng thứ tự thời gian của các clip (không đảo cảnh)")
+    if have_filters and not plan.filter:
+        errors.append("bản dựng lại phải chọn một filter màu cho cả video (để khác bản gốc)")
+    if len(normal) >= 4 and not plan.zooms:
+        errors.append("bản dựng lại cần vài zoom ở điểm nhấn (zooms đang rỗng)")
+    return errors
+
+
 def check_titles(plan: EditPlan, max_chars: int) -> list[str]:
     """Bố cục 4 dòng tiêu đề: đủ 2 dòng trên + 2 dòng dưới, mỗi dòng ngắn để chữ to."""
     errors = []
@@ -418,3 +443,18 @@ def check_captions(c: Captions) -> list[str]:
     if len(c.hashtags_vi) != len(c.hashtags):
         errors.append("hashtags_vi phải có cùng số phần tử với hashtags")
     return errors
+
+
+# ---------------- Thuyết minh (chế độ Đổi ngôn ngữ) ----------------
+
+class DubLine(BaseModel):
+    source_start: float = Field(ge=0, description="giây GỐC bắt đầu đoạn thoại được thuyết minh (nằm trong clip được giữ)")
+    source_end: float = Field(gt=0, description="giây GỐC kết thúc")
+    text: str = Field(description="câu thuyết minh bằng NGÔN NGỮ ĐÍCH, văn nói tự nhiên của người bản xứ")
+    text_vi: str = Field(description="nghĩa tiếng Việt")
+
+
+class DubScript(BaseModel):
+    video_index: int = Field(ge=1)
+    lines: list[DubLine] = Field(min_length=1)
+    editor_notes: str

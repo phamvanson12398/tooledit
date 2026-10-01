@@ -1,0 +1,28 @@
+# Chế độ "Đổi ngôn ngữ" (video short): video gốc nói một thứ tiếng (ko/ja/en/zh), bản TikTok được
+# THUYẾT MINH (voice tự thu bằng Voice Studio) + PHỤ ĐỀ bằng ngôn ngữ khác (ko/ja/en), và dựng lại khác hẳn bản gốc.
+
+targets: [ko, ja, en]          # ngôn ngữ đích được chọn trên giao diện
+original_db: -20               # tiếng gốc hạ xuống mức này khi đã có thuyết minh (vẫn nghe được không khí)
+original_db_no_voice: -6       # câu chưa có file thuyết minh: tiếng gốc chỉ hạ nhẹ
+max_speed: 1.25                # file thuyết minh dài hơn chỗ trống → tăng tốc tối đa mức này
+line_s: [1.5, 9.0]             # mỗi câu thuyết minh dài 1.5–9 giây (một ý trọn vẹn)
+
+# Tốc độ nói tối đa (ký tự / giây, không tính dấu cách, dấu câu) — để câu dịch đọc kịp trong chỗ trống.
+max_cps: {ja: 8.0, ko: 7.0, en: 16.0}
+
+# "Khác bản gốc ~80%": ghi đè lên phong cách đang chọn (không đảo thứ tự cảnh — chủ dự án chốt 01/10)
+style_override:
+  remix: true
+  reorder: false
+  cold_open: false
+  motion: {every_clip: true, max_scale: 1.2}
+# Góc máy bám người (chỉ dùng khi phong cách chưa có cấu hình camera riêng)
+camera_default:
+  mode: speaker
+  close_zoom: 1.7
+  medium_zoom: 1.3
+  face_max: 0.45
+  max_hold_s: 3.5
+  min_shot_s: 1.2
+  wide_open_s: 1.5
+  wide_every_s: 15

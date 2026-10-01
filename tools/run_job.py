@@ -35,6 +35,7 @@ def add_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("--business", action="store_true", help="khách doanh nghiệp: chỉ dùng nhạc Commercial")
     p.add_argument("--client", help="mã khách (dùng trong tên draft)")
     p.add_argument("--ratio", choices=["4:3", "1:1"], help="khung mặc định cho footage ngang")
+    p.add_argument("--to", choices=["ko", "ja", "en"], help="đổi ngôn ngữ: thuyết minh + phụ đề tiếng này")
 
 
 def apply_options(job: Job, args) -> None:
@@ -52,6 +53,8 @@ def apply_options(job: Job, args) -> None:
         job.data["business"] = True
     if args.ratio:
         job.data["default_ratio"] = args.ratio
+    if getattr(args, "to", None):
+        job.options.target_language = args.to
 
 
 def report(job: Job) -> None:

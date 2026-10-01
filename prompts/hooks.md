@@ -1,4 +1,5 @@
 # Nhiệm vụ: viết 3 phương án hook cho video số {{video_index}}
+{{translate_note}}
 
 Hook là 3–5 giây đầu video: một câu voice ngắn (chủ dự án tự thu), hình chuyển động nhanh, chữ lớn nhấn từ khóa
 ở dải trên, cắt ngay trước khi lộ "lời giải". Hook phải tự cung cấp bối cảnh như thể đây là video duy nhất.

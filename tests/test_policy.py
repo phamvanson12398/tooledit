@@ -110,7 +110,7 @@ def test_hooks_must_avoid_flagged_part(tmp_path):
 def test_persona_has_tiktok_policy():
     p = render_prompt("captions", {k: "x" for k in (
         "video_index", "language_name", "market", "hook", "summary", "sensitive_notes", "policy_cuts",
-        "name_corrections", "key_moments", "transcript", "range", "audio_events")})
+        "name_corrections", "key_moments", "transcript", "range", "audio_events", "translate_note")})
     assert "Chính sách TikTok" in p and "{{" not in p
 
 

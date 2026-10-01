@@ -1,5 +1,26 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 25 — Chế độ "Đổi ngôn ngữ" (thuyết minh + phụ đề, dựng lại khác bản gốc) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Trang chủ → chọn footage (tiếng Hàn / Nhật / Anh / Trung) → ô **🌐 Đổi ngôn ngữ video**: chọn ngôn ngữ đích
+   (vd "Đổi sang tiếng Nhật"). Các tùy chọn khác (hook, chia video...) dùng như cũ. Bấm Bắt đầu dựng.
+   - Video tiếng Trung lần đầu: kiểm tra nhật ký bước nhận dạng thoại nhận đúng `zh` (Whisper large-v3 hỗ trợ).
+3. Nhật ký sau bước AI hiểu nội dung: "Đổi ngôn ngữ: zh → ja (thuyết minh + phụ đề ja)".
+4. Sau bước kế hoạch dựng: trang job hiện **🎙️ Thu voice thuyết minh** — bảng từng câu (tên file, thời lượng chỗ
+   trống, câu cần thu + nghĩa tiếng Việt). File `jobs\<job>\dub_scripts.txt` có cùng nội dung.
+5. Thu từng câu bằng Voice Studio, đặt tên `video01_dub01.wav`, `video01_dub02.wav`... (hoặc 1.wav, 2.wav... — tool
+   tự xếp theo thứ tự), chọn TẤT CẢ file một lượt → **Tải lên**. Đủ file là tool tự dựng tiếp.
+   Chưa thu kịp: bấm **⏭️ Dựng luôn** (câu thiếu voice chỉ có phụ đề); tải thêm sau ở trang Xong rồi bấm 🔁 Dựng lại draft.
+6. Mở draft trong CapCut, kiểm tra:
+   - voice thuyết minh nằm đúng chỗ từng câu; tiếng gốc nhỏ hẳn dưới voice (~-20 dB), chỗ không có voice to hơn;
+   - phụ đề là câu ngôn ngữ đích (không còn lời gốc), ngắt dòng đọc được;
+   - mọi cảnh đều khác bản gốc: cắt cận bám người, có chuyển động/zoom, filter màu, nhạc + tiêu đề mới,
+     thứ tự cảnh giữ nguyên;
+   - voice dài hơn chỗ trống: được tăng tốc tối đa 1.25x (nhật ký ghi câu nào bị tràn → thu lại ngắn hơn).
+7. Chữ gốc in sẵn trên hình (vd phụ đề tiếng Trung có sẵn): tool không xóa được — che bằng CapCut nếu cần.
+8. Tinh chỉnh trong `config\dub.yaml`: mức tiếng gốc (`original_db`), tốc độ tối đa (`max_speed`), tốc độ nói (`max_cps`).
+
 ## Bước 24 — Không nhắc nền tảng khác ngoài TikTok `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Tạo job mới (job cũ: 🎬 Lập lại kế hoạch dựng để caption/chữ được
