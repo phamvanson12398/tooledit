@@ -146,6 +146,9 @@ class Runner:
         from app.styles import load_style
 
         style = load_style(name or job.data.get("style_used") or self._style_name(job))
+        ratio = job.data.get("default_ratio")
+        if ratio in ("16:9", "4:3", "1:1"):  # khung người dùng chọn khi tạo job → khối video đúng tỉ lệ đó
+            style = {**style, "block_ratio": ratio}
         if job.options.target_language:
             dcfg = config.load("dub")
             style = {**style, **(dcfg.get("style_override") or {})}
@@ -476,8 +479,8 @@ class Runner:
                              decor_items=[m for m in tpl.library if m.kind in ("video_effect", "sticker",
                                                                                 "transition", "filter")],
                              business=job.data.get("business", False), reframe=job.options.reframe_per_scene,
-                             default_ratio=job.data.get("default_ratio")
-                             or config.load("capcut").get("default_block", "4:3"))
+                             default_ratio=job.data.get("default_ratio") if job.data.get("default_ratio") in
+                             ("4:3", "1:1") else config.load("capcut").get("default_block", "4:3"))
             out.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
 
     def step_dub(self, job: Job) -> None:

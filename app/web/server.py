@@ -297,8 +297,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             bằng Voice Studio rồi tải lên; mọi cảnh được đổi khung, zoom, chuyển động, nhạc + tiêu đề mới (giữ thứ tự cảnh).</div></div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
-            <div><label>Khung cho footage ngang</label><select name="ratio"><option value="4:3">4:3</option>
-              <option value="1:1">1:1 (vuông)</option></select></div></div>
+            <div><label>Khung video (khối giữa màn)</label><select name="ratio"><option value="4:3">4:3</option>
+              <option value="1:1">1:1 (vuông)</option><option value="16:9">16:9 (tràn ngang như video mẫu)</option>
+              <option value="auto">Theo kiểu dựng (16:9; thể thao 9:10)</option></select></div></div>
           <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>
         </form></div></div>
         <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary()}{_resource_tools(has_key)}{_template_setting()}</div>

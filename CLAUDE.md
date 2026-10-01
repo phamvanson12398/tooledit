@@ -107,6 +107,8 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   khối video 16:9 tràn ngang ở giữa, 2 dòng tiêu đề chữ rất lớn phía trên + 2 dòng phía dưới cố định suốt video,
   phụ đề thoại trong khối video, nhãn chủ đề nhỏ góc trên phải khối. Thông số trong `config/layout.yaml`
   (`preset: classic` để dùng lại bố cục 4:3/1:1 ở trên).
+  **Cập nhật 01/10:** khung người dùng chọn khi tạo job (4:3 / 1:1 / 16:9) được áp dụng cho khối video của mọi bố cục;
+  tiêu đề, phụ đề, nhãn tự dời theo khối (`app/styles.adapt_layout`). "Theo kiểu dựng" = khung mặc định của bố cục.
 - **Ngoại lệ thể thao (chủ dự án chốt 25/09, video mẫu boxing):** kiểu `sports_analysis` dùng bố cục `sports_focus`:
   nền đen, khối video 9:10 phóng vào pha đấu bám theo người, không dòng tiêu đề, phụ đề cụm ngắn chữ vàng viền đen
   trong khối video, mũi tên xanh chỉ chi tiết mà lời bình nhắc tới, chuyển cảnh mờ, replay quay chậm.

@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 29 — Khung video đúng như bạn chọn (4:3 / 1:1 / 16:9) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Trước đây bố cục "4 dòng tiêu đề" luôn ép khối video 16:9, bỏ qua lựa chọn 4:3 / 1:1. Đã sửa.
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Trang chủ → ô **Khung video (khối giữa màn)**: 4:3 · 1:1 (vuông) · 16:9 (tràn ngang như video mẫu) ·
+   Theo kiểu dựng (16:9; thể thao 9:10). Tạo job với 4:3, rồi một job với 1:1.
+   Job cũ (đã chọn 4:3 lúc tạo): bấm **🔁 Dựng lại draft** là ra khung 4:3.
+3. Mở draft trong CapCut, kiểm tra:
+   - khối video đúng 4:3 (1080×810) / 1:1 (1080×1080), cắt bám người (podcast / giải trí);
+   - 4 dòng tiêu đề dời theo khối, KHÔNG đè lên video; với 1:1 dải trên/dưới hẹp nên chữ tiêu đề nhỏ hơn —
+     nếu vẫn chạm video hoặc quá nhỏ, báo lại để chỉnh `title_rows` / `title_scale_max` trong `config\layout.yaml`;
+   - phụ đề vẫn nằm trong khối video, nhãn chủ đề ở góc trên phải khối.
+4. Lưu ý: chọn 4:3 / 1:1 cũng áp dụng cho kiểu thể thao (thay khối 9:10). Muốn giữ 9:10 → chọn "Theo kiểu dựng".
+
 ## Bước 28 — Hook dài hơn: 1–2 câu đời thường rồi mới vào câu hook `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **✍️ Viết hook mới** (hook cũ chưa có câu dẫn).

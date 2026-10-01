@@ -271,7 +271,9 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                           ("full (footage dọc)" if vertical else default_ratio)),
         "reframe": "không — bố cục cố định" if fixed else
         ("có — chọn 4:3 hoặc 1:1 cho từng clip" if reframe else "không — mọi clip dùng khung mặc định"),
-        "layout_brief": (FOUR_TITLES_BRIEF.format(max_chars=title_max,
+        "layout_brief": (FOUR_TITLES_BRIEF.format(max_chars=title_max, ratio=lay["block_ratio"],
+                                                  plan_ratio=lay["block_ratio"] if lay["block_ratio"] in
+                                                  ("16:9", "4:3", "1:1") else "16:9",
                                                   language=LANGUAGE_NAMES.get(u.language, u.language))
                          if four else ("- Bố cục không có dòng tiêu đề: để `title_top`, `titles_top`, `titles_bottom` rỗng."
                                        if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
@@ -408,9 +410,9 @@ def repair_names(plan, decor_names: dict[str, list[str]], music_names: set[str],
     return plan.model_copy(update=upd), fixes
 
 
-FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video mẫu chủ dự án chọn): nền đen, khối video 16:9 ở giữa,
+FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video mẫu chủ dự án chọn): nền đen, khối video {ratio} ở giữa,
   2 dòng tiêu đề CHỮ RẤT TO phía trên (`titles_top`) và 2 dòng phía dưới (`titles_bottom`), hiện suốt video.
-  Phụ đề thoại nằm trong khối video (code tự làm). `default_ratio` = "16:9", mọi clip `ratio` = null.
+  Phụ đề thoại nằm trong khối video (code tự làm). `default_ratio` = "{plan_ratio}", mọi clip `ratio` = null.
 - `titles_top` (2 dòng): tình huống / câu gợi tò mò, dòng 1 mở (có thể kết bằng "…"), dòng 2 là chi tiết bất ngờ.
   Ví dụ tiếng Nhật: ["大事な試合の前に…", "隣室から突然流れる演歌"].
 - `titles_bottom` (2 dòng): nhân vật / kết luận về người trong video. Ví dụ: ["全くぶれない男だった", "亜細亜大のキャプテン"].

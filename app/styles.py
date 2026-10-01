@@ -38,4 +38,48 @@ def layout_for(style: dict) -> dict | None:
     name = style.get("layout") or lay.get("preset", "four_titles")
     if name == "classic" or not isinstance(lay.get(name), dict):
         return None
-    return {**lay[name], "name": name}
+    out = {**lay[name], "name": name}
+    ratio = style.get("block_ratio")  # khung người dùng chọn khi tạo job (4:3 / 1:1 / 16:9)
+    return adapt_layout(out, ratio) if ratio and ratio != out.get("block_ratio") else out
+
+
+def block_rows(ratio: str) -> tuple[float, float]:
+    """Mép trên / mép dưới của khối video (phần chiều cao khung 9:16, từ trên xuống) khi khối rộng bằng khung."""
+    from app.capcut_writer.layout import RATIOS
+
+    h = (1080 / RATIOS[ratio]) / 1920
+    return 0.5 - h / 2, 0.5 + h / 2
+
+
+def adapt_layout(lay: dict, ratio: str) -> dict:
+    """Đổi khối video sang tỉ lệ khác (vd 16:9 → 4:3 / 1:1) và dời mọi thứ theo khối: dòng tiêu đề giữ cùng vị trí
+    TƯƠNG ĐỐI trong dải trên / dải dưới, phụ đề và nhãn chủ đề giữ cùng vị trí tương đối trong khối, chữ tiêu đề nhỏ
+    lại nếu dải hẹp hơn (để không đè lên video)."""
+    from app.capcut_writer.layout import RATIOS
+
+    if ratio not in RATIOS or lay.get("block_ratio") not in RATIOS:
+        return lay
+    t0, b0 = block_rows(lay["block_ratio"])
+    t1, b1 = block_rows(ratio)
+    out = {**lay, "block_ratio": ratio}
+    if lay.get("title_rows"):
+        rows = []
+        for r in lay["title_rows"]:
+            if r < 0.5:
+                rows.append(max(0.05, r / t0 * t1))
+            else:  # không xuống quá sâu vùng caption TikTok
+                rows.append(min(0.9, b1 + (r - b0) / (1 - b0) * (1 - b1)))
+        old_rows = lay["title_rows"]
+        out["title_rows"] = [round(r, 4) for r in rows]
+        if len(rows) == 4:  # dải hẹp hơn → chữ tiêu đề nhỏ lại theo khoảng cách giữa 2 dòng
+            shrink = min(1.0, (rows[1] - rows[0]) / (old_rows[1] - old_rows[0]),
+                         (rows[3] - rows[2]) / (old_rows[3] - old_rows[2]))
+            out["title_scale_max"] = round(lay.get("title_scale_max", 2.2) * shrink, 3)
+
+    def inside(row: float) -> float:  # giữ cùng vị trí tương đối TRONG khối video
+        return round(t1 + (row - t0) / (b0 - t0) * (b1 - t1), 4)
+
+    for key in ("subtitle_row", "topic_row"):
+        if key in lay:
+            out[key] = inside(lay[key])
+    return out

@@ -543,3 +543,44 @@ def test_hook_needs_casual_intro_before_hook(tmp_path):
     hook_io.save_hooks(tmp_path, [hs], {1: 1})
     text = hook_io.write_hook_scripts(tmp_path, [hs], {1: 1}).read_text(encoding="utf-8")
     assert "Câu dẫn: 昔の相撲の話" in text and "Câu hook: 嫌われ者" in text and "CÙNG một file" in text
+
+
+@pytest.mark.parametrize("ratio,width", [("4:3", 0.75), ("1:1", 0.5625)])
+def test_chosen_block_ratio_is_respected(tmp_path, ratio, width):
+    """Khung người dùng chọn (4:3 / 1:1) phải được dùng cả ở bố cục 4 dòng tiêu đề, tiêu đề dời theo khối."""
+    from app.capcut_writer.layout import row_to_y
+    from app.planner.builder import layout_for
+    from app.styles import block_rows, load_style
+
+    style = {**load_style("jp_telop"), "block_ratio": ratio}
+    four = layout_for(style)
+    top, bottom = block_rows(ratio)
+    assert four["block_ratio"] == ratio
+    assert four["title_rows"][1] < top and four["title_rows"][2] > bottom  # tiêu đề không đè lên khối video
+    assert top < four["subtitle_row"] < bottom and top < four["topic_row"] < bottom
+    tpl = DraftTemplate(SAMPLE)
+    plan = EditPlan.model_validate(load("plan.json"))
+    u = Understanding.model_validate(load("understand.json"))
+    res = build(plan, u, _analysis(), tpl, tmp_path, f"r{ratio[0]}", style)
+    tl = res.writer.build_timeline()
+    for v in tl["materials"]["videos"]:
+        c = v["crop"]
+        assert abs((c["upper_right_x"] - c["upper_left_x"]) - width) < 1e-6  # footage 16:9 cắt đúng tỉ lệ khối
+    mats = {m["id"]: json.loads(m["content"])["text"] for m in tl["materials"]["texts"]}
+    segs = {mats[s["material_id"]]: s for t in tl["tracks"] if t["type"] == "text" for s in t["segments"]}
+    assert abs(segs[plan.titles_top[1]]["clip"]["transform"]["y"] - row_to_y(four["title_rows"][1])) < 1e-6
+
+
+def test_runner_passes_chosen_ratio(tmp_path):
+    from app.jobs.job import Job, JobOptions
+    from app.jobs.runner import Runner
+    from app.styles import layout_for
+
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/x.mp4")], JobOptions(), job_id="r1")
+    r = Runner(jobs, director=None, log=lambda m: None)
+    job.data.update({"style": "podcast", "default_ratio": "1:1"})
+    assert layout_for(r._style(job, "podcast"))["block_ratio"] == "1:1"
+    job.data["default_ratio"] = "auto"
+    assert layout_for(r._style(job, "podcast"))["block_ratio"] == "16:9"
+    assert layout_for(r._style(job, "sports_analysis"))["block_ratio"] == "9:10"
