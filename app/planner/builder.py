@@ -275,10 +275,19 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     def positions(ratio: str) -> dict:
         return four_title_positions(four) if four else text_positions(ratio, safe)
 
+    crop_ratio = style.get("crop_ratio")  # vùng lấy từ video gốc người dùng chọn (4:3 / 1:1 / 16:9), khác khung hiển thị
+
     def crop_for(ratio: str, start: float, end: float):
         if ratio == "full":
             return None
-        return block_crop(src.width, src.height, ratio, center_x=subject_center(subjects, start, end))
+        cx = subject_center(subjects, start, end)
+        if crop_ratio and crop_ratio != ratio:
+            from app.capcut_writer.layout import RATIOS, sub_crop
+
+            if crop_ratio in RATIOS and ratio in RATIOS:  # lấy vùng crop đã chọn, rồi lấp đầy khung hiển thị
+                return sub_crop(block_crop(src.width, src.height, crop_ratio, center_x=cx), ratio, src.width,
+                                src.height, cx)
+        return block_crop(src.width, src.height, ratio, center_x=cx)
 
     # ---------- chữ in sẵn trên footage: tránh bằng cắt chặt hơn, không được thì che ----------
     tc = config.load("text_cover") or {}
@@ -495,6 +504,18 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
 
     if n_mirror:
         notes.append(f"Phản chiếu ngang {n_mirror} cảnh (để bản dựng khác bản gốc).")
+    # ---------- khung video cố định: zoom / lia chỉ diễn ra bên trong khung, phần tràn ra bị che ----------
+    frame_ratio = ratio_for(None)
+    if four and four.get("frame_lock") and frame_ratio != "full" and tmap.end > 0:
+        from app.styles import block_rows
+
+        top, bottom = block_rows(frame_ratio)
+        band_px = round(top * 1920)
+        if band_px >= 4:
+            png = _band_png(Path(drafts_root), band_px, four.get("background_color", "#000000FF"))
+            for y in (1.0 - top, -bottom):  # tâm dải trên / dải dưới (đơn vị nửa khung)
+                w.add_image(png, 1080, band_px, target_start=0, duration=tmap.end, y=y)
+            notes.append(f"Khung video cố định {frame_ratio}: zoom/lia chỉ trong khung (che phần tràn trên/dưới).")
     if text_boxes:
         notes.append(f"Chữ in sẵn trên footage: cắt chặt hơn để tránh ở {n_avoided} cảnh, che ở {len(covers)} chỗ.")
     if covers:
@@ -657,6 +678,22 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         used_local.append(music.material["path"])
     return BuildResult(writer=w, duration_us=tmap.end, missing_assets=missing, notes=notes,
                        used_local=sorted(set(used_local)))
+
+
+def _band_png(drafts_root: Path, height: int, color: str) -> Path:
+    """Ảnh dải nền (1080 x height) cùng màu nền bố cục để che phần video tràn ra ngoài khung cố định."""
+    import cv2
+    import numpy as np
+
+    c = color.lstrip("#")[:6]
+    rgb = tuple(int(c[i:i + 2], 16) for i in (0, 2, 4))
+    out = Path(drafts_root) / "_tool_assets" / f"frame_band_1080x{height}_{c}.png"
+    if not out.is_file():
+        out.parent.mkdir(parents=True, exist_ok=True)
+        img = np.zeros((height, 1080, 3), np.uint8)
+        img[:] = rgb[::-1]  # OpenCV dùng BGR
+        cv2.imwrite(str(out), img)
+    return out
 
 
 def _fallback_sfx(library, kind: str):

@@ -5,7 +5,7 @@ from __future__ import annotations
 from .writer import Crop
 
 CANVAS_W, CANVAS_H = 1080, 1920
-RATIOS = {"16:9": 16 / 9, "4:3": 4 / 3, "9:10": 0.9, "4:5": 0.8, "1:1": 1.0, "9:16": 9 / 16}
+RATIOS = {"16:9": 16 / 9, "4:3": 4 / 3, "9:10": 0.9, "4:5": 0.8, "3:4": 3 / 4, "1:1": 1.0, "9:16": 9 / 16}
 
 
 def block_size(ratio: str, canvas_w: int = CANVAS_W) -> tuple[int, int]:
@@ -28,6 +28,24 @@ def block_crop(src_w: int, src_h: int, ratio: str, center_x: float = 0.5, center
     h = src / target  # nguồn cao hơn → cắt trên dưới
     top = min(max(center_y - h / 2, 0.0), 1.0 - h)
     return Crop(left=0.0, top=top, right=1.0, bottom=top + h)
+
+
+def sub_crop(crop, ratio: str, src_w: int, src_h: int, center_x: float | None = None):
+    """Vùng lớn nhất có tỉ lệ `ratio` (rộng/cao trên MÀN) nằm trong vùng cắt `crop`, tâm ngang theo center_x.
+    Dùng để lấy khung 3:4 cố định từ vùng crop người dùng chọn (4:3 / 1:1 / 16:9)."""
+    from .writer import Crop
+
+    c = crop or Crop()
+    w, h = c.right - c.left, c.bottom - c.top
+    target = RATIOS[ratio] * src_h / src_w  # tỉ lệ rộng/cao theo tọa độ 0..1 của khung gốc
+    if w / h > target:  # vùng crop rộng hơn → cắt thêm hai bên
+        nw = h * target
+        cx = c.left + w / 2 if center_x is None else center_x
+        left = min(max(cx - nw / 2, c.left), c.right - nw)
+        return Crop(left=left, top=c.top, right=left + nw, bottom=c.bottom)
+    nh = w / target
+    top = c.top + (h - nh) / 2
+    return Crop(left=c.left, top=top, right=c.right, bottom=top + nh)
 
 
 def band_centers(ratio: str, canvas_w: int = CANVAS_W, canvas_h: int = CANVAS_H) -> tuple[float, float]:

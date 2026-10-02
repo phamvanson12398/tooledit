@@ -173,7 +173,7 @@ def test_four_titles_layout_like_reference(tmp_path):
 
     style = load_style("jp_telop")
     four = layout_for(style)
-    assert four and four["block_ratio"] == "16:9"
+    assert four and four["block_ratio"] == "3:4"  # khung hiển thị cố định 3:4 (chủ dự án chốt 02/10)
     tpl = DraftTemplate(SAMPLE)
     plan = EditPlan.model_validate(load("plan.json"))
     u = Understanding.model_validate(load("understand.json"))
@@ -189,9 +189,9 @@ def test_four_titles_layout_like_reference(tmp_path):
         assert seg["clip"]["scale"]["x"] <= 1.0  # giữ cỡ 20, chỉ thu nhỏ khi dòng quá dài
     assert segs["曙との関係について"]["clip"]["transform"]["x"] > 0  # nhãn chủ đề góc phải
     sub = segs[next(t for t in segs if t.startswith("優勝"))]
-    assert -0.4 < sub["clip"]["transform"]["y"] < 0  # phụ đề trong khối video
-    crop = tl["materials"]["videos"][0]["crop"]
-    assert crop["upper_left_x"] == 0 and crop["lower_right_x"] == 1  # 16:9 giữ nguyên khung
+    assert -0.75 < sub["clip"]["transform"]["y"] < 0  # phụ đề trong khung video 3:4 (mép dưới khung y = -0.75)
+    crop = next(m for m in tl["materials"]["videos"] if m["type"] == "video")["crop"]
+    assert abs((crop["upper_right_x"] - crop["upper_left_x"]) - (3 / 4) / (16 / 9)) < 1e-6  # footage 16:9 → khung 3:4
     assert all(c["type"] == "canvas_color" for c in tl["materials"]["canvases"])
     assert not [n for n in res.notes if "thiếu dòng tiêu đề" in n]
 
@@ -234,7 +234,7 @@ def test_replay_clip_and_sfx_from_library(tmp_path):
     texts = [json.loads(m["content"])["text"] for m in tl["materials"]["texts"]]
     assert "リプレイ" in texts
     videos = [s for t in tl["tracks"] if t["type"] == "video" for s in t["segments"]]
-    replay = videos[-1]
+    replay = max((v for v in videos if v.get("speed") == 0.4), key=lambda v: v["target_timerange"]["start"])
     assert replay["speed"] == 0.4 and replay["volume"] == 0.0
     assert replay["target_timerange"]["duration"] == round(1.8 / 0.4 * SEC)
     audio_names = [m["name"] for m in tl["materials"]["audios"]]
@@ -320,7 +320,7 @@ def test_sports_layout_like_reference(tmp_path):
 
     style = load_style("sports_analysis")
     lay = layout_for(style)
-    assert lay["name"] == "sports_focus" and not lay["titles"] and lay["block_ratio"] == "9:10"
+    assert lay["name"] == "sports_focus" and not lay["titles"] and lay["block_ratio"] == "3:4"
     p = load("plan.json")
     p["arrows"] = [{"source_time": 8.0, "x": 0.5, "y": 0.5, "points": "down_right", "duration": 1.0},
                    {"source_time": 9.0, "x": 0.01, "y": 0.5, "points": "left"}]  # điểm thứ 2 bị cắt mất
@@ -545,30 +545,50 @@ def test_hook_needs_casual_intro_before_hook(tmp_path):
     assert "Câu dẫn: 昔の相撲の話" in text and "Câu hook: 嫌われ者" in text and "CÙNG một file" in text
 
 
-@pytest.mark.parametrize("ratio,width", [("4:3", 0.75), ("1:1", 0.5625)])
-def test_chosen_block_ratio_is_respected(tmp_path, ratio, width):
-    """Khung người dùng chọn (4:3 / 1:1) phải được dùng cả ở bố cục 4 dòng tiêu đề, tiêu đề dời theo khối."""
+@pytest.mark.parametrize("ratio", ["4:3", "1:1", "16:9"])
+def test_fixed_3_4_frame_with_chosen_crop(tmp_path, ratio):
+    """Khung hiển thị luôn 3:4; vùng crop người dùng chọn chỉ quyết định phần lấy từ video gốc; zoom không làm đổi khung."""
     from app.capcut_writer.layout import row_to_y
     from app.planner.builder import layout_for
     from app.styles import block_rows, load_style
 
-    style = {**load_style("jp_telop"), "block_ratio": ratio}
+    style = {**load_style("jp_telop"), "block_ratio": ratio, "crop_ratio": ratio}
     four = layout_for(style)
-    top, bottom = block_rows(ratio)
-    assert four["block_ratio"] == ratio
-    assert four["title_rows"][1] < top and four["title_rows"][2] > bottom  # tiêu đề không đè lên khối video
+    top, bottom = block_rows("3:4")
+    assert four["block_ratio"] == "3:4"
+    assert four["title_rows"][1] < top and four["title_rows"][2] > bottom  # tiêu đề không đè lên khung video
     assert top < four["subtitle_row"] < bottom and top < four["topic_row"] < bottom
     tpl = DraftTemplate(SAMPLE)
     plan = EditPlan.model_validate(load("plan.json"))
     u = Understanding.model_validate(load("understand.json"))
     res = build(plan, u, _analysis(), tpl, tmp_path, f"r{ratio[0]}", style)
     tl = res.writer.build_timeline()
-    for v in tl["materials"]["videos"]:
+    vids = [m for m in tl["materials"]["videos"] if m["type"] == "video"]
+    for v in vids:
         c = v["crop"]
-        assert abs((c["upper_right_x"] - c["upper_left_x"]) - width) < 1e-6  # footage 16:9 cắt đúng tỉ lệ khối
+        w, h = c["upper_right_x"] - c["upper_left_x"], c["lower_left_y"] - c["upper_left_y"]
+        assert abs(w * 1920 / (h * 1080) - 0.75) < 1e-6  # nội dung trên màn đúng 3:4
+    photos = [m for m in tl["materials"]["videos"] if m["type"] == "photo"]
+    assert len(photos) == 2 and all(m["duration"] == 10_800_000_000 for m in photos)  # 2 dải che trên/dưới
+    segs = [s for t in tl["tracks"] if t["type"] == "video" for s in t["segments"]]
+    bands = [s for s in segs if s["material_id"] in {m["id"] for m in photos}]
+    assert sorted(round(b["clip"]["transform"]["y"], 4) for b in bands) == [round(-bottom, 4), round(1 - top, 4)]
+    main_track = next(t for t in tl["tracks"] if t["type"] == "video")
+    assert not any(s in bands for s in main_track["segments"])  # dải che nằm rãnh trên, đè lên phần hình tràn
+    assert all(b["target_timerange"]["start"] == 0 and b["target_timerange"]["duration"] == res.duration_us for b in bands)
     mats = {m["id"]: json.loads(m["content"])["text"] for m in tl["materials"]["texts"]}
-    segs = {mats[s["material_id"]]: s for t in tl["tracks"] if t["type"] == "text" for s in t["segments"]}
-    assert abs(segs[plan.titles_top[1]]["clip"]["transform"]["y"] - row_to_y(four["title_rows"][1])) < 1e-6
+    tsegs = {mats[s["material_id"]]: s for t in tl["tracks"] if t["type"] == "text" for s in t["segments"]}
+    assert abs(tsegs[plan.titles_top[1]]["clip"]["transform"]["y"] - row_to_y(four["title_rows"][1])) < 1e-6
+
+
+def test_sub_crop_from_chosen_crop():
+    from app.capcut_writer.layout import block_crop, sub_crop
+
+    # footage dọc 1080x1920: crop 1:1 rồi lấy khung 3:4 bên trong → khác với crop 16:9
+    sq = sub_crop(block_crop(1080, 1920, "1:1"), "3:4", 1080, 1920, 0.5)
+    wide = sub_crop(block_crop(1080, 1920, "16:9"), "3:4", 1080, 1920, 0.5)
+    assert abs((sq.right - sq.left) * 1080 / ((sq.bottom - sq.top) * 1920) - 0.75) < 1e-6
+    assert (wide.bottom - wide.top) < (sq.bottom - sq.top)
 
 
 def test_runner_passes_chosen_ratio(tmp_path):
@@ -580,10 +600,11 @@ def test_runner_passes_chosen_ratio(tmp_path):
     job = Job.create(jobs, [Path("C:/f/x.mp4")], JobOptions(), job_id="r1")
     r = Runner(jobs, director=None, log=lambda m: None)
     job.data.update({"style": "podcast", "default_ratio": "1:1"})
-    assert layout_for(r._style(job, "podcast"))["block_ratio"] == "1:1"
+    st = r._style(job, "podcast")
+    assert st["crop_ratio"] == "1:1" and layout_for(st)["block_ratio"] == "3:4"  # khung luôn 3:4, crop theo lựa chọn
     job.data["default_ratio"] = "auto"
-    assert layout_for(r._style(job, "podcast"))["block_ratio"] == "16:9"
-    assert layout_for(r._style(job, "sports_analysis"))["block_ratio"] == "9:10"
+    assert "crop_ratio" not in r._style(job, "podcast")
+    assert layout_for(r._style(job, "sports_analysis"))["block_ratio"] == "3:4"
 
 
 def test_mirror_some_scenes_but_not_when_text_on_screen(tmp_path):

@@ -61,7 +61,7 @@ def test_build_avoids_and_covers(tmp_path):
     an["text_boxes"] = [[0.1, 0.88, 0.9, 0.97]]  # phụ đề cứng sát đáy → tránh được bằng cách cắt
     res = build(plan, u, an, DraftTemplate(SAMPLE), tmp_path, "tc1", style)
     tl = res.writer.build_timeline()
-    assert all(v["crop"]["lower_left_y"] <= 0.88 + 1e-6 for v in tl["materials"]["videos"])
+    assert all(v["crop"]["lower_left_y"] <= 0.88 + 1e-6 for v in tl["materials"]["videos"] if v["type"] == "video")
     assert any("cắt chặt hơn để tránh ở" in n for n in res.notes)
     an["text_boxes"] = [[0.2, 0.45, 0.8, 0.55]]  # chữ giữa khung → phải che
     res = build(plan, u, an, DraftTemplate(SAMPLE), tmp_path, "tc2", style)

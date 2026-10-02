@@ -286,6 +286,16 @@ class DraftWriter:
             self._videos.append(source)
         return self._place("video", seg, target_start, duration)
 
+    def add_image(self, path: Path, width: int, height: int, *, target_start: int, duration: int,
+                  x: float = 0.0, y: float = 0.0, scale: float = 1.0) -> dict:
+        """Ảnh tĩnh (PNG/JPG) trên rãnh video — vật liệu type "photo", độ dài 10800 s như pyCapCut
+        (local_materials.VideoMaterial) và CapCut tự ghi cho ảnh. [CẦN KIỂM TRA TRÊN MÁY]"""
+        src = VideoSource(Path(path), int(width), int(height), 10_800_000_000, has_audio=False)
+        seg = self.add_video(src, target_start=target_start, duration=duration, x=x, y=y, scale=scale, volume=0.0)
+        mat = next(m for m in self._materials["videos"] if m["id"] == seg["material_id"])
+        mat["type"] = "photo"
+        return seg
+
     # ---------- âm thanh ----------
 
     def add_music(

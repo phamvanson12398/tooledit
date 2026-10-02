@@ -1,5 +1,21 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 38 — Khung video cố định 3:4 (zoom chỉ trong khung), crop là chuyện riêng `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🔁 Dựng lại draft**.
+2. Mở draft trong CapCut, kiểm tra:
+   - khung video giữa màn LUÔN 3:4 (1080×1440, cao gần hết màn 9:16) ở mọi kiểu dựng (cả thể thao);
+   - lúc zoom to / lia / cắt cận theo người: hình phóng to BÊN TRONG khung, viền khung trên/dưới đứng yên.
+     Tool đặt 2 dải nền đen (ảnh PNG `_tool_assets\frame_band_...png` trong thư mục draft CapCut) trên / dưới khung để
+     che phần hình tràn ra — kiểm tra 2 dải này hiện đúng, CapCut mở được ảnh, và nằm DƯỚI chữ tiêu đề;
+   - 4 dòng tiêu đề nằm trong 2 dải còn lại (240 px mỗi dải) — chữ không đè video, không chồng nhau. Dải hẹp nên dòng
+     tiêu đề dưới cùng nằm sát vùng caption TikTok: xem trên điện thoại có bị che không.
+3. Ô **Vùng crop từ video gốc** (trang chủ): 4:3 / 1:1 / 16:9 chọn phần lấy từ video gốc, sau đó phần đó được lấp đầy
+   khung 3:4. Với footage ngang 16:9 cả 3 lựa chọn cho kết quả gần như nhau (đều lấy dải 3:4 cao bằng khung gốc,
+   bám theo người); khác biệt rõ khi footage dọc.
+4. Muốn đổi khung: `config\layout.yaml` → `frame_ratio` (xóa dòng = dùng lựa chọn ở trang chủ làm khung),
+   `frame_lock: false` = không che phần tràn.
+
 ## Bước 37 — Nút ⏹️ Dừng job `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.
