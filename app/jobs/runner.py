@@ -523,6 +523,30 @@ class Runner:
             job.wait(f"Thu voice thuyết minh theo kịch bản bên dưới rồi tải lên. Còn thiếu {len(missing)} file: "
                      + ", ".join(missing[:8]) + (" …" if len(missing) > 8 else ""))
 
+    def _text_boxes(self, job: Job, analysis: Path, a: dict) -> list:
+        """Vùng chữ in sẵn trên footage (để cắt tránh / che). Chỉ dò khi AI báo footage có chữ; lưu text_boxes.json."""
+        cache = analysis / "text_boxes.json"
+        b = self._understanding(job).burned_in_text
+        if not b.present or not (config.load("text_cover") or {}).get("enabled", True):
+            return []
+        if cache.is_file():
+            try:
+                return json.loads(cache.read_text(encoding="utf-8"))
+            except ValueError:
+                pass
+        from app.analysis.textdetect import REGION_ZONES, boxes_from_files
+        from app.director.tasks import pick_evenly
+
+        frames = pick_evenly(a["frames"], int((config.load("text_cover") or {}).get("frames", 40)))
+        try:
+            boxes = boxes_from_files([analysis / f["file"] for f in frames], b.regions or list(REGION_ZONES))
+        except Exception as exc:  # thiếu OpenCV / khung hình hỏng: dựng bình thường, không che
+            self.log(f"Không dò được vùng chữ in sẵn: {exc}")
+            return []
+        cache.write_text(json.dumps(boxes), encoding="utf-8")
+        self.log(f"Dò được {len(boxes)} vùng chữ in sẵn trên footage.")
+        return boxes
+
     def _voice_duration(self, voice: Path) -> int:
         if self._probe is None:
             from app.capcut_writer.media import probe_duration as fn
@@ -545,6 +569,7 @@ class Runner:
         tpl = self._template()
         style = self._style(job)
         a = load_analysis(analysis)
+        a["text_boxes"] = self._text_boxes(job, analysis, a)
         clean = analysis / "audio" / "clean_00.wav"
         if (style.get("audio") or {}).get("clean") == "light":  # vlog: lọc ồn nhẹ, giữ âm thanh hiện trường
             light = analysis / "audio" / "light_00.wav"

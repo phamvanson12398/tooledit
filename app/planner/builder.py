@@ -280,6 +280,31 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             return None
         return block_crop(src.width, src.height, ratio, center_x=subject_center(subjects, start, end))
 
+    # ---------- chữ in sẵn trên footage: tránh bằng cắt chặt hơn, không được thì che ----------
+    tc = config.load("text_cover") or {}
+    text_boxes = [tuple(b) for b in (analysis.get("text_boxes") or [])] if tc.get("enabled", True) else []
+    covers: list[tuple[int, int, tuple]] = []  # (bắt đầu, độ dài, vị trí dải che)
+    n_avoided = 0
+
+    def fix_crop(crop, ratio: str, start: int = 0, dur: int = 0, flip: bool = False, record: bool = True):
+        nonlocal n_avoided
+        if not text_boxes:
+            return crop
+        from app.capcut_writer import Crop as _Crop
+        from app.planner.textcover import avoid_text, cover_rect
+
+        base = crop if crop is not None else _Crop()
+        new, left = avoid_text(base, text_boxes, float(tc.get("min_scale", 0.8)))
+        if record and new is not base:
+            n_avoided += 1
+        if record and left and tc.get("cover", True):
+            r = "9:16" if ratio == "full" else ratio
+            for b in left:
+                rect = cover_rect(b, new, r, mirrored=flip, pad=float(tc.get("cover_pad", 0.25)))
+                if rect:
+                    covers.append((start, dur, rect))
+        return None if (crop is None and new is base) else new
+
     # Đổi ngôn ngữ: tắt hẳn tiếng gốc (chỉ còn voice thuyết minh + nhạc + SFX), cấu hình mute_original
     mute_orig = dub is not None and bool(config.load("dub").get("mute_original", True))
     if mute_orig:
@@ -312,11 +337,13 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             h_start = min(rng.start, max(0.0, sc["duration"] - dur / SEC))
             kfs = ([Keyframe("scale", 0, 1.0), Keyframe("scale", dur, 1.08)] if kind == "slow" else
                    [Keyframe("scale", 0, 1.18), Keyframe("scale", min(dur, 250_000), 1.05), Keyframe("scale", dur, 1.12)])
+            flip = mirrored(h_start, 1 if kind == "punch" else 0)
             w.add_video(src, target_start=start, duration=dur, source_start=round(h_start * SEC),
-                        crop=crop_for(ratio, h_start, h_start + dur / SEC), volume=0.0 if mute_orig else 0.15,
+                        crop=fix_crop(crop_for(ratio, h_start, h_start + dur / SEC), ratio, start, dur, flip),
+                        volume=0.0 if mute_orig else 0.15,
                         keyframes=kfs,
                         transition=transition if start + dur >= hook_us else None,
-                        flip_horizontal=mirrored(h_start, 1 if kind == "punch" else 0), **bg_kwargs(ratio))
+                        flip_horizontal=flip, **bg_kwargs(ratio))
         pos = positions(ratio)
         w.add_text(hook.onscreen_text, start=0, duration=hook_us, x=pos["x"], y=pos["center"] if four else pos["top"],
                    style=hook_style, animations=hook_anims)
@@ -417,8 +444,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                     kfs, motion_n = auto_motion(motion_n, bounds[j + 1] - bounds[j], motion_cfg), motion_n + 1
                 w.add_video(src, target_start=bounds[j], duration=bounds[j + 1] - bounds[j],
                             source_start=round(sh.start * SEC), speed=clip.speed,
-                            crop=shot_crop(sh, people, ratio, src.width, src.height, cam_cfg,
-                                           fallback_cx=subject_center(subjects, sh.start, sh.end)),
+                            crop=fix_crop(shot_crop(sh, people, ratio, src.width, src.height, cam_cfg,
+                                                    fallback_cx=subject_center(subjects, sh.start, sh.end)),
+                                          ratio, bounds[j], bounds[j + 1] - bounds[j], mirrored(sh.start, idx)),
                             volume=0.0 if (clean_audio or mute_orig) else 1.0,
                             keyframes=(kfs or []) + ([] if clean_audio else orig_volume(bounds[j], bounds[j + 1])) or None,
                             transition=last_trans if j == len(shots) - 1 else None,
@@ -432,7 +460,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                 kfs, motion_n = auto_motion(motion_n, p.out_duration, motion_cfg), motion_n + 1
             w.add_video(src, target_start=p.out_start, duration=p.out_duration,
                         source_start=round(clip.source_start * SEC), speed=clip.speed,
-                        crop=crop_for(ratio, clip.source_start, clip.source_end),
+                        crop=fix_crop(crop_for(ratio, clip.source_start, clip.source_end), ratio, p.out_start,
+                                      p.out_duration, mirrored(clip.source_start, idx)),
                         volume=0.0 if (clean_audio or clip.replay or mute_orig) else 1.0,
                         keyframes=(kfs or []) + ([] if (clean_audio or clip.replay) else
                                                  orig_volume(p.out_start, p.out_end)) or None,
@@ -449,6 +478,19 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
 
     if n_mirror:
         notes.append(f"Phản chiếu ngang {n_mirror} cảnh (để bản dựng khác bản gốc).")
+    if text_boxes:
+        notes.append(f"Chữ in sẵn trên footage: cắt chặt hơn để tránh ở {n_avoided} cảnh, che ở {len(covers)} chỗ.")
+    if covers:
+        from app.planner.textcover import cover_glyphs
+
+        cw = float((four or {}).get("char_width_per_size", 0.0017))
+        color = tc.get("cover_color", "#111111")
+        rgb = tuple(int(color.lstrip("#")[i:i + 2], 16) / 255 for i in (0, 2, 4))
+        cover_style = TextStyle(size=15, color=rgb, background=TextBackground(
+            color=color, alpha=float(tc.get("cover_alpha", 0.95)), round_radius=0.1, style=1, width=0.04, height=0.12))
+        for start, dur, (cx, cy, hx, hy) in covers:
+            glyphs, scale = cover_glyphs(hx, hy, 15, cw)
+            w.add_text(glyphs, start=start, duration=dur, x=cx, y=cy, scale=scale, style=cover_style)
     if camera_on:
         notes.append(f"Góc máy theo người nói: {len(people)} người, {shot_count['close']} cảnh cận, "
                      f"{shot_count['medium']} trung, {shot_count['wide']} toàn.")
@@ -515,7 +557,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         if t is None or p is None:
             continue
         ratio = ratio_for(None)
-        crop = crop_for(ratio, p.source_start, p.source_end)
+        crop = fix_crop(crop_for(ratio, p.source_start, p.source_end), ratio, record=False)
         ax = 1.0 - a.x if mirrored(a.source_time, plan.clips.index(next(
             c for c in plan.clips if c.source_start <= a.source_time <= c.source_end))) else a.x  # cảnh lật → lật mũi tên
         if ax != a.x and crop is not None:

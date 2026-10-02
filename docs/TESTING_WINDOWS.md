@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 34 — Chữ in sẵn trên footage: tự cắt tránh, không được thì che `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Chọn footage có chữ in sẵn (phụ đề cứng tiếng Trung/Hàn, tiêu đề,
+   logo chữ). Tính năng chạy khi bước AI hiểu nội dung báo "có chữ in sẵn" (xem ghi chú editor ở bước xác nhận).
+   Job cũ: bấm **🔁 Dựng lại draft**.
+2. Nhật ký: "Dò được N vùng chữ in sẵn trên footage" và "Chữ in sẵn: cắt chặt hơn để tránh ở X cảnh, che ở Y chỗ".
+3. Mở draft trong CapCut, kiểm tra:
+   - chữ sát mép (phụ đề cứng ở đáy, tiêu đề ở đỉnh): khung được cắt chặt hơn một chút, chữ nằm NGOÀI khung;
+   - chữ không tránh được (giữa khung, hoặc phải cắt mất quá 20%): có **dải nền tối** đè đúng chỗ chữ.
+     Dải che dựng bằng một hàng ký tự "■" + nền chữ cùng màu — kiểm tra nó có che kín, đúng vị trí, không lệch.
+     Nếu lệch / không kín: chụp màn hình gửi lại (có thể chỉnh `cover_pad`), hoặc tắt che: `cover: false`.
+4. Thông số trong `config\text_cover.yaml`: `min_scale` (cắt tối đa bao nhiêu để tránh chữ), `cover`, màu, độ mờ.
+   Vùng chữ dò được lưu ở `jobs\<job>\analysis\text_boxes.json` (xóa file này để dò lại).
+
 ## Bước 33 — Đổi ngôn ngữ: tự TẮT HẲN tiếng gốc của video `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job Đổi ngôn ngữ cũ: bấm **🔁 Dựng lại draft** (muốn AI viết thêm câu

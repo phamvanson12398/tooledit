@@ -118,6 +118,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - **Ngoại lệ thể thao (chủ dự án chốt 25/09, video mẫu boxing):** kiểu `sports_analysis` dùng bố cục `sports_focus`:
   nền đen, khối video 9:10 phóng vào pha đấu bám theo người, không dòng tiêu đề, phụ đề cụm ngắn chữ vàng viền đen
   trong khối video, mũi tên xanh chỉ chi tiết mà lời bình nhắc tới, chuyển cảnh mờ, replay quay chậm.
+- **Chữ in sẵn trên footage (chủ dự án yêu cầu 02/10):** khi AI báo có chữ in sẵn, máy dò vùng chữ trên khung hình
+  (`app/analysis/textdetect.py`); khung cắt được cắt chặt hơn để đẩy chữ ra ngoài (mất ≤ 20%), không được thì che bằng
+  dải nền tối (`config/text_cover.yaml`).
 - **Vùng an toàn TikTok**: chữ tránh dải dưới cùng (caption, tên tài khoản), cạnh phải (cột nút), và dải trên cùng. Để các lề này là hằng số cấu hình được trong `config/`, giá trị mặc định ước lượng, ghi chú cần kiểm tra lại trên app thật.
 
 ## 7. Tài nguyên và bản quyền
