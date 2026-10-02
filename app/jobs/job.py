@@ -33,6 +33,7 @@ class Status(str, Enum):
     waiting = "waiting"    # dừng chờ người dùng
     error = "error"
     done = "done"
+    stopped = "stopped"    # người dùng bấm Dừng; bấm Chạy tiếp để chạy lại từ bước đang dở
 
 
 class JobOptions(BaseModel):
@@ -112,6 +113,10 @@ class Job(BaseModel):
         self.status = Status.error
         self._log(message)
 
+    def stop(self, message: str = "Đã dừng theo yêu cầu. Bấm Chạy tiếp để chạy lại từ bước này.") -> None:
+        self.status = Status.stopped
+        self._log(message)
+
     def advance(self, message: str = "") -> None:
         """Hoàn tất bước hiện tại, chuyển sang bước tiếp theo cần chạy (bỏ qua bước không áp dụng)."""
         idx = STEPS.index(self.step) + 1
@@ -136,7 +141,7 @@ class Job(BaseModel):
         """Người dùng đã xử lý xong điểm dừng (hoặc muốn chạy lại bước lỗi)."""
         if self.status == Status.waiting:
             self.advance(message)
-        elif self.status == Status.error:
+        elif self.status in (Status.error, Status.stopped):
             self.status = Status.pending
             self._log(message)
 

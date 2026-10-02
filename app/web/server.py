@@ -52,7 +52,7 @@ padding:10px 20px;font-size:15px;font-weight:600;cursor:pointer;text-decoration:
 .tg input:before{content:"";position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.2s}
 .tg input:checked{background:var(--pri)}.tg input:checked:before{left:18px}
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:#fff}
-.b-pending,.b-running{background:var(--run)}.b-waiting{background:var(--warn)}.b-error{background:var(--err)}.b-done{background:var(--ok)}
+.b-pending,.b-running{background:var(--run)}.b-waiting{background:var(--warn)}.b-error{background:var(--err)}.b-done{background:var(--ok)}.b-stopped{background:#6b7280}
 .jobs a.job{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;
 margin:8px 0;text-decoration:none;color:var(--ink);background:#fbfcff}.jobs a.job:hover{border-color:var(--pri)}
 .jobs .name{font-weight:600}.jobs .sub{font-size:12px;color:var(--mute)}
@@ -85,7 +85,8 @@ STEP_VI = {
     "assets": "Tìm tài nguyên", "write": "Ghi dự án CapCut",
     "captions": "AI viết caption", "done": "Xong",
 }
-STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong"}
+STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong",
+             "stopped": "đã dừng"}
 
 
 class Worker:
@@ -109,6 +110,23 @@ class Worker:
             n = len(self.queue)
             self.queue = [q for q in self.queue if q[0] != job_id]
             return len(self.queue) < n
+
+    def stop(self, job_id: str) -> str:
+        """Nút Dừng: job đang xếp hàng → bỏ khỏi hàng; đang chạy → đánh dấu để luồng tự dừng ở điểm an toàn gần nhất.
+        Trả 'queued' / 'running' / 'idle'."""
+        from app.jobs import stop as stop_mod
+
+        if self.remove_queued(job_id):
+            job = Job.load(self.jobs_root, job_id)
+            job.stop("Đã bỏ khỏi hàng đợi theo yêu cầu. Bấm Chạy tiếp để chạy.")
+            job.save(self.jobs_root)
+            return "queued"
+        with self.lock:
+            running = job_id in self.active
+        if running:
+            stop_mod.request(job_id)
+            return "running"
+        return "idle"
 
     def start(self, job_id: str, action=None) -> bool:
         """Chạy job (hoặc xếp hàng nếu đủ luồng). False nếu job đang chạy / đã trong hàng đợi."""
@@ -473,15 +491,24 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         parts = ["<div class='topnav'><a class='btn light small' href='/'>🏠 Về trang chủ</a>"
                  f"<span class='muted'>{'Đang chạy — có thể về trang chủ, job vẫn chạy tiếp' if running else ''}</span></div>",
                  head + "</div>"]
+        stop_btn = (f"<form method='post' action='/jobs/{job_id}/stop' style='display:inline;margin-left:10px' "
+                    "onsubmit=\"return confirm('Dừng job này? Bước đang chạy sẽ dừng ở điểm an toàn gần nhất; bấm Chạy tiếp "
+                    "để chạy lại từ bước đó.')\"><button type='submit' class='btn danger small'>⏹️ Dừng</button></form>")
         if running:
+            from app.jobs import stop as stop_mod
+
             waiting_turn = job.message.startswith("Đang đợi lượt")
-            parts.append(f"<div class='card'><span class='spinner'></span> "
-                         + (f"{html.escape(job.message)}" if waiting_turn else
-                            f"Đang <b>{STEP_VI.get(job.step, job.step)}</b>…")
-                         + " Trang tự làm mới.</div>")
+            if stop_mod.requested(job_id):
+                parts.append("<div class='card'><span class='spinner'></span> <b>Đang dừng…</b> (đợi bước hiện tại tới "
+                             "điểm an toàn — phân tích video có thể mất thêm một lúc). Trang tự làm mới.</div>")
+            else:
+                parts.append(f"<div class='card'><span class='spinner'></span> "
+                             + (f"{html.escape(job.message)}" if waiting_turn else
+                                f"Đang <b>{STEP_VI.get(job.step, job.step)}</b>…")
+                             + f" Trang tự làm mới.{stop_btn}</div>")
         elif queued:
             parts.append(f"<div class='card'>⏳ <b>Đang xếp hàng</b> — đợi một luồng trống (đang chạy {len(worker.active)}/"
-                         f"{max_jobs()} video). Có thể tăng số video chạy cùng lúc ở trang chủ.</div>")
+                         f"{max_jobs()} video). Có thể tăng số video chạy cùng lúc ở trang chủ.{stop_btn}</div>")
         else:
             parts.append(_step_panel(job, d))
         log = _read(d / "log.txt")
@@ -490,6 +517,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         if not running and not queued:
             parts.append(_manage_panel(job))
         return _page(f"Job {job_id}", "".join(parts), refresh=running or queued)
+
+    @app.post("/jobs/{job_id}/stop")
+    def stop_job(job_id: str):
+        worker.stop(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/continue")
     def cont(job_id: str):
@@ -1039,6 +1071,10 @@ def _step_panel(job: Job, d: Path) -> str:
     if job.status == Status.error:
         return (f"<div class='card'><h2>⚠️ Có lỗi</h2><pre>{esc(job.message)}</pre>"
                 f"{_continue_button(job, 'Chạy lại bước này')}</div>")
+    if job.status == Status.stopped:
+        return (f"<div class='card'><h2>⏹️ Đã dừng</h2><p>Dừng ở bước <b>{esc(STEP_VI.get(job.step, job.step))}</b>. "
+                "Kết quả các bước trước vẫn giữ nguyên.</p>"
+                f"{_continue_button(job, '▶️ Chạy tiếp từ bước này')}</div>")
     if job.status == Status.waiting and job.step == "choose_hook":
         from app.director.schemas import HOOK_TYPES_VI
         from app.planner import hook_io

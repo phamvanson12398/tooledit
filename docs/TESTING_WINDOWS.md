@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 37 — Nút ⏹️ Dừng job `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Tạo một job, khi trang job đang chạy bấm **⏹️ Dừng** → xác nhận.
+   - Đang hỏi đạo diễn AI: dừng gần như ngay (tiến trình `claude` bị tắt). Trong Task Manager không còn `claude` chạy cho job đó.
+   - Đang phân tích video (nhận dạng thoại / dò cảnh): dừng ở lần báo tiến trình kế tiếp — có thể mất thêm một lúc.
+   - Đang xếp hàng: bỏ khỏi hàng đợi ngay.
+   Trong lúc chờ, trang hiện "Đang dừng…".
+3. Job chuyển sang **⏹️ Đã dừng** (nhãn xám). Kết quả các bước đã xong vẫn giữ; bấm **▶️ Chạy tiếp từ bước này** để chạy lại
+   từ bước đang dở. Hoặc 🗑️ Xóa job nếu không cần nữa.
+4. Thử dừng khi đang chạy 2–3 video cùng lúc: chỉ video được bấm dừng, video khác chạy tiếp bình thường.
+
 ## Bước 36 — Chữ 4 dòng tiêu đề giảm từ cỡ 30 xuống 20 `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🔁 Dựng lại draft**.

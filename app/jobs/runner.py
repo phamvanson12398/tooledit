@@ -203,7 +203,7 @@ class Runner:
 
     def resume(self, job: Job) -> Job:
         """Người dùng bấm Tiếp tục (đã chọn hook / đã thả voice / đã duyệt) → chạy tiếp."""
-        if job.status in (Status.waiting, Status.error) and job.step in self.RECHECK_STEPS:
+        if job.status in (Status.waiting, Status.error, Status.stopped) and job.step in self.RECHECK_STEPS:
             job.status = Status.pending
         else:
             job.resume()
@@ -281,7 +281,31 @@ class Runner:
         return s.options[choices[index] - 1] if s and index in choices else None
 
     def run(self, job: Job) -> Job:
-        """Chạy các bước cho tới khi xong hoặc gặp điểm dừng / lỗi. Lưu job.json sau mỗi bước."""
+        """Chạy các bước cho tới khi xong hoặc gặp điểm dừng / lỗi / người dùng bấm Dừng. Lưu job.json sau mỗi bước."""
+        from app.jobs import stop
+
+        stop.set_current(job.job_id)
+        log = self.log
+
+        def checked_log(msg: str) -> None:  # mỗi lần báo tiến trình là một điểm kiểm tra Dừng
+            log(msg)
+            stop.check()
+
+        self.log = checked_log
+        try:
+            return self._run(job)
+        except stop.JobStopped:
+            job.stop()
+            job.save(self.jobs_root)
+            log("⏹️ Đã dừng theo yêu cầu.")
+            return job
+        finally:
+            self.log = log
+            stop.clear(job.job_id)
+            stop.set_current(None)
+
+    def _run(self, job: Job) -> Job:
+        from app.jobs import stop
         from app.jobs.limits import slot
 
         def waiting(what: str) -> None:  # video khác đang dùng tài nguyên này → đợi lượt
@@ -290,13 +314,18 @@ class Runner:
             self.log(f"Đợi lượt {what}…")
 
         while job.status == Status.pending:
+            stop.check()
             step = job.step
             with slot(step, on_wait=waiting):
                 job.start()
                 job.save(self.jobs_root)
                 try:
                     getattr(self, f"step_{step}")(job)
+                except stop.JobStopped:
+                    raise
                 except Exception as exc:  # báo lỗi tiếng Việt, giữ nguyên bước để chạy lại
+                    if stop.requested(job.job_id):  # lỗi do bị tắt giữa chừng (vd tiến trình AI bị dừng)
+                        raise stop.JobStopped() from exc
                     job.fail(f"Lỗi ở bước {step}: {exc}")
             job.save(self.jobs_root)
             if job.status == Status.running:  # bước không tự đổi trạng thái → xong, sang bước sau

@@ -39,11 +39,14 @@ def group_slot(group: str | None, on_wait=None):
     if group is None:
         yield
         return
+    from app.jobs import stop
+
     sem = _sem(group)
     if not sem.acquire(blocking=False):
         if on_wait:
             on_wait(GROUP_VI.get(group, group))
-        sem.acquire()
+        while not sem.acquire(timeout=0.5):  # đang đợi lượt mà người dùng bấm Dừng → thôi đợi
+            stop.check()
     try:
         yield
     finally:

@@ -28,6 +28,30 @@ def default_workspace() -> Path:
     return Path.home() / ".cache" / "tooledit" / "director"
 
 
+def _run_stoppable(cmd: list[str], prompt: str, workdir: Path, timeout_s: float) -> subprocess.CompletedProcess:
+    """Như subprocess.run nhưng tắt tiến trình `claude` ngay khi người dùng bấm Dừng job (app/jobs/stop.py)."""
+    import threading
+    import time
+
+    from app.jobs import stop
+
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            encoding="utf-8", errors="replace", cwd=workdir)
+    result: dict = {}
+    t = threading.Thread(target=lambda: result.update(zip(("out", "err"), proc.communicate(prompt))), daemon=True)
+    t.start()
+    deadline = time.monotonic() + timeout_s
+    while t.is_alive():
+        t.join(0.5)
+        if stop.requested(stop.current()) or time.monotonic() > deadline:
+            proc.kill()
+            t.join(5)
+            if stop.requested(stop.current()):
+                raise stop.JobStopped("Đã dừng theo yêu cầu")
+            raise subprocess.TimeoutExpired(cmd, timeout_s)
+    return subprocess.CompletedProcess(cmd, proc.returncode, result.get("out", ""), result.get("err", ""))
+
+
 def build_command(exe: str, schema: dict, model: str | None = None, effort: str | None = None,
                   with_images: bool = False) -> list[str]:
     cmd = [exe, "-p", "--output-format", "json",
@@ -90,8 +114,7 @@ class ClaudeCodeDirector(Director):
         cmd = build_command(self.exe, schema, self.cfg.get("model"), self.cfg.get("effort"), bool(images))
         self.log(f"Đang hỏi đạo diễn AI ({task})...")
         try:
-            proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
-                                  errors="replace", cwd=workdir, timeout=self.cfg.get("timeout_s", 900))
+            proc = _run_stoppable(cmd, prompt, workdir, self.cfg.get("timeout_s", 900))
         except FileNotFoundError as exc:
             raise DirectorError("Không tìm thấy lệnh `claude`. Cài Claude Code (docs/SETUP_WINDOWS.md mục 5).") from exc
         except subprocess.TimeoutExpired as exc:
