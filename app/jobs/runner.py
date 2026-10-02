@@ -161,6 +161,11 @@ class Runner:
 
         tdir = self._template_dir if self._template_dir is not None else resolve_template(self.log)
         tpl = DraftTemplate(Path(tdir))
+        if Path(tdir).resolve() != BUILTIN_TEMPLATE.resolve() and (BUILTIN_TEMPLATE / "draft_meta_info.json").is_file():
+            borrowed = tpl.borrow_missing(DraftTemplate(BUILTIN_TEMPLATE))
+            if borrowed:
+                self.log(f"Dự án mẫu '{Path(tdir).name}' thiếu lớp {', '.join(borrowed)} → mượn khuôn từ dự án mẫu "
+                         "có sẵn trong tool. Nên chọn dự án mẫu có đủ clip video, chữ, âm thanh.")
         if self._template_dir is None and config.load("capcut").get("library_scan", True):
             from app.capcut_writer.library import scan_drafts
             from app.capcut_writer.template import _load_labels

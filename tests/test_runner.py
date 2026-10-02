@@ -195,3 +195,30 @@ def test_vlog_uses_light_denoised_audio(tmp_path):
     draft = Path(job.data["draft"])
     content = (draft / "draft_content.json").read_text(encoding="utf-8")
     assert "light_00.wav" in content and "clean_00.wav" not in content
+
+
+def test_template_without_video_borrows_builtin(tmp_path):
+    """Dự án mẫu người dùng chọn không có clip video → mượn khuôn từ mẫu có sẵn, không lỗi ở bước write."""
+    import shutil
+
+    from app.capcut_writer.template import main_timeline_path, timeline_copies
+
+    tdir = tmp_path / "mau_khong_video"
+    shutil.copytree(SAMPLE, tdir)
+    for path in timeline_copies(tdir):
+        if path.is_file():
+            data = json.loads(path.read_text(encoding="utf-8-sig"))
+            data["tracks"] = [t for t in data["tracks"] if t["type"] != "video"]
+            path.write_text(json.dumps(data), encoding="utf-8")
+    assert all(t["type"] != "video" for t in json.loads(main_timeline_path(tdir).read_text("utf-8"))["tracks"])
+
+    jobs, job = prepare(tmp_path, JobOptions())
+    logs = []
+    r = make_runner(tmp_path, jobs)
+    r._template_dir = tdir
+    r.log = logs.append
+    tpl = r._template()
+    assert "video" in tpl.prototypes and "video" in tpl.track_prototypes
+    assert any("mượn khuôn" in m for m in logs)
+    job = r.run(job)
+    assert job.status == Status.done, job.message

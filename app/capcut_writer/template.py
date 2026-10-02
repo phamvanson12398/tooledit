@@ -196,6 +196,17 @@ class DraftTemplate:
                 added += 1
         return added
 
+    def borrow_missing(self, other: "DraftTemplate") -> list[str]:
+        """Mượn khuôn còn thiếu (vd dự án mẫu không có clip video) từ một dự án mẫu khác; trả các loại đã mượn."""
+        borrowed = []
+        for kind in self.PROTOTYPE_KINDS:
+            if kind not in self.prototypes and kind in other.prototypes:
+                self.prototypes[kind] = other.prototypes[kind].clone()
+                borrowed.append(kind)
+            if kind not in self.track_prototypes and kind in other.track_prototypes:
+                self.track_prototypes[kind] = copy.deepcopy(other.track_prototypes[kind])
+        return borrowed
+
     # ---------- tra cứu ----------
 
     def find(self, kind: str, name: str | None = None) -> LibraryItem:

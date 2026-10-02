@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 40 — Sửa lỗi "Dự án mẫu thiếu khuôn cho loại 'video'" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Mở job bị lỗi ở bước write → bấm **Chạy lại bước này**.
+3. Nhật ký có dòng "Dự án mẫu '…' thiếu lớp video → mượn khuôn từ dự án mẫu có sẵn trong tool" và job chạy tiếp
+   đến Xong. Mở draft trong CapCut: clip video hiện đúng, phát được.
+4. Cách gốc rễ: trang chủ → ⚙️ **Dự án mẫu CapCut** → chọn dự án có đủ clip video, chữ, âm thanh (hoặc chọn
+   "mẫu có sẵn trong tool").
+
 ## Bước 39 — Chọn nhạc nền khi tạo video (không chọn = AI chọn) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.
