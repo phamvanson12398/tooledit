@@ -208,8 +208,10 @@ def test_silent_gaps_and_narration_check():
     assert any("action_vi" in e for e in errs)
     assert any("đè lên lời thoại" in e for e in check_narration(script((21, 24, "x")), plan, gaps, cfg))
     assert any("quá dày" in e for e in check_narration(script((2, 5, "a"), (5, 8, "b")), plan, gaps, cfg))
-    # khoảng lặng chủ yếu là tiếng cười → không đưa cho AI
-    assert silent_gaps(plan, segs, [{"start": 2, "end": 10, "kind": "laugh"}], cfg) == []
+    # khoảng lặng chủ yếu là tiếng cười: còn giữ tiếng gốc → không đưa cho AI; tiếng gốc bị tắt → vẫn cần lời dẫn
+    laugh = [{"start": 2, "end": 10, "kind": "laugh"}]
+    assert silent_gaps(plan, segs, laugh, {**cfg, "mute_original": False}) == []
+    assert len(silent_gaps(plan, segs, laugh, {**cfg, "mute_original": True})) == 1
 
 
 def test_dub_prompt_lists_silent_gaps(tmp_path):
@@ -270,3 +272,20 @@ def test_localized_for_target_country(tmp_path):
     make_dub(d, a, uk, EditPlan.model_validate(_short_plan()))
     assert "khán giả TikTok Hàn Quốc" in d.calls[0]["prompt"] and "adapt_vi" in d.calls[0]["prompt"]
     assert len(d.calls) == 2 and "không quen với khán giả" in d.calls[1]["prompt"]
+
+
+def test_original_audio_muted_in_dub_mode(tmp_path):
+    jobs, job = prepare(tmp_path, JobOptions(target_language="ko"))
+    r = make_runner(tmp_path, jobs)
+    job = r.run(job)
+    for n in range(1, 6):
+        (jobs / "j1" / "voice" / f"video01_dub{n:02d}.wav").write_bytes(b"RIFF")
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+    content = json.loads((Path(job.data["draft"]) / "draft_content.json").read_text(encoding="utf-8"))
+    videos = [s for t in content["tracks"] if t["type"] == "video" for s in t["segments"]]
+    assert videos and all(s["volume"] == 0.0 for s in videos)  # hình gốc không còn tiếng
+    audio_paths = [m.get("path", "") for m in content["materials"]["audios"]]
+    assert not any("clean_" in p for p in audio_paths)  # không chèn lại bản tiếng gốc đã lọc ồn
+    dub_prompt = next(c["prompt"] for c in r._director.calls if c["task"] == "dub")
+    assert "TIẾNG GỐC BỊ TẮT HẲN" in dub_prompt

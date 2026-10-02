@@ -528,7 +528,10 @@ def silent_gaps(plan, segments: list[dict], events: list[dict] | None = None, cf
     Trả [{out_start, out_end (µs), pieces: [(giây gốc đầu, cuối)]}]. Clip replay / lặp lại không tính (nhạc dẫn)."""
     from app.planner.timeline import SEC, TimeMap
 
-    cfg = (config.load("dub") if cfg is None else cfg).get("narration") or {}
+    full = config.load("dub") if cfg is None else cfg
+    cfg = full.get("narration") or {}
+    # tiếng gốc bị tắt hẳn → chỗ tiếng cười / hò reo cũng thành im lặng, không giữ lại nữa
+    keep_reactions = cfg.get("keep_reactions", True) and not full.get("mute_original", True)
     min_gap = round(float(cfg.get("min_gap_s", 3.0)) * SEC)
     tmap = TimeMap(plan.clips)
     busy: list[tuple[int, int]] = []  # khoảng có thoại hoặc không cần lời dẫn (µs trên video)
@@ -562,7 +565,7 @@ def silent_gaps(plan, segments: list[dict], events: list[dict] | None = None, cf
     out = []
     for g0, g1 in gaps:
         src = pieces(g0, g1)
-        if cfg.get("keep_reactions", True) and events and src:
+        if keep_reactions and events and src:
             react = sum(max(0.0, min(e["end"], b) - max(e["start"], a)) for a, b in src for e in events
                         if e.get("kind") in ("laugh", "cheer"))
             if react >= 0.6 * sum(b - a for a, b in src):
@@ -680,6 +683,11 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
                  "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
                  "market": MARKETS.get(u.language, "TikTok"), "line_min": lo, "line_max": hi,
                  "max_cps": (cfg.get("max_cps") or {}).get(u.language, 10), "localize_brief": localize_brief(u),
+                 "original_audio_note": (
+                     "- TIẾNG GỐC BỊ TẮT HẲN: người xem chỉ nghe voice thuyết minh + nhạc. Câu thoại quan trọng nào cũng phải "
+                     "có câu thuyết minh; khoảnh khắc cười / hò reo nếu đáng giữ thì nói ngắn (vd \"cả nhà cười lăn\")."
+                     if cfg.get("mute_original", True) else
+                     "- Tiếng cười, hò reo ngắn thì để nguyên tiếng gốc (giữ khoảnh khắc)."),
                  "hook": f"{hook_text(hook)} ({hook_text(hook, vi=True)})" if hook else "không có hook", "clips": clips}
     gaps = silent_gaps(plan, segs, a.get("events"), cfg)
     images = []

@@ -14,7 +14,7 @@ từng câu) và phụ đề chính là các câu này. Kế hoạch dựng đã
 - Văn nói tự nhiên của người bản xứ ({{market}}), đúng giọng điệu nhân vật (đùa thì đùa, nghiêm thì nghiêm).
   Không dịch từng chữ. Tên riêng: {{name_corrections}}
 - `kind`: "dub" = câu dịch lời thoại gốc; "narration" = LỜI DẪN viết thêm cho chỗ không có giọng nói.
-- Tiếng cười, hò reo ngắn thì để nguyên tiếng gốc (giữ khoảnh khắc).
+{{original_audio_note}}
 - Không nhắc nền tảng nào khác ngoài TikTok, không chửi thề, không nhắc nội dung đã bị cắt vì chính sách.
 - `text_vi`: nghĩa tiếng Việt để chủ dự án hiểu.
 - `adapt_vi`: câu nào bạn BẢN ĐỊA HÓA (đổi ví dụ, so sánh, đơn vị, cách đùa cho hợp khán giả đích) thì ghi ngắn đổi gì,

@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 33 — Đổi ngôn ngữ: tự TẮT HẲN tiếng gốc của video `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job Đổi ngôn ngữ cũ: bấm **🔁 Dựng lại draft** (muốn AI viết thêm câu
+   cho chỗ trước đây để tiếng cười gốc thì bấm **🌐 Viết lại thuyết minh**).
+2. Mở draft trong CapCut, kiểm tra:
+   - mọi clip video (kể cả phần hook) có âm lượng 0 — không còn nghe tiếng gốc;
+   - chỉ còn: voice thuyết minh / lời dẫn + voice hook + nhạc nền + SFX;
+   - nhật ký có dòng "Đã tắt hẳn tiếng gốc của video".
+3. Muốn giữ tiếng gốc nhỏ như trước (-20 dB dưới voice, -6 dB chỗ khác): `config\dub.yaml` → `mute_original: false`.
+4. Chế độ dựng thường (không Đổi ngôn ngữ) vẫn giữ tiếng gốc vì lời thoại chính là nội dung.
+
 ## Bước 32 — So sánh video gốc và video đã edit (khác bao nhiêu %) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

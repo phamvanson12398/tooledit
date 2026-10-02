@@ -280,6 +280,10 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             return None
         return block_crop(src.width, src.height, ratio, center_x=subject_center(subjects, start, end))
 
+    # Đổi ngôn ngữ: tắt hẳn tiếng gốc (chỉ còn voice thuyết minh + nhạc + SFX), cấu hình mute_original
+    mute_orig = dub is not None and bool(config.load("dub").get("mute_original", True))
+    if mute_orig:
+        notes.append("Đã tắt hẳn tiếng gốc của video (chế độ Đổi ngôn ngữ).")
     mirrored = mirror_picker(style, u, sc.get("scenes") or [], len(plan.clips))
     n_mirror = 0
 
@@ -309,7 +313,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             kfs = ([Keyframe("scale", 0, 1.0), Keyframe("scale", dur, 1.08)] if kind == "slow" else
                    [Keyframe("scale", 0, 1.18), Keyframe("scale", min(dur, 250_000), 1.05), Keyframe("scale", dur, 1.12)])
             w.add_video(src, target_start=start, duration=dur, source_start=round(h_start * SEC),
-                        crop=crop_for(ratio, h_start, h_start + dur / SEC), volume=0.15, keyframes=kfs,
+                        crop=crop_for(ratio, h_start, h_start + dur / SEC), volume=0.0 if mute_orig else 0.15,
+                        keyframes=kfs,
                         transition=transition if start + dur >= hook_us else None,
                         flip_horizontal=mirrored(h_start, 1 if kind == "punch" else 0), **bg_kwargs(ratio))
         pos = positions(ratio)
@@ -374,7 +379,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
 
     def orig_volume(start: int, end: int) -> list[Keyframe]:
         """Tiếng gốc khi có thuyết minh: hạ sâu dưới câu đã thu voice, hạ nhẹ ở chỗ khác."""
-        if dub is None:
+        if dub is None or mute_orig:
             return []
         return duck_keyframes(start, end, voiced, o_lo, o_hi, 120_000)
     replay_cfg = style.get("replay_label") or {}
@@ -414,7 +419,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                             source_start=round(sh.start * SEC), speed=clip.speed,
                             crop=shot_crop(sh, people, ratio, src.width, src.height, cam_cfg,
                                            fallback_cx=subject_center(subjects, sh.start, sh.end)),
-                            volume=0.0 if clean_audio else 1.0,
+                            volume=0.0 if (clean_audio or mute_orig) else 1.0,
                             keyframes=(kfs or []) + ([] if clean_audio else orig_volume(bounds[j], bounds[j + 1])) or None,
                             transition=last_trans if j == len(shots) - 1 else None,
                             flip_horizontal=mirrored(sh.start, idx), **bg_kwargs(ratio))
@@ -428,12 +433,12 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             w.add_video(src, target_start=p.out_start, duration=p.out_duration,
                         source_start=round(clip.source_start * SEC), speed=clip.speed,
                         crop=crop_for(ratio, clip.source_start, clip.source_end),
-                        volume=0.0 if (clean_audio or clip.replay) else 1.0,
+                        volume=0.0 if (clean_audio or clip.replay or mute_orig) else 1.0,
                         keyframes=(kfs or []) + ([] if (clean_audio or clip.replay) else
                                                  orig_volume(p.out_start, p.out_end)) or None,
                         transition=last_trans, flip_horizontal=mirrored(clip.source_start, idx), **bg_kwargs(ratio))
             n_mirror += mirrored(clip.source_start, idx)
-        if clean_audio and not clip.replay:  # replay quay chậm: tắt tiếng gốc, để nhạc/SFX dẫn
+        if clean_audio and not clip.replay and not mute_orig:  # replay quay chậm: tắt tiếng gốc, để nhạc/SFX dẫn
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed,
                               keyframes=orig_volume(p.out_start, p.out_end) or None)

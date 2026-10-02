@@ -2,8 +2,10 @@
 # THUYẾT MINH (voice tự thu bằng Voice Studio) + PHỤ ĐỀ bằng ngôn ngữ khác (ko/ja/en), và dựng lại khác hẳn bản gốc.
 
 targets: [ko, ja, en]          # ngôn ngữ đích được chọn trên giao diện
-original_db: -20               # tiếng gốc hạ xuống mức này khi đã có thuyết minh (vẫn nghe được không khí)
-original_db_no_voice: -6       # câu chưa có file thuyết minh: tiếng gốc chỉ hạ nhẹ
+mute_original: true            # TẮT HẲN tiếng gốc của video (chủ dự án chốt 02/10): chỉ còn voice thuyết minh + nhạc + SFX
+# Khi mute_original: false thì tiếng gốc chỉ hạ nhỏ theo 2 mức dưới:
+original_db: -20               # dưới câu đã có voice thuyết minh
+original_db_no_voice: -6       # chỗ khác / câu chưa có file voice
 max_speed: 1.25                # file thuyết minh dài hơn chỗ trống → tăng tốc tối đa mức này
 line_s: [1.5, 9.0]             # mỗi câu thuyết minh dài 1.5–9 giây (một ý trọn vẹn)
 
