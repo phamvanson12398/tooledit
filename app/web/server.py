@@ -317,7 +317,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             bằng Voice Studio rồi tải lên; mọi cảnh được đổi khung, zoom, chuyển động, nhạc + tiêu đề mới (giữ thứ tự cảnh).</div></div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
-            <div><label>Vùng crop từ video gốc (khung hiển thị luôn 3:4)</label><select name="ratio">
+            <div><label>Khung video</label><select name="ratio">
               <option value="4:3">4:3</option><option value="1:1">1:1 (vuông)</option>
               <option value="16:9">16:9</option><option value="auto">Tự động</option></select></div></div>
           <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>

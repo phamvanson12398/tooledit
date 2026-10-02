@@ -39,8 +39,8 @@ def layout_for(style: dict) -> dict | None:
     if name == "classic" or not isinstance(lay.get(name), dict):
         return None
     out = {**lay[name], "name": name}
-    # khung hiển thị: cố định theo frame_ratio của bố cục (chủ dự án chốt 02/10: 3:4 cho mọi video);
-    # không đặt frame_ratio thì theo khung người dùng chọn (style["block_ratio"])
+    # khung hiển thị: theo khung người dùng chọn (style["block_ratio"]); bố cục có frame_ratio thì cố định theo đó
+    # (chủ dự án bỏ khung cố định 3:4 ngày 02/10 — layout.yaml không còn đặt frame_ratio)
     ratio = out.get("frame_ratio") or style.get("block_ratio")
     return adapt_layout(out, ratio) if ratio and ratio != out.get("block_ratio") else out
 

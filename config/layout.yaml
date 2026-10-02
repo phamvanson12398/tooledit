@@ -10,9 +10,8 @@ four_titles:
   titles: true
   background_color: "#000000FF"
   block_ratio: "16:9"          # tỉ lệ khối dùng để ĐO các vị trí bên dưới (theo video mẫu)
-  frame_ratio: "3:4"           # khung video THẬT trên màn (chủ dự án chốt 02/10): luôn 3:4 (1080×1440), zoom chỉ trong khung;
-                               # các vị trí bên dưới tự dời theo khung 3:4. Xóa dòng này = dùng khung người dùng chọn.
-  frame_lock: true             # che phần hình tràn ra ngoài khung khi zoom (2 dải nền đen trên/dưới) → viền khung cố định
+  # Khung video trên màn = khung người dùng chọn khi tạo job (4:3 / 1:1 / 16:9); các vị trí bên dưới tự dời theo khung.
+  # (Chủ dự án bỏ khung cố định 3:4 ngày 02/10. Muốn bật lại: thêm `frame_ratio: "3:4"` và `frame_lock: true`.)
   # tâm 4 dòng tiêu đề (2 trên, 2 dưới). Dòng 4 lấn vào vùng caption TikTok như video mẫu — chỉnh nếu bị che.
   title_rows: [0.094, 0.262, 0.745, 0.893]
   subtitle_row: 0.612          # phụ đề thoại: mép dưới khối video (khối nằm 0.342–0.658)
@@ -44,8 +43,6 @@ sports_focus:
   titles: false
   background_color: "#000000FF"
   block_ratio: "9:10"          # khối 0.186–0.814 chiều cao như video mẫu (dùng để đo vị trí)
-  frame_ratio: "3:4"           # khung THẬT: 3:4 như mọi video (chủ dự án chốt 02/10)
-  frame_lock: true
   subtitle_row: 0.62
   emphasis_row: 0.5
   topic_row: 0.24              # chữ nhấn "top" / nhãn REPLAY: gần mép trên khối video

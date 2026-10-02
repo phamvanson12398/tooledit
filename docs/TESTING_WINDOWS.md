@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 41 — Bỏ khung cố định 3:4 và bỏ che chữ in sẵn `[CẦN KIỂM TRA TRÊN MÁY]`
+
+(Bước 38 và phần che chữ ở các bước trước không còn áp dụng.)
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🔁 Dựng lại draft**.
+2. Trang chủ: ô **Khung video** (4:3 / 1:1 / 16:9 / Tự động) giờ là khung video THẬT trên màn như trước Bước 38.
+3. Mở draft trong CapCut: khung video đúng tỉ lệ đã chọn; không còn 2 dải nền đen (ảnh `frame_band_...png`) trên/dưới
+   khung; tiêu đề, phụ đề, nhãn dời theo khung, không đè lên video.
+4. Footage có chữ in sẵn: tool KHÔNG còn cắt tránh hay đặt dải che (nhật ký không còn dòng "che chữ in sẵn").
+   Muốn bật lại: `config\text_cover.yaml` → `enabled: true`.
+
 ## Bước 40 — Sửa lỗi "Dự án mẫu thiếu khuôn cho loại 'video'" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

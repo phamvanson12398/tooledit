@@ -1,7 +1,7 @@
 # Chữ in sẵn trên footage (phụ đề cứng, tiêu đề, logo chữ) sau khi cắt khung (chủ dự án yêu cầu 02/10).
 # Chỉ chạy khi bước AI hiểu nội dung báo footage CÓ chữ in sẵn (burned_in_text) — vùng chữ do máy dò trên khung hình.
 # Nguyên tắc (chủ dự án chốt 02/10): HẠN CHẾ che khuất, che thì phải đẹp.
-enabled: true
+enabled: false        # chủ dự án BỎ chức năng này ngày 02/10 (true = bật lại: dò chữ, cắt tránh / che)
 min_scale: 0.75       # 1) ƯU TIÊN TRÁNH: cắt chặt hơn để đẩy chữ ra ngoài khung, chấp nhận mất tới 25% chiều rộng
 cover: true           # 2) không tránh được mới CHE — và chỉ che ĐÚNG LÚC chữ hiện (không che suốt video)
 cover_color: "#000000"

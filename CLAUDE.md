@@ -115,13 +115,13 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   (`preset: classic` để dùng lại bố cục 4:3/1:1 ở trên).
   **Cập nhật 01/10:** khung người dùng chọn khi tạo job (4:3 / 1:1 / 16:9) được áp dụng cho khối video của mọi bố cục;
   tiêu đề, phụ đề, nhãn tự dời theo khối (`app/styles.adapt_layout`). "Theo kiểu dựng" = khung mặc định của bố cục.
-  **Cập nhật 02/10 (thay cho dòng trên):** khung hiển thị CỐ ĐỊNH 3:4 cho mọi video kể cả thể thao (`frame_ratio`);
-  zoom / lia / cắt cận chỉ diễn ra bên trong khung — 2 dải nền (ảnh PNG) che phần tràn (`frame_lock`). Lựa chọn
-  4:3 / 1:1 / 16:9 ở trang chủ chỉ là VÙNG CROP lấy từ video gốc, rồi lấp đầy khung 3:4.
+  ~~Cập nhật 02/10: khung cố định 3:4~~ — **chủ dự án BỎ ngày 02/10**: khung video trở lại theo lựa chọn 4:3 / 1:1 /
+  16:9 khi tạo job như cập nhật 01/10 (`frame_ratio` / `frame_lock` không còn đặt trong `config/layout.yaml`).
 - **Ngoại lệ thể thao (chủ dự án chốt 25/09, video mẫu boxing):** kiểu `sports_analysis` dùng bố cục `sports_focus`:
   nền đen, khối video 9:10 phóng vào pha đấu bám theo người, không dòng tiêu đề, phụ đề cụm ngắn chữ vàng viền đen
   trong khối video, mũi tên xanh chỉ chi tiết mà lời bình nhắc tới, chuyển cảnh mờ, replay quay chậm.
-- **Chữ in sẵn trên footage (chủ dự án yêu cầu 02/10):** khi AI báo có chữ in sẵn, máy dò vùng chữ trên khung hình
+- **Chữ in sẵn trên footage (chủ dự án yêu cầu 02/10, rồi BỎ cùng ngày — `enabled: false` trong
+  `config/text_cover.yaml`, mã giữ lại để bật lại khi cần):** khi AI báo có chữ in sẵn, máy dò vùng chữ trên khung hình
   (`app/analysis/textdetect.py`); khung cắt được cắt chặt hơn để đẩy chữ ra ngoài (mất ≤ 20%), không được thì che bằng
   dải nền tối (`config/text_cover.yaml`). Cập nhật 02/10: hạn chế che (ưu tiên cắt tránh, chỉ che đúng lúc chữ hiện),
   dải che nửa trong suốt, bo tròn, vừa khít chữ; gần hàng phụ đề thì gộp thành thanh phụ đề.

@@ -7,7 +7,23 @@ import numpy as np
 
 from app.analysis.textdetect import detect_text_boxes, merge_boxes
 from app.capcut_writer import Crop
+import pytest
+
+from app import config
 from app.planner.textcover import avoid_text, cover_glyphs, cover_rect
+
+_load = config.load
+
+
+@pytest.fixture(autouse=True)
+def _enable_text_cover(monkeypatch):
+    """Chức năng đã TẮT mặc định (chủ dự án bỏ 02/10); test bật lại để giữ mã cho người muốn dùng."""
+    monkeypatch.setattr(config, "load", lambda name: {**_load(name), "enabled": True} if name == "text_cover"
+                        else _load(name))
+
+
+def test_text_cover_off_by_default():
+    assert _load("text_cover").get("enabled") is False
 
 
 def _scene(seed: int, text: str | None, where: str = "bottom") -> np.ndarray:

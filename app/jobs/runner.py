@@ -147,7 +147,7 @@ class Runner:
 
         style = load_style(name or job.data.get("style_used") or self._style_name(job))
         ratio = job.data.get("default_ratio")
-        if ratio in ("16:9", "4:3", "1:1"):  # vùng crop người dùng chọn khi tạo job (khung hiển thị cố định 3:4)
+        if ratio in ("16:9", "4:3", "1:1"):  # khung người dùng chọn khi tạo job
             style = {**style, "block_ratio": ratio, "crop_ratio": ratio}
         if job.options.target_language:
             dcfg = config.load("dub")
