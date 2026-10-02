@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 39 — Chọn nhạc nền khi tạo video (không chọn = AI chọn) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Trang chủ → ô **🎵 Nhạc nền**:
+   - để "✨ AI tự chọn theo nội dung" = như cũ;
+   - hoặc chọn một bài trong danh sách (nhóm "Nhạc CapCut" / "Kho của bạn"), kèm độ dài, tâm trạng, nhãn Commercial;
+   - hoặc tải lên file nhạc của bạn (.mp3/.wav/.m4a) — tự vào kho `assets\music\tu_chon\` và sổ nguồn.
+3. Tạo job, nhật ký bước kế hoạch dựng có dòng "Nhạc nền theo lựa chọn của bạn: …". Mở draft: đúng bài đã chọn.
+4. Trang Xong → **🎵 Đổi nhạc nền**: chọn bài khác → tool chỉ dựng lại draft (không hỏi lại AI, nhanh); chọn
+   "AI tự chọn" → AI lập lại kế hoạch dựng.
+5. Lưu ý: khách doanh nghiệp mà bạn tự chọn bài không có nhãn Commercial thì tool vẫn dùng bài bạn chọn.
+
 ## Bước 38 — Khung video cố định 3:4 (zoom chỉ trong khung), crop là chuyện riêng `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🔁 Dựng lại draft**.

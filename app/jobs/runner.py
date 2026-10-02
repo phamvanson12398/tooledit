@@ -501,15 +501,25 @@ class Runner:
                 hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else \
                     (8.0 if hook and hook.intro.strip() else 4.0)
             self.log(f"Lập kế hoạch dựng video {i:02d}…")
+            music = [m for m in tpl.library if m.kind == "music"]
+            choice = job.data.get("music_choice")
+            chosen = [m for m in music if m.name == choice] if choice else []
+            if choice and not chosen:
+                self.log(f"Không thấy bài nhạc đã chọn '{choice}' trong kho — để AI tự chọn.")
             plan = make_plan(self.director, analysis, self._u_for(job, v), self._style(job, style_name), hook=hook,
                              hook_s=hook_s, video_index=i,
-                             music_items=[m for m in tpl.library if m.kind == "music"],
+                             music_items=chosen or music,
                              sfx_items=[m for m in tpl.library if m.kind == "sfx"],
                              decor_items=[m for m in tpl.library if m.kind in ("video_effect", "sticker",
                                                                                 "transition", "filter")],
-                             business=job.data.get("business", False), reframe=job.options.reframe_per_scene,
+                             business=job.data.get("business", False) and not chosen,
+                             reframe=job.options.reframe_per_scene,
                              default_ratio=job.data.get("default_ratio") if job.data.get("default_ratio") in
                              ("4:3", "1:1") else config.load("capcut").get("default_block", "4:3"))
+            if chosen and plan.music.name != chosen[0].name:  # nhạc người dùng chọn luôn được dùng
+                plan = plan.model_copy(update={"music": plan.music.model_copy(update={"name": chosen[0].name})})
+            if chosen:
+                self.log(f"Nhạc nền theo lựa chọn của bạn: {chosen[0].name}")
             out.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
 
     def step_dub(self, job: Job) -> None:
@@ -579,6 +589,29 @@ class Runner:
         cache.write_text(json.dumps(boxes), encoding="utf-8")
         self.log(f"Dò được {len(boxes)} vùng chữ in sẵn trên footage.")
         return boxes
+
+    def set_music(self, job: Job, name: str | None) -> int:
+        """Đổi nhạc nền sau khi đã có kế hoạch dựng (không hỏi lại AI): ghi vào mọi edit_plan rồi dựng lại draft.
+        name rỗng = để AI chọn lại (lập lại kế hoạch). Trả số kế hoạch đã sửa."""
+        from app.director.schemas import EditPlan
+
+        d, _, plan_dir = self._paths(job)
+        if not name:
+            job.data.pop("music_choice", None)
+            self.redo(job, "plan")
+            return 0
+        job.data["music_choice"] = name
+        n = 0
+        for f in sorted(plan_dir.glob("edit_plan_video*.json")):
+            plan = EditPlan.model_validate_json(f.read_text(encoding="utf-8"))
+            plan = plan.model_copy(update={"music": plan.music.model_copy(update={"name": name})})
+            f.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+            n += 1
+        if n:
+            self.redo(job, "write")
+        else:
+            job.save(self.jobs_root)
+        return n
 
     def _voice_duration(self, voice: Path) -> int:
         if self._probe is None:

@@ -292,10 +292,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         for key, st in available_styles().items():
             style_cards.append(f"<label class='style'><input type='radio' name='style' value='{key}'>"
                                f"<b>{html.escape(st['name_vi'] or key)}</b><span>{html.escape(st['fits_vi'])}</span></label>")
+        lib, lib_err = _load_library()
         body = f"""
         <div class="grid"><div>
         <div class="card"><h2>🎞️ Tạo video mới</h2>
-        <form method="post" action="/jobs">
+        <form method="post" action="/jobs" enctype="multipart/form-data">
           <div class="field"><label>File footage</label>
             <div class="row"><input type="text" id="footage" name="footage" placeholder="Bấm Chọn file… hoặc dán đường dẫn" required>
             <button type="button" class="btn light" onclick="pick()">📂 Chọn file…</button></div>
@@ -307,6 +308,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <label class="tg"><input type="checkbox" name="business"> Khách doanh nghiệp (nhạc Commercial)</label>
             <label class="tg"><input type="checkbox" name="confirm"> Xác nhận trước khi dựng</label>
             <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label></div></div>
+          {_music_select(lib)}
           <div class="field"><label>🌐 Đổi ngôn ngữ video (thuyết minh + phụ đề, dựng lại khác bản gốc)</label>
             <select name="target_language"><option value="">Giữ nguyên ngôn ngữ gốc</option>
               <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
@@ -320,7 +322,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <option value="16:9">16:9</option><option value="auto">Tự động</option></select></div></div>
           <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>
         </form></div>{_compare_card()}</div>
-        <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary()}{_resource_tools(has_key)}{_template_setting()}</div>
+        <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary(lib, lib_err)}{_resource_tools(has_key)}{_template_setting()}</div>
         <div class="card jobs"><h2>🗂️ Các video</h2>{threads}<div id="jobs-panel">{jobs_panel()}</div>
         <p class='muted'>Mỗi video chạy trên một luồng riêng (ví dụ luồng 1 podcast, luồng 2 video hài). Bước phân tích
         dùng GPU nên lần lượt từng video; hỏi đạo diễn AI tối đa 2 video cùng lúc (chung hạn mức Claude Pro).</p></div></div></div>
@@ -448,7 +450,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     def new_job(footage: str = Form(...), client: str = Form("khach"), hook: str | None = Form(None),
                 reframe: str | None = Form(None), business: str | None = Form(None),
                 confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto"),
-                split: str | None = Form(None), target_language: str = Form("")):
+                split: str | None = Form(None), target_language: str = Form(""), music: str = Form(""),
+                music_file: UploadFile | None = File(None)):
         path = Path(footage.strip().strip('"'))
         if not path.is_file():
             return _page("Lỗi", f"<div class='card'><h2>Không thấy file</h2><p>{html.escape(str(path))}</p>"
@@ -458,6 +461,12 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             confirm_before_build=bool(confirm), split=bool(split),
             target_language=target_language if target_language in ("ko", "ja", "en") else ""))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
+        if music_file is not None and music_file.filename:
+            chosen = _save_user_music(music_file, Path(assets_root))
+            if chosen:
+                job.data["music_choice"] = chosen
+        elif music.strip():
+            job.data["music_choice"] = music.strip()
         job.save(Path(jobs_root))
         worker.start(job.job_id)
         return RedirectResponse(f"/jobs/{job.job_id}", status_code=303)
@@ -517,6 +526,20 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         if not running and not queued:
             parts.append(_manage_panel(job))
         return _page(f"Job {job_id}", "".join(parts), refresh=running or queued)
+
+    @app.post("/jobs/{job_id}/music")
+    async def change_music(job_id: str, music: str = Form(""), music_file: UploadFile | None = File(None)):
+        name = music.strip()
+        if music_file is not None and music_file.filename:
+            name = _save_user_music(music_file, Path(assets_root)) or name
+        d = Job.dir_for(Path(jobs_root), job_id)
+        if not list((d / "plan").glob("edit_plan_video*.json")):  # chưa lập kế hoạch: chỉ ghi lựa chọn, dùng ở bước sau
+            job = Job.load(Path(jobs_root), job_id)
+            job.data["music_choice"] = name or None
+            job.save(Path(jobs_root))
+        else:
+            worker.start(job_id, action=lambda runner, job: runner.set_music(job, name))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/stop")
     def stop_job(job_id: str):
@@ -922,14 +945,61 @@ def _scan_report_html(rep, download: bool, has_key: bool) -> str:
     return "".join(parts)
 
 
-def _library_summary() -> str:
-    """Số nhạc / SFX / hiệu ứng đạo diễn có thể dùng (tự quét mọi dự án CapCut trên máy)."""
+def _save_user_music(upload, assets_root: Path) -> str | None:
+    """File nhạc người dùng tải lên khi tạo job → assets/music/tu_chon/ + sổ nguồn. Trả tên bài trong kho."""
+    from app.assets import ledger
+    from app.assets.freesound import slug
+    from app.assets.local import AUDIO_EXTS
+
+    ext = Path(upload.filename or "").suffix.lower()
+    if ext not in AUDIO_EXTS:
+        return None
+    folder = Path(assets_root) / "music" / "tu_chon"
+    folder.mkdir(parents=True, exist_ok=True)
+    stem = slug(Path(upload.filename).stem) or "nhac"
+    out = folder / f"{stem}{ext}"
+    with open(out, "wb") as f:
+        shutil.copyfileobj(upload.file, f)
+    ledger.add(assets_root, out, source="user", license="người dùng tự thêm (tự xác nhận quyền dùng)",
+               extra={"original_name": upload.filename, "kind": "music", "tag": "tu_chon"})
+    return f"tu_chon_{out.stem}"  # cùng cách đặt tên của scan_local: <nhóm>_<tên file>
+
+
+def _load_library():
+    """Kho tài nguyên (dự án mẫu + mọi dự án CapCut + kho local). Trả (template, lỗi)."""
     try:
         from app.jobs.runner import Runner
 
-        tpl = Runner(JOBS_ROOT, log=lambda m: None)._template()
+        return Runner(JOBS_ROOT, log=lambda m: None)._template(), None
     except Exception as exc:
-        return f"<p class='muted'>Chưa đọc được dự án mẫu CapCut: {html.escape(str(exc))}</p>"
+        return None, str(exc)
+
+
+def _music_select(tpl) -> str:
+    """Ô chọn nhạc nền khi tạo job: mặc định AI tự chọn; hoặc chọn một bài trong kho; hoặc tải file nhạc của bạn."""
+    esc = html.escape
+    items = [m for m in (tpl.library if tpl else []) if m.kind == "music"]
+    groups: dict[str, list] = {}
+    for m in sorted(items, key=lambda m: m.name.lower()):
+        groups.setdefault("Kho của bạn (assets)" if m.material.get("local") else "Nhạc CapCut", []).append(m)
+    opts = "".join(
+        f"<optgroup label='{esc(g)}'>" + "".join(
+            f"<option value='{esc(m.name)}'>{esc(m.name)} · {m.material.get('duration', 0) / 1e6:.0f}s"
+            f"{' · ' + esc(m.mood) if m.mood else ''}{' · Commercial' if m.commercial else ''}</option>" for m in ms)
+        + "</optgroup>" for g, ms in groups.items())
+    return (f"<div class='field'><label>🎵 Nhạc nền</label><select name='music'>"
+            f"<option value=''>✨ AI tự chọn theo nội dung</option>{opts}</select>"
+            "<div class='row' style='margin-top:6px'><input type='file' name='music_file' accept='.mp3,.wav,.m4a,audio/*'>"
+            "</div><div class='muted'>Hoặc tải lên file nhạc của bạn (tự thêm vào kho, dùng cho video này). "
+            "Để trống cả hai = AI tự chọn.</div></div>")
+
+
+def _library_summary(tpl=None, err: str | None = None) -> str:
+    """Số nhạc / SFX / hiệu ứng đạo diễn có thể dùng (tự quét mọi dự án CapCut trên máy)."""
+    if tpl is None and err is None:
+        tpl, err = _load_library()
+    if tpl is None:
+        return f"<p class='muted'>Chưa đọc được dự án mẫu CapCut: {html.escape(str(err))}</p>"
     count = lambda k: sum(1 for i in tpl.library if i.kind == k)  # noqa: E731
     boxes = "".join(f"<div><b>{count(k)}</b>{label}</div>" for k, label in
                     (("music", "nhạc nền"), ("sfx", "SFX"), ("video_effect", "hiệu ứng"), ("transition", "chuyển cảnh"),
@@ -1146,6 +1216,13 @@ def _step_panel(job: Job, d: Path) -> str:
             cap = _read(d / "deliver" / f"video{i:02d}_captions.txt")
             if cap:
                 parts.append(f"<details><summary><b>📣 Caption + hashtag</b></summary><pre>{esc(cap)}</pre></details>")
+        cur = job.data.get("music_choice") or "AI tự chọn"
+        lib, _ = _load_library()
+        parts.append(f"<details><summary><b>🎵 Đổi nhạc nền</b> <span class='muted'>(đang: {esc(cur)})</span></summary>"
+                     f"<form method='post' action='/jobs/{job.job_id}/music' enctype='multipart/form-data'>"
+                     f"{_music_select(lib)}<p class='muted'>Chọn bài khác → tool chỉ dựng lại draft (không hỏi lại AI). "
+                     "Chọn 'AI tự chọn' → AI lập lại kế hoạch dựng.</p>"
+                     "<button type='submit' class='btn small'>🎵 Đổi nhạc và dựng lại</button></form></details>")
         parts.append("<details><summary><b>🔍 So sánh với video gốc (sau khi xuất từ CapCut)</b></summary>"
                      + _compare_card(job.footage[0], f"/jobs/{job.job_id}") + "</details>")
         if list((d / "plan").glob("dub_video*.json")):
