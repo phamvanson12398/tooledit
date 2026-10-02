@@ -44,5 +44,27 @@ def whisper_audio_args(src: Path, dst: Path) -> list[str]:
 
 
 def frame_args(src: Path, at_s: float, dst: Path, width: int = 480, quality: int = 5) -> list[str]:
-    return ["-ss", f"{at_s:.3f}", "-i", str(src), "-frames:v", "1", "-vf", f"scale={width}:-2",
-            "-q:v", str(quality), str(dst)]
+    # format=yuvj420p: bộ mã JPEG của FFmpeg mới từ chối ảnh "dải màu hẹp" / 10-bit HDR (điện thoại) nếu không đổi
+    return ["-ss", f"{at_s:.3f}", "-i", str(src), "-frames:v", "1", "-an", "-sn",
+            "-vf", f"scale={width}:-2:out_range=full,format=yuvj420p", "-q:v", str(quality), str(dst)]
+
+
+def extract_frame(src: Path, at_s: float, dst: Path, width: int = 480, quality: int = 5,
+                  exe: str | None = None) -> bool:
+    """Trích 1 khung hình; mốc rơi sau khung hình cuối (tiếng dài hơn hình, file quay điện thoại...) thì lùi lại
+    vài lần. Trả False nếu không lấy được (bỏ qua khung này, không làm hỏng cả bước phân tích)."""
+    dst.unlink(missing_ok=True)
+    last_err = None
+    for back in (0.0, 0.5, 1.5, 4.0):
+        t = max(0.0, at_s - back)
+        try:
+            run(frame_args(src, t, dst, width, quality), exe=exe)
+        except RuntimeError as exc:
+            last_err = exc
+        if dst.is_file() and dst.stat().st_size > 0:
+            return True
+        if t == 0.0:
+            break
+    if last_err is not None and at_s < 1.0:  # lỗi ngay từ đầu video → không phải do mốc cuối, báo thật
+        raise last_err
+    return False

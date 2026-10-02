@@ -84,10 +84,19 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
 
         progress("Trích khung hình")
         fr = cfg.get("frames", {})
+        skipped = []
         for t in frame_times(duration, scenes, fr.get("every_s", 4.0), fr.get("max_frames", 40)):
             dst = out / "frames" / f"{tag}_{t:08.2f}.jpg"
-            ffmpeg.run(ffmpeg.frame_args(src, t, dst, fr.get("width", 480), fr.get("jpeg_quality", 5)))
+            if not ffmpeg.extract_frame(src, t, dst, fr.get("width", 480), fr.get("jpeg_quality", 5)):
+                skipped.append(t)
+                continue
             frames_all.append({"footage": i, "t": t, "file": dst.relative_to(out).as_posix()})
+        if skipped:
+            progress(f"Bỏ qua {len(skipped)} khung hình không trích được (giây {', '.join(f'{x:.1f}' for x in skipped[:5])}"
+                     f"{'…' if len(skipped) > 5 else ''}) — thường do phần cuối file chỉ có tiếng, không có hình.")
+        if not any(f["footage"] == i for f in frames_all):
+            raise RuntimeError(f"Không trích được khung hình nào từ {src.name}. File video có thể bị hỏng hoặc "
+                               "dùng định dạng lạ — thử xuất lại file bằng CapCut / HandBrake (H.264 MP4) rồi chạy lại.")
 
         progress("Dò khuôn mặt / chủ thể")
         sj = cfg.get("subjects", {})

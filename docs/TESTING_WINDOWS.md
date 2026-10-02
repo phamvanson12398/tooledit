@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 42 — Sửa lỗi bước analyze "Could not open encoder before EOF" (trích khung hình) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Mở job bị lỗi → bấm **Chạy lại bước này** (bước analyze).
+3. Job phải qua được bước "Trích khung hình". Nếu nhật ký có dòng "Bỏ qua N khung hình không trích được…" là bình
+   thường (phần cuối file chỉ có tiếng, không có hình).
+4. Nếu vẫn lỗi: chạy trong PowerShell và gửi lại kết quả cho Claude:
+   ```powershell
+   ffmpeg -version
+   ffprobe -v error -show_entries stream=codec_name,pix_fmt,width,height,duration -of compact "ĐƯỜNG_DẪN_VIDEO"
+   ```
+
 ## Bước 41 — Bỏ khung cố định 3:4 và bỏ che chữ in sẵn `[CẦN KIỂM TRA TRÊN MÁY]`
 
 (Bước 38 và phần che chữ ở các bước trước không còn áp dụng.)

@@ -42,6 +42,19 @@ def test_scene_detection_on_synthetic_video(tmp_path: Path):
     assert len(scenes) == 2 and scenes[1].start == pytest.approx(2.0, abs=0.1)
     ffmpeg.run(ffmpeg.frame_args(video, 1.0, tmp_path / "f.jpg", width=160), exe=FFMPEG)
     assert (tmp_path / "f.jpg").stat().st_size > 0
+    # mốc sau khung hình cuối (vd tiếng dài hơn hình) → tự lùi lại, vẫn lấy được khung
+    assert ffmpeg.extract_frame(video, 4.6, tmp_path / "end.jpg", width=160, exe=FFMPEG)
+    assert (tmp_path / "end.jpg").stat().st_size > 0
+
+
+def test_extract_frame_10bit_and_limited_range(tmp_path: Path):
+    """Footage điện thoại 10-bit / dải màu hẹp: bộ mã JPEG không được từ chối."""
+    video = tmp_path / "h.mp4"
+    r = subprocess.run([FFMPEG, "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=green:s=320x240:d=2:r=25",
+                        "-pix_fmt", "yuv420p10le", "-c:v", "libx265", str(video)], capture_output=True)
+    if r.returncode != 0:
+        pytest.skip("FFmpeg không có libx265")
+    assert ffmpeg.extract_frame(video, 1.0, tmp_path / "x.jpg", width=160, exe=FFMPEG)
 
 
 def test_detect_faces_on_blank_image():
