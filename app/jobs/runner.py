@@ -531,15 +531,19 @@ class Runner:
             return []
         if cache.is_file():
             try:
-                return json.loads(cache.read_text(encoding="utf-8"))
+                cached = json.loads(cache.read_text(encoding="utf-8"))
+                if all(isinstance(x, dict) for x in cached):  # bản cũ chưa có thời gian chữ hiện → dò lại
+                    return cached
             except ValueError:
                 pass
         from app.analysis.textdetect import REGION_ZONES, boxes_from_files
         from app.director.tasks import pick_evenly
 
-        frames = pick_evenly(a["frames"], int((config.load("text_cover") or {}).get("frames", 40)))
+        frames = pick_evenly(sorted(a["frames"], key=lambda f: f["t"]), 600)  # mọi khung (tối đa 600) để biết lúc nào có chữ
         try:
-            boxes = boxes_from_files([analysis / f["file"] for f in frames], b.regions or list(REGION_ZONES))
+            boxes = boxes_from_files([analysis / f["file"] for f in frames], b.regions or list(REGION_ZONES),
+                                     times=[f["t"] for f in frames],
+                                     sample=int((config.load("text_cover") or {}).get("frames", 40)))
         except Exception as exc:  # thiếu OpenCV / khung hình hỏng: dựng bình thường, không che
             self.log(f"Không dò được vùng chữ in sẵn: {exc}")
             return []

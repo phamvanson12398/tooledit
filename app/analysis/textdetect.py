@@ -84,14 +84,57 @@ def merge_boxes(boxes: list[tuple[float, float, float, float]], gap: float = 0.0
     return [tuple(round(v, 4) for v in b) for b in out]
 
 
-def boxes_from_files(paths: list, regions: list[str], size: int = 480) -> list[tuple[float, float, float, float]]:
+def presence_times(timed: list[tuple[float, np.ndarray]], box, density: float = 0.08,
+                   gap_s: float | None = None) -> list[list[float]]:
+    """Những khoảng thời gian (giây gốc) chữ thực sự HIỆN trong hộp — để chỉ che lúc có chữ, không che suốt video.
+    timed: [(giây, khung xám)] theo thứ tự thời gian."""
+    if not timed:
+        return []
+    ts = [t for t, _ in timed]
+    step = gap_s if gap_s is not None else (max(0.5, float(np.median(np.diff(ts)))) if len(ts) > 1 else 1.0)
+    on = []
+    for t, g in timed:
+        h, w = g.shape[:2]
+        x0, y0, x1, y1 = int(box[0] * w), int(box[1] * h), max(int(box[2] * w), int(box[0] * w) + 1), \
+            max(int(box[3] * h), int(box[1] * h) + 1)
+        on.append(float(text_map(g)[y0:y1, x0:x1].mean()) >= density)
+    out: list[list[float]] = []
+    for i, (t, flag) in enumerate(zip(ts, on)):
+        if not flag:
+            continue
+        s, e = max(0.0, t - step / 2), t + step / 2
+        if out and s <= out[-1][1] + 1e-6:
+            out[-1][1] = e
+        else:
+            out.append([round(s, 2), round(e, 2)])
+    return [[round(a, 2), round(b, 2)] for a, b in out]
+
+
+def _load(paths: list, size: int) -> list[np.ndarray]:
     import cv2
 
     frames = []
     for p in paths:
         img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
         if img is None:
+            frames.append(None)
             continue
         s = size / max(img.shape[:2])
         frames.append(cv2.resize(img, (int(img.shape[1] * s), int(img.shape[0] * s))) if s < 1 else img)
-    return detect_text_boxes(frames, regions)
+    return frames
+
+
+def boxes_from_files(paths: list, regions: list[str], size: int = 480, times: list[float] | None = None,
+                     sample: int = 40) -> list[dict]:
+    """Dò hộp chữ (từ tối đa `sample` khung rải đều) + thời gian chữ hiện (từ mọi khung có mốc giây).
+    Trả [{"box": [l, t, r, b], "times": [[giây đầu, giây cuối], ...] hoặc None = suốt video}]."""
+    frames = _load(paths, size)
+    valid = [(i, f) for i, f in enumerate(frames) if f is not None]
+    if not valid:
+        return []
+    step = max(1, len(valid) // sample)
+    boxes = detect_text_boxes([f for _, f in valid[::step]], regions)
+    if times is None:
+        return [{"box": list(b), "times": None} for b in boxes]
+    timed = [(times[i], f) for i, f in valid]
+    return [{"box": list(b), "times": presence_times(timed, b)} for b in boxes]

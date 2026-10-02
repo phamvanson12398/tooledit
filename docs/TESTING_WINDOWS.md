@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 35 — Che chữ in sẵn: hạn chế che, che phải đẹp `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🔁 Dựng lại draft** (tool tự dò lại vùng chữ kèm thời gian).
+2. Mở draft trong CapCut, kiểm tra:
+   - cảnh nào chữ sát mép: được cắt chặt hơn (giờ chấp nhận tới 25%) thay vì che;
+   - dải che CHỈ hiện đúng lúc chữ gốc hiện (phụ đề cứng câu nào hiện thì che câu đó), lúc không có chữ thì không che;
+   - dải che nửa trong suốt (vẫn thấy mờ hình phía sau), bo tròn góc, chỉ rộng vừa hơn chữ một chút;
+   - phụ đề cứng nằm gần hàng phụ đề của tool → dải che đặt đúng hàng phụ đề mới, nhìn như một thanh phụ đề.
+3. Muốn chỉnh trong `config\text_cover.yaml`: `cover_alpha` (0.6; tăng nếu chữ gốc còn lộ), `cover_round`, `cover_pad`,
+   `min_scale` (giảm để cắt tránh nhiều hơn, che ít hơn).
+
 ## Bước 34 — Chữ in sẵn trên footage: tự cắt tránh, không được thì che `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Chọn footage có chữ in sẵn (phụ đề cứng tiếng Trung/Hàn, tiêu đề,
