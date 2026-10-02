@@ -1,5 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 36 — Chữ 4 dòng tiêu đề giảm từ cỡ 30 xuống 20 `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🔁 Dựng lại draft**.
+2. Mở draft trong CapCut, bấm vào một dòng tiêu đề → ô Cỡ chữ hiện **20**, tỉ lệ (scale) **100%** hoặc nhỏ hơn
+   (dòng quá dài tự thu nhỏ cho vừa khung). Chữ không còn được phóng to thêm như trước.
+3. Muốn đổi cỡ: `config\layout.yaml` → `title_size` (và `title_scale_max: 1.0` để giữ đúng cỡ đó).
+
 ## Bước 35 — Che chữ in sẵn: hạn chế che, che phải đẹp `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🔁 Dựng lại draft** (tool tự dò lại vùng chữ kèm thời gian).

@@ -186,7 +186,7 @@ def test_four_titles_layout_like_reference(tmp_path):
         seg = segs[text]
         assert abs(seg["clip"]["transform"]["y"] - row_to_y(row)) < 1e-6
         assert seg["target_timerange"]["start"] == 0 and seg["target_timerange"]["duration"] == res.duration_us
-        assert seg["clip"]["scale"]["x"] > 1.0  # phóng to cho dòng tràn gần hết chiều ngang
+        assert seg["clip"]["scale"]["x"] <= 1.0  # giữ cỡ 20, chỉ thu nhỏ khi dòng quá dài
     assert segs["曙との関係について"]["clip"]["transform"]["x"] > 0  # nhãn chủ đề góc phải
     sub = segs[next(t for t in segs if t.startswith("優勝"))]
     assert -0.4 < sub["clip"]["transform"]["y"] < 0  # phụ đề trong khối video

@@ -18,11 +18,11 @@ four_titles:
   topic_x: 0.30                # (nửa khung, dương = sang phải)
   # Tự canh cỡ chữ tiêu đề cho dòng tràn gần hết chiều ngang (giống video mẫu):
   title_width: 0.94            # chiều rộng mong muốn của mỗi dòng (phần chiều ngang khung)
-  title_size: 30               # cỡ chữ CapCut gốc; phần còn lại phóng bằng scale
+  title_size: 20               # cỡ chữ tiêu đề trong CapCut (chủ dự án chốt 02/10: giảm từ 30 xuống 20)
   # Độ rộng 1 ký tự CJK trên mỗi đơn vị cỡ chữ (phần chiều ngang khung). ƯỚC LƯỢNG [CẦN KIỂM TRA TRÊN MÁY]:
   # chữ tiêu đề trong CapCut to quá → TĂNG số này; nhỏ quá → GIẢM.
   char_width_per_size: 0.0017
-  title_scale_max: 2.2
+  title_scale_max: 1.0         # không phóng to thêm (giữ đúng cỡ 20); dòng quá dài thì tự thu nhỏ cho vừa khung
   # Màu 4 dòng (theo video mẫu; CapCut chưa ghi được gradient/phát sáng bằng code nên dùng màu trơn + viền dày)
   title_styles:
     - {color: [1, 1, 1], stroke_color: [0.85, 0.1, 0.8], stroke_width: 0.2}        # trắng, viền hồng tím
