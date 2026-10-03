@@ -7,7 +7,15 @@ mute_original: true            # TẮT HẲN tiếng gốc của video (chủ d�
 original_db: -20               # dưới câu đã có voice thuyết minh
 original_db_no_voice: -6       # chỗ khác / câu chưa có file voice
 max_speed: 1.25                # file thuyết minh dài hơn chỗ trống → tăng tốc tối đa mức này
-line_s: [1.5, 9.0]             # mỗi câu thuyết minh dài 1.5–9 giây (một ý trọn vẹn)
+line_s: [1.5, 9.0]
+# Phụ đề TIẾNG VIỆT (nghĩa từng câu) ngay dưới phụ đề chính để chủ dự án kiểm tra voice / phụ đề đã khớp chưa
+# (chủ dự án yêu cầu 03/10). Bật / tắt cho từng job ở trang job; TẮT rồi dựng lại trước khi xuất video đăng TikTok.
+vi_subtitles:
+  enabled: true               # mặc định cho job mới
+  size: 8                     # nhỏ hơn phụ đề chính
+  color: [1, 0.95, 0.4]       # vàng nhạt, dễ phân biệt
+  gap: 0.075                  # khoảng cách xuống dưới phụ đề chính (nửa khung)
+  max_chars: 34               # mỗi cụm tối đa 34 ký tự             # mỗi câu thuyết minh dài 1.5–9 giây (một ý trọn vẹn)
 
 # Chỗ KHÔNG có giọng nói (chủ dự án chốt 01/10): AI viết LỜI DẪN, nhưng CHỈ ở cảnh hay / hành động đáng chú ý
 # (vd video nấu ăn: lúc thêm gia vị, lật miếng thịt, món ra lò) — không nói liên tục; chỗ khác để nhạc + tiếng hiện trường.

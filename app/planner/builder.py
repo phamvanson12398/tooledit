@@ -232,9 +232,11 @@ def subject_center(subjects: dict, start: float, end: float) -> float:
 def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTemplate, drafts_root: Path,
           name: str, style: dict, *, hook: HookOption | None = None, voice: tuple[Path, int] | None = None,
           clean_audio: Path | None = None, video_index: int = 1, beats_fn=None, dub=None,
-          dub_voices: dict[int, tuple[Path, int]] | None = None) -> BuildResult:
+          dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
-    dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch."""
+    dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
+    vi_subtitles: thêm phụ đề tiếng Việt (nghĩa từng câu) ngay dưới phụ đề chính để chủ dự án kiểm tra voice / phụ đề
+    đã khớp chưa — XÓA / TẮT trước khi xuất video đăng TikTok."""
     safe = config.load("safe_area")
     sub_cfg = config.load("subtitles")
     sc, tr, subjects = analysis["scenes"], analysis["transcript"], analysis["subjects"]
@@ -573,6 +575,23 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     for c in cues:
         w.add_text(c.text, start=c.start, duration=c.end - c.start, x=pos["x"], y=pos["bottom"],
                    style=subtitle_style)
+    if dub is not None and vi_subtitles:  # phụ đề tiếng Việt để kiểm tra (không dùng khi đăng)
+        from app.planner.dub_io import split_text, spread_cues
+
+        vcfg = config.load("dub").get("vi_subtitles") or {}
+        vi_style = dataclasses.replace(_style({"size": vcfg.get("size", 8), "color": vcfg.get("color", [1, 0.95, 0.4]),
+                                               "stroke_color": [0, 0, 0], "stroke_width": 0.12}), bold=False)
+        vi_y = pos["bottom"] - float(vcfg.get("gap", 0.075))
+        lines_by_no = {i: ln for i, ln in enumerate(dub.lines, 1)}
+        n_vi = 0
+        for no, a, e, _, _, _ in dub_slots:
+            text_vi = lines_by_no[no].text_vi.strip()
+            for s0, e0, t in spread_cues(split_text(text_vi, "en", int(vcfg.get("max_chars", 34))), a, e):
+                w.add_text(t, start=s0, duration=max(1, e0 - s0), x=pos["x"], y=vi_y, style=vi_style)
+                n_vi += 1
+        if n_vi:
+            notes.append("Có phụ đề TIẾNG VIỆT (chữ vàng nhỏ dưới phụ đề chính) để kiểm tra — tắt ở trang job "
+                         "(🇻🇳 Phụ đề tiếng Việt) rồi dựng lại trước khi xuất video đăng TikTok.")
     palette = [tuple(c) for c in style.get("emphasis_palette") or []] or [emph_style.color]
     emph_anims = _animations(template, style.get("emphasis", {}).get("animations", ["in"]))
     for i, e in enumerate(plan.emphasis):

@@ -541,6 +541,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             worker.start(job_id, action=lambda runner, job: runner.set_music(job, name))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/vi-subs")
+    def toggle_vi_subs(job_id: str, on: str = Form("1")):
+        worker.start(job_id, action=lambda runner, job: runner.set_vi_subtitles(job, on == "1"))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/stop")
     def stop_job(job_id: str):
         worker.stop(job_id)
@@ -1269,6 +1274,16 @@ def _step_panel(job: Job, d: Path) -> str:
         parts.append("<details><summary><b>🔍 So sánh với video gốc (sau khi xuất từ CapCut)</b></summary>"
                      + _compare_card(job.footage[0], f"/jobs/{job.job_id}") + "</details>")
         if list((d / "plan").glob("dub_video*.json")):
+            vi_on = bool(job.data.get("vi_subs", (app_config.load("dub").get("vi_subtitles") or {}).get("enabled", True)))
+            parts.append(
+                f"<div class='card' style='margin:10px 0'><b>🇻🇳 Phụ đề tiếng Việt để kiểm tra:</b> "
+                f"{'<span class=tag>đang BẬT</span>' if vi_on else '<span class=tag>đang TẮT</span>'}"
+                "<p class='muted'>Chữ vàng nhỏ ngay dưới phụ đề chính = nghĩa tiếng Việt của câu thuyết minh đang nói, "
+                "để bạn xem voice và phụ đề đã khớp hình chưa. <b>Tắt rồi mới xuất video đăng TikTok.</b></p>"
+                f"<form method='post' action='/jobs/{job.job_id}/vi-subs'><input type='hidden' name='on' "
+                f"value='{'0' if vi_on else '1'}'><button type='submit' class='btn small light'>"
+                f"{'🚫 Tắt phụ đề tiếng Việt và dựng lại' if vi_on else '🇻🇳 Bật phụ đề tiếng Việt và dựng lại'}"
+                "</button></form></div>")
             parts.append("<details><summary><b>🎙️ Voice thuyết minh (xem kịch bản / tải thêm)</b></summary>"
                          + _dub_panel(job, d, skip=False) + "</details>")
         missing = json.loads(_read(d / "missing_assets.json") or "[]")

@@ -107,3 +107,31 @@ def test_split_upload_writes_line_files(tmp_path):
     assert len(got) == len(slots) and dub_io.missing_lines(d, {1: DubScript.model_validate(dub)}) == []
     assert not (d / "voice" / "video01_dub02.mp3").exists()
     assert abs(dub_io.voice_seconds(d / "voice" / "video01_dub02.wav") - slots[1] * 0.8) < 0.25
+
+
+def test_vietnamese_check_subtitles(tmp_path):
+    from app.capcut_writer import DraftTemplate
+    from app.planner.builder import build
+    from app.styles import load_style
+    from tests.test_planner import SAMPLE, _analysis, _short_plan, load
+
+    plan = EditPlan.model_validate(_short_plan())
+    dub = DubScript.model_validate(json.loads((FIX / "dub.json").read_text(encoding="utf-8")))
+    u = Understanding.model_validate(load("understand.json"))
+
+    def texts(on: bool):
+        res = build(plan, u, _analysis(), DraftTemplate(SAMPLE), tmp_path, f"vi{on}", load_style("jp_telop"),
+                    dub=dub, vi_subtitles=on)
+        tl = res.writer.build_timeline()
+        mats = {m["id"]: json.loads(m["content"])["text"] for m in tl["materials"]["texts"]}
+        segs = [s for t in tl["tracks"] if t["type"] == "text" for s in t["segments"]]
+        return res, {mats[s["material_id"]]: s for s in segs}
+
+    res, on = texts(True)
+    vi = [t for t in on if "Đô vật sumo" in t or "vốn bị ghét" in t]
+    assert vi and any("TIẾNG VIỆT" in n for n in res.notes)
+    ko = next(s for t, s in on.items() if "스모" in t)
+    assert on[vi[0]]["clip"]["transform"]["y"] < ko["clip"]["transform"]["y"]  # nằm ngay dưới phụ đề chính
+    assert on[vi[0]]["target_timerange"]["start"] == ko["target_timerange"]["start"]  # cùng lúc câu thuyết minh
+    _, off = texts(False)
+    assert not [t for t in off if "Đô vật sumo" in t]

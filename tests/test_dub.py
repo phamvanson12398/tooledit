@@ -181,6 +181,13 @@ def test_web_dub_flow(tmp_path):
     job = Job.load(jobs, jid)
     assert job.status.value == "done", job.message
     assert "Voice thuyết minh" in client.get(f"/jobs/{jid}").text
+    page = client.get(f"/jobs/{jid}").text
+    assert "Phụ đề tiếng Việt để kiểm tra" in page and "đang BẬT" in page
+    client.post(f"/jobs/{jid}/vi-subs", data={"on": "0"}, follow_redirects=False)  # tắt trước khi xuất
+    wait_idle(app)
+    job = Job.load(jobs, jid)
+    assert job.data["vi_subs"] is False and job.status.value == "done", job.message
+    assert "đang TẮT" in client.get(f"/jobs/{jid}").text
 
 
 def test_silent_gaps_and_narration_check():

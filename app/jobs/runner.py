@@ -595,6 +595,20 @@ class Runner:
         self.log(f"Dò được {len(boxes)} vùng chữ in sẵn trên footage.")
         return boxes
 
+    def vi_subtitles(self, job: Job) -> bool:
+        """Phụ đề tiếng Việt để kiểm tra (chế độ Đổi ngôn ngữ): theo nút bật/tắt của job, mặc định theo config/dub.yaml."""
+        if "vi_subs" in job.data:
+            return bool(job.data["vi_subs"])
+        return bool((config.load("dub").get("vi_subtitles") or {}).get("enabled", True))
+
+    def set_vi_subtitles(self, job: Job, on: bool) -> None:
+        """Bật / tắt phụ đề tiếng Việt rồi dựng lại draft (không hỏi lại AI)."""
+        job.data["vi_subs"] = bool(on)
+        if job.data.get("drafts"):
+            self.redo(job, "write")
+        else:
+            job.save(self.jobs_root)
+
     def set_music(self, job: Job, name: str | None) -> int:
         """Đổi nhạc nền sau khi đã có kế hoạch dựng (không hỏi lại AI): ghi vào mọi edit_plan rồi dựng lại draft.
         name rỗng = để AI chọn lại (lập lại kế hoạch). Trả số kế hoạch đã sửa."""
@@ -675,7 +689,7 @@ class Runner:
                             dub_voices[n] = (f.resolve(), self._voice_duration(f))
             res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                         hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
-                        video_index=i, dub=dub, dub_voices=dub_voices)
+                        video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job))
             out = res.writer.save(overwrite=True)
             dur = round(res.duration_us / 1_000_000, 1)
             drafts.append({"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),

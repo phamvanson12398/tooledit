@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 45 — Phụ đề tiếng Việt để kiểm tra khớp (chế độ Đổi ngôn ngữ) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job Đổi ngôn ngữ cũ: bấm **🔁 Dựng lại draft**.
+2. Mở draft trong CapCut: ngay dưới phụ đề chính (tiếng Hàn / Nhật / Anh) có dòng chữ vàng nhỏ tiếng Việt = nghĩa câu
+   đang nói, xuất hiện cùng lúc với câu đó. Xem: voice, phụ đề, nghĩa tiếng Việt có khớp với hình không; chữ Việt có
+   bị đè / tràn khung không (font CapCut hiện đủ dấu tiếng Việt không).
+3. Trước khi xuất đăng TikTok: trang job → **🇻🇳 Phụ đề tiếng Việt → 🚫 Tắt phụ đề tiếng Việt và dựng lại** → mở lại
+   draft, dòng chữ vàng đã biến mất.
+4. Chỉnh cỡ / màu / vị trí: `config\dub.yaml` → `vi_subtitles` (`enabled: false` = job mới mặc định tắt).
+
 ## Bước 44 — Voice thuyết minh khớp hình cho video nói liên tục (thu một file cả bài) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.
