@@ -266,7 +266,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         chosen = {f["file"]: f for f in near + pick_evenly(pool, n)}
         frames = sorted(chosen.values(), key=lambda f: f["t"])
         images = [analysis_dir / f["file"] for f in frames]
-        arrow_brief = ARROW_BRIEF + "\n" + "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames)
+        arrow_brief = ARROW_BRIEF.format(examples=style.get("arrow_examples") or ARROW_EXAMPLES) + "\n" + "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames)
     sc = a["scenes"]
     duration = sc["duration"]
     vertical = sc["height"] > sc["width"]
@@ -462,7 +462,8 @@ REORDER_RULE = """ĐẢO THỨ TỰ CLIP (kiểu giải trí — khách muốn n
   vào một câu hỏi/tình huống khác để bịa ra điều không xảy ra."""
 
 
-ARROW_BRIEF = """- `arrows`: mũi tên xanh chỉ ĐÚNG chi tiết mà lời bình đang nói tới (găng tay tung đòn, chân bước, bóng, cầu thủ),
+ARROW_EXAMPLES = "găng tay tung đòn, chân bước, bóng, cầu thủ"
+ARROW_BRIEF = """- `arrows`: mũi tên chỉ ĐÚNG chi tiết mà lời nói / lời bình đang nói tới ({examples}),
   mỗi 2–5 giây khi có chi tiết đáng chỉ; không chỉ khi không chắc vị trí. `x`,`y` là vị trí điểm cần chỉ trong
   KHUNG HÌNH GỐC (0–1), ước lượng từ khung hình gần mốc đó nhất (mở file bằng Read để xem); `points` là hướng mũi tên
   chỉ tới. Chi tiết di chuyển nhanh → mũi tên ngắn (duration 0.8–1.5). Khung hình có sẵn:"""

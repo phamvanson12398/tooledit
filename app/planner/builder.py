@@ -600,7 +600,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             x, y = corners[st.position]
             w.add_sticker(item, start=t, duration=min(round(st.duration * SEC), tmap.end - t), x=x, y=y, scale=0.55)
     # ---------- mũi tên chỉ chi tiết (kiểu thể thao) ----------
-    arrow_cfg = (four or {}).get("arrow") or {}
+    arrow_cfg = {**((four or {}).get("arrow") or {}), **(style.get("arrow") or {})}  # kiểu dựng có thể đổi màu mũi tên
     arrow_style = dataclasses.replace(_style({"size": 40, "color": [0.2, 1, 0.25], "stroke_color": [0, 0.35, 0.05],
                                               "stroke_width": 0.12, **arrow_cfg}), bold=True)
     for a in plan.arrows:

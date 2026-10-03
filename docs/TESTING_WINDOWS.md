@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 43 — Kiểu dựng mới "Trang điểm / làm đẹp" (`makeup`) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Tạo job với một footage trang điểm. Bước AI hiểu nội dung nên tự đề xuất "Trang điểm / làm đẹp" (bật
+   "Xác nhận trước khi dựng" để xem / tự chọn kiểu này).
+3. Mở draft trong CapCut, kiểm tra:
+   - 1–3 giây đầu là look hoàn thiện, sau đó mới tới mặt mộc và các bước theo đúng thứ tự;
+   - đoạn tán nền / đánh lặp chạy nhanh (1.5–2x), đoạn kẻ mắt / môi chạy tốc độ thường;
+   - chữ nhấn tên bước nền hồng nằm phía trên, không che mặt; mũi tên HỒNG chỉ đúng vùng đang trang điểm
+     (font CapCut có hiện ký tự → không);
+   - cuối video: clip quay chậm khoe kết quả, có nhãn 完成 / 완성 / FINAL LOOK.
+4. Muốn chỉnh liều lượng: sửa `styles\makeup.yaml` (phần `director_brief`, màu chữ, màu mũi tên `arrow`).
+
 ## Bước 42 — Sửa lỗi bước analyze "Could not open encoder before EOF" (trích khung hình) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

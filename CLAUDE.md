@@ -156,6 +156,10 @@ Preset trong `styles/*.yaml`. Sáu phong cách:
 5. `healing` — ít cắt, giữ âm thanh hiện trường, nhạc lofi/acoustic nhỏ, chữ ít.
 6. `professional` — sạch, cắt vấp, tiêu đề từng phần, ý chính hiện bên cạnh.
 
+**Thêm (chủ dự án yêu cầu 03/10):** `makeup` — trang điểm / làm đẹp: mở bằng look hoàn thiện (cold open) → mặt mộc →
+từng bước đúng thứ tự (tua nhanh đoạn tán, chậm ở chi tiết đắt, mũi tên hồng chỉ vùng đang trang điểm) → khoe kết quả
+quay chậm có nhãn 完成 / 완성 / FINAL LOOK + so trước–sau. Không hứa hẹn quá sự thật, không đoán tên sản phẩm.
+
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.
 - Chuyển động hình: zoom giật, zoom chậm, lắc, dừng hình, quay chậm.

@@ -1,0 +1,54 @@
+# Trang điểm / làm đẹp (chủ dự án yêu cầu 03/10). Công thức video makeup TikTok:
+# mở bằng KẾT QUẢ (look hoàn thiện) → trước (mặt mộc) → từng bước, tua nhanh đoạn tán/đánh lặp → chậm lại ở
+# chi tiết đắt (kẻ mắt, môi, highlight) → khoe kết quả quay chậm + so trước/sau.
+name: makeup
+name_vi: Trang điểm / làm đẹp
+fits_vi: hướng dẫn trang điểm, makeup look, review / swatch mỹ phẩm, skincare, GRWM (get ready with me), biến hình trước–sau
+description_vi: Mở bằng look hoàn thiện, đi qua từng bước rõ ràng (tua nhanh đoạn tán), cận chi tiết đắt, chữ nhấn tên bước / sản phẩm, kết bằng khoe kết quả quay chậm và so trước–sau.
+
+cold_open: true        # mở đầu bằng 1–3 giây look hoàn thiện (lấy từ cuối footage) rồi mới dựng từ mặt mộc
+arrows: true           # mũi tên chỉ đúng vùng đang trang điểm (đuôi mắt, gò má, viền môi...); đạo diễn được xem khung hình
+arrow_examples: "đuôi mắt đang kẻ, mi, gò má đang tán má hồng, viền môi, vùng che khuyết điểm, vỏ / màu sản phẩm"
+arrow: {glyph: "→", size: 34, color: [1, 0.45, 0.7], stroke_color: [1, 1, 1], stroke_width: 0.12, offset_px: 110}
+motion: {every_clip: true, max_scale: 1.15}   # cảnh nào chưa có zoom thì code tự thêm chuyển động nhẹ
+
+director_brief: |
+  CẤU TRÚC (video makeup / làm đẹp):
+  1. MỞ ĐẦU = KẾT QUẢ: clip 1–3 giây look hoàn thiện đẹp nhất (thường ở cuối footage: quay mặt, chớp mắt, cười),
+     đặt "repeat": true. Hook (nếu có) nên dùng kiểu tương phản trước–sau hoặc "hé lộ một nửa".
+  2. TRƯỚC: 1–2 giây mặt mộc / da trước khi làm, để người xem thấy sự khác biệt.
+  3. TỪNG BƯỚC theo đúng thứ tự trong footage (skincare → nền → che khuyết điểm → mày → mắt → má → môi → cố định...;
+     KHÔNG đảo thứ tự bước). Mỗi bước giữ khoảnh khắc thấy rõ thay đổi, bỏ đoạn lấy đồ / mở nắp / loay hoay.
+     - Đoạn tán đều, đánh lặp lại, chờ khô: TUA NHANH speed 1.5–2.0 (không tua khi người nói đang giải thích mẹo).
+     - Chi tiết khó / đắt (kẻ eyeliner, gắn mi, viền môi, highlight bắt sáng): tốc độ 1.0, zoom "slow" vào vùng đó.
+     - Lần đầu sản phẩm xuất hiện (cầm lên, swatch lên tay): giữ 1–2 giây cho thấy rõ vỏ / màu.
+  4. KẾT QUẢ: khoe look cuối bằng clip "replay": true quay chậm speed 0.5–0.6 (quay mặt trái–phải, chớp mắt),
+     zoom "punch" nhẹ đúng lúc lộ toàn bộ khuôn mặt. Nếu footage có cả trước và sau: đặt 2 clip liền nhau
+     (trước 1 giây → sau 1.5 giây, "repeat": true) để so sánh.
+  CHỮ:
+  - Chữ nhấn = TÊN BƯỚC hoặc MẸO ngắn bằng ngôn ngữ video ("ベース", "아이라인", "Blend up!", "コンシーラー", "立体感"...),
+    tối đa 1 chữ / 4 giây, position top khi mặt đang ở giữa khung (KHÔNG che mặt / vùng đang trang điểm).
+  - Tên sản phẩm / màu CHỈ ghi khi người nói nói ra hoặc thấy rõ chữ trên vỏ; không đoán, không quảng cáo thay khách.
+  - Không viết hứa hẹn quá sự thật ("trắng ngay", "hết mụn", "trẻ 10 tuổi"), không nói về công dụng y tế.
+  - Mũi tên: chỉ vùng đang trang điểm ở mỗi bước chính (2–6 mũi tên cả video), không chỉ khi không chắc vị trí.
+  ÂM THANH:
+  - Nhạc nền nhẹ, sang (lo-fi, R&B chill, pop nhẹ); có lời nói thì hạ nhạc. Chỗ không lời: nhạc dẫn, cắt cảnh theo nhịp.
+  - SFX rất ít: "sparkle" / "ding" khi lộ kết quả, "whoosh" nhẹ khi chuyển bước lớn. Không SFX hài.
+  KHUNG: khuôn mặt luôn nằm trọn trong khung (code bám mặt); cảnh cận tay swatch thì giữ màu trong khung.
+
+subtitle: {mode: chunk, max_chars: {ja: 11, ko: 13, en: 24}, size: 12, color: [1, 1, 1], stroke_color: [0.35, 0.1, 0.25]}
+hook_text: {size: 30, color: [1, 1, 1], stroke_color: [0.9, 0.3, 0.55], stroke_width: 0.14, animations: [in]}
+emphasis: {size: 20, color: [1, 1, 1], stroke_color: [0.9, 0.3, 0.55], stroke_width: 0.1,
+           background: {color: "#F48FB1", alpha: 0.85, round_radius: 0.35}}
+replay_label: {size: 16, color: [1, 1, 1], stroke_color: [0.9, 0.3, 0.55], stroke_width: 0.1,
+               background: {color: "#000000", alpha: 0.45, round_radius: 0.35},
+               text: {ja: "完成", ko: "완성", en: "FINAL LOOK"}}
+title: {size: 13, color: [1, 1, 1], stroke_color: [0.9, 0.3, 0.55]}
+zoom: {punch_scale: 1.08, punch_in_s: 0.25, slow_scale: 1.12}
+music: {duck_db: -10, fade_s: 0.4}   # nhạc -5 dB, có thoại hạ thêm 10 dB
+hook: {min_s: 3.0, max_s: 12.0, intro_default_s: 8.0}  # câu dẫn đời thường + câu hook
+beat_sync: {enabled: true, tolerance_s: 0.3, text_tolerance_s: 0.2}
+
+# Trang trí (sticker, hiệu ứng, chuyển cảnh, filter) và bảng màu chữ nhấn (luân phiên)
+decor_brief: "Nhẹ, sang: hiệu ứng lấp lánh / ánh sáng CHỈ ở lúc lộ kết quả (1–2 lần), 0–2 sticker nhỏ (tim, lấp lánh) không đè mặt, chuyển cảnh mềm giữa các bước lớn, filter da tự nhiên — KHÔNG dùng filter làm đổi màu son / phấn so với thật."
+emphasis_palette: [[1, 1, 1], [1, 0.85, 0.9]]
