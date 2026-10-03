@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 46 — Lỗi bước dub "Đạo diễn trả kết quả sai khuôn 3 lần": tự sửa + tùy chọn dùng bản gần nhất `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Mở job bị lỗi ở bước dub → **Chạy lại bước này**. Nhật ký giờ có các dòng "Tự sửa: gộp câu thuyết minh…" /
+   "…vắt qua 2 clip → thu về…" — tool tự sửa thay vì bắt AI viết lại; câu ngắn mà còn khoảng lặng phía sau không bị
+   báo lỗi "ký tự/giây" nữa.
+3. Nếu AI vẫn còn lỗi sau 3 lần: trang lỗi có khung **🛟 Tùy chọn: dùng bản thuyết minh gần nhất** liệt kê lỗi còn lại →
+   bấm **✅ Dùng bản này, bỏ qua lỗi còn lại** → job chạy tiếp tới bước thu voice (không hỏi lại AI).
+4. Muốn luôn tự dùng bản gần nhất không cần bấm: `config\dub.yaml` → `accept_imperfect: true`.
+
 ## Bước 45 — Phụ đề tiếng Việt để kiểm tra khớp (chế độ Đổi ngôn ngữ) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job Đổi ngôn ngữ cũ: bấm **🔁 Dựng lại draft**.

@@ -529,6 +529,7 @@ class Runner:
 
     def step_dub(self, job: Job) -> None:
         """Chế độ Đổi ngôn ngữ: viết câu thuyết minh (ngôn ngữ đích) theo các clip của kế hoạch dựng."""
+        from app.director.base import DirectorError
         from app.director.schemas import EditPlan
         from app.director.tasks import make_dub
         from app.planner import dub_io
@@ -544,11 +545,44 @@ class Runner:
                 self.log(f"Viết lời thuyết minh video {i:02d}…")
                 plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
                 hook = self._hook_for(d, i) if job.options.hook else None
-                s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i)
+                try:
+                    s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i)
+                except DirectorError as exc:
+                    if exc.last is None:
+                        raise
+                    if not config.load("dub").get("accept_imperfect", False):
+                        # giữ bản gần nhất để người dùng chọn "Dùng bản này" trên trang lỗi (không phải hỏi lại AI)
+                        dub_io.pending_path(d, i).write_text(json.dumps(
+                            {"script": exc.last.model_dump(), "problems": exc.problems}, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
+                        raise
+                    s = exc.last
+                    self.log(f"Video {i:02d}: dùng bản thuyết minh gần nhất dù còn {len(exc.problems)} lỗi nhỏ "
+                             "(accept_imperfect trong config/dub.yaml).")
                 dub_io.dub_path(d, i).write_text(s.model_dump_json(indent=2), encoding="utf-8")
+                dub_io.pending_path(d, i).unlink(missing_ok=True)
             scripts[i] = s
         path = dub_io.write_dub_scripts(d, scripts, {i: dub_io.windows_for(d, i, s) for i, s in scripts.items()})
         self.log(f"Đã xuất {path} ({sum(len(s.lines) for s in scripts.values())} câu cần thu)")
+
+    def accept_pending_dub(self, job: Job) -> int:
+        """Người dùng chọn "Dùng bản thuyết minh gần nhất" sau khi AI sửa 3 lần vẫn còn lỗi nhỏ: lấy bản đã lưu, chạy tiếp
+        (không hỏi lại AI). Trả số video đã nhận."""
+        from app.director.schemas import DubScript
+        from app.planner import dub_io
+
+        d, _, _ = self._paths(job)
+        n = 0
+        for v in self.videos(job):
+            p = dub_io.pending_path(d, v["index"])
+            if p.is_file():
+                data = json.loads(p.read_text(encoding="utf-8"))
+                s = DubScript.model_validate(data["script"])
+                dub_io.dub_path(d, v["index"]).write_text(s.model_dump_json(indent=2), encoding="utf-8")
+                p.unlink()
+                self.log(f"Video {v['index']:02d}: dùng bản thuyết minh gần nhất, bỏ qua {len(data.get('problems', []))} lỗi.")
+                n += 1
+        return n
 
     def _dub_scripts(self, job: Job) -> dict:
         from app.planner import dub_io

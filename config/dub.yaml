@@ -8,6 +8,10 @@ original_db: -20               # dưới câu đã có voice thuyết minh
 original_db_no_voice: -6       # chỗ khác / câu chưa có file voice
 max_speed: 1.25                # file thuyết minh dài hơn chỗ trống → tăng tốc tối đa mức này
 line_s: [1.5, 9.0]
+# AI viết thuyết minh 3 lần vẫn còn lỗi nhỏ (vài câu hơi nhiều chữ so với chỗ trống...):
+#   false = dừng, trang lỗi có nút "Dùng bản thuyết minh gần nhất" để bạn tự quyết (không phải hỏi lại AI)
+#   true  = tự dùng luôn bản gần nhất (câu nào dài quá thì voice được tăng tốc / có cảnh báo lúc dựng)
+accept_imperfect: false
 # Phụ đề TIẾNG VIỆT (nghĩa từng câu) ngay dưới phụ đề chính để chủ dự án kiểm tra voice / phụ đề đã khớp chưa
 # (chủ dự án yêu cầu 03/10). Bật / tắt cho từng job ở trang job; TẮT rồi dựng lại trước khi xuất video đăng TikTok.
 vi_subtitles:

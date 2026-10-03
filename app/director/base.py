@@ -21,7 +21,13 @@ PROMPTS_DIR = ROOT / "prompts"
 
 
 class DirectorError(RuntimeError):
-    pass
+    """last: kết quả đúng khuôn JSON gần nhất nhưng còn lỗi kiểm tra (có thể dùng tạm nếu người dùng đồng ý);
+    problems: các lỗi còn lại của kết quả đó."""
+
+    def __init__(self, message: str, last=None, problems: list[str] | None = None):
+        super().__init__(message)
+        self.last = last
+        self.problems = problems or []
 
 
 def render_prompt(task: str, variables: dict, prompts_dir: Path = PROMPTS_DIR) -> str:
@@ -55,6 +61,7 @@ class Director(ABC):
         prompt = render_prompt(task, variables)
         schema = model.model_json_schema()
         feedback = ""
+        last, last_problems = None, []
         for attempt in range(1, self.max_attempts + 1):
             raw = self._complete(task, prompt + feedback, schema, images or [])
             try:
@@ -66,6 +73,7 @@ class Director(ABC):
                 problems = extra_check(result) if extra_check else []
                 if not problems:
                     return result
+                last, last_problems = result, problems
                 message = "\n".join(problems)
             except ValidationError as exc:
                 message = str(exc)
@@ -74,4 +82,5 @@ class Director(ABC):
                 "\n\n## Kết quả lần trước KHÔNG hợp lệ, hãy sửa và trả lại toàn bộ JSON\n"
                 f"Lỗi:\n{message}\n\nJSON lần trước:\n{json.dumps(raw, ensure_ascii=False)[:4000]}\n"
             )
-        raise DirectorError(f"Đạo diễn trả kết quả sai khuôn {self.max_attempts} lần liên tiếp ({task}).")
+        raise DirectorError(f"Đạo diễn trả kết quả sai khuôn {self.max_attempts} lần liên tiếp ({task}).",
+                            last=last, problems=last_problems)

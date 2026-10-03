@@ -98,6 +98,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   đúng đoạn thoại gốc của từng động tác, viết gọn hơn gốc 10–20%; mỗi câu được dùng chỗ trống tới lúc câu sau bắt đầu
   rồi mới tăng tốc (tối đa `max_speed`); có thể thu CẢ BÀI một file (nghỉ ~1 giây giữa các câu), tool tự cắt ra từng câu
   theo chỗ trống (`app/planner/voice_split.py`); giao diện báo từng câu 🟢 khớp / 🟡 tự tăng tốc / ⚪ ngắn / 🔴 thu lại.
+- **Kịch bản thuyết minh còn lỗi nhỏ (chủ dự án yêu cầu 03/10):** code tự sửa (thu câu vắt 2 clip, gộp câu quá ngắn,
+  tính tốc độ nói theo chỗ trống tới câu sau + `max_speed`); AI vẫn sai 3 lần thì trang lỗi có nút "Dùng bản này, bỏ
+  qua lỗi còn lại" (bản lưu ở `plan/pending_dub_videoNN.json`), hoặc `accept_imperfect: true` để tự dùng.
 - **Phụ đề tiếng Việt để kiểm tra (chủ dự án yêu cầu 03/10):** chữ vàng nhỏ ngay dưới phụ đề chính = `text_vi` của
   câu thuyết minh, cùng thời điểm; bật/tắt từng job ở trang job (`vi_subtitles` trong `config/dub.yaml`); tắt rồi
   dựng lại trước khi xuất video đăng TikTok.

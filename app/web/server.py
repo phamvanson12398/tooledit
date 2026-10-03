@@ -541,6 +541,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             worker.start(job_id, action=lambda runner, job: runner.set_music(job, name))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/accept-dub")
+    def accept_dub(job_id: str):
+        worker.start(job_id, action=lambda runner, job: runner.accept_pending_dub(job))  # rồi worker tự chạy tiếp
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/vi-subs")
     def toggle_vi_subs(job_id: str, on: str = Form("1")):
         worker.start(job_id, action=lambda runner, job: runner.set_vi_subtitles(job, on == "1"))
@@ -1184,11 +1189,37 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                if skip else "") + "</div>")
 
 
+def _pending_dub_html(job: Job, d: Path) -> str:
+    """AI viết thuyết minh 3 lần vẫn còn lỗi nhỏ: cho chọn dùng luôn bản gần nhất (không hỏi lại AI)."""
+    pend = sorted((d / "plan").glob("pending_dub_video*.json"))
+    if not pend:
+        return ""
+    esc = html.escape
+    items = []
+    for p in pend:
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        v = p.stem.replace("pending_dub_video", "")
+        probs = data.get("problems", [])
+        items.append(f"<p><b>Video {esc(v)}</b> — {len(data.get('script', {}).get('lines', []))} câu, còn "
+                     f"{len(probs)} lỗi:</p><ul>" + "".join(f"<li>{esc(x)}</li>" for x in probs[:8])
+                     + ("<li>…</li>" if len(probs) > 8 else "") + "</ul>")
+    return ("<div class='card' style='margin:10px 0'><b>🛟 Tùy chọn: dùng bản thuyết minh gần nhất</b>"
+            "<p class='muted'>AI đã sửa 3 lần nhưng vẫn còn vài lỗi nhỏ (thường là vài câu hơi nhiều chữ so với chỗ trống). "
+            "Bạn có thể dùng luôn bản này: câu dài sẽ được tăng tốc nhẹ khi dựng, câu nào vẫn tràn sẽ có đèn 🔴 để bạn "
+            "thu gọn lại. Hoặc bấm <b>Chạy lại bước này</b> để AI viết lại (mất thêm vài phút và hạn mức Claude).</p>"
+            + "".join(items)
+            + f"<form method='post' action='/jobs/{job.job_id}/accept-dub'><button type='submit' class='btn'>"
+            "✅ Dùng bản này, bỏ qua lỗi còn lại</button></form></div>")
+
+
 def _step_panel(job: Job, d: Path) -> str:
     esc = html.escape
     if job.status == Status.error:
         return (f"<div class='card'><h2>⚠️ Có lỗi</h2><pre>{esc(job.message)}</pre>"
-                f"{_continue_button(job, 'Chạy lại bước này')}</div>")
+                f"{_pending_dub_html(job, d)}{_continue_button(job, 'Chạy lại bước này')}</div>")
     if job.status == Status.stopped:
         return (f"<div class='card'><h2>⏹️ Đã dừng</h2><p>Dừng ở bước <b>{esc(STEP_VI.get(job.step, job.step))}</b>. "
                 "Kết quả các bước trước vẫn giữ nguyên.</p>"

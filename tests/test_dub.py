@@ -297,3 +297,68 @@ def test_original_audio_muted_in_dub_mode(tmp_path):
     assert not any("clean_" in p for p in audio_paths)  # không chèn lại bản tiếng gốc đã lọc ồn
     dub_prompt = next(c["prompt"] for c in r._director.calls if c["task"] == "dub")
     assert "TIẾNG GỐC BỊ TẮT HẲN" in dub_prompt
+
+
+def test_repair_dub_clamps_and_merges():
+    from app.director.tasks import repair_dub
+
+    plan = EditPlan.model_validate({**_short_plan(), "clips": [{"source_start": 1.0, "source_end": 20.0},
+                                                               {"source_start": 22.0, "source_end": 45.0}]})
+    script = DubScript.model_validate({**FIX, "lines": [
+        {"source_start": 18.0, "source_end": 24.0, "text": "다리 걸친 문장", "text_vi": "x"},  # vắt qua 2 clip
+        {"source_start": 30.0, "source_end": 31.2, "text": "가" * 12, "text_vi": "câu ngắn"},  # quá nhiều chữ
+        {"source_start": 31.3, "source_end": 34.0, "text": "나머지", "text_vi": "phần còn lại"},
+        {"source_start": 46.0, "source_end": 50.0, "text": "밖", "text_vi": "ngoài"}]})          # ngoài mọi clip
+    fixed, notes = repair_dub(script, plan, {"max_cps": {"ko": 7.0}, "max_speed": 1.25}, "ko")
+    assert [(ln.source_start, ln.source_end) for ln in fixed.lines] == [(18.0, 20.0), (30.0, 34.0)]
+    assert fixed.lines[1].text == "가" * 12 + " 나머지" and fixed.lines[1].text_vi == "câu ngắn phần còn lại"
+    assert len(notes) == 3 and check_dub(fixed, plan, "ko", {"max_cps": {"ko": 7.0}, "line_s": [1.5, 9.0]}) == []
+
+
+def test_check_dub_uses_room_before_next_line():
+    plan = EditPlan.model_validate(_short_plan())
+    s = DubScript.model_validate({**FIX, "lines": [
+        {"source_start": 2.0, "source_end": 3.4, "text": "가" * 12, "text_vi": "x"},   # 1.4s nhưng lặng tới 6s → đọc kịp
+        {"source_start": 6.0, "source_end": 9.0, "text": "나" * 10, "text_vi": "y"}]})
+    assert check_dub(s, plan, "ko") == []
+
+
+def test_web_accept_imperfect_dub(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.jobs.job import Job
+    from app.web.server import create_app
+    from tests.test_web import wait_idle
+
+    jobs = tmp_path / "jobs"
+    footage = tmp_path / "test.mp4"
+    footage.write_bytes(b"x")
+    bad = {**FIX, "lines": [{**FIX["lines"][0], "text": "가" * 120}, *FIX["lines"][1:]]}  # câu 1 quá nhiều chữ mãi
+
+    def factory(root, log):
+        r = make_runner(tmp_path, root, dub=bad)
+        r.log = log
+        return r
+
+    app = create_app(jobs, factory)
+    client = TestClient(app)
+    orig_start = app.state.worker.start
+
+    def start(job_id, action=None):
+        if not (jobs / job_id / "analysis").exists():
+            make_analysis(jobs / job_id, duration=60.0)
+        return orig_start(job_id, action)
+
+    app.state.worker.start = start
+    r = client.post("/jobs", data={"footage": str(footage), "target_language": "ko", "hook": ""}, follow_redirects=False)
+    jid = r.headers["location"].rsplit("/", 1)[1]
+    wait_idle(app)
+    job = Job.load(jobs, jid)
+    assert job.status.value == "error" and job.step == "dub"
+    page = client.get(f"/jobs/{jid}").text
+    assert "Dùng bản này, bỏ qua lỗi còn lại" in page and "ký tự/giây" in page
+    client.post(f"/jobs/{jid}/accept-dub", follow_redirects=False)
+    wait_idle(app)
+    job = Job.load(jobs, jid)
+    assert job.step == "dub_voice" and job.status.value == "waiting", job.message
+    assert not list((jobs / jid / "plan").glob("pending_dub_video*.json"))

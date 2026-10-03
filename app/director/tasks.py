@@ -628,6 +628,52 @@ def check_narration(script, plan, gaps: list[dict], cfg: dict | None = None) -> 
     return errors
 
 
+def repair_dub(script, plan, cfg: dict | None = None, language: str = ""):
+    """Tự sửa lỗi vặt của kịch bản thuyết minh (đỡ phải hỏi lại AI — mỗi lần mất vài phút):
+    - câu vắt qua 2 clip → thu về clip chứa phần lớn câu (còn < 0.5 giây thì bỏ câu);
+    - câu quá ngắn so với số chữ (nói không kịp) mà sát câu sau trong cùng clip → gộp 2 câu."""
+    from app.planner.timeline import TimeMap
+
+    cfg = config.load("dub") if cfg is None else cfg
+    cps = (cfg.get("max_cps") or {}).get(language, 10.0) * float(cfg.get("max_speed", 1.25))
+    tmap = TimeMap(plan.clips)
+    kept = [c for c in plan.clips if not c.replay and not c.repeat]
+    fixes, lines = [], []
+    for ln in script.lines:
+        a, b = ln.source_start, ln.source_end
+        best = max(kept, key=lambda c: min(b, c.source_end) - max(a, c.source_start), default=None)
+        if best is None or min(b, best.source_end) - max(a, best.source_start) < 0.5:
+            fixes.append(f"bỏ câu thuyết minh {a}-{b}s (nằm ngoài các clip được giữ)")
+            continue
+        na, nb = max(a, best.source_start), min(b, best.source_end)
+        if (na, nb) != (a, b):
+            fixes.append(f"câu thuyết minh {a}-{b}s vắt qua 2 clip → thu về {na:.2f}-{nb:.2f}s")
+            ln = ln.model_copy(update={"source_start": round(na, 2), "source_end": round(nb, 2)})
+        lines.append(ln)
+    merged = []
+    for ln in lines:
+        prev = merged[-1] if merged else None
+        if prev is not None:
+            pa, pb = tmap.to_out(prev.source_start), tmap.to_out(ln.source_start)
+            same_clip = tmap.clip_at(prev.source_start) is tmap.clip_at(ln.source_end)
+            dur = ((pb - pa) / 1e6 - 0.12) if pa is not None and pb is not None else 0  # giống check_dub
+            too_fast = dur > 0 and speech_chars(prev.text) / dur > cps * 1.1
+            close = ln.source_start - prev.source_end <= 0.6
+            if too_fast and close and same_clip:
+                sep = "" if language == "ja" else " "
+                merged[-1] = prev.model_copy(update={
+                    "source_end": ln.source_end, "text": prev.text.rstrip() + sep + ln.text.lstrip(),
+                    "text_vi": f"{prev.text_vi.rstrip()} {ln.text_vi.lstrip()}",
+                    "kind": "dub" if "dub" in (prev.kind, ln.kind) else "narration",
+                    "action_vi": prev.action_vi or ln.action_vi, "adapt_vi": "; ".join(x for x in (prev.adapt_vi, ln.adapt_vi) if x)})
+                fixes.append(f"gộp câu thuyết minh {prev.source_start}-{prev.source_end}s (quá ngắn để đọc kịp) với câu sau")
+                continue
+        merged.append(ln)
+    if not merged:
+        return script, fixes
+    return script.model_copy(update={"lines": merged}), fixes
+
+
 def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]:
     from app.director.policy import find_forbidden
     from app.planner.timeline import SEC, TimeMap
@@ -635,11 +681,13 @@ def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]
     cfg = config.load("dub") if cfg is None else cfg
     lo, hi = cfg.get("line_s", [1.5, 9.0])
     cps = (cfg.get("max_cps") or {}).get(language, 10.0)
+    max_speed = float(cfg.get("max_speed", 1.25))
     tmap = TimeMap(plan.clips)
+    outs = [(tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)) for ln in script.lines]
     errors, last_end = [], -1
     for i, ln in enumerate(script.lines, 1):
         clip = tmap.clip_containing((ln.source_start + ln.source_end) / 2)
-        a, b = tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)
+        a, b = outs[i - 1]
         if clip is None or a is None or b is None or b <= a or not (
                 clip.source_start - 0.05 <= ln.source_start and ln.source_end <= clip.source_end + 0.05):
             errors.append(f"câu {i} ({ln.source_start}-{ln.source_end}s) phải nằm gọn trong MỘT clip được giữ")
@@ -647,9 +695,12 @@ def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]
         dur = (b - a) / SEC
         if dur < lo * 0.6 or dur > hi + 1.0:
             errors.append(f"câu {i} dài {dur:.1f}s, nên {lo}–{hi}s (gộp hoặc tách câu)")
+        # voice được dùng chỗ trống tới lúc câu sau bắt đầu và tăng tốc tối đa max_speed (giống lúc dựng)
+        nxt = outs[i][0] if i < len(outs) and outs[i][0] is not None else tmap.end
+        room = max(dur, (nxt - a) / SEC - 0.12)
         n = speech_chars(ln.text)
-        if dur > 0 and n / dur > cps * 1.15:
-            errors.append(f"câu {i} có {n} ký tự cho {dur:.1f}s (>{cps:.0f} ký tự/giây) — nói gọn lại")
+        if room > 0 and n / room > cps * max_speed * 1.1:
+            errors.append(f"câu {i} có {n} ký tự cho {room:.1f}s (>{cps:.0f} ký tự/giây) — nói gọn lại hoặc gộp với câu bên cạnh")
         if a < last_end - 50_000:
             errors.append(f"câu {i} chồng lên câu trước hoặc sai thứ tự")
         last_end = max(last_end, b)
@@ -725,4 +776,5 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
             errors.append(f"video_index phải là {video_index}")
         return errors
 
-    return director.run("dub", variables, DubScript, images, extra_check=extra)
+    return director.run("dub", variables, DubScript, images, extra_check=extra,
+                        repair=lambda r: repair_dub(r, plan, cfg, u.language))

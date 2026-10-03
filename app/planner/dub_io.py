@@ -18,6 +18,11 @@ def dub_path(job_dir: Path, video_index: int) -> Path:
     return Path(job_dir) / "plan" / f"dub_video{video_index:02d}.json"
 
 
+def pending_path(job_dir: Path, video_index: int) -> Path:
+    """Bản thuyết minh AI trả về lần cuối nhưng còn lỗi nhỏ — chờ người dùng quyết định có dùng không."""
+    return Path(job_dir) / "plan" / f"pending_dub_video{video_index:02d}.json"
+
+
 def load_dub(job_dir: Path, video_index: int) -> DubScript | None:
     p = dub_path(job_dir, video_index)
     return DubScript.model_validate_json(p.read_text(encoding="utf-8")) if p.is_file() else None
