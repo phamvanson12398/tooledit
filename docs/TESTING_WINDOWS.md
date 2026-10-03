@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 44 — Voice thuyết minh khớp hình cho video nói liên tục (thu một file cả bài) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Tạo job **Đổi ngôn ngữ** với một video nói liên tục (vd hướng dẫn trang điểm). Tới bước chờ voice:
+   - mỗi câu ghi **chỗ X s · tối đa Y s** (= thời gian cần đọc vừa);
+   - `dub_scripts.txt` trong thư mục job có cùng thông tin + hướng dẫn thu một file.
+3. Trong Voice Studio đọc CẢ kịch bản theo thứ tự vào MỘT file, **nghỉ khoảng 1 giây giữa các câu** (không nghỉ lâu
+   giữa câu). Tải lên ở ô **Một file cả bài → ✂️ Tải lên và tự cắt**.
+4. Kiểm tra: thư mục `jobs\<job>\voice\` có đủ `video01_dub01.wav`, `dub02.wav`… mỗi file đúng một câu (nghe thử vài
+   file). Trên trang job mỗi câu có đèn: 🟢 khớp · 🟡 tool tự tăng tốc nhẹ · ⚪ ngắn · 🔴 quá dài.
+5. Câu 🔴: thu lại riêng câu đó, đặt đúng tên (vd `video01_dub07.wav`), tải ở ô chọn nhiều file → bấm 🔁 Dựng lại draft.
+6. Mở draft trong CapCut: lời thuyết minh khớp với động tác trên hình (câu "kẻ mắt" phát lúc đang kẻ mắt), không có
+   2 câu đè lên nhau.
+7. Nếu tool báo "chỉ có N chỗ nghỉ": thu lại và nghỉ lâu hơn giữa các câu (~1 giây).
+
 ## Bước 43 — Kiểu dựng mới "Trang điểm / làm đẹp" (`makeup`) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

@@ -172,6 +172,7 @@ def test_web_dub_flow(tmp_path):
     assert job.options.target_language == "ko" and job.step == "dub_voice", job.message
     page = client.get(f"/jobs/{jid}").text
     assert "Thu voice thuyết minh" in page and "video01_dub03" in page and "저 스모 선수" in page
+    assert "dub-voice-all" in page and "chỗ 3.0s" in page  # ô một file cả bài + chỗ trống từng câu
     # chọn 3 file tên tùy ý một lượt → tự xếp theo thứ tự
     files = [("files", (f"{n}.wav", b"RIFF", "audio/wav")) for n in (1, 2, 3, 4, 5)]
     client.post(f"/jobs/{jid}/dub-voice", data={"video": "1"}, files=files, follow_redirects=False)

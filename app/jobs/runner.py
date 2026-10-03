@@ -547,7 +547,7 @@ class Runner:
                 s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i)
                 dub_io.dub_path(d, i).write_text(s.model_dump_json(indent=2), encoding="utf-8")
             scripts[i] = s
-        path = dub_io.write_dub_scripts(d, scripts)
+        path = dub_io.write_dub_scripts(d, scripts, {i: dub_io.windows_for(d, i, s) for i, s in scripts.items()})
         self.log(f"Đã xuất {path} ({sum(len(s.lines) for s in scripts.values())} câu cần thu)")
 
     def _dub_scripts(self, job: Job) -> dict:

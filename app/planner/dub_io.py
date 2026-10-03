@@ -35,21 +35,114 @@ def find_line_voice(job_dir: Path, video_index: int, line_no: int) -> Path | Non
     return None
 
 
+GAP_S = 0.12  # chừa tối thiểu giữa 2 câu thuyết minh liền nhau (lấy hơi)
+
+
+def line_windows(script: DubScript, tmap) -> list[tuple[int, float, float] | None]:
+    """Mỗi câu: (giây bắt đầu trên video µs, chỗ trống của câu (s), chỗ tối đa (s) = tới lúc câu sau bắt đầu).
+    Video nói liên tục thì 2 số gần bằng nhau; câu nào cách câu sau một khoảng lặng thì voice được dài hơn chút
+    mà không phải tăng tốc. None = câu nằm ngoài các clip được giữ."""
+    spans = []
+    for ln in script.lines:
+        a, b = tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)
+        spans.append((a, b) if a is not None and b is not None and b > a else None)
+    out: list[tuple[int, float, float] | None] = []
+    for i, sp in enumerate(spans):
+        if sp is None:
+            out.append(None)
+            continue
+        a, b = sp
+        nxt = next((x[0] for x in spans[i + 1:] if x is not None and x[0] >= a), tmap.end)
+        room = max(b - a, nxt - a - int(GAP_S * 1e6))
+        out.append((a, (b - a) / 1e6, room / 1e6))
+    return out
+
+
+def windows_for(job_dir: Path, video_index: int, script: DubScript) -> list:
+    """line_windows theo kế hoạch dựng đã lưu (plan/edit_plan_videoNN.json); chưa có kế hoạch → []."""
+    from app.director.schemas import EditPlan
+    from app.planner.timeline import TimeMap
+
+    p = Path(job_dir) / "plan" / f"edit_plan_video{video_index:02d}.json"
+    if not p.is_file():
+        return []
+    plan = EditPlan.model_validate_json(p.read_text(encoding="utf-8"))
+    return line_windows(script, TimeMap(plan.clips))
+
+
+def voice_seconds(path: Path) -> float | None:
+    """Độ dài file voice (giây): .wav đọc trực tiếp, loại khác hỏi ffprobe; không đọc được → None."""
+    try:
+        if Path(path).suffix.lower() == ".wav":
+            import wave
+
+            with wave.open(str(path), "rb") as w:
+                return w.getnframes() / float(w.getframerate())
+        from app.capcut_writer.media import probe_duration
+
+        return probe_duration(Path(path)) / 1e6
+    except Exception:
+        return None
+
+
+def split_upload(job_dir: Path, video_index: int, src: Path, *, exe: str | None = None) -> list[float]:
+    """Một file voice cả bài → videoNN_dub01.wav, dub02.wav... theo chỗ trống từng câu. Trả độ dài từng đoạn."""
+    from app.planner.voice_split import split_voice
+
+    script = load_dub(job_dir, video_index)
+    if script is None:
+        raise ValueError("Video này chưa có kịch bản thuyết minh.")
+    win = windows_for(job_dir, video_index, script)
+    expected = [(w[1] if w else max(0.5, ln.source_end - ln.source_start)) for w, ln in
+                zip(win or [None] * len(script.lines), script.lines)]
+    vdir = Path(job_dir) / "voice"
+    vdir.mkdir(parents=True, exist_ok=True)
+    outs = [vdir / f"{line_name(video_index, i)}.wav" for i in range(1, len(script.lines) + 1)]
+    tmp = [p.with_suffix(".part.wav") for p in outs]
+    lengths = split_voice(src, expected, tmp, exe=exe)  # lỗi thì không đụng tới voice cũ
+    for i, (t, o) in enumerate(zip(tmp, outs), 1):
+        for old in vdir.glob(f"{line_name(video_index, i)}.*"):
+            if old != t:
+                old.unlink()
+        t.replace(o)
+    return lengths
+
+
+def fit_status(voice_s: float, slot_s: float, room_s: float, max_speed: float) -> tuple[str, str]:
+    """Voice so với chỗ trống: (mức, lời khuyên tiếng Việt). mức: ok | fast | long | short."""
+    if voice_s > room_s * max_speed + 0.05:
+        return "long", (f"Dài {voice_s:.1f}s, chỗ tối đa {room_s:.1f}s (kể cả tăng tốc {max_speed}x vẫn tràn) — "
+                        f"thu lại nhanh hơn / gọn hơn, cần ≤ {room_s * max_speed:.1f}s")
+    if voice_s > room_s + 0.05:
+        return "fast", f"Dài {voice_s:.1f}s > {room_s:.1f}s — tool tự tăng tốc x{voice_s / room_s:.2f} (nghe vẫn ổn)"
+    if voice_s < slot_s * 0.6:
+        return "short", (f"Ngắn {voice_s:.1f}s so với chỗ {slot_s:.1f}s — sẽ có khoảng im; đọc chậm / tự nhiên hơn "
+                         "nếu muốn kín")
+    return "ok", f"Khớp ({voice_s:.1f}s / chỗ {slot_s:.1f}s)"
+
+
 def missing_lines(job_dir: Path, scripts: dict[int, DubScript]) -> list[str]:
     return [f"{line_name(v, i)}.wav" for v, s in sorted(scripts.items()) for i in range(1, len(s.lines) + 1)
             if find_line_voice(job_dir, v, i) is None]
 
 
-def write_dub_scripts(job_dir: Path, scripts: dict[int, DubScript]) -> Path:
+def write_dub_scripts(job_dir: Path, scripts: dict[int, DubScript], windows: dict[int, list] | None = None) -> Path:
     """dub_scripts.txt: từng câu cần thu + tên file, để thu một lượt (Voice Studio)."""
     lines = ["CÂU THUYẾT MINH CẦN THU — mỗi câu một file, đặt đúng tên (chấp nhận .wav / .mp3 / .m4a).",
              "Có thể chọn nhiều file cùng lúc khi tải lên. Thời lượng ghi bên cạnh là chỗ trống trên video:",
-             "đọc vừa trong khoảng đó (dài hơn một chút thì tool tự tăng tốc nhẹ).", ""]
+             "đọc vừa trong khoảng đó (dài hơn một chút thì tool tự tăng tốc nhẹ).", "",
+             "CÁCH NHANH cho video nói liên tục (nhiều câu): đọc CẢ BÀI vào MỘT file theo đúng thứ tự dưới đây,",
+             "NGHỈ khoảng 1 giây giữa các câu (không nghỉ giữa câu), rồi tải lên ở ô 'Một file cả bài' — tool tự cắt",
+             "ra từng câu và báo câu nào dài quá cần thu lại.", ""]
     for v, s in sorted(scripts.items()):
         lines.append(f"=== VIDEO {v:02d} ===")
         for i, ln in enumerate(s.lines, 1):
             tag = f"  [LỜI DẪN — {ln.action_vi or 'chỗ không có giọng nói'}]" if ln.kind == "narration" else ""
-            lines += [f"{line_name(v, i)}.wav  (~{ln.source_end - ln.source_start:.1f}s){tag}", f"  Câu: {ln.text}",
+            w = (windows or {}).get(v, [])
+            win = w[i - 1] if i - 1 < len(w) else None
+            when = (f"(chỗ trống {win[1]:.1f}s, tối đa {win[2]:.1f}s)" if win
+                    else f"(~{ln.source_end - ln.source_start:.1f}s)")
+            lines += [f"{line_name(v, i)}.wav  {when}{tag}", f"  Câu: {ln.text}",
                       f"  Nghĩa: {ln.text_vi}"]
             lines += ([f"  Bản địa hóa: {ln.adapt_vi}"] if ln.adapt_vi else []) + [""]
     path = Path(job_dir) / "dub_scripts.txt"

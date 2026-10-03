@@ -406,19 +406,25 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     if dub is not None:
         dcfg = config.load("dub")
         max_speed = float(dcfg.get("max_speed", 1.25))
+        from app.planner.dub_io import line_windows
+
+        windows = line_windows(dub, tmap)
         for i, ln in enumerate(dub.lines, 1):
-            a, b = tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)
-            if a is None or b is None or b <= a:
+            win = windows[i - 1]
+            if win is None:
                 notes.append(f"Câu thuyết minh {i} nằm ngoài các clip được giữ — bỏ qua.")
                 continue
+            a, slot_s, room_s = win
+            b = a + round(slot_s * SEC)
+            room = round(room_s * SEC)  # được dùng tới lúc câu sau bắt đầu (video nói liên tục: gần bằng chỗ trống)
             v = (dub_voices or {}).get(i)
             speed, end = 1.0, b
             if v:
-                speed = min(max_speed, max(1.0, v[1] / (b - a)))
+                speed = min(max_speed, max(1.0, v[1] / room))
                 end = a + int(v[1] / speed)
-                if v[1] / (b - a) > max_speed:
-                    notes.append(f"Voice câu {i} dài {v[1] / SEC:.1f}s, chỗ trống {(b - a) / SEC:.1f}s: đã tăng tốc "
-                                 f"{max_speed}x nhưng vẫn tràn {(end - b) / SEC:.1f}s — nên thu lại ngắn hơn.")
+                if v[1] / room > max_speed:
+                    notes.append(f"Voice câu {i} dài {v[1] / SEC:.1f}s, chỗ tối đa {room_s:.1f}s: đã tăng tốc "
+                                 f"{max_speed}x nhưng vẫn tràn {(end - a - room) / SEC:.1f}s — nên thu lại ngắn hơn.")
             else:
                 missing.append({"kind": "voice", "what": f"video{video_index:02d}_dub{i:02d}.wav", "video": video_index,
                                 "at_s": round(a / SEC, 2),

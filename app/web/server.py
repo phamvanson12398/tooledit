@@ -678,6 +678,29 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         worker.start(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/dub-voice-all")
+    async def upload_dub_voice_all(job_id: str, file: UploadFile = File(...), video: int = Form(1)):
+        """Một file voice CẢ BÀI (nghỉ ~1 giây giữa các câu) → tool tự cắt ra từng câu."""
+        from app.planner import dub_io, hook_io
+
+        d = Job.dir_for(Path(jobs_root), job_id)
+        suffix = Path(file.filename or "").suffix.lower()
+        if suffix not in hook_io.VOICE_EXTS:
+            return _page("Lỗi", f"<div class='card'><h2>File không hợp lệ</h2><p>Chỉ nhận {', '.join(hook_io.VOICE_EXTS)}.</p>"
+                         f"<p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
+        vdir = d / "voice"
+        vdir.mkdir(parents=True, exist_ok=True)
+        src = vdir / f"video{video:02d}_dub_all{suffix}"
+        with open(src, "wb") as out:
+            shutil.copyfileobj(file.file, out)
+        try:
+            dub_io.split_upload(d, video, src)
+        except (ValueError, RuntimeError) as exc:
+            return _page("Lỗi", f"<div class='card'><h2>Chưa cắt được file voice</h2><p>{html.escape(str(exc))}</p>"
+                         f"<p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
+        worker.start(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/dub-skip")
     def dub_skip(job_id: str):
         job = Job.load(Path(jobs_root), job_id)
@@ -1107,15 +1130,26 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
         v = int(p.stem.replace("dub_video", ""))
         script = dub_io.load_dub(d, v)
         rows = []
+        windows = dub_io.windows_for(d, v, script)
+        max_speed = float(app_config.load("dub").get("max_speed", 1.25))
+        icons = {"ok": "🟢", "fast": "🟡", "short": "⚪", "long": "🔴"}
         for i, ln in enumerate(script.lines, 1):
             have = dub_io.find_line_voice(d, v, i)
+            win = windows[i - 1] if i - 1 < len(windows) else None
+            slot = (f"chỗ {win[1]:.1f}s · tối đa {win[2]:.1f}s" if win else f"~{ln.source_end - ln.source_start:.1f}s")
+            fit = ""
+            if have and win:
+                secs = dub_io.voice_seconds(have)
+                if secs is not None:
+                    level, msg = dub_io.fit_status(secs, win[1], win[2], max_speed)
+                    fit = f"<br><span class='muted'>{icons[level]} {esc(msg)}</span>"
             rows.append(f"<tr><td>{'✅' if have else '❌'}</td><td><b>{esc(dub_io.line_name(v, i))}</b><br>"
-                        f"<span class='muted'>~{ln.source_end - ln.source_start:.1f}s</span></td>"
+                        f"<span class='muted'>{slot}</span></td>"
                         f"<td>{('<span class=tag>🗣️ lời dẫn: ' + esc(ln.action_vi) + '</span> ') if ln.kind == 'narration' else ''}"
                         f"{esc(ln.text)}"
                         f"<br><span class='muted'>🇻🇳 {esc(ln.text_vi)}</span>"
                         + (f"<br><span class='muted'>🌏 Bản địa hóa: {esc(ln.adapt_vi)}</span>" if ln.adapt_vi else "")
-                        + "</td></tr>")
+                        + fit + "</td></tr>")
         done = sum(1 for i in range(1, len(script.lines) + 1) if dub_io.find_line_voice(d, v, i))
         forms.append(
             f"<h2 style='margin-top:14px'>🎬 Video {v:02d} — đã có {done}/{len(script.lines)} câu</h2>"
@@ -1124,10 +1158,19 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
             f"<form class='upload' method='post' action='/jobs/{job.job_id}/dub-voice' enctype='multipart/form-data'>"
             f"<input type='hidden' name='video' value='{v}'>"
             f"<input type='file' name='files' accept='.wav,.mp3,.m4a,audio/*' multiple required>"
-            f"<br><button type='submit' class='btn small'>📤 Tải lên (chọn nhiều file một lượt)</button></form>")
+            f"<br><button type='submit' class='btn small'>📤 Tải lên (chọn nhiều file một lượt)</button></form>"
+            f"<form class='upload' method='post' action='/jobs/{job.job_id}/dub-voice-all' enctype='multipart/form-data'>"
+            f"<input type='hidden' name='video' value='{v}'>"
+            f"<b>Hoặc một file cả bài</b> <span class='muted'>(đọc hết các câu theo thứ tự, nghỉ ~1 giây giữa các câu — "
+            f"tool tự cắt ra {len(script.lines)} câu)</span><br>"
+            f"<input type='file' name='file' accept='.wav,.mp3,.m4a,audio/*' required>"
+            f"<br><button type='submit' class='btn small'>✂️ Tải lên và tự cắt</button></form>")
     return (f"<div class='card'><h2>🎙️ Thu voice thuyết minh</h2><p>Thu từng câu bằng Voice Studio, đặt tên file đúng như "
             "cột File (vd <b>video01_dub01.wav</b>) rồi chọn tất cả tải lên một lượt. Nếu file đặt tên kiểu 1.wav, 2.wav… "
             "tool tự xếp theo thứ tự vào các câu còn thiếu. Đủ file là tool tự dựng tiếp.</p>"
+            "<p class='muted'>Video nói liên tục (hướng dẫn trang điểm…): đọc cả kịch bản một lượt vào MỘT file, nghỉ ~1 giây "
+            "giữa các câu, tải ở ô <b>Một file cả bài</b>. Sau khi tải, mỗi câu có đèn: 🟢 khớp · 🟡 hơi dài, tool tự tăng tốc "
+            "nhẹ · ⚪ ngắn (có khoảng im) · 🔴 quá dài — thu lại riêng câu đó (tải file tên đúng videoNN_dubMM ở ô trên).</p>"
             f"{''.join(forms)}<p class='muted'>"
             f"{esc(job.message) if skip else 'Tải thêm voice xong, bấm 🔁 Dựng lại draft ở khung Thao tác.'}</p>"
             + (f"<form method='post' action='/jobs/{job.job_id}/dub-skip' onsubmit=\"return confirm('Dựng luôn khi chưa đủ "

@@ -94,6 +94,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - **Bản địa hóa (chủ dự án chốt 01/10):** kịch bản (thuyết minh, lời dẫn, hook, tiêu đề, caption) viết THEO NƯỚC của khán
   giả đích — giọng, cách hài, tên riêng, đơn vị, tiền tệ, giải thích chi tiết văn hóa lạ, điều nên tránh
   (`config/localize.yaml`); câu được bản địa hóa ghi `adapt_vi`. Giữ đúng sự việc, không bịa.
+- **Voice khớp hình cho video nói liên tục (chủ dự án yêu cầu 03/10, vd hướng dẫn trang điểm):** câu thuyết minh bám
+  đúng đoạn thoại gốc của từng động tác, viết gọn hơn gốc 10–20%; mỗi câu được dùng chỗ trống tới lúc câu sau bắt đầu
+  rồi mới tăng tốc (tối đa `max_speed`); có thể thu CẢ BÀI một file (nghỉ ~1 giây giữa các câu), tool tự cắt ra từng câu
+  theo chỗ trống (`app/planner/voice_split.py`); giao diện báo từng câu 🟢 khớp / 🟡 tự tăng tốc / ⚪ ngắn / 🔴 thu lại.
 - Chỗ **không có giọng nói**: AI viết thêm **lời dẫn** (`kind: narration`) để lồng voice, nhưng **chỉ ở cảnh hay /
   hành động đáng chú ý** (vd nấu ăn: lúc thêm gia vị), không nói liên tục (tối đa ~60% thời gian lặng); mỗi câu ghi
   `action_vi`, tả đúng cảnh đang thấy (có gửi khung hình), không bịa; chỗ tiếng cười/hò reo giữ nguyên.
