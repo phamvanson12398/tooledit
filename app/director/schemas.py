@@ -484,6 +484,16 @@ class DubLine(BaseModel):
     adapt_vi: str = Field(default="", description="nếu câu được BẢN ĐỊA HÓA (đổi ví dụ, đơn vị, cách đùa…): đổi gì, vì sao")
 
 
+class ShortLine(BaseModel):
+    no: int = Field(ge=1, description="số thứ tự câu trong kịch bản")
+    text: str = Field(description="câu viết lại NGẮN HƠN, ngôn ngữ đích")
+    text_vi: str = Field(description="nghĩa tiếng Việt")
+
+
+class DubShorten(BaseModel):
+    lines: list[ShortLine] = Field(min_length=1)
+
+
 class DubScript(BaseModel):
     video_index: int = Field(ge=1)
     lines: list[DubLine] = Field(min_length=1)

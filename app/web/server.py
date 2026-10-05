@@ -541,6 +541,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             worker.start(job_id, action=lambda runner, job: runner.set_music(job, name))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/shorten-dub")
+    def shorten_dub(job_id: str):
+        worker.start(job_id, action=lambda runner, job: runner.shorten_dub(job))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/accept-dub")
     def accept_dub(job_id: str):
         worker.start(job_id, action=lambda runner, job: runner.accept_pending_dub(job))  # rồi worker tự chạy tiếp
@@ -1141,8 +1146,11 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
         script = dub_io.load_dub(d, v)
         rows = []
         windows = dub_io.windows_for(d, v, script)
-        max_speed = float(app_config.load("dub").get("max_speed", 1.25))
+        dcfg = app_config.load("dub")
+        max_speed = float(dcfg.get("max_speed", 1.25))
+        delay = float(dcfg.get("max_delay_s", 0.8))  # câu được trễ tối đa chừng này (chống đè tiếng)
         icons = {"ok": "🟢", "fast": "🟡", "short": "⚪", "long": "🔴"}
+        n_long = 0
         for i, ln in enumerate(script.lines, 1):
             have = dub_io.find_line_voice(d, v, i)
             win = windows[i - 1] if i - 1 < len(windows) else None
@@ -1151,7 +1159,8 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
             if have and win:
                 secs = dub_io.voice_seconds(have)
                 if secs is not None:
-                    level, msg = dub_io.fit_status(secs, win[1], win[2], max_speed)
+                    level, msg = dub_io.fit_status(secs, win[1], win[2] + delay, max_speed)
+                    n_long += level == "long"
                     fit = f"<br><span class='muted'>{icons[level]} {esc(msg)}</span>"
             rows.append(f"<tr><td>{'✅' if have else '❌'}</td><td><b>{esc(dub_io.line_name(v, i))}</b><br>"
                         f"<span class='muted'>{slot}</span></td>"
@@ -1160,11 +1169,21 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                         f"<br><span class='muted'>🇻🇳 {esc(ln.text_vi)}</span>"
                         + (f"<br><span class='muted'>🌏 Bản địa hóa: {esc(ln.adapt_vi)}</span>" if ln.adapt_vi else "")
                         + fit + "</td></tr>")
+        rate = dub_io.voice_rate(d, v, script)
+        tools = ""
+        if rate:
+            tools += (f"<p class='muted'>🎚️ Giọng bạn đọc ~{rate:.1f} ký tự/giây — tool nhớ tốc độ này để lần sau AI viết câu "
+                      "vừa giọng.</p>")
+        if n_long:
+            tools += (f"<form method='post' action='/jobs/{job.job_id}/shorten-dub' onsubmit=\"return confirm('AI sẽ viết lại "
+                      f"ngắn hơn {n_long} câu 🔴 (các câu khác giữ nguyên). Voice cũ của các câu đó được cất thành *_cu, "
+                      "bạn thu lại đúng các câu này. Tiếp tục?')\"><button type='submit' class='btn small'>"
+                      f"✂️ Viết gọn {n_long} câu 🔴 (AI viết lại ngắn hơn)</button></form>")
         done = sum(1 for i in range(1, len(script.lines) + 1) if dub_io.find_line_voice(d, v, i))
         forms.append(
             f"<h2 style='margin-top:14px'>🎬 Video {v:02d} — đã có {done}/{len(script.lines)} câu</h2>"
             f"<details {'open' if done < len(script.lines) else ''}><summary>Kịch bản thuyết minh</summary>"
-            f"<table><tr><th></th><th>File</th><th>Câu cần thu</th></tr>{''.join(rows)}</table></details>"
+            f"<table><tr><th></th><th>File</th><th>Câu cần thu</th></tr>{''.join(rows)}</table></details>{tools}"
             f"<form class='upload' method='post' action='/jobs/{job.job_id}/dub-voice' enctype='multipart/form-data'>"
             f"<input type='hidden' name='video' value='{v}'>"
             f"<input type='file' name='files' accept='.wav,.mp3,.m4a,audio/*' multiple required>"

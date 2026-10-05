@@ -13,6 +13,7 @@ từng câu) và phụ đề chính là các câu này. Kế hoạch dựng đã
   {{max_cps}} ký tự/giây (không tính dấu cách, dấu câu). Nói gọn lại nếu câu gốc dài — giữ ý chính, không bịa thêm.
 - Văn nói tự nhiên của người bản xứ ({{market}}), đúng giọng điệu nhân vật (đùa thì đùa, nghiêm thì nghiêm).
   Không dịch từng chữ. Tên riêng: {{name_corrections}}
+{{dense_note}}
 - Video NÓI LIÊN TỤC (hướng dẫn trang điểm, review, nấu ăn vừa làm vừa nói…): voice phải KHỚP HÌNH — mỗi câu bám đúng
   đoạn thoại gốc nói về động tác đó ("giờ mình kẻ mắt" đúng lúc bắt đầu kẻ), ngắt câu ở chỗ người nói ngừng / đổi
   bước (không cắt giữa một câu gốc, không dồn 2 bước vào 1 câu). Viết GỌN hơn câu gốc khoảng 10–20% để đọc thong thả

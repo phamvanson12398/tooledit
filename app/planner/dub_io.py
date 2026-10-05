@@ -113,6 +113,64 @@ def split_upload(job_dir: Path, video_index: int, src: Path, *, exe: str | None 
     return lengths
 
 
+def place_voices(windows: list, durations: dict[int, int], *, max_speed: float = 1.25, hard_max_speed: float = 1.4,
+                 max_delay_s: float = 0.8, gap_s: float = GAP_S) -> dict[int, dict]:
+    """Xếp voice thuyết minh lên timeline sao cho KHÔNG BAO GIỜ đè lên nhau (video gốc nói dày đặc).
+    windows: line_windows(); durations: {số câu: độ dài voice µs}. Mỗi câu:
+    1. bắt đầu đúng lúc câu gốc bắt đầu — trừ khi voice câu trước chưa nói xong: lùi lại chờ (trễ);
+    2. được dùng chỗ tới lúc câu sau bắt đầu + chậm tối đa max_delay_s; dài hơn thì tăng tốc (≤ max_speed);
+    3. vẫn không vừa thì tăng tốc thêm tới hard_max_speed; vẫn tràn thì câu sau lùi lại (ghi 'overflow' để báo).
+    Trễ được "trả" dần ở các khoảng lặng phía sau nên lời không trôi xa hình.
+    Trả {câu: {start, end, speed, delay_s, overflow_s}} (µs, trừ *_s)."""
+    gap, max_delay = int(gap_s * 1e6), int(max_delay_s * 1e6)
+    out: dict[int, dict] = {}
+    prev_end = None
+    for i, win in enumerate(windows, 1):
+        if win is None or i not in durations:
+            continue
+        a, _slot_s, room_s = win
+        v = durations[i]
+        start = a if prev_end is None else max(a, prev_end + gap)
+        limit = a + int(room_s * 1e6) + max_delay  # mốc phải nói xong (câu sau bắt đầu + chậm cho phép)
+        avail = max(1, limit - start)
+        speed = min(max_speed, max(1.0, v / avail))
+        if v / speed > avail:
+            speed = min(hard_max_speed, v / avail)
+        end = start + int(v / speed)
+        out[i] = {"start": start, "end": end, "speed": round(speed, 3), "delay_s": (start - a) / 1e6,
+                  "overflow_s": max(0, end - limit) / 1e6}
+        prev_end = end
+    return out
+
+
+def voice_rate(job_dir: Path, video_index: int, script: DubScript, min_lines: int = 3) -> float | None:
+    """Tốc độ đọc THẬT của giọng bạn (ký tự / giây, trung vị các câu đã thu) — để lần sau AI viết câu vừa với giọng."""
+    from statistics import median
+
+    from app.director.tasks import speech_chars
+
+    rates = []
+    for i, ln in enumerate(script.lines, 1):
+        f = find_line_voice(job_dir, video_index, i)
+        secs = voice_seconds(f) if f else None
+        n = speech_chars(ln.text)
+        if secs and secs >= 1.0 and n >= 4:
+            rates.append(n / secs)
+    return round(median(rates), 2) if len(rates) >= min_lines else None
+
+
+def remember_voice_rate(language: str, rate: float) -> float:
+    """Lưu tốc độ đọc đo được vào config/local.yaml (trung bình dần với lần trước). Trả giá trị đã lưu."""
+    from app import settings
+
+    saved = dict(settings.load().get("voice_cps") or {})
+    old = saved.get(language)
+    new = round(rate if old is None else 0.6 * float(old) + 0.4 * rate, 2)
+    saved[language] = new
+    settings.save({"voice_cps": saved})
+    return new
+
+
 def fit_status(voice_s: float, slot_s: float, room_s: float, max_speed: float) -> tuple[str, str]:
     """Voice so với chỗ trống: (mức, lời khuyên tiếng Việt). mức: ok | fast | long | short."""
     if voice_s > room_s * max_speed + 0.05:

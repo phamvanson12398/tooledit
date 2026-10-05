@@ -362,3 +362,49 @@ def test_web_accept_imperfect_dub(tmp_path):
     job = Job.load(jobs, jid)
     assert job.step == "dub_voice" and job.status.value == "waiting", job.message
     assert not list((jobs / jid / "plan").glob("pending_dub_video*.json"))
+
+
+def _wav(path: Path, seconds: float) -> None:
+    import numpy as np
+
+    from app.planner.voice_split import RATE, write_wav
+
+    write_wav(path, (np.sin(np.arange(int(seconds * RATE)) / 20) * 8000).astype(np.int16))
+
+
+def test_dense_note_and_measured_rate(monkeypatch):
+    from app import settings
+    from app.director.tasks import dense_note, effective_cps
+
+    plan = EditPlan.model_validate(_short_plan())  # clip 1–45s
+    dense = [{"start": float(t), "end": t + 0.9} for t in range(1, 45)]
+    assert "NÓI DÀY ĐẶC" in dense_note(plan, dense, {})
+    assert dense_note(plan, dense[:10], {}) == ""
+    monkeypatch.setattr(settings, "load", lambda path=None: {"voice_cps": {"ko": 5.5}})
+    assert effective_cps({"max_cps": {"ko": 7.0}}, "ko") == 5.5  # giọng thu thật đọc chậm hơn → dùng tốc độ đó
+    assert effective_cps({"max_cps": {"ko": 7.0}, "use_measured_rate": False}, "ko") == 7.0
+
+
+def test_shorten_long_dub_lines(tmp_path, monkeypatch):
+    remembered = []
+    monkeypatch.setattr(dub_io, "remember_voice_rate", lambda lang, rate: remembered.append((lang, rate)) or rate)
+    jobs, job = prepare(tmp_path, JobOptions(target_language="ko", client_id="k"))
+    r = make_runner(tmp_path, jobs)
+    job = r.run(job)
+    assert job.step == "dub_voice"
+    vdir = jobs / "j1" / "voice"
+    for n, secs in {1: 2.6, 2: 15.0, 3: 4.0, 4: 3.5, 5: 3.0}.items():  # câu 2: chỗ 6s, tối đa ~10.7s → voice 15s quá dài
+        _wav(vdir / f"video01_dub{n:02d}.wav", secs)
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+    assert remembered and remembered[0][0] == "ko"  # đã đo và nhớ tốc độ đọc của giọng thu
+    assert dub_io.voice_rate(jobs / "j1", 1, dub_io.load_dub(jobs / "j1", 1))
+    long = r.long_dub_lines(job)
+    assert [i for i, _ in long[1]] == [2]
+    assert r.shorten_dub(job) == 1
+    script = dub_io.load_dub(jobs / "j1", 1)
+    assert script.lines[1].text == "다들 그를 싫어했죠." and script.lines[0].text.startswith("저 스모")  # chỉ câu 2 đổi
+    assert not (vdir / "video01_dub02.wav").exists() and (vdir / "video01_dub02_cu.wav").exists()
+    assert job.step == "dub_voice" and job.status == Status.pending
+    job = r.run(job)
+    assert job.status == Status.waiting and "video01_dub02.wav" in job.message  # chờ thu lại đúng câu 2

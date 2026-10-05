@@ -7,6 +7,14 @@ mute_original: true            # TẮT HẲN tiếng gốc của video (chủ d�
 original_db: -20               # dưới câu đã có voice thuyết minh
 original_db_no_voice: -6       # chỗ khác / câu chưa có file voice
 max_speed: 1.25                # file thuyết minh dài hơn chỗ trống → tăng tốc tối đa mức này
+# Chống ĐÈ TIẾNG (chủ dự án yêu cầu 05/10, video gốc nói nhiều): voice không bao giờ chồng lên nhau — câu sau chờ câu
+# trước nói xong (trễ tối đa max_delay_s rồi bắt kịp ở chỗ lặng); không vừa thì tăng tốc thêm tới hard_max_speed.
+hard_max_speed: 1.4
+max_delay_s: 0.8
+write_cps_factor: 0.85         # AI viết câu nhắm 85% tốc độ tối đa (chừa chỗ lấy hơi)
+use_measured_rate: true        # dùng tốc độ đọc THẬT đo từ voice bạn đã thu (config/local.yaml → voice_cps) nếu chậm hơn
+dense_ratio: 0.7               # lời chiếm ≥ 70% thời gian = video nói dày đặc → AI nén ý
+dense_keep: 0.75               # nén còn ~75% độ dài lời gốc
 line_s: [1.5, 9.0]
 # AI viết thuyết minh 3 lần vẫn còn lỗi nhỏ (vài câu hơi nhiều chữ so với chỗ trống...):
 #   false = dừng, trang lỗi có nút "Dùng bản thuyết minh gần nhất" để bạn tự quyết (không phải hỏi lại AI)

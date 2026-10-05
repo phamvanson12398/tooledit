@@ -78,15 +78,30 @@ def test_builder_uses_room_before_next_line(tmp_path):
     voice = tmp_path / "v.wav"
     voice.write_bytes(b"RIFF")
     # câu 1: chỗ 3s (2–5s), câu sau bắt đầu 10s → voice 4.5s vẫn vừa, không tăng tốc
-    # câu 2: chỗ 6s (10–16s), câu sau 20s → voice 13s quá dài kể cả tăng tốc → cảnh báo thu lại
+    # câu 2: chỗ 6s (10–16s), câu sau 20s (+0.8s cho phép trễ) → voice 16s quá dài kể cả tăng tốc 1.4x → cảnh báo
     res = build(plan, u, _analysis(), DraftTemplate(SAMPLE), tmp_path, "dubfit", load_style("jp_telop"), dub=dub,
-                dub_voices={1: (voice, round(4.5 * SEC)), 2: (voice, round(13 * SEC))})
+                dub_voices={1: (voice, round(4.5 * SEC)), 2: (voice, round(16 * SEC))})
     tl = res.writer.build_timeline()
     segs = [s for t in tl["tracks"] if t["type"] == "audio" for s in t["segments"]
-            if s["source_timerange"] and s["source_timerange"]["duration"] in (round(4.5 * SEC), round(13 * SEC))]
+            if s["source_timerange"] and abs(s["source_timerange"]["duration"] - 4.5 * SEC) < 0.05 * SEC
+            or s["source_timerange"] and abs(s["source_timerange"]["duration"] - 16 * SEC) < 0.05 * SEC]
     speeds = sorted(s["speed"] for s in segs)
-    assert speeds[0] == 1.0 and speeds[-1] == pytest.approx(1.25)
-    assert any("Voice câu 2" in n and "thu lại" in n for n in res.notes)
+    assert speeds[0] == 1.0 and speeds[-1] == pytest.approx(1.4)
+    assert any("câu 2 (tràn" in n and "Viết gọn" in n for n in res.notes)
+
+
+def test_place_voices_never_overlap():
+    # video nói liền: 4 câu sát nhau, voice câu 1 và 2 dài hơn chỗ → câu sau lùi lại, không đè, rồi bắt kịp ở chỗ lặng
+    S = 1_000_000
+    windows = [(0, 2.0, 2.0), (2 * S, 2.0, 2.0), (4 * S, 2.0, 4.0), (10 * S, 2.0, 3.0)]
+    durs = {1: 3 * S, 2: 3 * S, 3: 2 * S, 4: 2 * S}
+    pl = dub_io.place_voices(windows, durs, max_speed=1.25, hard_max_speed=1.4, max_delay_s=0.8)
+    order = [pl[i] for i in sorted(pl)]
+    for x, y in zip(order, order[1:]):
+        assert y["start"] >= x["end"]  # không bao giờ đè
+    assert pl[2]["delay_s"] > 0 and pl[2]["speed"] > 1.0  # câu 2 phải chờ câu 1 nói xong và nói nhanh hơn chút
+    assert pl[4]["delay_s"] == 0 and pl[4]["speed"] == 1.0  # sau khoảng lặng: đúng giờ trở lại
+    assert all(p["speed"] <= 1.4 for p in order)
 
 
 def test_split_upload_writes_line_files(tmp_path):

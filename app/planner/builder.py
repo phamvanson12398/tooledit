@@ -408,30 +408,34 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     if dub is not None:
         dcfg = config.load("dub")
         max_speed = float(dcfg.get("max_speed", 1.25))
-        from app.planner.dub_io import line_windows
+        from app.planner.dub_io import line_windows, place_voices
 
         windows = line_windows(dub, tmap)
+        placed = place_voices(windows, {i: v[1] for i, v in (dub_voices or {}).items()}, max_speed=max_speed,
+                              hard_max_speed=float(dcfg.get("hard_max_speed", 1.4)),
+                              max_delay_s=float(dcfg.get("max_delay_s", 0.8)))
+        late = []
         for i, ln in enumerate(dub.lines, 1):
             win = windows[i - 1]
             if win is None:
                 notes.append(f"Câu thuyết minh {i} nằm ngoài các clip được giữ — bỏ qua.")
                 continue
-            a, slot_s, room_s = win
-            b = a + round(slot_s * SEC)
-            room = round(room_s * SEC)  # được dùng tới lúc câu sau bắt đầu (video nói liên tục: gần bằng chỗ trống)
+            a, slot_s, _ = win
             v = (dub_voices or {}).get(i)
-            speed, end = 1.0, b
-            if v:
-                speed = min(max_speed, max(1.0, v[1] / room))
-                end = a + int(v[1] / speed)
-                if v[1] / room > max_speed:
-                    notes.append(f"Voice câu {i} dài {v[1] / SEC:.1f}s, chỗ tối đa {room_s:.1f}s: đã tăng tốc "
-                                 f"{max_speed}x nhưng vẫn tràn {(end - a - room) / SEC:.1f}s — nên thu lại ngắn hơn.")
-            else:
+            speed, start, end = 1.0, a, a + round(slot_s * SEC)
+            if v and i in placed:
+                pl = placed[i]
+                speed, start, end = pl["speed"], pl["start"], pl["end"]
+                if pl["overflow_s"] > 0.05:
+                    late.append(f"câu {i} (tràn {pl['overflow_s']:.1f}s)")
+            elif not v:
                 missing.append({"kind": "voice", "what": f"video{video_index:02d}_dub{i:02d}.wav", "video": video_index,
                                 "at_s": round(a / SEC, 2),
                                 "purpose_vi": f"{'Lời dẫn' if ln.kind == 'narration' else 'Thuyết minh'}: {ln.text}"})
-            dub_slots.append((i, a, end, ln.text, v, speed))
+            dub_slots.append((i, start, end, ln.text, v, speed))
+        if late:
+            notes.append("Voice dài hơn chỗ trống (đã tăng tốc, câu sau lùi lại cho khỏi đè): " + ", ".join(late[:8])
+                         + (" …" if len(late) > 8 else "") + " — bấm '✂️ Viết gọn các câu 🔴' rồi thu lại các câu đó.")
         voiced = [(a, e) for _, a, e, _, v, _ in dub_slots if v]
         o_hi = db_to_gain(float(dcfg.get("original_db_no_voice", -6)))
         o_lo = db_to_gain(float(dcfg.get("original_db", -20)))

@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 47 — Chống đè tiếng thuyết minh khi video gốc nói nhiều `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ đã có voice: bấm **🔁 Dựng lại draft**.
+2. Mở draft trong CapCut, xem rãnh âm thanh voice: các đoạn voice KHÔNG chồng lên nhau; câu nào dài thì nói nhanh hơn
+   chút (≤ 1.4x) hoặc lùi lại một chút rồi bắt kịp ở chỗ lặng. Nghe thử xem lời còn khớp hình không.
+3. Trang job → khung thu voice: dòng "🎚️ Giọng bạn đọc ~X ký tự/giây" (tool đã nhớ để lần sau AI viết câu vừa giọng —
+   lưu trong `config\local.yaml`).
+4. Nếu có câu 🔴: bấm **✂️ Viết gọn N câu 🔴** → AI viết lại ngắn hơn đúng các câu đó (câu khác giữ nguyên), voice cũ
+   cất thành `*_cu.wav`, trang báo thiếu đúng các file đó → thu lại, tải lên → tool dựng tiếp.
+5. Job mới với video nói rất nhiều: nhật ký / kịch bản ngắn gọn hơn lời gốc (AI được dặn nén ý còn ~75%).
+6. Chỉnh: `config\dub.yaml` → `hard_max_speed`, `max_delay_s`, `write_cps_factor`, `dense_ratio`, `dense_keep`,
+   `use_measured_rate`.
+
 ## Bước 46 — Lỗi bước dub "Đạo diễn trả kết quả sai khuôn 3 lần": tự sửa + tùy chọn dùng bản gần nhất `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

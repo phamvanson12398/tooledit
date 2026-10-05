@@ -628,6 +628,19 @@ def check_narration(script, plan, gaps: list[dict], cfg: dict | None = None) -> 
     return errors
 
 
+def effective_cps(cfg: dict, language: str) -> float:
+    """Tốc độ nói tối đa dùng để viết / kiểm tra câu thuyết minh: theo config, nhưng nếu đã đo được giọng thu thật
+    của bạn đọc chậm hơn (config/local.yaml → voice_cps) thì dùng tốc độ đó — câu sẽ vừa với giọng, khỏi đè."""
+    base = float((cfg.get("max_cps") or {}).get(language, 10.0))
+    if cfg.get("use_measured_rate", True):
+        from app import settings
+
+        measured = (settings.load().get("voice_cps") or {}).get(language)
+        if measured:
+            return min(base, float(measured))
+    return base
+
+
 def repair_dub(script, plan, cfg: dict | None = None, language: str = ""):
     """Tự sửa lỗi vặt của kịch bản thuyết minh (đỡ phải hỏi lại AI — mỗi lần mất vài phút):
     - câu vắt qua 2 clip → thu về clip chứa phần lớn câu (còn < 0.5 giây thì bỏ câu);
@@ -635,7 +648,7 @@ def repair_dub(script, plan, cfg: dict | None = None, language: str = ""):
     from app.planner.timeline import TimeMap
 
     cfg = config.load("dub") if cfg is None else cfg
-    cps = (cfg.get("max_cps") or {}).get(language, 10.0) * float(cfg.get("max_speed", 1.25))
+    cps = effective_cps(cfg, language) * float(cfg.get("max_speed", 1.25))
     tmap = TimeMap(plan.clips)
     kept = [c for c in plan.clips if not c.replay and not c.repeat]
     fixes, lines = [], []
@@ -680,7 +693,7 @@ def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]
 
     cfg = config.load("dub") if cfg is None else cfg
     lo, hi = cfg.get("line_s", [1.5, 9.0])
-    cps = (cfg.get("max_cps") or {}).get(language, 10.0)
+    cps = effective_cps(cfg, language)
     max_speed = float(cfg.get("max_speed", 1.25))
     tmap = TimeMap(plan.clips)
     outs = [(tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)) for ln in script.lines]
@@ -713,6 +726,57 @@ def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]
     return errors
 
 
+def dense_note(plan, segs: list[dict], cfg: dict) -> str:
+    """Video gốc nói DÀY ĐẶC (lời chiếm phần lớn thời gian) → dặn AI nén ý, không dịch hết từng câu."""
+    kept = [c for c in plan.clips if not c.replay and not c.repeat]
+    total = sum(c.source_end - c.source_start for c in kept)
+    talk = sum(max(0.0, min(s["end"], c.source_end) - max(s["start"], c.source_start)) for c in kept for s in segs)
+    ratio = talk / total if total else 0.0
+    if ratio < float(cfg.get("dense_ratio", 0.7)):
+        return ""
+    keep = int(float(cfg.get("dense_keep", 0.75)) * 100)
+    return (f"- **VIDEO NÓI DÀY ĐẶC** (lời chiếm {ratio:.0%} thời gian): KHÔNG dịch hết từng câu — voice thuyết minh sẽ "
+            f"đè lên nhau. NÉN Ý còn khoảng {keep}% độ dài lời gốc: bỏ câu đệm, câu lặp, ý phụ, từ cảm thán; gộp 2 câu "
+            "ngắn thành 1; mỗi câu chừa ~0.3 giây cuối để lấy hơi. Giữ đủ ý chính và các câu khớp động tác trên hình.")
+
+
+def shorten_dub_lines(director: Director, script, items: list[tuple[int, int]], u):
+    """AI viết lại ngắn hơn đúng các câu bị tràn. items: [(số câu, số ký tự tối đa)]. Trả kịch bản đã thay câu."""
+    from app.director.policy import find_forbidden
+    from app.director.schemas import DubShorten
+
+    limits = dict(items)
+    rows = []
+    for no, mx in items:
+        ln = script.lines[no - 1]
+        prev = script.lines[no - 2].text if no >= 2 else "(đầu video)"
+        nxt = script.lines[no].text if no < len(script.lines) else "(hết)"
+        rows.append(f"- câu {no} (tối đa {mx} ký tự, hiện có {speech_chars(ln.text)}): {ln.text}\n"
+                    f"  nghĩa: {ln.text_vi}\n  câu trước: {prev}\n  câu sau: {nxt}")
+    variables = {"language_name": LANGUAGE_NAMES.get(u.language, u.language), "market": MARKETS.get(u.language, "TikTok"),
+                 "lines": "\n".join(rows), "localize_brief": localize_brief(u)}
+
+    def extra(r) -> list[str]:
+        errors = []
+        got = {x.no for x in r.lines}
+        if got != set(limits):
+            errors.append(f"phải trả đúng các câu {sorted(limits)} (đang có {sorted(got)})")
+        for x in r.lines:
+            if x.no in limits and speech_chars(x.text) > limits[x.no]:
+                errors.append(f"câu {x.no} có {speech_chars(x.text)} ký tự, tối đa {limits[x.no]}")
+            bad = find_forbidden(x.text, u.language)
+            if bad:
+                errors.append(f"câu {x.no} có từ không được phép trên TikTok ({', '.join(bad)})")
+        return errors
+
+    r = director.run("dub_shorten", variables, DubShorten, extra_check=extra)
+    lines = list(script.lines)
+    for x in r.lines:
+        if x.no in limits:
+            lines[x.no - 1] = lines[x.no - 1].model_copy(update={"text": x.text, "text_vi": x.text_vi})
+    return script.model_copy(update={"lines": lines})
+
+
 def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0):
     """Kịch bản thuyết minh theo các clip của kế hoạch dựng (giây gốc), bằng ngôn ngữ đích u.language."""
     from app.director.schemas import DubScript
@@ -734,7 +798,8 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language),
                  "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
                  "market": MARKETS.get(u.language, "TikTok"), "line_min": lo, "line_max": hi,
-                 "max_cps": (cfg.get("max_cps") or {}).get(u.language, 10), "localize_brief": localize_brief(u),
+                 "max_cps": round(effective_cps(cfg, u.language) * float(cfg.get("write_cps_factor", 0.85)), 1),
+                 "dense_note": dense_note(plan, segs, cfg), "localize_brief": localize_brief(u),
                  "original_audio_note": (
                      "- TIẾNG GỐC BỊ TẮT HẲN: người xem chỉ nghe voice thuyết minh + nhạc. Câu thoại quan trọng nào cũng phải "
                      "có câu thuyết minh; khoảnh khắc cười / hò reo nếu đáng giữ thì nói ngắn (vd \"cả nhà cười lăn\")."

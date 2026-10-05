@@ -584,6 +584,53 @@ class Runner:
                 n += 1
         return n
 
+    def long_dub_lines(self, job: Job) -> dict[int, list[tuple[int, int]]]:
+        """Các câu đã thu voice nhưng quá dài so với chỗ trống (đèn 🔴): {video: [(số câu, số ký tự tối đa nên viết)]}."""
+        from app.director.tasks import effective_cps
+        from app.planner import dub_io
+
+        d, _, _ = self._paths(job)
+        cfg = config.load("dub")
+        max_speed, delay = float(cfg.get("max_speed", 1.25)), float(cfg.get("max_delay_s", 0.8))
+        out: dict[int, list[tuple[int, int]]] = {}
+        for v, script in self._dub_scripts(job).items():
+            windows = dub_io.windows_for(d, v, script)
+            u = self._u_for(job, next(x for x in self.videos(job) if x["index"] == v))
+            rate = dub_io.voice_rate(d, v, script) or effective_cps(cfg, u.language)
+            for i, win in enumerate(windows, 1):
+                f = dub_io.find_line_voice(d, v, i)
+                secs = dub_io.voice_seconds(f) if f and win else None
+                if secs and dub_io.fit_status(secs, win[1], win[2] + delay, max_speed)[0] == "long":
+                    out.setdefault(v, []).append((i, max(3, int(rate * (win[2] + delay) * max_speed * 0.95))))
+        return out
+
+    def shorten_dub(self, job: Job) -> int:
+        """Nút "✂️ Viết gọn các câu 🔴": AI viết lại NGẮN HƠN đúng những câu voice bị tràn (giữ thời điểm, giữ các câu
+        khác), voice cũ của các câu đó cất thành *_cu, job quay về chờ thu lại đúng các câu này. Trả số câu đã viết lại."""
+        from app.director.tasks import shorten_dub_lines
+        from app.planner import dub_io
+
+        d, analysis, _ = self._paths(job)
+        n = 0
+        scripts = self._dub_scripts(job)
+        for v, items in self.long_dub_lines(job).items():
+            u = self._u_for(job, next(x for x in self.videos(job) if x["index"] == v))
+            script = shorten_dub_lines(self.director, scripts[v], items, u)
+            dub_io.dub_path(d, v).write_text(script.model_dump_json(indent=2), encoding="utf-8")
+            scripts[v] = script
+            for i, _ in items:
+                for old in (d / "voice").glob(f"{dub_io.line_name(v, i)}.*"):
+                    old.replace(old.with_name(f"{old.stem}_cu{old.suffix}"))
+            n += len(items)
+            self.log(f"Video {v:02d}: AI đã viết gọn {len(items)} câu thuyết minh bị tràn — thu lại đúng các câu này.")
+        if n:
+            dub_io.write_dub_scripts(d, scripts, {i: dub_io.windows_for(d, i, s) for i, s in scripts.items()})
+            job.data.pop("dub_skip", None)
+            job.step = "dub_voice"
+            job.status = Status.pending
+        job.save(self.jobs_root)
+        return n
+
     def _dub_scripts(self, job: Job) -> dict:
         from app.planner import dub_io
 
@@ -721,6 +768,11 @@ class Runner:
                         f = dub_io.find_line_voice(d, i, n)
                         if f is not None:
                             dub_voices[n] = (f.resolve(), self._voice_duration(f))
+                    rate = dub_io.voice_rate(d, i, dub)
+                    if rate:  # nhớ tốc độ đọc thật của giọng bạn → lần sau AI viết câu vừa giọng, khỏi đè tiếng
+                        saved = dub_io.remember_voice_rate(u_v.language, rate)
+                        self.log(f"Giọng thu của bạn đọc ~{rate:.1f} ký tự/giây ({u_v.language}); đã lưu {saved:.1f} "
+                                 "để lần sau viết câu thuyết minh vừa giọng.")
             res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                         hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
                         video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job))

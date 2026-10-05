@@ -98,6 +98,11 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   đúng đoạn thoại gốc của từng động tác, viết gọn hơn gốc 10–20%; mỗi câu được dùng chỗ trống tới lúc câu sau bắt đầu
   rồi mới tăng tốc (tối đa `max_speed`); có thể thu CẢ BÀI một file (nghỉ ~1 giây giữa các câu), tool tự cắt ra từng câu
   theo chỗ trống (`app/planner/voice_split.py`); giao diện báo từng câu 🟢 khớp / 🟡 tự tăng tốc / ⚪ ngắn / 🔴 thu lại.
+- **Chống đè tiếng khi video gốc nói nhiều (chủ dự án yêu cầu 05/10):** voice không bao giờ chồng nhau — câu sau chờ
+  câu trước nói xong (trễ ≤ `max_delay_s`, bắt kịp ở chỗ lặng), tăng tốc tới `hard_max_speed` (`place_voices`); video
+  nói dày đặc thì AI nén ý còn ~75% (`dense_ratio`/`dense_keep`), viết nhắm 85% tốc độ tối đa; tool đo tốc độ đọc thật
+  của giọng đã thu (lưu `config/local.yaml → voice_cps`) để lần sau viết vừa giọng; nút "✂️ Viết gọn các câu 🔴" cho
+  AI viết lại ngắn hơn đúng các câu voice bị tràn (prompt `dub_shorten.md`), thu lại riêng các câu đó.
 - **Kịch bản thuyết minh còn lỗi nhỏ (chủ dự án yêu cầu 03/10):** code tự sửa (thu câu vắt 2 clip, gộp câu quá ngắn,
   tính tốc độ nói theo chỗ trống tới câu sau + `max_speed`); AI vẫn sai 3 lần thì trang lỗi có nút "Dùng bản này, bỏ
   qua lỗi còn lại" (bản lưu ở `plan/pending_dub_videoNN.json`), hoặc `accept_imperfect: true` để tự dùng.
