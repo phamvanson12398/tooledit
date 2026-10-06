@@ -314,7 +314,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
               <option value="en">Đổi sang tiếng Anh (English)</option></select>
             <div class="muted">Video gốc tiếng Hàn / Nhật / Anh / Trung. AI dịch và viết câu thuyết minh, bạn thu voice từng câu
-            bằng Voice Studio rồi tải lên; mọi cảnh được đổi khung, zoom, chuyển động, nhạc + tiêu đề mới (giữ thứ tự cảnh).</div></div>
+            bằng Voice Studio rồi tải lên; mọi cảnh được đổi khung, zoom, chuyển động, nhạc + tiêu đề mới (giữ thứ tự cảnh).</div>
+            <label class="tg"><input type="checkbox" name="voice_only"> 🎙️ Chỉ thay tiếng — giữ NGUYÊN hình</label>
+            <div class="muted">Không cắt, không đổi khung / zoom / lật: video giữ đúng như gốc từ đầu đến cuối. Chỉ tắt tiếng gốc,
+            thêm voice thuyết minh + phụ đề + tiêu đề (ngôn ngữ đã chọn ở trên), nhạc nền nhẹ và hiệu ứng. Không có hook,
+            không chia video. Đoạn vi phạm chính sách TikTok vẫn bị cắt.</div></div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
             <div><label>Khung video</label><select name="ratio">
@@ -451,15 +455,21 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 reframe: str | None = Form(None), business: str | None = Form(None),
                 confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto"),
                 split: str | None = Form(None), target_language: str = Form(""), music: str = Form(""),
-                music_file: UploadFile | None = File(None)):
+                music_file: UploadFile | None = File(None), voice_only: str | None = Form(None)):
         path = Path(footage.strip().strip('"'))
+        lang = target_language if target_language in ("ko", "ja", "en") else ""
+        if voice_only and not lang:
+            return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Chỉ thay tiếng</b> cần chọn "
+                         "ngôn ngữ mới ở ô <b>🌐 Đổi ngôn ngữ video</b> (Hàn / Nhật / Anh).</p>"
+                         "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         if not path.is_file():
             return _page("Lỗi", f"<div class='card'><h2>Không thấy file</h2><p>{html.escape(str(path))}</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         job = Job.create(Path(jobs_root), [path.resolve()], JobOptions(
-            client_id=client.strip() or "khach", hook=bool(hook), reframe_per_scene=bool(reframe),
-            confirm_before_build=bool(confirm), split=bool(split),
-            target_language=target_language if target_language in ("ko", "ja", "en") else ""))
+            client_id=client.strip() or "khach", hook=bool(hook) and not voice_only,
+            reframe_per_scene=bool(reframe) and not voice_only,
+            confirm_before_build=bool(confirm), split=bool(split) and not voice_only,
+            target_language=lang, voice_only=bool(voice_only)))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
         if music_file is not None and music_file.filename:
             chosen = _save_user_music(music_file, Path(assets_root))

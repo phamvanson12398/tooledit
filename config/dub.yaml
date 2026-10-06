@@ -66,3 +66,26 @@ camera_default:
   min_shot_s: 1.2
   wide_open_s: 1.5
   wide_every_s: 15
+
+# CHẾ ĐỘ "CHỈ THAY TIẾNG" (chủ dự án chốt 06/10, video short): giữ NGUYÊN hình — không cắt, không đổi thứ tự, không đổi
+# khung / zoom / lật, không tua nhanh. Chỉ thay tiếng: tắt tiếng gốc, voice thuyết minh + phụ đề + tiêu đề bằng ngôn ngữ
+# đích, nhạc nền nhẹ, hiệu ứng / sticker / SFX. Đoạn vi phạm chính sách TikTok vẫn bị cắt.
+voice_only:
+  music_base_db: -12           # nhạc nền nhẹ hơn các chế độ khác (mặc định -5 dB)
+  allow_filter: false          # không đổi màu hình
+  allow_emphasis: false        # không thêm chữ nhấn (chỉ phụ đề + tiêu đề)
+  style_override:
+    keep_footage: true
+    remix: false
+    reorder: false
+    cold_open: false
+    arrows: false
+    motion: null
+    mirror: null
+    camera: null
+    beat_sync: {enabled: false}
+    director_brief: |
+      - CHẾ ĐỘ CHỈ THAY TIẾNG: hình giữ nguyên 100%. Danh sách clip do tool tự đặt = TOÀN BỘ video từ đầu đến cuối
+        (bạn cứ trả 1 clip 0 → hết video, speed 1.0). KHÔNG zoom, KHÔNG replay, KHÔNG chuyển cảnh, KHÔNG mũi tên.
+      - Việc của bạn: tiêu đề (titles_top / titles_bottom / topic_label) bằng ngôn ngữ đích, nhạc nền nhẹ hợp tâm trạng,
+        và hiệu ứng / sticker / SFX ở đúng khoảnh khắc đáng nhấn — tiết chế, không che mặt / chủ thể.

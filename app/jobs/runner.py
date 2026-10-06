@@ -141,6 +141,17 @@ class Runner:
         """Đang ở chế độ Đổi ngôn ngữ và tiếng gốc khác tiếng đích."""
         return bool(job.options.target_language) and not job.data.get("dub_same")
 
+    def _footage_size(self, job: Job) -> tuple[int, int, float]:
+        """(rộng, cao, thời lượng giây) của footage, từ kết quả phân tích; chưa phân tích → (0, 0, 0)."""
+        _, analysis, _ = self._paths(job)
+        p = analysis / "scenes.json"
+        try:
+            sc = json.loads(p.read_text(encoding="utf-8"))
+            sc = sc[0] if isinstance(sc, list) else sc
+            return int(sc.get("width", 0)), int(sc.get("height", 0)), float(sc.get("duration", 0))
+        except (OSError, ValueError, IndexError, AttributeError):
+            return 0, 0, 0.0
+
     def _style(self, job: Job, name: str | None = None) -> dict:
         """Phong cách dựng; chế độ Đổi ngôn ngữ thì ghi đè để bản dựng khác hẳn bản gốc (không đảo cảnh)."""
         from app.styles import load_style
@@ -149,11 +160,21 @@ class Runner:
         ratio = job.data.get("default_ratio")
         if ratio in ("16:9", "4:3", "1:1"):  # khung người dùng chọn khi tạo job
             style = {**style, "block_ratio": ratio, "crop_ratio": ratio}
-        if job.options.target_language:
+        if job.options.target_language and not job.options.voice_only:
             dcfg = config.load("dub")
             style = {**style, **(dcfg.get("style_override") or {})}
             if not style.get("camera") and dcfg.get("camera_default"):
                 style["camera"] = dcfg["camera_default"]
+        if job.options.voice_only:  # chỉ thay tiếng: giữ nguyên hình, khung = đúng tỉ lệ video gốc
+            vcfg = config.load("dub").get("voice_only") or {}
+            style = {**style, **(vcfg.get("style_override") or {})}
+            style["music"] = {**(style.get("music") or {}), "base_db": vcfg.get("music_base_db", -12)}
+            w, h, _ = self._footage_size(job)
+            if w and h:
+                from app.capcut_writer.layout import nearest_ratio
+
+                r = nearest_ratio(w, h)
+                style = {**style, "block_ratio": r, "crop_ratio": r}
         return style
 
     def _template(self):
@@ -276,6 +297,8 @@ class Runner:
         from app.director.tasks import for_video
 
         u = self._understanding(job)
+        if job.options.voice_only:  # chỉ thay tiếng: dùng toàn bộ video
+            return for_video(u, {**video, "summary_vi": video.get("summary_vi") or u.summary_vi})
         return for_video(u, video) if job.options.split else u
 
     def _hook_for(self, d: Path, index: int):
@@ -385,8 +408,10 @@ class Runner:
         u = self._understanding(job)
         path = plan_dir / "segments.json"
         if not job.options.split:
-            videos = [{"index": 1, "start": u.usable_range.start, "end": u.usable_range.end, "title_vi": "",
-                       "summary_vi": u.summary_vi}]
+            start, end = u.usable_range.start, u.usable_range.end
+            if job.options.voice_only:  # chỉ thay tiếng: giữ trọn video từ giây 0 tới hết
+                start, end = 0.0, self._footage_size(job)[2] or end
+            videos = [{"index": 1, "start": start, "end": end, "title_vi": "", "summary_vi": u.summary_vi}]
             path.write_text(json.dumps({"videos": videos, "confirmed": True}, ensure_ascii=False, indent=2),
                             encoding="utf-8")
             job.data["videos"] = videos

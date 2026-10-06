@@ -83,4 +83,8 @@ def adapt_layout(lay: dict, ratio: str) -> dict:
     for key in ("subtitle_row", "topic_row"):
         if key in lay:
             out[key] = inside(lay[key])
+    if t1 < 0.06 and isinstance(lay.get("overlay"), dict):
+        # video gần như kín màn hình (footage dọc 9:16 giữ nguyên khung): không còn dải trống → chữ đè lên hình ở các
+        # hàng riêng (config/layout.yaml → overlay), tránh vùng caption / nút của TikTok
+        out.update(lay["overlay"])
     return out

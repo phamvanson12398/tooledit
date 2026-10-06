@@ -103,6 +103,11 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   nói dày đặc thì AI nén ý còn ~75% (`dense_ratio`/`dense_keep`), viết nhắm 85% tốc độ tối đa; tool đo tốc độ đọc thật
   của giọng đã thu (lưu `config/local.yaml → voice_cps`) để lần sau viết vừa giọng; nút "✂️ Viết gọn các câu 🔴" cho
   AI viết lại ngắn hơn đúng các câu voice bị tràn (prompt `dub_shorten.md`), thu lại riêng các câu đó.
+- **Chế độ "Chỉ thay tiếng" (chủ dự án chốt 06/10, video short):** ô tick ở trang chủ (cần chọn ngôn ngữ đích). Hình giữ
+  NGUYÊN: không cắt (trừ đoạn vi phạm chính sách), không đổi thứ tự / khung / zoom / lật / tốc độ; khung = đúng tỉ lệ
+  video gốc (`nearest_ratio`; dọc 9:16 thì chữ đè lên hình theo `overlay` trong `config/layout.yaml`). Chỉ thêm: voice
+  thuyết minh + phụ đề + tiêu đề ngôn ngữ đích, nhạc nền nhẹ (-12 dB), hiệu ứng / sticker / SFX; không hook, không chia
+  video, không filter, không chữ nhấn (`voice_only` trong `config/dub.yaml`).
 - **Kịch bản thuyết minh còn lỗi nhỏ (chủ dự án yêu cầu 03/10):** code tự sửa (thu câu vắt 2 clip, gộp câu quá ngắn,
   tính tốc độ nói theo chỗ trống tới câu sau + `max_speed`); AI vẫn sai 3 lần thì trang lỗi có nút "Dùng bản này, bỏ
   qua lỗi còn lại" (bản lưu ở `plan/pending_dub_videoNN.json`), hoặc `accept_imperfect: true` để tự dùng.

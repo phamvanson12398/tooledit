@@ -44,6 +44,7 @@ class JobOptions(BaseModel):
     auto_download: bool = False       # ☐ Tự tải tài nguyên thiếu
     confirm_before_build: bool = False  # ☐ Xác nhận trước khi dựng
     target_language: str = ""         # Đổi ngôn ngữ: "" = giữ nguyên; ko/ja/en = thuyết minh + phụ đề tiếng đó
+    voice_only: bool = False          # Chỉ thay tiếng (05/10): giữ nguyên hình, không cắt / đổi khung — cần target_language
 
 
 class HistoryEntry(BaseModel):

@@ -35,6 +35,13 @@ four_titles:
   topic: {size: 7, color: [1, 1, 1], stroke_color: [0.1, 0.25, 0.85], stroke_width: 0.2}
   # giới hạn ký tự mỗi dòng tiêu đề (đạo diễn phải viết ngắn để chữ to)
   title_max_chars: {ja: 12, ko: 12, en: 22}
+  # Video kín màn hình (footage dọc 9:16 ở chế độ chỉ thay tiếng): chữ đè lên hình ở các hàng này.
+  # ƯỚC LƯỢNG [CẦN KIỂM TRA TRÊN MÁY]: dòng dưới cùng không được lấn vào caption / tên tài khoản TikTok (~0.80 trở xuống).
+  overlay:
+    title_rows: [0.11, 0.18, 0.67, 0.74]
+    subtitle_row: 0.58
+    topic_row: 0.24
+    title_scale_max: 0.8
 
 # Thể thao / boxing (video mẫu 25/09): nền đen · khối video gần vuông 9:10 phóng to vào pha đấu, bám theo người ·
 # KHÔNG có dòng tiêu đề · phụ đề cụm ngắn chữ vàng viền đen ở 2/3 khối video · mũi tên xanh lá chỉ vào chi tiết

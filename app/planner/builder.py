@@ -688,7 +688,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     else:
         mcfg = style.get("music", {})
         acfg = config.load("audio")
-        base_db = float(acfg.get("music_base_db", -5.0))  # mức gốc khi không có thoại
+        base_db = float(mcfg.get("base_db", acfg.get("music_base_db", -5.0)))  # mức gốc khi không có thoại
         duck_db = float(mcfg.get("duck_db", acfg.get("duck_db", -10.0)))  # hạ thêm khi có thoại
         v_gap, v_speech = db_to_gain(base_db), db_to_gain(base_db + duck_db)
         intervals = speech_intervals(cues)

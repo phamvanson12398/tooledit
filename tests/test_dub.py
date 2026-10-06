@@ -408,3 +408,53 @@ def test_shorten_long_dub_lines(tmp_path, monkeypatch):
     assert job.step == "dub_voice" and job.status == Status.pending
     job = r.run(job)
     assert job.status == Status.waiting and "video01_dub02.wav" in job.message  # chờ thu lại đúng câu 2
+
+
+def test_voice_only_mode_keeps_footage(tmp_path):
+    """Chỉ thay tiếng: giữ nguyên toàn bộ video (không cắt / zoom / lật / đổi khung), chỉ voice + phụ đề + tiêu đề +
+    nhạc nhẹ + hiệu ứng."""
+    from app.director.schemas import EditPlan
+
+    jobs, job = prepare(tmp_path, JobOptions(target_language="ko", voice_only=True))
+    r = make_runner(tmp_path, jobs)
+    job = r.run(job)
+    assert job.step == "dub_voice", job.message
+    assert job.data["videos"][0]["start"] == 0 and job.data["videos"][0]["end"] == 60.0
+    plan = EditPlan.model_validate_json((jobs / "j1" / "plan" / "edit_plan_video01.json").read_text(encoding="utf-8"))
+    assert [(c.source_start, c.source_end, c.speed) for c in plan.clips] == [(0.0, 60.0, 1.0)]
+    assert not plan.zooms and not plan.transitions and not plan.emphasis and plan.filter is None
+    st = r._style(job)
+    assert st["block_ratio"] == "16:9" and st["keep_footage"] and not st.get("mirror") and not st.get("motion")
+    for n in range(1, 6):
+        (jobs / "j1" / "voice" / f"video01_dub{n:02d}.wav").write_bytes(b"RIFF")
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+    content = json.loads((Path(job.data["draft"]) / "draft_content.json").read_text(encoding="utf-8"))
+    vids = [m for m in content["materials"]["videos"] if m["type"] == "video"]
+    assert all(m["crop"]["upper_left_x"] == 0 and m["crop"]["lower_right_x"] == 1 for m in vids)  # không cắt khung
+    segs = [s for t in content["tracks"] if t["type"] == "video" for s in t["segments"]]
+    assert all(s["speed"] == 1.0 and not s["clip"]["flip"]["horizontal"] and not s.get("common_keyframes")
+               for s in segs)  # không tua, không lật, không zoom / chuyển động
+    assert sum(s["target_timerange"]["duration"] for s in segs) == 60_000_000  # đúng độ dài gốc
+
+
+def test_voice_only_vertical_overlay_layout():
+    from app.capcut_writer.layout import nearest_ratio
+    from app.styles import layout_for, load_style
+
+    assert nearest_ratio(1080, 1920) == "9:16" and nearest_ratio(1920, 1080) == "16:9" and nearest_ratio(720, 720) == "1:1"
+    lay = layout_for({**load_style("jp_telop"), "block_ratio": "9:16"})
+    assert lay["title_rows"] == [0.11, 0.18, 0.67, 0.74] and lay["subtitle_row"] == 0.58  # chữ đè lên hình, tránh UI TikTok
+
+
+def test_web_voice_only_needs_language(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.web.server import create_app
+
+    footage = tmp_path / "v.mp4"
+    footage.write_bytes(b"x")
+    client = TestClient(create_app(tmp_path / "jobs", lambda root, log: make_runner(tmp_path, root)))
+    assert "Chỉ thay tiếng" in client.get("/").text
+    r = client.post("/jobs", data={"footage": str(footage), "voice_only": "on"}, follow_redirects=False)
+    assert "Chưa chọn ngôn ngữ" in r.text

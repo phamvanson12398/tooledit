@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 48 — Chế độ "Chỉ thay tiếng" (giữ nguyên hình) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Trang chủ: chọn **🌐 Đổi ngôn ngữ video** (Hàn / Nhật / Anh) + tick **🎙️ Chỉ thay tiếng — giữ NGUYÊN hình** → Bắt đầu.
+   (Tick mà chưa chọn ngôn ngữ → tool báo "Chưa chọn ngôn ngữ".)
+3. Job chạy qua phân tích → AI hiểu nội dung → kế hoạch (tiêu đề, nhạc, hiệu ứng) → viết thuyết minh → chờ voice.
+   Không có bước hook, không có bảng chia video.
+4. Thu voice, tải lên (từng câu hoặc một file cả bài). Mở draft trong CapCut, kiểm tra:
+   - video dài đúng bằng video gốc, không bị cắt, không đổi thứ tự, không zoom / lật / tua nhanh;
+   - khung video đúng tỉ lệ gốc (video ngang: khối ngang giữa màn, tiêu đề trên/dưới; video dọc: kín màn, tiêu đề và
+     phụ đề đè lên hình — xem dòng dưới cùng có bị caption / tên tài khoản TikTok che không);
+   - tiếng gốc tắt, chỉ còn voice mới + nhạc nền NHỎ + hiệu ứng / SFX.
+5. Chỉnh: `config\dub.yaml` → `voice_only` (độ to nhạc `music_base_db`, `allow_filter`, `allow_emphasis`);
+   vị trí chữ khi video dọc: `config\layout.yaml` → `overlay`.
+
 ## Bước 47 — Chống đè tiếng thuyết minh khi video gốc nói nhiều `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ đã có voice: bấm **🔁 Dựng lại draft**.

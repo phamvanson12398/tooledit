@@ -323,9 +323,27 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
 
     banned = cut_ranges(u)
     available = u.usable_range.end - u.usable_range.start - overlap_s(u.usable_range.start, u.usable_range.end, banned)
+    keep = bool(style.get("keep_footage"))  # chế độ chỉ thay tiếng: clip = toàn bộ video (trừ đoạn vi phạm chính sách)
+    vcfg = config.load("dub").get("voice_only") or {}
+
+    def keep_clips():
+        from app.director.schemas import PlanClip
+
+        pieces, t = [], 0.0
+        for a0, b0 in sorted(banned):
+            if a0 - t >= 0.5:
+                pieces.append((t, a0))
+            t = max(t, b0)
+        if duration - t >= 0.5:
+            pieces.append((t, duration))
+        return [PlanClip(source_start=round(a0, 2), source_end=round(b0, 2), purpose_vi="giữ nguyên video gốc")
+                for a0, b0 in pieces or [(0.0, duration)]]
 
     def extra(plan) -> list[str]:
-        errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s, available=available)
+        if keep:  # không giới hạn 60–150 giây: giữ đúng độ dài video gốc
+            errors = check_plan(plan, duration + 0.5, hook_s, min_s=0, max_s=1e9)
+        else:
+            errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s, available=available)
         errors += check_policy(plan, banned, u.language)
         if any(c.source_start < u.usable_range.start - 0.5 for c in plan.clips):
             errors.append(f"có clip bắt đầu trước đoạn dùng được ({u.usable_range.start:.1f}s)")
@@ -359,6 +377,15 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     from app.director.schemas import repair_plan
 
     def repair(p):
+        if keep:  # hình giữ nguyên: tool tự đặt clip, bỏ mọi thứ làm thay đổi hình
+            upd = {"clips": keep_clips(), "zooms": [], "arrows": [], "transitions": []}
+            if not vcfg.get("allow_filter", False):
+                upd["filter"] = None
+            if not vcfg.get("allow_emphasis", False):
+                upd["emphasis"] = []
+            p = p.model_copy(update=upd)
+            p, more = repair_names(p, {k: [i.name for i in v] for k, v in decor.items()}, names, sfx_names)
+            return p, more
         p, cut = repair_policy(p, banned, load_cfg().get("min_piece_s", 0.5))
         p, fixes = repair_plan(p, min(duration, u.usable_range.end + 0.5))
         fixes = cut + fixes

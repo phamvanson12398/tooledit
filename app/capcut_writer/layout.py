@@ -8,6 +8,14 @@ CANVAS_W, CANVAS_H = 1080, 1920
 RATIOS = {"16:9": 16 / 9, "4:3": 4 / 3, "9:10": 0.9, "4:5": 0.8, "3:4": 3 / 4, "1:1": 1.0, "9:16": 9 / 16}
 
 
+def nearest_ratio(width: int, height: int) -> str:
+    """Tỉ lệ khung có sẵn gần nhất với video (chế độ chỉ thay tiếng: giữ nguyên khung gốc, cắt gần như 0)."""
+    import math
+
+    aspect = width / height
+    return min(RATIOS, key=lambda k: abs(math.log(RATIOS[k] / aspect)))
+
+
 def block_size(ratio: str, canvas_w: int = CANVAS_W) -> tuple[int, int]:
     """Kích thước khối (px) khi khối rộng bằng khung: 4:3 → 1080×810, 1:1 → 1080×1080."""
     r = RATIOS[ratio]
