@@ -338,7 +338,11 @@ class DraftWriter:
     def _finish_audio(self, seg, mat, target_start, duration, source_start, volume, keyframes,
                       speed: float = 1.0) -> dict:
         source_duration = round(duration * speed)
-        if source_start + source_duration > mat.get("duration", 0) + 1000:
+        over = source_start + source_duration - mat.get("duration", 0)
+        if 0 < over <= 50_000:  # lệch vài mili-giây do làm tròn tốc độ / đo độ dài: cắt bớt đuôi cho vừa file
+            source_duration -= over
+            duration = max(1, int(source_duration / speed))
+        elif over > 50_000:
             raise ValueError(f"Đoạn âm thanh vượt quá độ dài file {mat.get('name')}")
         seg["source_timerange"] = {"start": int(source_start), "duration": int(source_duration)}
         seg["speed"] = speed

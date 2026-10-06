@@ -1,5 +1,11 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 49 — Sửa lỗi bước write "Đoạn âm thanh vượt quá độ dài file video01_dubNN.wav" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Mở job bị lỗi → **Chạy lại bước này** → job phải qua bước write tới Xong.
+3. Mở draft trong CapCut: voice các câu được tăng tốc vẫn phát đủ câu, không bị cụt chữ cuối.
+
 ## Bước 48 — Chế độ "Chỉ thay tiếng" (giữ nguyên hình) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

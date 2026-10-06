@@ -136,8 +136,9 @@ def place_voices(windows: list, durations: dict[int, int], *, max_speed: float =
         speed = min(max_speed, max(1.0, v / avail))
         if v / speed > avail:
             speed = min(hard_max_speed, v / avail)
-        end = start + int(v / speed)
-        out[i] = {"start": start, "end": end, "speed": round(speed, 3), "delay_s": (start - a) / 1e6,
+        speed = round(speed, 3)
+        end = start + int(v / speed)  # tính theo tốc độ ĐÃ làm tròn: độ dài × tốc độ không vượt độ dài file voice
+        out[i] = {"start": start, "end": end, "speed": speed, "delay_s": (start - a) / 1e6,
                   "overflow_s": max(0, end - limit) / 1e6}
         prev_end = end
     return out

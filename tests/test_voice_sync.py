@@ -150,3 +150,23 @@ def test_vietnamese_check_subtitles(tmp_path):
     assert on[vi[0]]["target_timerange"]["start"] == ko["target_timerange"]["start"]  # cùng lúc câu thuyết minh
     _, off = texts(False)
     assert not [t for t in off if "Đô vật sumo" in t]
+
+
+def test_place_voices_rounded_speed_never_exceeds_file():
+    # tốc độ lẻ (vd 1.23456…) làm tròn lên 3 chữ số → độ dài × tốc độ vẫn không được dài hơn file voice
+    S = 1_000_000
+    for v in (7_123_457, 9_876_543, 12_345_679, 10_000_001):
+        pl = dub_io.place_voices([(0, 2.0, 5.3), (6 * S, 2.0, 3.0)], {1: v}, max_speed=1.25, hard_max_speed=1.4,
+                                 max_delay_s=0.8)[1]
+        assert round((pl["end"] - pl["start"]) * pl["speed"]) <= v
+
+
+def test_writer_trims_tiny_overshoot(tmp_path):
+    from app.capcut_writer import DraftTemplate, DraftWriter
+    from tests.test_planner import SAMPLE
+
+    w = DraftWriter(DraftTemplate(SAMPLE), tmp_path, "trim")
+    seg = w.add_local_audio(tmp_path / "v.wav", 5_000_000, target_start=0, duration=4_000_100, speed=1.25)
+    assert seg["source_timerange"]["duration"] <= 5_000_000  # lệch 125 µs → tự cắt đuôi, không báo lỗi
+    with pytest.raises(ValueError):
+        w.add_local_audio(tmp_path / "v.wav", 5_000_000, target_start=0, duration=4_500_000, speed=1.25)
