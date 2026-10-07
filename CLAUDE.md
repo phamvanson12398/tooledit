@@ -189,6 +189,15 @@ Preset trong `styles/*.yaml`. Sáu phong cách:
 từng bước đúng thứ tự (tua nhanh đoạn tán, chậm ở chi tiết đắt, mũi tên hồng chỉ vùng đang trang điểm) → khoe kết quả
 quay chậm có nhãn 完成 / 완성 / FINAL LOOK + so trước–sau. Không hứa hẹn quá sự thật, không đoán tên sản phẩm.
 
+**Thêm (chủ dự án yêu cầu 07/10):**
+- **Chuyển cảnh liên tục** (ô tick ⚡, `JobOptions.hype`, `config/hype.yaml`): cắt thật nhiều cảnh 3–5 giây (kiểm tra
+  nới 2.5–6s); AI đánh dấu cảnh gay cấn `highlight`, CODE tự xếp các cảnh đó lên ĐẦU, cảnh còn lại về SAU theo thời gian
+  (`reorder_hype`). Không dùng cùng "Chỉ thay tiếng".
+- **Ghép nhiều video** (nhiều dòng ở ô footage): tool nối các video thành `source/montage.mp4` (cùng khung theo hướng đa
+  số, 30 fps, video thiếu tiếng được bù lặng — `app/analysis/montage.py`), lưu mốc từng video (`montage_parts`); AI chọn
+  cảnh hay từ ≥ 80% số video (mỗi video một chút), ghép thành MỘT video mới có chủ đề chung; clip không vắt qua 2 video;
+  tự bật chuyển cảnh liên tục; không chia video.
+
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.
 - Chuyển động hình: zoom giật, zoom chậm, lắc, dừng hình, quay chậm.

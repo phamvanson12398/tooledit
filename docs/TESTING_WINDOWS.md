@@ -1,5 +1,23 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 54 — Chuyển cảnh liên tục (gay cấn lên đầu) + Ghép nhiều video `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. **Chuyển cảnh liên tục (1 video):** tick **⚡ Chuyển cảnh liên tục — cảnh gay cấn lên đầu** → tạo job. Mở draft:
+   - mỗi cảnh khoảng 3–5 giây, chuyển cảnh liên tục từ đầu đến cuối;
+   - mấy giây đầu là các cảnh gay cấn / đắt nhất; phần sau là các cảnh còn lại theo đúng thứ tự thời gian.
+   Nhật ký bước kế hoạch có dòng "Tự sửa: xếp N cảnh gay cấn lên đầu…".
+3. **Ghép nhiều video:** ở ô **File footage** bấm **📂 Chọn file…** nhiều lần (mỗi lần thêm một dòng) hoặc dán nhiều
+   đường dẫn, mỗi dòng một file → Bắt đầu.
+   - Nhật ký: "Ghép N video thành một nguồn chung…" rồi "Đã ghép xong: video 1 (…s), video 2 (…s)…". File ghép nằm ở
+     `jobs\<job>\source\montage.mp4` (mở thử bằng trình phát video: các video nối liền, cùng khung).
+   - Mở draft: cảnh được lấy từ hầu hết các video, mỗi video một chút, ghép thành một video mới có chủ đề chung
+     (tiêu đề nói về chủ đề đó); cảnh gay cấn ở đầu.
+   - Video ngang / dọc lẫn lộn: khung chung theo hướng đa số, phần thiếu thêm viền đen.
+4. Ghép nhiều video không dùng được với "Chỉ thay tiếng" (tool báo lỗi), và không chia video.
+5. Chỉnh độ dài mỗi cảnh: `config\hype.yaml` (`min_clip_s`, `max_clip_s`); tỉ lệ số video phải góp cảnh:
+   `montage_min_share`.
+
 ## Bước 53 — Chỉ 2 dòng tiêu đề phía trên, nền trắng, chữ đen `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🔁 Dựng lại draft** (dòng tiêu đề dưới cũ tự bỏ, không cần

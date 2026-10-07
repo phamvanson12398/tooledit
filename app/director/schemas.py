@@ -221,6 +221,8 @@ class PlanClip(BaseModel):
     repeat: bool = Field(default=False, description="true = lặp lại đoạn đã/sẽ dùng ở tốc độ thường (cold open mở đầu, "
                                                     "nhắc lại câu chốt) — được phép trùng footage")
     ratio: Ratio | None = Field(default=None, description="khung riêng cho clip; null = khung mặc định")
+    highlight: bool = Field(default=False, description="true = cảnh GAY CẤN / đắt giá (kiểu chuyển cảnh liên tục: "
+                                                       "code xếp các cảnh này lên đầu video)")
     purpose_vi: str = ""
 
 
@@ -373,11 +375,75 @@ def check_reorder(plan: EditPlan, min_share: float = 0.25, max_clip_s: float | N
     return errors
 
 
-def check_remix(plan: EditPlan, have_filters: bool) -> list[str]:
+def reorder_hype(plan: EditPlan) -> tuple[EditPlan, list[str]]:
+    """Kiểu "chuyển cảnh liên tục" (chủ dự án yêu cầu 07/10): cảnh gay cấn (highlight) lên ĐẦU theo thứ tự AI chọn,
+    cảnh còn lại xếp SAU theo thời gian. Chuyển cảnh (after_clip) được dời theo."""
+    idx = list(range(len(plan.clips)))
+    hi = [i for i in idx if plan.clips[i].highlight and not plan.clips[i].replay]
+    rest = sorted((i for i in idx if i not in hi), key=lambda i: (plan.clips[i].source_start, i))
+    order = hi + rest
+    if order == idx:
+        return plan, []
+    new_pos = {old: new for new, old in enumerate(order)}
+    trans = [t.model_copy(update={"after_clip": new_pos[t.after_clip]}) for t in plan.transitions
+             if t.after_clip in new_pos]
+    return (plan.model_copy(update={"clips": [plan.clips[i] for i in order], "transitions": trans}),
+            [f"xếp {len(hi)} cảnh gay cấn lên đầu, {len(rest)} cảnh còn lại về sau"])
+
+
+def check_hype(plan: EditPlan, min_clip_s: float = 2.0, max_clip_s: float = 5.5) -> list[str]:
+    """Chuyển cảnh liên tục: clip ngắn (≈3–5s), có cảnh gay cấn được đánh dấu."""
+    errors = []
+    normal = [c for c in plan.clips if not c.replay and not c.repeat]
+    for c in normal:
+        d = (c.source_end - c.source_start) / c.speed
+        if d > max_clip_s + 0.3:
+            errors.append(f"clip {c.source_start}-{c.source_end} dài {d:.1f}s — chia nhỏ (mỗi cảnh ≤ {max_clip_s:.0f}s)")
+        elif d < min_clip_s - 0.2:
+            errors.append(f"clip {c.source_start}-{c.source_end} chỉ {d:.1f}s — quá ngắn (≥ {min_clip_s:.0f}s)")
+    if len(normal) >= 6 and sum(c.highlight for c in normal) < 2:
+        errors.append("đánh dấu ít nhất 2 cảnh gay cấn nhất bằng \"highlight\": true (code xếp chúng lên đầu)")
+    return errors
+
+
+def repair_montage(plan: EditPlan, parts: list[dict]) -> tuple[EditPlan, list[str]]:
+    """Nhiều video ghép: clip vắt qua ranh giới 2 video → thu về video chứa phần lớn clip."""
+    fixes, clips = [], []
+    for c in plan.clips:
+        best = max(parts, key=lambda p: min(c.source_end, p["end"]) - max(c.source_start, p["start"]))
+        a, b = max(c.source_start, best["start"]), min(c.source_end, best["end"] - 0.05)
+        if (a, b) != (c.source_start, c.source_end):
+            if b - a < 0.5:
+                fixes.append(f"bỏ clip {c.source_start}-{c.source_end} (nằm giữa 2 video)")
+                continue
+            fixes.append(f"clip {c.source_start}-{c.source_end} vắt qua 2 video → thu về video {best['index']}")
+            c = c.model_copy(update={"source_start": round(a, 2), "source_end": round(b, 2)})
+        clips.append(c)
+    return (plan.model_copy(update={"clips": clips}) if clips else plan), fixes
+
+
+def check_montage(plan: EditPlan, parts: list[dict], min_share: float = 0.8) -> list[str]:
+    """Nhiều video ghép: phần lớn video đều góp cảnh (mỗi video lấy một chút)."""
+    import math
+
+    used = set()
+    for c in plan.clips:
+        for p in parts:
+            if min(c.source_end, p["end"]) - max(c.source_start, p["start"]) > 0.3:
+                used.add(p["index"])
+    need = min(len(parts), max(2, math.ceil(min_share * len(parts))))
+    if len(used) < need:
+        miss = [str(p["index"]) for p in parts if p["index"] not in used]
+        return [f"mới lấy cảnh từ {len(used)}/{len(parts)} video — cần ít nhất {need}; thêm cảnh hay từ video "
+                + ", ".join(miss[:8])]
+    return []
+
+
+def check_remix(plan: EditPlan, have_filters: bool, keep_order: bool = True) -> list[str]:
     """Bản dựng lại (Đổi ngôn ngữ): giữ thứ tự thời gian, có filter màu, có điểm nhấn zoom."""
     errors = []
     normal = [c for c in plan.clips if not c.replay and not c.repeat]
-    if any(b.source_start < a.source_start for a, b in zip(normal, normal[1:])):
+    if keep_order and any(b.source_start < a.source_start for a, b in zip(normal, normal[1:])):
         errors.append("bản dựng lại phải giữ đúng thứ tự thời gian của các clip (không đảo cảnh)")
     if have_filters and not plan.filter:
         errors.append("bản dựng lại phải chọn một filter màu cho cả video (để khác bản gốc)")

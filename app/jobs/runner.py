@@ -170,6 +170,15 @@ class Runner:
             style = {**style, **(dcfg.get("style_override") or {})}
             if not style.get("camera") and dcfg.get("camera_default"):
                 style["camera"] = dcfg["camera_default"]
+        parts = job.data.get("montage_parts")
+        if (job.options.hype or parts) and not job.options.voice_only:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
+            hcfg = config.load("hype")
+            style = {**style, "hype": {"min_clip_s": hcfg.get("min_clip_s", 3.0), "max_clip_s": hcfg.get("max_clip_s", 5.0)},
+                     "reorder": False, "cold_open": bool(hcfg.get("cold_open", False))}
+            if hcfg.get("motion"):
+                style["motion"] = hcfg["motion"]
+            if parts:
+                style["montage_parts"] = parts
         if job.options.voice_only:  # chỉ thay tiếng: giữ nguyên hình, khung = đúng tỉ lệ video gốc
             vcfg = config.load("dub").get("voice_only") or {}
             style = {**style, **(vcfg.get("style_override") or {})}
@@ -367,15 +376,31 @@ class Runner:
         return job
 
     def step_analyze(self, job: Job) -> None:
-        _, analysis, _ = self._paths(job)
+        d, analysis, _ = self._paths(job)
         if (analysis / "frames.json").is_file():
             self.log("Đã phân tích trước đó, dùng lại kết quả.")
             return
+        if len(job.footage) > 1 and not job.data.get("montage_parts"):
+            self._build_montage(job, d)
         if self._analyze_fn is None:
             from app.analysis.pipeline import run_analysis as fn
         else:
             fn = self._analyze_fn
         fn(job, self.jobs_root, progress=self.log)
+
+    def _build_montage(self, job: Job, d: Path) -> None:
+        """Nhiều video → nối thành source/montage.mp4 (giữ danh sách gốc ở job.data.sources) để chọn cảnh từ tất cả."""
+        from app.analysis.montage import build_montage
+
+        self.log(f"Ghép {len(job.footage)} video thành một nguồn chung để chọn cảnh (có thể mất vài phút)…")
+        out = d / "source" / "montage.mp4"
+        fn = getattr(self, "_montage_fn", None) or build_montage
+        parts = fn([Path(p) for p in job.footage], out)
+        job.data["sources"] = list(job.footage)
+        job.data["montage_parts"] = parts
+        job.footage = [str(out.resolve())]
+        job.save(self.jobs_root)
+        self.log("Đã ghép xong: " + ", ".join(f"video {p['index']} ({p['end'] - p['start']:.0f}s)" for p in parts))
 
     def step_understand(self, job: Job) -> None:
         from app.director.tasks import understand

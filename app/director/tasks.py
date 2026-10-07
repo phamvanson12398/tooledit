@@ -247,7 +247,9 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
               business: bool = False,
               reframe: bool = False, default_ratio: str = "4:3", video_index: int = 1, footage: int = 0):
     from app import config
-    from app.director.schemas import EditPlan, check_plan, check_remix, check_reorder, check_titles
+    from app.analysis.montage import parts_brief
+    from app.director.schemas import (EditPlan, check_hype, check_montage, check_plan, check_remix, check_reorder,
+                                      check_titles, reorder_hype, repair_montage)
 
     from app.styles import layout_for
 
@@ -307,7 +309,11 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                          if four else ("- Bố cục không có dòng tiêu đề: để `title_top`, `titles_top`, `titles_bottom` rỗng."
                                        if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
         "arrow_brief": arrow_brief,
-        "order_rule": (REMIX_RULE if style.get("remix") else "") + (REORDER_RULE.format(max_clip=style.get("pacing", {}).get("max_clip_s", 4))
+        "order_rule": (REMIX_RULE if style.get("remix") and not style.get("hype") else "") + (
+                       HYPE_RULE.format(**_hype_cfg(style)) + (MONTAGE_RULE.format(parts=parts_brief(style["montage_parts"]))
+                                                                if style.get("montage_parts") else "")
+                       if style.get("hype") else
+                       REORDER_RULE.format(max_clip=style.get("pacing", {}).get("max_clip_s", 4))
                        if style.get("reorder") else COLD_OPEN_RULE if style.get("cold_open")
                        else "Các clip theo đúng thứ tự thời gian, không chồng nhau."),
         "burned_in": (f"có, ở {', '.join(b.regions)}. {b.note_vi}" if b.present else "không"),
@@ -368,7 +374,13 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         if four:
             errors += check_titles(plan, title_max, bottom_titles)
         if style.get("remix"):
-            errors += check_remix(plan, bool(decor["filter"]))
+            errors += check_remix(plan, bool(decor["filter"]), keep_order=not style.get("hype"))
+        if style.get("hype"):
+            hc = _hype_cfg(style)  # nới nhẹ so với lời dặn 3–5s ("hoặc nhiều hơn, tùy" — chủ dự án)
+            errors += check_hype(plan, hc["min_clip"] - 0.5, hc["max_clip"] + 1.0)
+        if style.get("montage_parts"):
+            errors += check_montage(plan, style["montage_parts"],
+                                    float(config.load("hype").get("montage_min_share", 0.8)))
         if style.get("reorder"):
             errors += check_reorder(plan, style.get("pacing", {}).get("reorder_share", 0.25),
                                     style.get("pacing", {}).get("max_clip_s"))
@@ -395,6 +407,12 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         p, cut = repair_policy(p, banned, load_cfg().get("min_piece_s", 0.5))
         p, fixes = repair_plan(p, min(duration, u.usable_range.end + 0.5))
         fixes = cut + fixes
+        if style.get("montage_parts"):
+            p, more = repair_montage(p, style["montage_parts"])
+            fixes += more
+        if style.get("hype"):  # cảnh gay cấn lên đầu, còn lại về sau — code xếp, không phụ thuộc AI
+            p, more = reorder_hype(p)
+            fixes += more
         p, more = repair_names(p, {k: [i.name for i in v] for k, v in decor.items()}, names, sfx_names)
         return p, fixes + more
 
@@ -482,6 +500,11 @@ BOTTOM_ON = ('- `titles_bottom` (2 dòng): nhân vật / kết luận về ngư�
 BOTTOM_OFF = "- `titles_bottom`: để RỖNG [] (bố cục chỉ có 2 dòng tiêu đề phía trên)."
 
 
+def _hype_cfg(style: dict) -> dict:
+    h = style.get("hype") if isinstance(style.get("hype"), dict) else {}
+    return {"min_clip": float(h.get("min_clip_s", 3.0)), "max_clip": float(h.get("max_clip_s", 5.0))}
+
+
 def _bg_name(color: str) -> str:
     c = (color or "").upper()
     return "trắng" if c.startswith("#FFFFFF") else "đen" if c.startswith("#000000") else f"màu {color}"
@@ -496,6 +519,20 @@ COLD_OPEN_RULE = """Các clip theo thứ tự thời gian, không chồng nhau. 
   ngắn 1–3 giây lấy khoảnh khắc buồn cười / sốc nhất ở phía sau (cold open) — đặt "repeat": true cho clip đó
   (được trùng footage với clip dựng sau) — rồi dựng từ đầu theo thứ tự."""
 
+
+HYPE_RULE = """CHUYỂN CẢNH LIÊN TỤC (chủ dự án yêu cầu): cắt thành THẬT NHIỀU cảnh ngắn, mỗi cảnh {min_clip:.0f}–{max_clip:.0f}
+  giây (không clip nào dài hơn {max_clip:.0f}s), lấy hết các khoảnh khắc đáng xem. Đánh dấu "highlight": true cho các
+  cảnh GAY CẤN / đắt giá nhất (cao trào, hành động mạnh, phản ứng lớn, khoảnh khắc bất ngờ) — CODE SẼ TỰ XẾP chúng lên ĐẦU
+  video theo đúng thứ tự bạn liệt kê; các cảnh còn lại (bối cảnh, giải thích, đoạn nhẹ) code xếp về SAU theo thời gian,
+  vẫn cắt ngắn {min_clip:.0f}–{max_clip:.0f}s để chuyển cảnh liên tục tới cuối. Clip không chồng nhau. Đừng cắt giữa câu
+  quan trọng; câu dài thì chọn đoạn hình đẹp nhất của nó. """
+
+MONTAGE_RULE = """
+  GHÉP NHIỀU VIDEO: footage là nhiều video nối lại (mốc giây dưới đây). Chọn cảnh hay từ GẦN NHƯ MỌI video (mỗi video
+  lấy một chút), ghép thành MỘT video mới có ý nghĩa: chọn một chủ đề / mạch chung (vd "những khoảnh khắc ... nhất"),
+  tiêu đề và chữ nói về chủ đề chung đó. Một clip chỉ nằm trong MỘT video (không vắt qua ranh giới).
+{parts}
+"""
 
 REORDER_RULE = """ĐẢO THỨ TỰ CLIP (kiểu giải trí — khách muốn người xem không nhận ra video gốc): KHÔNG dựng theo
   thứ tự thời gian. Mở bằng khoảnh khắc đắt / buồn cười nhất (cold open), rồi nhảy về bối cảnh, xen kẽ trước–sau,

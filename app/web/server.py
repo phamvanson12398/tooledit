@@ -298,8 +298,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         <div class="card"><h2>🎞️ Tạo video mới</h2>
         <form method="post" action="/jobs" enctype="multipart/form-data">
           <div class="field"><label>File footage</label>
-            <div class="row"><input type="text" id="footage" name="footage" placeholder="Bấm Chọn file… hoặc dán đường dẫn" required>
+            <div class="row"><textarea id="footage" name="footage" rows="2" style="flex:1" placeholder="Bấm Chọn file… hoặc dán đường dẫn (nhiều video: mỗi dòng một file)" required></textarea>
             <button type="button" class="btn light" onclick="pick()">📂 Chọn file…</button></div>
+            <div class="muted">🎞️ <b>Ghép nhiều video:</b> bấm Chọn file nhiều lần (mỗi lần thêm một dòng) — tool chọn cảnh hay
+            từ TẤT CẢ video, mỗi video một chút, ghép thành MỘT video mới (tự bật chuyển cảnh liên tục).</div>
             <div class="muted" id="pickmsg"></div></div>
           <div class="field"><label>Kiểu dựng</label><div class="styles">{''.join(style_cards)}</div></div>
           <div class="field"><label>Tùy chọn</label><div class="toggles">
@@ -307,7 +309,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <label class="tg"><input type="checkbox" name="reframe"> Đổi khung theo cảnh</label>
             <label class="tg"><input type="checkbox" name="business"> Khách doanh nghiệp (nhạc Commercial)</label>
             <label class="tg"><input type="checkbox" name="confirm"> Xác nhận trước khi dựng</label>
-            <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label></div></div>
+            <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label>
+            <label class="tg"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục — cảnh gay cấn lên đầu (3–5s/cảnh)</label></div></div>
           {_music_select(lib)}
           <div class="field"><label>🌐 Đổi ngôn ngữ video (thuyết minh + phụ đề, dựng lại khác bản gốc)</label>
             <select name="target_language"><option value="">Giữ nguyên ngôn ngữ gốc</option>
@@ -341,7 +344,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         async function pick(){{
           const m=document.getElementById('pickmsg'); m.textContent='Đang mở hộp thoại chọn file…';
           try{{const r=await fetch('/api/pick-file');const d=await r.json();
-            if(d.path){{document.getElementById('footage').value=d.path;m.textContent='';}}
+            if(d.path){{const f=document.getElementById('footage');f.value=(f.value.trim()?f.value.trim()+'\n':'')+d.path;m.textContent='';}}
             else m.textContent=d.error||'Chưa chọn file.';}}catch(e){{m.textContent='Không mở được hộp thoại: '+e;}}
         }}
         </script>"""
@@ -463,20 +466,28 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto"),
                 split: str | None = Form(None), target_language: str = Form(""), music: str = Form(""),
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
-                keep_bgm: str | None = Form(None), script_mode: str = Form("")):
-        path = Path(footage.strip().strip('"'))
+                keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None)):
+        paths = [Path(x.strip().strip('"')) for x in footage.splitlines() if x.strip().strip('"')]
+        missing_files = [p for p in paths if not p.is_file()]
+        if not paths or missing_files:
+            return _page("Lỗi", "<div class='card'><h2>Không thấy file</h2><p>"
+                         + html.escape(", ".join(str(p) for p in missing_files) or "(chưa chọn file)")
+                         + "</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
+        path = paths[0]
         lang = target_language if target_language in ("ko", "ja", "en") else ""
+        if voice_only and len(paths) > 1:
+            return _page("Lỗi", "<div class='card'><h2>Chỉ thay tiếng dùng cho MỘT video</h2><p>Bỏ tick "
+                         "<b>Chỉ thay tiếng</b> để ghép nhiều video, hoặc chỉ chọn một file.</p>"
+                         "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         if voice_only and not lang:
             return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Chỉ thay tiếng</b> cần chọn "
                          "ngôn ngữ mới ở ô <b>🌐 Đổi ngôn ngữ video</b> (Hàn / Nhật / Anh).</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
-        if not path.is_file():
-            return _page("Lỗi", f"<div class='card'><h2>Không thấy file</h2><p>{html.escape(str(path))}</p>"
-                         "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
-        job = Job.create(Path(jobs_root), [path.resolve()], JobOptions(
+        job = Job.create(Path(jobs_root), [p.resolve() for p in paths], JobOptions(
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only,
             reframe_per_scene=bool(reframe) and not voice_only,
-            confirm_before_build=bool(confirm), split=bool(split) and not voice_only,
+            confirm_before_build=bool(confirm), split=bool(split) and not voice_only and len(paths) == 1,
+            hype=(bool(hype) or len(paths) > 1) and not voice_only,
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
             script_mode=script_mode if script_mode in ("rewrite", "translate") else ""))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
