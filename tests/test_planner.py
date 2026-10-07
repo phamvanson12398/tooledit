@@ -182,7 +182,12 @@ def test_four_titles_layout_like_reference(tmp_path):
     mats = {m["id"]: json.loads(m["content"])["text"] for m in tl["materials"]["texts"]}
     segs = {mats[s["material_id"]]: s for t in tl["tracks"] if t["type"] == "text" for s in t["segments"]}
     rows = four["title_rows"]
-    for text, row in zip(plan.titles_top + plan.titles_bottom, rows):
+    assert four["bottom_titles"] is False and four["background_color"] == "#FFFFFFFF"  # chủ dự án chốt 07/10
+    assert not set(plan.titles_bottom) & set(segs)  # chỉ 2 dòng tiêu đề phía trên
+    title_mats = [m for m in tl["materials"]["texts"] if json.loads(m["content"])["text"] in plan.titles_top]
+    assert all(json.loads(m["content"])["styles"][0]["fill"]["content"]["solid"]["color"] == [0, 0, 0]
+               for m in title_mats)  # chữ tiêu đề đen
+    for text, row in zip(plan.titles_top, rows):
         seg = segs[text]
         assert abs(seg["clip"]["transform"]["y"] - row_to_y(row)) < 1e-6
         assert seg["target_timerange"]["start"] == 0 and seg["target_timerange"]["duration"] == res.duration_us
@@ -204,6 +209,8 @@ def test_plan_requires_four_titles(tmp_path):
     assert check_titles(EditPlan.model_validate(p), 12) == []
     p["titles_bottom"] = ["一行だけ"]
     assert check_titles(EditPlan.model_validate(p), 12)
+    assert check_titles(EditPlan.model_validate({**p, "titles_bottom": []}), 12, bottom=False) == []  # chỉ 2 dòng trên
+    assert check_titles(EditPlan.model_validate({**p, "titles_top": ["x"]}), 12, bottom=False)
     p["titles_bottom"] = ["とても長すぎるタイトル行ですよね", "x"]
     assert any("tối đa" in e for e in check_titles(EditPlan.model_validate(p), 12))
 

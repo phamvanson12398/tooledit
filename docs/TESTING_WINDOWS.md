@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 53 — Chỉ 2 dòng tiêu đề phía trên, nền trắng, chữ đen `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Job cũ: bấm **🔁 Dựng lại draft** (dòng tiêu đề dưới cũ tự bỏ, không cần
+   hỏi lại AI).
+2. Mở draft trong CapCut: nền trắng; 2 dòng tiêu đề chữ đen phía trên khối video; phía dưới khối video không còn tiêu đề.
+3. Xem phụ đề, nhãn chủ đề (nằm trong khối video) vẫn đọc rõ; video dọc kín màn (chế độ Chỉ thay tiếng): chữ tiêu đề đen
+   viền trắng đè lên hình — xem có đọc được không.
+4. Chỉnh: `config\layout.yaml → four_titles`: `background_color` (vd `"#000000FF"` = đen), `title_styles` (màu chữ),
+   `bottom_titles: true` = có lại 2 dòng dưới.
+
 ## Bước 52 — Thuyết minh "AI xem video rồi viết mới" (không dịch) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

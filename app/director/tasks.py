@@ -253,6 +253,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
 
     lay = layout_for(style)
     four = bool(lay and lay.get("titles"))
+    bottom_titles = bool(lay and lay.get("bottom_titles", True))
     fixed = lay is not None  # bố cục cố định: không chọn khung 4:3 / 1:1
     title_max = ((lay or {}).get("title_max_chars") or {}).get(u.language, 12)
     a = load_analysis(analysis_dir, footage)
@@ -295,6 +296,11 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         "reframe": "không — bố cục cố định" if fixed else
         ("có — chọn 4:3 hoặc 1:1 cho từng clip" if reframe else "không — mọi clip dùng khung mặc định"),
         "layout_brief": (FOUR_TITLES_BRIEF.format(max_chars=title_max, ratio=lay["block_ratio"],
+                                                  bg=_bg_name(lay.get("background_color", "")),
+                                                  title_rows_vi=("2 dòng tiêu đề CHỮ RẤT TO phía trên (`titles_top`) và 2 "
+                                                                 "dòng phía dưới (`titles_bottom`)" if bottom_titles else
+                                                                 "CHỈ 2 dòng tiêu đề CHỮ RẤT TO phía trên (`titles_top`)"),
+                                                  bottom_rule=BOTTOM_ON if bottom_titles else BOTTOM_OFF,
                                                   plan_ratio=lay["block_ratio"] if lay["block_ratio"] in
                                                   ("16:9", "4:3", "1:1") else "16:9",
                                                   language=LANGUAGE_NAMES.get(u.language, u.language))
@@ -360,7 +366,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         if business and plan.music.name and plan.music.name not in commercial:
             errors.append(f"khách doanh nghiệp: bài '{plan.music.name}' không có nhãn Commercial")
         if four:
-            errors += check_titles(plan, title_max)
+            errors += check_titles(plan, title_max, bottom_titles)
         if style.get("remix"):
             errors += check_remix(plan, bool(decor["filter"]))
         if style.get("reorder"):
@@ -460,16 +466,25 @@ def repair_names(plan, decor_names: dict[str, list[str]], music_names: set[str],
     return plan.model_copy(update=upd), fixes
 
 
-FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video mẫu chủ dự án chọn): nền đen, khối video {ratio} ở giữa,
-  2 dòng tiêu đề CHỮ RẤT TO phía trên (`titles_top`) và 2 dòng phía dưới (`titles_bottom`), hiện suốt video.
+FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video mẫu chủ dự án chọn): nền {bg}, khối video {ratio} ở giữa,
+  {title_rows_vi}, hiện suốt video.
   Phụ đề thoại nằm trong khối video (code tự làm). `default_ratio` = "{plan_ratio}", mọi clip `ratio` = null.
 - `titles_top` (2 dòng): tình huống / câu gợi tò mò, dòng 1 mở (có thể kết bằng "…"), dòng 2 là chi tiết bất ngờ.
   Ví dụ tiếng Nhật: ["大事な試合の前に…", "隣室から突然流れる演歌"].
-- `titles_bottom` (2 dòng): nhân vật / kết luận về người trong video. Ví dụ: ["全くぶれない男だった", "亜細亜大のキャプテン"].
+{bottom_rule}
 - Mỗi dòng tối đa {max_chars} ký tự, viết bằng {language} tự nhiên kiểu tiêu đề TikTok bản xứ, không xuống dòng.
   Phải ĐÚNG nội dung có thật trong footage; không hứa điều video không có; không lộ hết "lời giải".
 - `topic_label`: nhãn ngắn chủ đề đoạn nói chuyện (ví dụ "同期のパンチ佐藤さんについて"), hoặc rỗng nếu footage đã có sẵn.
   `title_top` để rỗng."""
+
+BOTTOM_ON = ('- `titles_bottom` (2 dòng): nhân vật / kết luận về người trong video. '
+             'Ví dụ: ["全くぶれない男だった", "亜細亜大のキャプテン"].')
+BOTTOM_OFF = "- `titles_bottom`: để RỖNG [] (bố cục chỉ có 2 dòng tiêu đề phía trên)."
+
+
+def _bg_name(color: str) -> str:
+    c = (color or "").upper()
+    return "trắng" if c.startswith("#FFFFFF") else "đen" if c.startswith("#000000") else f"màu {color}"
 
 
 REMIX_RULE = """BẢN DỰNG LẠI (khác bản gốc ~80%): giữ đúng THỨ TỰ thời gian của câu chuyện (không đảo cảnh), nhưng

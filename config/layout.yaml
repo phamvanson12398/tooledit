@@ -8,7 +8,9 @@ preset: four_titles
 
 four_titles:
   titles: true
-  background_color: "#000000FF"
+  # Chủ dự án chốt 07/10: CHỈ 2 dòng tiêu đề phía trên (bỏ 2 dòng dưới), nền mặc định TRẮNG, chữ tiêu đề ĐEN.
+  bottom_titles: false         # true = có lại 2 dòng tiêu đề phía dưới
+  background_color: "#FFFFFFFF"
   block_ratio: "16:9"          # tỉ lệ khối dùng để ĐO các vị trí bên dưới (theo video mẫu)
   # Khung video trên màn = khung người dùng chọn khi tạo job (4:3 / 1:1 / 16:9); các vị trí bên dưới tự dời theo khung.
   # (Chủ dự án bỏ khung cố định 3:4 ngày 02/10. Muốn bật lại: thêm `frame_ratio: "3:4"` và `frame_lock: true`.)
@@ -26,11 +28,11 @@ four_titles:
   char_width_per_size: 0.0017
   title_scale_max: 1.0         # không phóng to thêm (giữ đúng cỡ 20); dòng quá dài thì tự thu nhỏ cho vừa khung
   # Màu 4 dòng (theo video mẫu; CapCut chưa ghi được gradient/phát sáng bằng code nên dùng màu trơn + viền dày)
-  title_styles:
-    - {color: [1, 1, 1], stroke_color: [0.85, 0.1, 0.8], stroke_width: 0.2}        # trắng, viền hồng tím
-    - {color: [0.55, 0.08, 0.05], stroke_color: [1, 0.8, 0.1], stroke_width: 0.2}  # đỏ nâu, viền vàng
-    - {color: [0.95, 0.3, 0.05], stroke_color: [1, 1, 1], stroke_width: 0.2}       # cam đỏ, viền trắng
-    - {color: [1, 0.85, 0.95], stroke_color: [0.25, 0.05, 0.3], stroke_width: 0.2} # hồng nhạt, viền tím đậm
+  title_styles:                # chữ đen (viền trắng mảnh để vẫn đọc được khi chữ đè lên hình ở video dọc)
+    - {color: [0, 0, 0], stroke_color: [1, 1, 1], stroke_width: 0.08}
+    - {color: [0, 0, 0], stroke_color: [1, 1, 1], stroke_width: 0.08}
+    - {color: [0, 0, 0], stroke_color: [1, 1, 1], stroke_width: 0.08}
+    - {color: [0, 0, 0], stroke_color: [1, 1, 1], stroke_width: 0.08}
   subtitle: {size: 11, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.16}
   topic: {size: 7, color: [1, 1, 1], stroke_color: [0.1, 0.25, 0.85], stroke_width: 0.2}
   # giới hạn ký tự mỗi dòng tiêu đề (đạo diễn phải viết ngắn để chữ to)

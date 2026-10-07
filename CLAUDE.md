@@ -142,6 +142,8 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   (`preset: classic` để dùng lại bố cục 4:3/1:1 ở trên).
   **Cập nhật 01/10:** khung người dùng chọn khi tạo job (4:3 / 1:1 / 16:9) được áp dụng cho khối video của mọi bố cục;
   tiêu đề, phụ đề, nhãn tự dời theo khối (`app/styles.adapt_layout`). "Theo kiểu dựng" = khung mặc định của bố cục.
+  **Cập nhật 07/10:** chỉ còn **2 dòng tiêu đề phía trên** (bỏ 2 dòng dưới — `bottom_titles: false`), **nền mặc định
+  trắng**, **chữ tiêu đề đen** (viền trắng mảnh) — `config/layout.yaml → four_titles`.
   ~~Cập nhật 02/10: khung cố định 3:4~~ — **chủ dự án BỎ ngày 02/10**: khung video trở lại theo lựa chọn 4:3 / 1:1 /
   16:9 khi tạo job như cập nhật 01/10 (`frame_ratio` / `frame_lock` không còn đặt trong `config/layout.yaml`).
 - **Ngoại lệ thể thao (chủ dự án chốt 25/09, video mẫu boxing):** kiểu `sports_analysis` dùng bố cục `sports_focus`:

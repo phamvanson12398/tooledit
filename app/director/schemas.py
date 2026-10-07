@@ -386,12 +386,14 @@ def check_remix(plan: EditPlan, have_filters: bool) -> list[str]:
     return errors
 
 
-def check_titles(plan: EditPlan, max_chars: int) -> list[str]:
-    """Bố cục 4 dòng tiêu đề: đủ 2 dòng trên + 2 dòng dưới, mỗi dòng ngắn để chữ to."""
+def check_titles(plan: EditPlan, max_chars: int, bottom: bool = True) -> list[str]:
+    """Bố cục dòng tiêu đề: đủ 2 dòng trên (+ 2 dòng dưới nếu bottom), mỗi dòng ngắn để chữ to."""
     errors = []
-    if len([t for t in plan.titles_top if t.strip()]) != 2 or len([t for t in plan.titles_bottom if t.strip()]) != 2:
-        errors.append("bố cục 4 dòng: titles_top và titles_bottom mỗi cái phải có đúng 2 dòng không rỗng")
-    for t in plan.titles_top + plan.titles_bottom:
+    if len([t for t in plan.titles_top if t.strip()]) != 2:
+        errors.append("titles_top phải có đúng 2 dòng không rỗng")
+    if bottom and len([t for t in plan.titles_bottom if t.strip()]) != 2:
+        errors.append("bố cục 4 dòng: titles_bottom phải có đúng 2 dòng không rỗng")
+    for t in plan.titles_top + (plan.titles_bottom if bottom else []):
         if len(t) > max_chars:
             errors.append(f"dòng tiêu đề '{t}' dài {len(t)} ký tự, tối đa {max_chars}")
         if "\n" in t:

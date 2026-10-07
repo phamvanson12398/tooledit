@@ -96,9 +96,10 @@ def four_title_positions(four: dict) -> dict:
 
 
 def add_title_lines(w: DraftWriter, plan: EditPlan, four: dict, start: int, end: int) -> int:
-    """2 dòng tiêu đề trên + 2 dòng dưới, cố định suốt video, tự canh cỡ cho dòng tràn gần hết chiều ngang."""
+    """2 dòng tiêu đề trên (+ 2 dòng dưới nếu bật bottom_titles), cố định suốt video, tự canh cỡ cho dòng tràn gần
+    hết chiều ngang."""
     top = [t for t in plan.titles_top if t.strip()] or ([plan.title_top] if plan.title_top.strip() else [])
-    bottom = [t for t in plan.titles_bottom if t.strip()]
+    bottom = [t for t in plan.titles_bottom if t.strip()] if four.get("bottom_titles", True) else []
     rows = four.get("title_rows", [0.094, 0.262, 0.745, 0.893])
     styles = four.get("title_styles") or [{}]
     size = four.get("title_size", 30)
@@ -665,8 +666,10 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     if plan.filter and lib.get(("filter", plan.filter)):
         w.add_filter(lib[("filter", plan.filter)], start=hook_us, duration=tmap.end - hook_us)
     if four and four.get("titles"):
-        if add_title_lines(w, plan, four, 0, tmap.end) < 4:
-            notes.append("Kế hoạch dựng thiếu dòng tiêu đề (cần 2 dòng trên + 2 dòng dưới).")
+        need = 4 if four.get("bottom_titles", True) else 2
+        if add_title_lines(w, plan, four, 0, tmap.end) < need:
+            notes.append("Kế hoạch dựng thiếu dòng tiêu đề (cần 2 dòng trên" +
+                         (" + 2 dòng dưới)." if need == 4 else ")."))
         if plan.topic_label.strip():
             w.add_text(plan.topic_label, start=hook_us, duration=tmap.end - hook_us, x=four.get("topic_x", 0.3),
                        y=row_to_y(four.get("topic_row", 0.362)), style=dataclasses.replace(
