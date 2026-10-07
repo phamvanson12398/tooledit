@@ -315,6 +315,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <option value="en">Đổi sang tiếng Anh (English)</option></select>
             <div class="muted">Video gốc tiếng Hàn / Nhật / Anh / Trung. AI dịch và viết câu thuyết minh, bạn thu voice từng câu
             bằng Voice Studio rồi tải lên; mọi cảnh được đổi khung, zoom, chuyển động, nhạc + tiêu đề mới (giữ thứ tự cảnh).</div>
+            <label style="margin-top:8px">✍️ Cách viết lời thuyết minh</label><select name="script_mode">
+              <option value="rewrite">AI xem video rồi VIẾT MỚI nội dung hợp nước đó (không dịch)</option>
+              <option value="translate">Dịch sát lời gốc (bản địa hóa nhẹ)</option></select>
             <label class="tg"><input type="checkbox" name="voice_only"> 🎙️ Chỉ thay tiếng — giữ NGUYÊN hình</label>
             <div class="muted">Không cắt, không đổi khung / zoom / lật: video giữ đúng như gốc từ đầu đến cuối. Chỉ tắt tiếng gốc,
             thêm voice thuyết minh + phụ đề + tiêu đề (ngôn ngữ đã chọn ở trên), nhạc nền nhẹ và hiệu ứng. Không có hook,
@@ -460,7 +463,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto"),
                 split: str | None = Form(None), target_language: str = Form(""), music: str = Form(""),
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
-                keep_bgm: str | None = Form(None)):
+                keep_bgm: str | None = Form(None), script_mode: str = Form("")):
         path = Path(footage.strip().strip('"'))
         lang = target_language if target_language in ("ko", "ja", "en") else ""
         if voice_only and not lang:
@@ -474,7 +477,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only,
             reframe_per_scene=bool(reframe) and not voice_only,
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only,
-            target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only)))
+            target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
+            script_mode=script_mode if script_mode in ("rewrite", "translate") else ""))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
         if music_file is not None and music_file.filename:
             chosen = _save_user_music(music_file, Path(assets_root))

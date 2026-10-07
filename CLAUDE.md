@@ -94,6 +94,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - **Bản địa hóa (chủ dự án chốt 01/10):** kịch bản (thuyết minh, lời dẫn, hook, tiêu đề, caption) viết THEO NƯỚC của khán
   giả đích — giọng, cách hài, tên riêng, đơn vị, tiền tệ, giải thích chi tiết văn hóa lạ, điều nên tránh
   (`config/localize.yaml`); câu được bản địa hóa ghi `adapt_vi`. Giữ đúng sự việc, không bịa.
+- **Cách viết lời thuyết minh (chủ dự án yêu cầu 07/10), chọn khi tạo job:** mặc định **"AI xem video rồi VIẾT MỚI"**
+  (`script_mode: rewrite`, prompt `dub_rewrite.md`) — AI xem ~16 khung hình + lời gốc chỉ để hiểu sự việc, tự viết kịch
+  bản mới như creator bản xứ của nước đích (mở lời cuốn ngay giây đầu, không nói kín quá 90%), vẫn đúng sự thật, không
+  bịa; hoặc **"Dịch sát"** (`translate`, cách cũ). Mặc định ở `config/dub.yaml → default_script_mode`.
 - **Voice khớp hình cho video nói liên tục (chủ dự án yêu cầu 03/10, vd hướng dẫn trang điểm):** câu thuyết minh bám
   đúng đoạn thoại gốc của từng động tác, viết gọn hơn gốc 10–20%; mỗi câu được dùng chỗ trống tới lúc câu sau bắt đầu
   rồi mới tăng tốc (tối đa `max_speed`); có thể thu CẢ BÀI một file (nghỉ ~1 giây giữa các câu), tool tự cắt ra từng câu

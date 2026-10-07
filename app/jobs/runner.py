@@ -576,7 +576,8 @@ class Runner:
                 plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
                 hook = self._hook_for(d, i) if job.options.hook else None
                 try:
-                    s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i)
+                    s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i,
+                                 mode=self.script_mode(job))
                 except DirectorError as exc:
                     if exc.last is None:
                         raise
@@ -740,6 +741,11 @@ class Runner:
             return True
         job.save(self.jobs_root)
         return False
+
+    def script_mode(self, job: Job) -> str:
+        """Cách viết thuyết minh: rewrite (AI xem video, viết mới theo nước đích) hoặc translate (dịch sát)."""
+        mode = job.options.script_mode or config.load("dub").get("default_script_mode", "rewrite")
+        return mode if mode in ("rewrite", "translate") else "rewrite"
 
     def vi_subtitles(self, job: Job) -> bool:
         """Phụ đề tiếng Việt để kiểm tra (chế độ Đổi ngôn ngữ): theo nút bật/tắt của job, mặc định theo config/dub.yaml."""

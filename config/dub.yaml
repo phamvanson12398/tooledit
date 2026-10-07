@@ -29,6 +29,15 @@ vi_subtitles:
   gap: 0.075                  # khoảng cách xuống dưới phụ đề chính (nửa khung)
   max_chars: 34               # mỗi cụm tối đa 34 ký tự             # mỗi câu thuyết minh dài 1.5–9 giây (một ý trọn vẹn)
 
+# Cách viết lời thuyết minh (chủ dự án yêu cầu 07/10), chọn khi tạo job:
+#   rewrite   = AI XEM video (khung hình + lời gốc để hiểu) rồi VIẾT MỚI nội dung hợp khán giả nước đích (mặc định)
+#   translate = dịch sát lời gốc (+ lời dẫn ở chỗ im lặng)
+default_script_mode: rewrite
+rewrite:
+  frames: 16                   # số khung hình gửi AI xem (rải đều các clip được giữ)
+  open_within_s: 1.5           # câu đầu tiên phải cất lên trong 1.5 giây đầu
+  max_cover: 0.9               # lời chiếm tối đa 90% thời lượng (chừa chỗ thở)
+
 # Chỗ KHÔNG có giọng nói (chủ dự án chốt 01/10): AI viết LỜI DẪN, nhưng CHỈ ở cảnh hay / hành động đáng chú ý
 # (vd video nấu ăn: lúc thêm gia vị, lật miếng thịt, món ra lò) — không nói liên tục; chỗ khác để nhạc + tiếng hiện trường.
 narration:

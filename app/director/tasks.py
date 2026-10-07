@@ -804,11 +804,68 @@ def shorten_dub_lines(director: Director, script, items: list[tuple[int, int]], 
     return script.model_copy(update={"lines": lines})
 
 
-def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0):
-    """Kịch bản thuyết minh theo các clip của kế hoạch dựng (giây gốc), bằng ngôn ngữ đích u.language."""
+def check_rewrite(script, plan, cfg: dict) -> list[str]:
+    """Kịch bản viết mới: mở lời ngay đầu video, không nói kín mít."""
+    from app.planner.timeline import TimeMap
+
+    rcfg = cfg.get("rewrite") or {}
+    tmap = TimeMap(plan.clips)
+    outs = [(tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)) for ln in script.lines]
+    outs = [(a, b) for a, b in outs if a is not None and b is not None and b > a]
+    errors = []
+    if outs and min(a for a, _ in outs) > float(rcfg.get("open_within_s", 1.5)) * 1e6:
+        errors.append(f"câu đầu tiên phải bắt đầu trong {rcfg.get('open_within_s', 1.5)} giây đầu video (mở lời cuốn hút ngay)")
+    total = tmap.end or 1
+    cover = sum(b - a for a, b in outs) / total
+    if cover > float(rcfg.get("max_cover", 0.9)):
+        errors.append(f"lời chiếm {cover:.0%} thời lượng — quá kín, chừa chỗ thở (≤ {float(rcfg.get('max_cover', 0.9)):.0%})")
+    return errors
+
+
+def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0):
     from app.director.schemas import DubScript
 
     cfg = config.load("dub")
+    rcfg = cfg.get("rewrite") or {}
+    a = load_analysis(analysis_dir, footage)
+    segs = a["transcript"].get("segments", [])
+    kept_clips = [c for c in plan.clips if not c.replay and not c.repeat]
+    kept = [s for s in segs if any(s["end"] > c.source_start and s["start"] < c.source_end for c in kept_clips)]
+    pool = [f for f in a["frames"] if any(c.source_start - 0.3 <= f["t"] <= c.source_end + 0.3 for c in kept_clips)]
+    frames = pick_evenly(sorted(pool, key=lambda f: f["t"]), int(rcfg.get("frames", 16)))
+    lo, hi = cfg.get("line_s", [1.5, 9.0])
+    variables = {**_shared_context(u, kept, a.get("events")), "video_index": video_index,
+                 "language_name": LANGUAGE_NAMES.get(u.language, u.language),
+                 "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
+                 "market": MARKETS.get(u.language, "TikTok"), "line_min": lo, "line_max": hi,
+                 "max_cps": round(effective_cps(cfg, u.language) * float(cfg.get("write_cps_factor", 0.85)), 1),
+                 "localize_brief": localize_brief(u),
+                 "hook": f"{hook_text(hook)} ({hook_text(hook, vi=True)})" if hook else "không có hook",
+                 "clips": "\n".join(f"- clip {i}: {c.source_start:.1f}–{c.source_end:.1f}s"
+                                    f"{' (replay / lặp lại — không thuyết minh)' if c.replay or c.repeat else ''}"
+                                    for i, c in enumerate(plan.clips)),
+                 "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)"}
+
+    def extra(r) -> list[str]:
+        errors = check_dub(r, plan, u.language, cfg) + check_rewrite(r, plan, cfg)
+        if r.video_index != video_index:
+            errors.append(f"video_index phải là {video_index}")
+        return errors
+
+    return director.run("dub_rewrite", variables, DubScript, [analysis_dir / f["file"] for f in frames],
+                        extra_check=extra, repair=lambda r: repair_dub(r, plan, cfg, u.language))
+
+
+def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,
+             mode: str = "translate"):
+    """Kịch bản thuyết minh theo các clip của kế hoạch dựng (giây gốc), bằng ngôn ngữ đích u.language.
+    mode="translate": dịch sát lời gốc (+ lời dẫn chỗ im lặng); mode="rewrite": AI xem hình rồi VIẾT MỚI nội dung
+    hợp khán giả nước đích (chủ dự án yêu cầu 07/10)."""
+    from app.director.schemas import DubScript
+
+    cfg = config.load("dub")
+    if mode == "rewrite":
+        return _rewrite_dub(director, analysis_dir, u, plan, hook=hook, video_index=video_index, footage=footage)
     a = load_analysis(analysis_dir, footage)
     segs = a["transcript"].get("segments", [])
     kept = []

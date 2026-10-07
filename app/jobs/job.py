@@ -45,6 +45,7 @@ class JobOptions(BaseModel):
     confirm_before_build: bool = False  # ☐ Xác nhận trước khi dựng
     target_language: str = ""         # Đổi ngôn ngữ: "" = giữ nguyên; ko/ja/en = thuyết minh + phụ đề tiếng đó
     voice_only: bool = False          # Chỉ thay tiếng (05/10): giữ nguyên hình, không cắt / đổi khung — cần target_language
+    script_mode: str = ""             # Đổi ngôn ngữ: "rewrite" = AI xem video viết mới / "translate" = dịch; "" = theo config
     keep_bgm: bool = False            # (cùng voice_only) giữ nhạc nền gốc: tách giọng nói ra, chỉ thay lời thuyết minh
 
 

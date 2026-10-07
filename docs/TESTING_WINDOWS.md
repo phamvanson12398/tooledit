@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 52 — Thuyết minh "AI xem video rồi viết mới" (không dịch) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Trang chủ: chọn **🌐 Đổi ngôn ngữ video** → ô **✍️ Cách viết lời thuyết minh**:
+   - "AI xem video rồi VIẾT MỚI nội dung hợp nước đó" (mặc định) — hoặc "Dịch sát lời gốc" như trước.
+   Dùng được cho cả chế độ thường lẫn "Chỉ thay tiếng".
+3. Tới bước chờ voice: đọc kịch bản (cột 🇻🇳 nghĩa tiếng Việt) — các câu là lời kể MỚI theo kiểu TikTok nước đó
+   (mở bằng câu cuốn hút, bình luận / giải thích điều đang thấy), không phải bản dịch từng câu; vẫn đúng sự việc trên
+   hình, không có tên / số liệu / lời hứa bịa ra. Cột "lời dẫn" ghi trên hình đang có gì.
+4. Nhật ký bước dub có dòng "Đang hỏi đạo diễn AI (dub_rewrite)". Bước này gửi ~16 khung hình nên lâu hơn dịch chút.
+5. Đổi mặc định: `config\dub.yaml` → `default_script_mode: translate`; số khung hình `rewrite.frames`.
+
 ## Bước 51 — Chỉ thay tiếng + Giữ nhạc nền gốc `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn `start.bat`. Cài Demucs một lần (xem docs/SETUP_WINDOWS.md, mục Demucs):

@@ -24,6 +24,8 @@ def _remix_plan():
 
 def make_runner(tmp_path, jobs, **responses):
     r = _make_runner(tmp_path, jobs)
+    if "dub" in responses:  # mặc định job viết mới (rewrite) → cùng câu trả lời cho cả 2 cách viết
+        responses.setdefault("dub_rewrite", responses["dub"])
     r._director = FakeDirector(responses={"plan": _remix_plan(), **responses})
     return r
 
@@ -164,12 +166,13 @@ def test_web_dub_flow(tmp_path):
         return orig_start(job_id, action)
 
     app.state.worker.start = start
-    r = client.post("/jobs", data={"footage": str(footage), "target_language": "ko", "hook": ""},
-                    follow_redirects=False)
+    r = client.post("/jobs", data={"footage": str(footage), "target_language": "ko", "hook": "",
+                                   "script_mode": "translate"}, follow_redirects=False)
     jid = r.headers["location"].rsplit("/", 1)[1]
     wait_idle(app)
     job = Job.load(jobs, jid)
     assert job.options.target_language == "ko" and job.step == "dub_voice", job.message
+    assert job.options.script_mode == "translate"
     page = client.get(f"/jobs/{jid}").text
     assert "Thu voice thuyết minh" in page and "video01_dub03" in page and "저 스모 선수" in page
     assert "dub-voice-all" in page and "chỗ 3.0s" in page  # ô một file cả bài + chỗ trống từng câu
@@ -283,7 +286,7 @@ def test_localized_for_target_country(tmp_path):
 
 
 def test_original_audio_muted_in_dub_mode(tmp_path):
-    jobs, job = prepare(tmp_path, JobOptions(target_language="ko"))
+    jobs, job = prepare(tmp_path, JobOptions(target_language="ko", script_mode="translate"))
     r = make_runner(tmp_path, jobs)
     job = r.run(job)
     for n in range(1, 6):
@@ -527,3 +530,34 @@ def test_keep_bgm_falls_back_without_demucs(tmp_path, monkeypatch):
     job = r.resume(job)
     assert job.status == Status.done, job.message
     assert any("Không giữ được nhạc nền gốc" in m and "Demucs" in m for m in logs)
+
+
+def test_rewrite_mode_watches_video_and_writes_new(tmp_path):
+    """Viết mới: AI được xem khung hình, prompt dặn không dịch; câu đầu phải cất lên ngay, không nói kín mít."""
+    from app.director.tasks import check_rewrite
+
+    a = make_analysis(tmp_path)
+    u = understand(FakeDirector(), a).dubbed_to("ko")
+    d = FakeDirector()
+    s = make_dub(d, a, u, EditPlan.model_validate(_short_plan()), mode="rewrite")
+    call = d.calls[-1]
+    assert call["task"] == "dub_rewrite" and "VIẾT MỚI" in call["prompt"] and "KHÔNG dịch" in call["prompt"]
+    assert len(call["images"]) >= 10  # gửi khung hình rải đều để AI xem
+    assert s.lines[0].source_start == 1.2
+    plan = EditPlan.model_validate(_short_plan())  # clip 1–45s
+    late = DubScript.model_validate({**FIX, "lines": [{**FIX["lines"][0], "source_start": 6.0, "source_end": 9.0}]})
+    assert any("giây đầu" in e for e in check_rewrite(late, plan, {}))
+    full = DubScript.model_validate({**FIX, "lines": [
+        {"source_start": float(t), "source_end": t + 4.8, "text": "가", "text_vi": "x"} for t in range(1, 41, 5)]})
+    assert any("quá kín" in e for e in check_rewrite(full, plan, {"rewrite": {"max_cover": 0.8}}))  # 87% > 80%
+
+
+def test_job_default_script_mode_is_rewrite(tmp_path):
+    jobs, job = prepare(tmp_path, JobOptions(target_language="ko"))
+    r = make_runner(tmp_path, jobs)
+    assert r.script_mode(job) == "rewrite"
+    job = r.run(job)
+    assert job.step == "dub_voice"
+    assert any(c["task"] == "dub_rewrite" for c in r._director.calls)
+    job.options.script_mode = "translate"
+    assert r.script_mode(job) == "translate"
