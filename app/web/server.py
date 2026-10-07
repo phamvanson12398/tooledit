@@ -318,7 +318,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <label class="tg"><input type="checkbox" name="voice_only"> 🎙️ Chỉ thay tiếng — giữ NGUYÊN hình</label>
             <div class="muted">Không cắt, không đổi khung / zoom / lật: video giữ đúng như gốc từ đầu đến cuối. Chỉ tắt tiếng gốc,
             thêm voice thuyết minh + phụ đề + tiêu đề (ngôn ngữ đã chọn ở trên), nhạc nền nhẹ và hiệu ứng. Không có hook,
-            không chia video. Đoạn vi phạm chính sách TikTok vẫn bị cắt.</div></div>
+            không chia video. Đoạn vi phạm chính sách TikTok vẫn bị cắt.</div>
+            <label class="tg"><input type="checkbox" name="keep_bgm"> 🎵 Giữ nhạc nền gốc (chỉ tách bỏ giọng nói)</label>
+            <div class="muted">Dùng cùng "Chỉ thay tiếng": tool tách giọng nói khỏi âm thanh gốc, giữ nguyên nhạc nền + tiếng
+            hiện trường, chỉ thay lời bằng voice thuyết minh (không thêm nhạc khác). Cần cài Demucs một lần
+            (docs/SETUP_WINDOWS.md); chưa cài thì tool dùng nhạc AI chọn như thường.</div></div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
             <div><label>Khung video</label><select name="ratio">
@@ -455,7 +459,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 reframe: str | None = Form(None), business: str | None = Form(None),
                 confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto"),
                 split: str | None = Form(None), target_language: str = Form(""), music: str = Form(""),
-                music_file: UploadFile | None = File(None), voice_only: str | None = Form(None)):
+                music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
+                keep_bgm: str | None = Form(None)):
         path = Path(footage.strip().strip('"'))
         lang = target_language if target_language in ("ko", "ja", "en") else ""
         if voice_only and not lang:
@@ -469,7 +474,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only,
             reframe_per_scene=bool(reframe) and not voice_only,
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only,
-            target_language=lang, voice_only=bool(voice_only)))
+            target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only)))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
         if music_file is not None and music_file.filename:
             chosen = _save_user_music(music_file, Path(assets_root))

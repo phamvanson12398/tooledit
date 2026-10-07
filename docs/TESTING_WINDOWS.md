@@ -1,5 +1,22 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 51 — Chỉ thay tiếng + Giữ nhạc nền gốc `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn `start.bat`. Cài Demucs một lần (xem docs/SETUP_WINDOWS.md, mục Demucs):
+   ```powershell
+   .\.venv\Scripts\python -m pip install -r requirements-bgm.txt
+   .\.venv\Scripts\python -c "import demucs; print('Demucs OK')"
+   ```
+2. Mở lại `start.bat`. Trang chủ: chọn ngôn ngữ ở **🌐 Đổi ngôn ngữ video**, tick **🎙️ Chỉ thay tiếng** và
+   **🎵 Giữ nhạc nền gốc** → Bắt đầu.
+3. Tới bước dựng (sau khi tải voice), nhật ký có "Tách nhạc nền khỏi giọng nói… (Demucs)" rồi "Đã tách xong nhạc nền
+   gốc" (lần đầu tải model ~80 MB; CPU mất vài phút). File tách lưu ở `jobs\<job>\analysis\audio\bgm_00.wav` — nghe
+   thử: còn nhạc / tiếng nền, gần như không còn giọng nói.
+4. Mở draft trong CapCut: có rãnh nhạc nền gốc (bgm_00.wav) chạy khớp hình, nhỏ đi khi voice thuyết minh nói; không có
+   nhạc thư viện CapCut thêm vào; tiếng nói gốc không còn.
+5. Chưa cài Demucs: job vẫn xong, nhật ký báo "Không giữ được nhạc nền gốc — dùng nhạc AI chọn thay thế".
+6. Chỉnh: `config\dub.yaml → voice_only → keep_bgm` (`volume_db`, `duck_db`, `device`).
+
 ## Bước 50 — Giữ lại đoạn AI cho là vi phạm chính sách TikTok `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

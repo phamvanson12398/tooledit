@@ -108,6 +108,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   video gốc (`nearest_ratio`; dọc 9:16 thì chữ đè lên hình theo `overlay` trong `config/layout.yaml`). Chỉ thêm: voice
   thuyết minh + phụ đề + tiêu đề ngôn ngữ đích, nhạc nền nhẹ (-12 dB), hiệu ứng / sticker / SFX; không hook, không chia
   video, không filter, không chữ nhấn (`voice_only` trong `config/dub.yaml`).
+  Cập nhật 07/10: ô **"Giữ nhạc nền gốc"** (`keep_bgm`) — tách giọng nói khỏi âm thanh gốc bằng Demucs (MIT, chạy trên
+  máy, `requirements-bgm.txt`, `app/analysis/separate.py`), giữ nhạc + tiếng nền (hạ nhỏ dưới voice), không thêm nhạc
+  AI; chưa cài Demucs thì dùng nhạc AI như thường và ghi lý do vào nhật ký.
 - **Kịch bản thuyết minh còn lỗi nhỏ (chủ dự án yêu cầu 03/10):** code tự sửa (thu câu vắt 2 clip, gộp câu quá ngắn,
   tính tốc độ nói theo chỗ trống tới câu sau + `max_speed`); AI vẫn sai 3 lần thì trang lỗi có nút "Dùng bản này, bỏ
   qua lỗi còn lại" (bản lưu ở `plan/pending_dub_videoNN.json`), hoặc `accept_imperfect: true` để tự dùng.

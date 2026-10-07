@@ -458,3 +458,72 @@ def test_web_voice_only_needs_language(tmp_path):
     assert "Chỉ thay tiếng" in client.get("/").text
     r = client.post("/jobs", data={"footage": str(footage), "voice_only": "on"}, follow_redirects=False)
     assert "Chưa chọn ngôn ngữ" in r.text
+
+
+def test_separate_bgm_command_and_missing_demucs(tmp_path, monkeypatch):
+    import pytest
+
+    from app.analysis import separate
+
+    cmd = separate.demucs_cmd(Path("a.wav"), Path("out"), "htdemucs", "cpu")
+    assert cmd[1:] == ["-m", "demucs.separate", "--two-stems", "vocals", "-n", "htdemucs", "-o", "out",
+                       "--filename", "{stem}.{ext}", "-d", "cpu", "a.wav"]
+    monkeypatch.setattr(separate, "available", lambda: False)
+    with pytest.raises(RuntimeError, match="requirements-bgm.txt"):
+        separate.separate_bgm(Path("x.mp4"), tmp_path / "bgm.wav")
+
+    ff = pytest.importorskip("imageio_ffmpeg").get_ffmpeg_exe()
+    monkeypatch.setattr(separate, "available", lambda: True)
+    src = tmp_path / "src.wav"
+    _wav(src, 1.0)
+
+    def fake_run(c, **kw):  # giả lập Demucs: ghi no_vocals.wav đúng chỗ demucs ghi
+        out = Path(c[c.index("-o") + 1]) / "htdemucs" / "no_vocals.wav"
+        out.parent.mkdir(parents=True)
+        out.write_bytes(b"RIFF")
+        return type("R", (), {"returncode": 0, "stderr": ""})()
+
+    dst = separate.separate_bgm(src, tmp_path / "a" / "bgm.wav", ffmpeg_exe=ff, run=fake_run)
+    assert dst.read_bytes() == b"RIFF"
+
+
+def test_voice_only_keep_bgm(tmp_path):
+    """Giữ nhạc nền gốc: dùng bản đã tách giọng nói, hạ nhỏ dưới voice, không thêm nhạc khác."""
+    jobs, job = prepare(tmp_path, JobOptions(target_language="ko", voice_only=True, keep_bgm=True))
+    r = make_runner(tmp_path, jobs)
+    logs = []
+    r.log = logs.append
+    job = r.run(job)
+    assert job.step == "dub_voice", job.message
+    bgm = jobs / "j1" / "analysis" / "audio" / "bgm_00.wav"
+    bgm.parent.mkdir(parents=True, exist_ok=True)
+    bgm.write_bytes(b"RIFF")  # như đã tách xong (bước tách được lưu lại, chỉ làm một lần)
+    for n in range(1, 6):
+        (jobs / "j1" / "voice" / f"video01_dub{n:02d}.wav").write_bytes(b"RIFF")
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+    content = json.loads((Path(job.data["draft"]) / "draft_content.json").read_text(encoding="utf-8"))
+    audios = {m["id"]: m for m in content["materials"]["audios"]}
+    bgm_mats = [m for m in audios.values() if m.get("path", "").endswith("bgm_00.wav")]
+    assert bgm_mats
+    library_music = [m for m in audios.values() if m.get("music_id")]
+    assert not library_music  # không thêm nhạc thư viện CapCut
+    segs = [s for t in content["tracks"] if t["type"] == "audio" for s in t["segments"]
+            if s["material_id"] in {m["id"] for m in bgm_mats}]
+    assert segs and all(s.get("common_keyframes") for s in segs)  # nhạc gốc hạ nhỏ dưới voice
+
+
+def test_keep_bgm_falls_back_without_demucs(tmp_path, monkeypatch):
+    from app.analysis import separate
+
+    monkeypatch.setattr(separate, "available", lambda: False)
+    jobs, job = prepare(tmp_path, JobOptions(target_language="ko", voice_only=True, keep_bgm=True))
+    r = make_runner(tmp_path, jobs)
+    logs = []
+    r.log = logs.append
+    job = r.run(job)
+    for n in range(1, 6):
+        (jobs / "j1" / "voice" / f"video01_dub{n:02d}.wav").write_bytes(b"RIFF")
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+    assert any("Không giữ được nhạc nền gốc" in m and "Demucs" in m for m in logs)

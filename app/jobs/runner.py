@@ -706,6 +706,27 @@ class Runner:
         self.log(f"Dò được {len(boxes)} vùng chữ in sẵn trên footage.")
         return boxes
 
+    def _bgm(self, job: Job, analysis: Path) -> Path | None:
+        """Nhạc nền gốc đã tách giọng nói (lưu analysis/audio/bgm_00.wav, tách một lần). Không tách được → None
+        (dùng nhạc AI chọn như thường) và ghi lý do vào nhật ký."""
+        out = analysis / "audio" / "bgm_00.wav"
+        if out.is_file():
+            return out.resolve()
+        from app.analysis.separate import separate_bgm
+        from app.jobs.limits import group_slot
+
+        bcfg = (config.load("dub").get("voice_only") or {}).get("keep_bgm") or {}
+        try:
+            with group_slot("gpu", on_wait=lambda what: self.log(f"Đang đợi lượt {what} để tách nhạc nền…")):
+                self.log("Tách nhạc nền khỏi giọng nói của video gốc (Demucs, có thể mất vài phút)…")
+                separate_bgm(Path(job.footage[0]), out, model=bcfg.get("model", "htdemucs"),
+                             device=str(bcfg.get("device", "auto")))
+        except Exception as exc:
+            self.log(f"Không giữ được nhạc nền gốc — dùng nhạc AI chọn thay thế. Lý do: {exc}")
+            return None
+        self.log("Đã tách xong nhạc nền gốc.")
+        return out.resolve()
+
     def set_policy_keep(self, job: Job, keys: list[str]) -> bool:
         """Người dùng chọn giữ lại các đoạn AI đánh dấu vi phạm chính sách. Đã có kế hoạch dựng thì lập lại kế hoạch
         (các clip phải tính lại). Trả True nếu phải lập lại."""
@@ -817,9 +838,11 @@ class Runner:
                         saved = dub_io.remember_voice_rate(u_v.language, rate)
                         self.log(f"Giọng thu của bạn đọc ~{rate:.1f} ký tự/giây ({u_v.language}); đã lưu {saved:.1f} "
                                  "để lần sau viết câu thuyết minh vừa giọng.")
+            bgm = self._bgm(job, analysis) if job.options.voice_only and job.options.keep_bgm else None
             res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                         hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
-                        video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job))
+                        video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job),
+                        bgm_audio=bgm)
             out = res.writer.save(overwrite=True)
             dur = round(res.duration_us / 1_000_000, 1)
             drafts.append({"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),

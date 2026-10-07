@@ -74,6 +74,13 @@ voice_only:
   music_base_db: -12           # nhạc nền nhẹ hơn các chế độ khác (mặc định -5 dB)
   allow_filter: false          # không đổi màu hình
   allow_emphasis: false        # không thêm chữ nhấn (chỉ phụ đề + tiêu đề)
+  # "Giữ nhạc nền gốc" (07/10): tách giọng nói khỏi âm thanh gốc bằng Demucs (requirements-bgm.txt), giữ phần nhạc +
+  # tiếng nền, thay lời bằng voice thuyết minh; không thêm nhạc AI. Chưa cài Demucs → dùng nhạc AI như thường + báo.
+  keep_bgm:
+    model: htdemucs
+    device: auto               # auto = GPU nếu có, không thì CPU; hoặc "cpu" / "cuda"
+    volume_db: 0               # độ to nhạc gốc lúc không có voice
+    duck_db: -8                # hạ thêm khi voice thuyết minh đang nói
   style_override:
     keep_footage: true
     remix: false

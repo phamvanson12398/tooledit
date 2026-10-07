@@ -232,9 +232,11 @@ def subject_center(subjects: dict, start: float, end: float) -> float:
 def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTemplate, drafts_root: Path,
           name: str, style: dict, *, hook: HookOption | None = None, voice: tuple[Path, int] | None = None,
           clean_audio: Path | None = None, video_index: int = 1, beats_fn=None, dub=None,
-          dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False) -> BuildResult:
+          dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False,
+          bgm_audio: Path | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
+    bgm_audio: nhạc nền gốc đã tách giọng nói (chỉ thay tiếng + giữ nhạc nền) — thay cho nhạc AI chọn.
     vi_subtitles: thêm phụ đề tiếng Việt (nghĩa từng câu) ngay dưới phụ đề chính để chủ dự án kiểm tra voice / phụ đề
     đã khớp chưa — XÓA / TẮT trước khi xuất video đăng TikTok."""
     safe = config.load("safe_area")
@@ -381,7 +383,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
 
     # ---------- clip chính ----------
     # ---------- cắt theo nhịp nhạc: dời điểm cắt về beat gần nhất ----------
-    music = pick_music(template, plan)
+    music = None if bgm_audio else pick_music(template, plan)  # giữ nhạc nền gốc → không thêm nhạc khác
     beats_out: list[float] = []
     bcfg = style.get("beat_sync") or {}
     if bcfg.get("enabled") and music is not None:
@@ -439,6 +441,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         voiced = [(a, e) for _, a, e, _, v, _ in dub_slots if v]
         o_hi = db_to_gain(float(dcfg.get("original_db_no_voice", -6)))
         o_lo = db_to_gain(float(dcfg.get("original_db", -20)))
+
+    bgm_voiced = [(a, e) for _, a, e, _, v, _ in dub_slots if v]  # chỗ có voice thuyết minh → hạ nhạc nền gốc
 
     def orig_volume(start: int, end: int) -> list[Keyframe]:
         """Tiếng gốc khi có thuyết minh: hạ sâu dưới câu đã thu voice, hạ nhẹ ở chỗ khác."""
@@ -505,6 +509,13 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                                                  orig_volume(p.out_start, p.out_end)) or None,
                         transition=last_trans, flip_horizontal=mirrored(clip.source_start, idx), **bg_kwargs(ratio))
             n_mirror += mirrored(clip.source_start, idx)
+        if bgm_audio and not clip.replay:  # nhạc nền gốc (đã bỏ giọng nói) chạy đúng theo hình, hạ nhỏ dưới voice
+            bcfg = (config.load("dub").get("voice_only") or {}).get("keep_bgm") or {}
+            b_hi = db_to_gain(float(bcfg.get("volume_db", 0)))
+            b_lo = db_to_gain(float(bcfg.get("volume_db", 0)) + float(bcfg.get("duck_db", -8)))
+            w.add_local_audio(bgm_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
+                              source_start=round(clip.source_start * SEC), speed=clip.speed,
+                              keyframes=duck_keyframes(p.out_start, p.out_end, bgm_voiced, b_lo, b_hi, 150_000) or None)
         if clean_audio and not clip.replay and not mute_orig:  # replay quay chậm: tắt tiếng gốc, để nhạc/SFX dẫn
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed,
@@ -681,7 +692,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                             "purpose_vi": s.reason_vi})
 
     # ---------- nhạc nền + ducking ----------
-    if music is None:
+    if bgm_audio:
+        notes.append("Giữ nhạc nền của video gốc (đã tách bỏ giọng nói), không thêm nhạc khác.")
+    elif music is None:
         missing.append({"kind": "music", "what": plan.music.mood_vi, "energy": plan.music.energy,
                         "video": video_index, "at_s": 0.0,
                         "purpose_vi": f"Nhạc nền ({plan.music.energy}) — không có bài phù hợp trong danh mục"})

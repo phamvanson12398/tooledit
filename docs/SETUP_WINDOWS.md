@@ -89,3 +89,16 @@ Cập nhật tool: `git pull` rồi chạy lại `install.bat` (hoặc `.venv\Sc
 Không bắt buộc. Có key thì nút **🔍 Quét tài nguyên** tự tải SFX / nhạc nền còn thiếu (chỉ giấy phép CC0).
 Đăng ký ở https://freesound.org → mở https://freesound.org/apiv2/apply → tạo key → dán vào
 **⚙️ Cài đặt Freesound** trên trang chủ tool. Key lưu ở `config/local.yaml` (không commit).
+
+## Tùy chọn: Demucs để "Giữ nhạc nền gốc" (chế độ Chỉ thay tiếng)
+
+Không bắt buộc. Cần khi muốn giữ nhạc nền của video gốc và chỉ thay lời thuyết minh. Demucs (giấy phép MIT) tách giọng
+nói khỏi nhạc ngay trên máy, kéo theo PyTorch (~1–2 GB). Mở PowerShell trong thư mục tool:
+
+```powershell
+.\.venv\Scripts\python -m pip install -r requirements-bgm.txt
+.\.venv\Scripts\python -c "import demucs; print('Demucs OK')"
+```
+
+Lần tách đầu tiên Demucs tự tải model (~80 MB, cần internet). Máy có GPU NVIDIA thì nhanh; không có GPU vẫn chạy bằng
+CPU (video 1–2 phút mất vài phút). Đổi `device: cpu` trong `config\dub.yaml → voice_only → keep_bgm` nếu GPU báo hết bộ nhớ.
