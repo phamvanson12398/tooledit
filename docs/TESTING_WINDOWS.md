@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 50 — Giữ lại đoạn AI cho là vi phạm chính sách TikTok `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Mở một job có khung **🚫 Đoạn AI cho là vi phạm chính sách TikTok** (trang Xong, hoặc bước Xác nhận thể loại).
+3. Tick ô **Giữ lại** ở đoạn muốn giữ → **💾 Lưu: giữ lại các đoạn đã tick** → xác nhận.
+   - Job đã có kế hoạch dựng: tool tự lập lại kế hoạch (job Đổi ngôn ngữ: viết lại thuyết minh, voice cũ cất `*_cu`)
+     rồi dựng lại draft. Mở draft: đoạn đó đã có mặt.
+   - Đang ở bước Xác nhận thể loại: chỉ lưu lựa chọn, bấm Tiếp tục như bình thường.
+4. Tiêu đề khung đổi thành "cắt X, giữ lại Y". Bỏ tick + Lưu = cắt lại như cũ.
+
 ## Bước 49 — Sửa lỗi bước write "Đoạn âm thanh vượt quá độ dài file video01_dubNN.wav" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

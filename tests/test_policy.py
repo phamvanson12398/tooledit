@@ -162,3 +162,35 @@ def test_captions_reject_other_platform(tmp_path):
     make_captions(d, a, u, plan)
     assert len(d.calls) == 2 and "youtube" in d.calls[1]["prompt"]
     assert "nền tảng nào khác ngoài TikTok" in d.calls[0]["prompt"]
+
+
+def test_user_can_keep_flagged_part(tmp_path):
+    """Nút 'giữ lại': đoạn AI cho là vi phạm không bị cắt nữa (người dùng tự chịu trách nhiệm)."""
+    from app.director.policy import policy_key
+    from app.jobs.job import JobOptions, Status
+    from app.web.server import _policy_html
+    from tests.test_runner import make_runner, prepare
+
+    jobs, job = prepare(tmp_path, JobOptions())
+    r = make_runner(tmp_path, jobs)
+    job = r.run(job)
+    assert job.status == Status.done, job.message
+    d = jobs / "j1"
+    u = json.loads((d / "plan" / "understanding.json").read_text(encoding="utf-8"))
+    issue = {"start": 10.0, "end": 12.0, "category": "violence", "reason_vi": "đánh nhau", "auto": False}
+    u["policy_issues"] = [issue]
+    (d / "plan" / "understanding.json").write_text(json.dumps(u), encoding="utf-8")
+
+    def plan_covers(t: float) -> bool:
+        p = EditPlan.model_validate_json((d / "plan" / "edit_plan_video01.json").read_text(encoding="utf-8"))
+        return any(c.source_start <= t <= c.source_end for c in p.clips)
+
+    r.redo(job, "plan")
+    job = r.run(job)
+    assert job.status == Status.done and not plan_covers(11.0)  # mặc định: cắt
+    assert "Giữ lại" in _policy_html(d, job=job) and "policy-keep" in _policy_html(d, job=job)
+    assert r.set_policy_keep(job, [policy_key(issue)])  # chọn giữ → lập lại kế hoạch
+    job = r.run(job)
+    assert job.status == Status.done and plan_covers(11.0)
+    assert "giữ lại 1" in _policy_html(d, job=job)
+    assert not r.set_policy_keep(job, [policy_key(issue)])  # không đổi gì → không lập lại

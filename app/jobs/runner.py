@@ -134,6 +134,11 @@ class Runner:
 
         _, _, plan_dir = self._paths(job)
         u = Understanding.model_validate_json((plan_dir / "understanding.json").read_text(encoding="utf-8"))
+        keep = set(job.data.get("policy_keep") or [])
+        if keep:  # người dùng chọn GIỮ LẠI một số đoạn AI cho là vi phạm chính sách → không cắt các đoạn đó
+            from app.director.policy import policy_key
+
+            u = u.model_copy(update={"policy_issues": [p for p in u.policy_issues if policy_key(p) not in keep]})
         target = job.options.target_language
         return u.dubbed_to(target) if target and target != u.language else u
 
@@ -700,6 +705,20 @@ class Runner:
         cache.write_text(json.dumps(boxes), encoding="utf-8")
         self.log(f"Dò được {len(boxes)} vùng chữ in sẵn trên footage.")
         return boxes
+
+    def set_policy_keep(self, job: Job, keys: list[str]) -> bool:
+        """Người dùng chọn giữ lại các đoạn AI đánh dấu vi phạm chính sách. Đã có kế hoạch dựng thì lập lại kế hoạch
+        (các clip phải tính lại). Trả True nếu phải lập lại."""
+        old = sorted(job.data.get("policy_keep") or [])
+        job.data["policy_keep"] = sorted(set(keys))
+        self.log(f"Giữ lại {len(job.data['policy_keep'])} đoạn bị AI đánh dấu vi phạm chính sách TikTok (theo lựa chọn "
+                 "của bạn).")
+        _, _, plan_dir = self._paths(job)
+        if job.data["policy_keep"] != old and list(plan_dir.glob("edit_plan_video*.json")):
+            self.redo(job, "plan")
+            return True
+        job.save(self.jobs_root)
+        return False
 
     def vi_subtitles(self, job: Job) -> bool:
         """Phụ đề tiếng Việt để kiểm tra (chế độ Đổi ngôn ngữ): theo nút bật/tắt của job, mặc định theo config/dub.yaml."""

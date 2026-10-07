@@ -111,6 +111,12 @@ def add_auto_issues(u, segments: list[dict], cfg: dict | None = None):
     return u.model_copy(update={"policy_issues": list(u.policy_issues) + new}) if new else u
 
 
+def policy_key(p) -> str:
+    """Khóa nhận diện một đoạn vi phạm (để người dùng chọn GIỮ LẠI đoạn đó)."""
+    get = p.get if isinstance(p, dict) else lambda k, d=None: getattr(p, k, d)
+    return f"{float(get('start')):.2f}-{float(get('end')):.2f}-{get('category')}"
+
+
 def cut_ranges(u, cfg: dict | None = None) -> list[tuple[float, float]]:
     """Các đoạn phải cắt (đã nới rộng + gộp)."""
     cfg = load_cfg() if cfg is None else cfg

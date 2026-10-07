@@ -561,6 +561,16 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         worker.start(job_id, action=lambda runner, job: runner.accept_pending_dub(job))  # rồi worker tự chạy tiếp
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/policy-keep")
+    def policy_keep(job_id: str, keep: list[str] = Form([])):
+        job = Job.load(Path(jobs_root), job_id)
+        if job.status == Status.waiting:  # đang chờ duyệt (chưa lập kế hoạch): chỉ ghi lựa chọn, vẫn chờ như cũ
+            job.data["policy_keep"] = sorted(set(keep))
+            job.save(Path(jobs_root))
+        else:
+            worker.start(job_id, action=lambda runner, job: runner.set_policy_keep(job, keep))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/vi-subs")
     def toggle_vi_subs(job_id: str, on: str = Form("1")):
         worker.start(job_id, action=lambda runner, job: runner.set_vi_subtitles(job, on == "1"))
@@ -1094,8 +1104,10 @@ def pick_file_dialog() -> dict:
     return {"path": str(Path(path)) if path else ""}
 
 
-def _policy_html(d: Path, start: float = 0.0, end: float = 1e9) -> str:
-    """Bảng các đoạn vi phạm chính sách TikTok sẽ bị cắt (trong khoảng start–end của footage)."""
+def _policy_html(d: Path, start: float = 0.0, end: float = 1e9, job: Job | None = None, form: bool = True) -> str:
+    """Bảng các đoạn AI cho là vi phạm chính sách TikTok (trong khoảng start–end của footage). Có job + form: tick để
+    GIỮ LẠI đoạn đó (người dùng tự chịu trách nhiệm), mặc định là cắt bỏ."""
+    from app.director.policy import policy_key
     from app.director.schemas import POLICY_VI
 
     data = json.loads(_read(d / "plan" / "understanding.json") or "{}")
@@ -1103,13 +1115,32 @@ def _policy_html(d: Path, start: float = 0.0, end: float = 1e9) -> str:
     if not rows:
         return ""
     esc = html.escape
-    body = "".join(f"<tr><td>{p['start']:.1f}–{p['end']:.1f}s</td><td>{esc(POLICY_VI.get(p['category'], p['category']))}</td>"
-                   f"<td>{esc(p.get('reason_vi', ''))}{' <span class=muted>(máy tự dò)</span>' if p.get('auto') else ''}</td></tr>"
-                   for p in rows)
-    return ("<details><summary><b>🚫 Đoạn vi phạm chính sách TikTok — đã/sẽ cắt bỏ "
-            f"({len(rows)})</b></summary><table><tr><th>Giây</th><th>Loại</th><th>Lý do</th></tr>{body}</table>"
-            "<p class='muted'>Muốn giữ một đoạn (AI đánh dấu nhầm): xóa nó khỏi plan/understanding.json rồi "
-            "bấm \"🎬 Lập lại kế hoạch dựng\".</p></details>")
+    keep = set((job.data.get("policy_keep") if job else None) or [])
+    n_keep = sum(policy_key(p) in keep for p in rows)
+    editable = job is not None and form
+
+    def row(p) -> str:
+        k = policy_key(p)
+        tick = (f"<td><input type='checkbox' name='keep' value='{esc(k)}' {'checked' if k in keep else ''}></td>"
+                if editable else f"<td>{'✅ giữ' if k in keep else '✂️ cắt'}</td>")
+        return (f"<tr>{tick}<td>{p['start']:.1f}–{p['end']:.1f}s</td>"
+                f"<td>{esc(POLICY_VI.get(p['category'], p['category']))}</td>"
+                f"<td>{esc(p.get('reason_vi', ''))}{' <span class=muted>(máy tự dò)</span>' if p.get('auto') else ''}</td></tr>")
+
+    head = f"<tr><th>{'Giữ lại' if editable else ''}</th><th>Giây</th><th>Loại</th><th>Lý do</th></tr>"
+    table = f"<table>{head}{''.join(row(p) for p in rows)}</table>"
+    summary = (f"🚫 Đoạn AI cho là vi phạm chính sách TikTok — cắt {len(rows) - n_keep}"
+               + (f", giữ lại {n_keep}" if n_keep else ""))
+    if not editable:
+        return (f"<details><summary><b>{summary}</b></summary>{table}"
+                "<p class='muted'>Muốn giữ lại đoạn nào: chọn ở khung này trên trang job sau bước duyệt.</p></details>")
+    return (f"<details {'open' if n_keep else ''}><summary><b>{summary}</b></summary>"
+            f"<form method='post' action='/jobs/{job.job_id}/policy-keep' onsubmit=\"return confirm('Giữ lại các đoạn đã "
+            "tick? Video có thể bị TikTok hạn chế / gỡ — bạn tự chịu trách nhiệm. Nếu đã có kế hoạch dựng, tool sẽ lập lại "
+            "kế hoạch (voice thuyết minh cũ được cất thành *_cu).')\">"
+            f"{table}<p class='muted'>Mặc định các đoạn này bị CẮT. Tick ô <b>Giữ lại</b> nếu AI đánh dấu nhầm hoặc bạn "
+            "vẫn muốn giữ (bạn tự chịu trách nhiệm với TikTok).</p>"
+            "<button type='submit' class='btn small light'>💾 Lưu: giữ lại các đoạn đã tick</button></form></details>")
 
 
 def _segments_panel(job: Job, d: Path) -> str:
@@ -1141,7 +1172,7 @@ def _segments_panel(job: Job, d: Path) -> str:
             f"<form method='post' action='/jobs/{job.job_id}/segments'>"
             f"<h2 style='margin-top:14px'>Video sẽ dựng</h2><table>{head}{vids}</table>"
             + (f"<h2 style='margin-top:18px'>Đoạn bị bỏ</h2><table>{head}{dropped}</table>" if dropped else "")
-            + _policy_html(d)
+            + _policy_html(d, job=job, form=False)
             + "<p><button type='submit' class='btn'>✅ Xác nhận và dựng tiếp</button></p></form></div>")
 
 
@@ -1301,7 +1332,7 @@ def _step_panel(job: Job, d: Path) -> str:
         if job.step == "confirm_genre" and u.is_file():
             data = json.loads(_read(u))
             extra = (f"<p>Phong cách đề xuất: {esc(data.get('suggested_style', ''))}</p>"
-                     f"<p>Ghi chú editor: {esc(data.get('editor_notes', ''))}</p>{_policy_html(d)}")
+                     f"<p>Ghi chú editor: {esc(data.get('editor_notes', ''))}</p>{_policy_html(d, job=job)}")
         return f"<div class='card'><pre>{esc(job.message)}</pre>{extra}{_continue_button(job)}</div>"
     if job.status == Status.done:
         drafts = job.data.get("drafts") or [{"index": 1, "draft": job.data.get("draft", ""),
@@ -1320,7 +1351,7 @@ def _step_panel(job: Job, d: Path) -> str:
                     parts.append("<p><b>Dòng tiêu đề:</b></p><pre>" + esc("\n".join(titles)) + "</pre>")
                 parts.append(f"<p><b>Ghi chú editor:</b> {esc(pdata.get('editor_notes', ''))}</p>")
             if dr.get("start") is not None:
-                parts.append(_policy_html(d, float(dr["start"]), float(dr["end"])))
+                parts.append(_policy_html(d, float(dr["start"]), float(dr["end"]), job=job))
             cap = _read(d / "deliver" / f"video{i:02d}_captions.txt")
             if cap:
                 parts.append(f"<details><summary><b>📣 Caption + hashtag</b></summary><pre>{esc(cap)}</pre></details>")
