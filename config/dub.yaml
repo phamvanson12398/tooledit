@@ -105,3 +105,6 @@ voice_only:
         (bạn cứ trả 1 clip 0 → hết video, speed 1.0). KHÔNG zoom, KHÔNG replay, KHÔNG chuyển cảnh, KHÔNG mũi tên.
       - Việc của bạn: tiêu đề (titles_top / titles_bottom / topic_label) bằng ngôn ngữ đích, nhạc nền nhẹ hợp tâm trạng,
         và hiệu ứng / sticker / SFX ở đúng khoảnh khắc đáng nhấn — tiết chế, không che mặt / chủ thể.
+
+# Chế độ "Phụ đề tiếng Việt" (08/10): số câu dịch mỗi lần hỏi AI (video dài chia nhiều lô)
+vi_sub_batch: 60
