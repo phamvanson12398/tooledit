@@ -1,5 +1,13 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 58 — Chọn NHIỀU file một lúc `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`, tải lại trang chủ (Ctrl+F5).
+2. Bấm **📂 Chọn file…** → trong hộp thoại giữ **Ctrl** và bấm từng file (hoặc bấm file đầu, giữ **Shift** bấm file cuối,
+   hoặc Ctrl+A) → Open.
+3. Ô File footage hiện tất cả đường dẫn, mỗi file một dòng; dưới nút có dòng "Đã thêm N video — tool sẽ ghép thành một
+   video". Bấm Chọn file lần nữa vẫn thêm tiếp vào dòng mới.
+
 ## Bước 57 — Sửa nút "📂 Chọn file…" không bấm được `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`, tải lại trang chủ (Ctrl+F5).

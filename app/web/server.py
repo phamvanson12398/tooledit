@@ -300,7 +300,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <div class="field"><label>File footage</label>
             <div class="row"><textarea id="footage" name="footage" rows="2" style="flex:1" placeholder="Bấm Chọn file… hoặc dán đường dẫn (nhiều video: mỗi dòng một file)" required></textarea>
             <button type="button" class="btn light" onclick="pick()">📂 Chọn file…</button></div>
-            <div class="muted">🎞️ <b>Ghép nhiều video:</b> bấm Chọn file nhiều lần (mỗi lần thêm một dòng) — tool chọn cảnh hay
+            <div class="muted">🎞️ <b>Ghép nhiều video:</b> trong hộp thoại Chọn file giữ <b>Ctrl</b> (hoặc <b>Shift</b>) để chọn
+            nhiều file một lúc, hoặc bấm Chọn file nhiều lần (mỗi file một dòng) — tool chọn cảnh hay
             từ TẤT CẢ video (mỗi video một chút), ghép thành MỘT câu chuyện ý nghĩa dài khoảng 2 phút (chặng đường, quá trình,
             tình bạn…), giữ tiếng gốc + thêm nhạc nền, hiệu ứng.</div>
             <div class="muted" id="pickmsg"></div></div>
@@ -346,8 +347,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         <script>
         async function pick(){{
           const m=document.getElementById('pickmsg'); m.textContent='Đang mở hộp thoại chọn file…';
-          try{{const r=await fetch('/api/pick-file');const d=await r.json();
-            if(d.path){{const f=document.getElementById('footage');f.value=(f.value.trim()?f.value.trim()+String.fromCharCode(10):'')+d.path;m.textContent='';}}
+          try{{const r=await fetch('/api/pick-file?multiple=1');const d=await r.json();
+            const ps=d.paths||(d.path?[d.path]:[]);
+            if(ps.length){{const f=document.getElementById('footage');const nl=String.fromCharCode(10);
+              f.value=(f.value.trim()?f.value.trim()+nl:'')+ps.join(nl);
+              m.textContent=ps.length>1?('Đã thêm '+ps.length+' video — tool sẽ ghép thành một video.'):'';}}
             else m.textContent=d.error||'Chưa chọn file.';}}catch(e){{m.textContent='Không mở được hộp thoại: '+e;}}
         }}
         </script>"""
@@ -382,8 +386,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         return _page("So sánh", _compare_result_html(r, o, e, back))
 
     @app.get("/api/pick-file")
-    def pick_file():
-        return pick_file_dialog()
+    def pick_file(multiple: int = 0):
+        return pick_file_dialog(multiple=bool(multiple))
 
     @app.get("/api/pick-folder")
     def pick_folder():
@@ -1118,8 +1122,9 @@ def pick_folder_dialog() -> dict:
     return {"path": str(Path(path)) if path else ""}
 
 
-def pick_file_dialog() -> dict:
-    """Mở hộp thoại chọn file của Windows ngay trên máy chạy tool (server và trình duyệt cùng một máy)."""
+def pick_file_dialog(multiple: bool = False, dialog=None) -> dict:
+    """Mở hộp thoại chọn file của Windows ngay trên máy chạy tool (server và trình duyệt cùng một máy).
+    multiple=True: chọn NHIỀU file một lúc (giữ Ctrl / Shift trong hộp thoại) — tkinter askopenfilenames."""
     try:
         import tkinter
         from tkinter import filedialog
@@ -1129,12 +1134,19 @@ def pick_file_dialog() -> dict:
         root = tkinter.Tk()
         root.withdraw()
         root.attributes("-topmost", True)
-        path = filedialog.askopenfilename(
-            title="Chọn file footage", filetypes=[("Video", "*.mp4 *.mov *.mkv *.avi *.webm *.m4v"), ("Tất cả", "*.*")])
+        types = [("Video", "*.mp4 *.mov *.mkv *.avi *.webm *.m4v"), ("Tất cả", "*.*")]
+        fd = dialog or filedialog
+        if multiple:
+            raw = fd.askopenfilenames(title="Chọn file footage (giữ Ctrl hoặc Shift để chọn nhiều file)", filetypes=types)
+            paths = list(root.tk.splitlist(raw)) if raw else []  # Tk cũ có thể trả chuỗi thay vì tuple
+        else:
+            one = fd.askopenfilename(title="Chọn file footage", filetypes=types)
+            paths = [one] if one else []
         root.destroy()
     except Exception as exc:
         return {"error": f"Không mở được hộp thoại chọn file: {exc}"}
-    return {"path": str(Path(path)) if path else ""}
+    paths = [str(Path(p)) for p in paths if p]
+    return {"path": paths[0] if paths else "", "paths": paths}
 
 
 def _policy_html(d: Path, start: float = 0.0, end: float = 1e9, job: Job | None = None, form: bool = True) -> str:

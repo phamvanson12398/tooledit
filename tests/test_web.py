@@ -272,3 +272,36 @@ def test_inline_scripts_have_no_syntax_errors(tmp_path):
         f.write_text(js, encoding="utf-8")
         r = subprocess.run([node, "--check", str(f)], capture_output=True, text=True)
         assert r.returncode == 0, f"script {i} lỗi cú pháp: {r.stderr[:300]}"
+
+
+def test_pick_file_dialog_multiple(monkeypatch):
+    """Nút Chọn file: chọn NHIỀU file một lúc (askopenfilenames); Tk cũ trả chuỗi cũng tách đúng."""
+    import sys
+    import types
+
+    from app.web.server import pick_file_dialog
+
+    class FakeTk:
+        def __init__(self):
+            self.tk = types.SimpleNamespace(splitlist=lambda raw: tuple(raw.split("|")) if isinstance(raw, str) else raw)
+
+        def withdraw(self): pass
+
+        def attributes(self, *a): pass
+
+        def destroy(self): pass
+
+    fd = types.SimpleNamespace(askopenfilenames=lambda **kw: ("C:/v/a.mp4", "C:/v/b.mp4"),
+                               askopenfilename=lambda **kw: "C:/v/a.mp4")
+    tk_mod = types.ModuleType("tkinter")
+    tk_mod.Tk = FakeTk
+    tk_mod.filedialog = fd
+    monkeypatch.setitem(sys.modules, "tkinter", tk_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.filedialog", fd)
+    r = pick_file_dialog(multiple=True)
+    assert len(r["paths"]) == 2 and r["path"].endswith("a.mp4")
+    fd.askopenfilenames = lambda **kw: "C:/v/a.mp4|C:/v/c.mp4"  # Tk cũ: chuỗi
+    assert [p[-5:] for p in pick_file_dialog(multiple=True)["paths"]] == ["a.mp4", "c.mp4"]
+    fd.askopenfilenames = lambda **kw: ""  # bấm Hủy
+    assert pick_file_dialog(multiple=True) == {"path": "", "paths": []}
+    assert pick_file_dialog()["paths"] == [pick_file_dialog()["path"]]  # nút chọn 1 file (so sánh video) vẫn như cũ
