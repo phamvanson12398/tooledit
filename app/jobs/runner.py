@@ -827,6 +827,8 @@ class Runner:
         from app.planner import hook_io
         from app.planner.builder import build
 
+        if job.options.vi_sub:
+            return self._write_vi_sub(job)
         d, analysis, plan_dir = self._paths(job)
         tpl = self._template()
         style = self._style(job)
@@ -889,6 +891,42 @@ class Runner:
         job.data["draft"] = drafts[0]["draft"]
         job.data["duration_s"] = drafts[0]["duration_s"]
         job.data["missing_assets"] = len(missing)
+
+    def _write_vi_sub(self, job: Job) -> None:
+        """Phụ đề tiếng Việt: dịch lời (lưu plan/subtitle_vi.json, dịch một lần) → .srt + draft CapCut giữ nguyên video."""
+        from app.capcut_writer import VideoSource
+        from app.director.tasks import load_analysis
+        from app.planner import visub
+
+        d, analysis, plan_dir = self._paths(job)
+        a = load_analysis(analysis)
+        segs = [s for s in a["transcript"].get("segments", []) if s.get("text", "").strip()]
+        if not segs:
+            raise ValueError("Không nhận dạng được lời thoại nào trong video — không có gì để dịch.")
+        lang = a["transcript"].get("language") or ""
+        cache = plan_dir / "subtitle_vi.json"
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        vi = json.loads(cache.read_text(encoding="utf-8")) if cache.is_file() else None
+        if not vi or len(vi) != len(segs):
+            self.log(f"Dịch {len(segs)} câu thoại ({lang or 'không rõ tiếng'}) sang tiếng Việt…")
+            vi = visub.translate(self.director, segs, lang, int(config.load("dub").get("vi_sub_batch", 60)))
+            cache.write_text(json.dumps(vi, ensure_ascii=False, indent=2), encoding="utf-8")
+        cue_list = visub.cues(segs, vi)
+        name = f"{job.options.client_id or 'khach'}_{job.job_id}_vietsub"
+        deliver = d / "deliver"
+        deliver.mkdir(exist_ok=True)
+        srt_path = deliver / f"{Path(job.footage[0]).stem}_vi.srt"
+        srt_path.write_text(visub.srt(cue_list), encoding="utf-8-sig")  # BOM: trình phát Windows đọc đúng dấu tiếng Việt
+        sc = a["scenes"]
+        src = VideoSource(Path(sc["path"]), sc["width"], sc["height"], round(sc["duration"] * 1_000_000))
+        w = visub.build_draft(self._template(), self._drafts_dir or drafts_root(), name, src, cue_list)
+        out = w.save(overwrite=True)
+        dur = round(sc["duration"], 1)
+        job.data.update({"drafts": [{"index": 1, "draft": str(out), "duration_s": dur, "missing_assets": 0,
+                                     "start": 0.0, "end": dur, "short": False, "credits": []}],
+                         "draft": str(out), "duration_s": dur, "missing_assets": 0, "srt": str(srt_path)})
+        self.log(f"Đã dịch xong {len(cue_list)} dòng phụ đề tiếng Việt → {srt_path}")
+        self.log(f"Đã ghi draft CapCut: {out}")
 
     @staticmethod
     def _credits(used_paths: list[str]) -> list[str]:

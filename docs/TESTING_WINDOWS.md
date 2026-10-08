@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 56 — Chế độ "Phụ đề tiếng Việt" (xem hiểu video nước ngoài) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Trang chủ: chọn một video nước ngoài (tiếng gì cũng được), tick **🇻🇳 Chỉ phụ đề tiếng Việt** → Bắt đầu.
+3. Job chạy: Phân tích footage → Ghi dự án CapCut → Xong (không có bước hook / kế hoạch / caption). Nhật ký có
+   "Dịch N câu thoại (…) sang tiếng Việt…".
+4. Trang Xong → **⬇️ Tải file .srt**. Để file .srt cùng thư mục, đổi tên giống video gốc (vd `phim.mp4` + `phim.srt`), mở
+   video bằng VLC / PotPlayer / Phim & TV → phụ đề tiếng Việt hiện đúng lúc, đủ dấu.
+5. Hoặc mở draft `…_vietsub` trong CapCut: video gốc nguyên vẹn, tiếng gốc còn, phụ đề tiếng Việt chữ trắng viền đen
+   ngay dưới video (video dọc: ở phần dưới màn hình) → xuất mp4 nếu muốn có chữ sẵn.
+6. Video dài: dịch theo lô 60 câu (`config\dub.yaml → vi_sub_batch`), mỗi lô một lần hỏi AI.
+
 ## Bước 55 — Ghép nhiều video thành một câu chuyện ~2 phút (giữ tiếng gốc + nhạc nền) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

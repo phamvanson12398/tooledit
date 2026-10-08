@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from app import config as app_config
 from app.config import ROOT
@@ -311,7 +311,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <label class="tg"><input type="checkbox" name="business"> Khách doanh nghiệp (nhạc Commercial)</label>
             <label class="tg"><input type="checkbox" name="confirm"> Xác nhận trước khi dựng</label>
             <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label>
-            <label class="tg"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục — cảnh gay cấn lên đầu (3–5s/cảnh)</label></div></div>
+            <label class="tg"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục — cảnh gay cấn lên đầu (3–5s/cảnh)</label>
+            <label class="tg"><input type="checkbox" name="vi_sub"> 🇻🇳 Chỉ phụ đề tiếng Việt — xem hiểu video nước ngoài
+            (không dựng lại; ra file .srt + draft giữ nguyên video)</label></div></div>
           {_music_select(lib)}
           <div class="field"><label>🌐 Đổi ngôn ngữ video (thuyết minh + phụ đề, dựng lại khác bản gốc)</label>
             <select name="target_language"><option value="">Giữ nguyên ngôn ngữ gốc</option>
@@ -467,7 +469,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto"),
                 split: str | None = Form(None), target_language: str = Form(""), music: str = Form(""),
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
-                keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None)):
+                keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None),
+                vi_sub: str | None = Form(None)):
         paths = [Path(x.strip().strip('"')) for x in footage.splitlines() if x.strip().strip('"')]
         missing_files = [p for p in paths if not p.is_file()]
         if not paths or missing_files:
@@ -490,7 +493,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and len(paths) == 1,
             hype=bool(hype) and not voice_only,
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
-            script_mode=script_mode if script_mode in ("rewrite", "translate") else ""))
+            script_mode=script_mode if script_mode in ("rewrite", "translate") else "",
+            vi_sub=bool(vi_sub) and len(paths) == 1))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
         if music_file is not None and music_file.filename:
             chosen = _save_user_music(music_file, Path(assets_root))
@@ -581,6 +585,14 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     def accept_dub(job_id: str):
         worker.start(job_id, action=lambda runner, job: runner.accept_pending_dub(job))  # rồi worker tự chạy tiếp
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.get("/jobs/{job_id}/srt")
+    def download_srt(job_id: str):
+        job = Job.load(Path(jobs_root), job_id)
+        p = Path(job.data.get("srt") or "")
+        if not p.is_file():
+            return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+        return FileResponse(p, filename=p.name, media_type="application/x-subrip")
 
     @app.post("/jobs/{job_id}/policy-keep")
     def policy_keep(job_id: str, keep: list[str] = Form([])):
@@ -1359,6 +1371,10 @@ def _step_panel(job: Job, d: Path) -> str:
         drafts = job.data.get("drafts") or [{"index": 1, "draft": job.data.get("draft", ""),
                                              "duration_s": job.data.get("duration_s", "?")}]
         parts = [f"<div class='card'><h2>✅ Xong — {len(drafts)} video</h2><p>Mở CapCut để xem, chỉnh và xuất từng draft.</p>"]
+        if job.data.get("srt"):
+            parts.append(f"<p>🇻🇳 <b>Phụ đề tiếng Việt:</b> <a class='btn small' href='/jobs/{job.job_id}/srt'>⬇️ Tải file .srt</a> "
+                         f"<span class='muted'>({esc(job.data['srt'])}) — để cùng thư mục, cùng tên với video gốc rồi mở "
+                         "bằng VLC / PotPlayer / Phim & TV là xem được ngay; hoặc mở draft CapCut (phụ đề đã gắn sẵn).</span></p>")
         for dr in drafts:
             i = dr["index"]
             short = " <span class='badge b-waiting'>ngắn hơn 1 phút</span>" if dr.get("short") else ""

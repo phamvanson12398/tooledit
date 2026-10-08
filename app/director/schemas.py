@@ -566,3 +566,14 @@ class DubScript(BaseModel):
     video_index: int = Field(ge=1)
     lines: list[DubLine] = Field(min_length=1)
     editor_notes: str
+
+
+# ---------------- Phụ đề tiếng Việt (chế độ "xem hiểu video nước ngoài") ----------------
+
+class ViLine(BaseModel):
+    i: int = Field(ge=1, description="số thứ tự câu gốc")
+    vi: str = Field(description="câu dịch tiếng Việt tự nhiên, gọn để làm phụ đề")
+
+
+class ViSubs(BaseModel):
+    lines: list[ViLine] = Field(min_length=1)

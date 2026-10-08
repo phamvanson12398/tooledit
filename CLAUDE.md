@@ -127,6 +127,13 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - Video **mở đầu im lặng** (vd chỉ show món ăn / sản phẩm): BẮT BUỘC có lời dẫn mở đầu ngay từ cảnh đầu, giọng như
   video nấu ăn — gần gũi, gợi thèm, gợi tò mò cách làm (`narration.opening` trong `config/dub.yaml`).
 
+## 5c. Chế độ "Phụ đề tiếng Việt" (chủ dự án yêu cầu 08/10)
+
+- Mục đích: chủ dự án XEM HIỂU video nước ngoài, không đăng. Ô tick "🇻🇳 Chỉ phụ đề tiếng Việt" (`JobOptions.vi_sub`).
+- Job chỉ chạy: phân tích (Whisper nhận MỌI ngôn ngữ) → dịch từng câu sang tiếng Việt theo lô (prompt `subtitle_vi.md`,
+  kèm câu trước/sau làm bối cảnh, lưu `plan/subtitle_vi.json`) → xuất `deliver/<tên video>_vi.srt` + draft CapCut giữ
+  nguyên video & tiếng gốc, phụ đề trắng viền đen (`app/planner/visub.py`). Không hiểu nội dung / kế hoạch / caption.
+
 ## 6. Khung hình
 
 - Canvas mặc định **9:16, 1080×1920**.

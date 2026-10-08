@@ -58,7 +58,12 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
 
             with group_slot("gpu", on_wait=gpu_busy):  # chỉ 1 video dùng GPU một lúc
                 progress("Nhận dạng thoại (có thể mất vài phút)")
-                tr = transcribe_fn(whisper_wav, log=progress)
+                if getattr(job.options, "vi_sub", False):  # phụ đề tiếng Việt: nhận MỌI ngôn ngữ, không ép ko/ja/en
+                    from app import config as _cfg
+
+                    tr = transcribe_fn(whisper_wav, cfg={**_cfg.load("whisper"), "languages": []}, log=progress)
+                else:
+                    tr = transcribe_fn(whisper_wav, log=progress)
             transcripts.append({"footage": i, **tr.model_dump()})
             progress("Dò tiếng cười / hò reo / cao trào trong âm thanh")
             try:

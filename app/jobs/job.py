@@ -45,6 +45,7 @@ class JobOptions(BaseModel):
     confirm_before_build: bool = False  # ☐ Xác nhận trước khi dựng
     target_language: str = ""         # Đổi ngôn ngữ: "" = giữ nguyên; ko/ja/en = thuyết minh + phụ đề tiếng đó
     voice_only: bool = False          # Chỉ thay tiếng (05/10): giữ nguyên hình, không cắt / đổi khung — cần target_language
+    vi_sub: bool = False              # Phụ đề tiếng Việt (08/10): chỉ dịch lời sang tiếng Việt để xem hiểu, không dựng lại
     hype: bool = False                # Chuyển cảnh liên tục: cảnh gay cấn lên đầu (3–5s/cảnh), còn lại về sau (07/10)
     script_mode: str = ""             # Đổi ngôn ngữ: "rewrite" = AI xem video viết mới / "translate" = dịch; "" = theo config
     keep_bgm: bool = False            # (cùng voice_only) giữ nhạc nền gốc: tách giọng nói ra, chỉ thay lời thuyết minh
@@ -131,6 +132,8 @@ class Job(BaseModel):
         self._log(message or f"chuyển sang bước {self.step}")
 
     def applies(self, step: str) -> bool:
+        if self.options.vi_sub:  # chỉ phân tích (nhận dạng lời) rồi dịch + ghi phụ đề ở bước write
+            return step in ("analyze", "write", "done")
         if step == "confirm_genre":
             return self.options.confirm_before_build
         if step in ("hooks", "choose_hook", "voice"):
