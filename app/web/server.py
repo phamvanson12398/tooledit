@@ -347,7 +347,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         async function pick(){{
           const m=document.getElementById('pickmsg'); m.textContent='Đang mở hộp thoại chọn file…';
           try{{const r=await fetch('/api/pick-file');const d=await r.json();
-            if(d.path){{const f=document.getElementById('footage');f.value=(f.value.trim()?f.value.trim()+'\n':'')+d.path;m.textContent='';}}
+            if(d.path){{const f=document.getElementById('footage');f.value=(f.value.trim()?f.value.trim()+String.fromCharCode(10):'')+d.path;m.textContent='';}}
             else m.textContent=d.error||'Chưa chọn file.';}}catch(e){{m.textContent='Không mở được hộp thoại: '+e;}}
         }}
         </script>"""

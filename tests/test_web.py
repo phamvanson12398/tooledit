@@ -248,3 +248,27 @@ def test_home_never_full_reloads_while_jobs_run(tmp_path):
     assert 'http-equiv="refresh"' not in home and "/api/jobs-panel" in home
     panel = client.get("/api/jobs-panel").text
     assert "đang chạy" in panel and "r1" in panel and "1/3" in panel
+
+
+def test_inline_scripts_have_no_syntax_errors(tmp_path):
+    """Mọi đoạn <script> trên trang chủ phải chạy được (lỗi cú pháp làm nút 'Chọn file…' không bấm được)."""
+    import re
+    import shutil
+    import subprocess
+
+    import pytest
+    from fastapi.testclient import TestClient
+
+    from app.web.server import create_app
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("không có Node.js để kiểm tra cú pháp JavaScript")
+    html_page = TestClient(create_app(tmp_path / "jobs", lambda root, log: None)).get("/").text
+    scripts = re.findall(r"<script>(.*?)</script>", html_page, flags=re.S)
+    assert scripts and any("function pick" in s for s in scripts)
+    for i, js in enumerate(scripts):
+        f = tmp_path / f"s{i}.js"
+        f.write_text(js, encoding="utf-8")
+        r = subprocess.run([node, "--check", str(f)], capture_output=True, text=True)
+        assert r.returncode == 0, f"script {i} lỗi cú pháp: {r.stderr[:300]}"

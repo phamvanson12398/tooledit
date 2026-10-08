@@ -1,5 +1,11 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 57 — Sửa nút "📂 Chọn file…" không bấm được `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`, tải lại trang chủ (Ctrl+F5).
+2. Bấm **📂 Chọn file…** → hộp thoại chọn file mở ra; chọn xong đường dẫn hiện trong ô.
+3. Bấm lần nữa, chọn file khác → đường dẫn thứ hai hiện ở DÒNG MỚI (ghép nhiều video).
+
 ## Bước 56 — Chế độ "Phụ đề tiếng Việt" (xem hiểu video nước ngoài) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.
