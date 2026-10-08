@@ -309,10 +309,12 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                          if four else ("- Bố cục không có dòng tiêu đề: để `title_top`, `titles_top`, `titles_bottom` rỗng."
                                        if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
         "arrow_brief": arrow_brief,
-        "order_rule": (REMIX_RULE if style.get("remix") and not style.get("hype") else "") + (
-                       HYPE_RULE.format(**_hype_cfg(style)) + (MONTAGE_RULE.format(parts=parts_brief(style["montage_parts"]))
-                                                                if style.get("montage_parts") else "")
-                       if style.get("hype") else
+        "order_rule": (REMIX_RULE if style.get("remix") and not style.get("hype") and not style.get("montage_parts")
+                       else "") + (
+                       (HYPE_RULE.format(**_hype_cfg(style)) if style.get("hype") else "")
+                       + (MONTAGE_RULE.format(parts=parts_brief(style["montage_parts"]), **_montage_cfg())
+                          if style.get("montage_parts") else "")
+                       if style.get("hype") or style.get("montage_parts") else
                        REORDER_RULE.format(max_clip=style.get("pacing", {}).get("max_clip_s", 4))
                        if style.get("reorder") else COLD_OPEN_RULE if style.get("cold_open")
                        else "Các clip theo đúng thứ tự thời gian, không chồng nhau."),
@@ -354,6 +356,13 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     def extra(plan) -> list[str]:
         if keep:  # không giới hạn 60–150 giây: giữ đúng độ dài video gốc
             errors = check_plan(plan, duration + 0.5, hook_s, min_s=0, max_s=1e9)
+        elif style.get("montage_parts"):  # ghép nhiều video: một video khoảng 2 phút (chủ dự án chốt 08/10)
+            mc = _montage_cfg()
+            errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s,
+                                min_s=mc["target_s"] - mc["tolerance_s"], max_s=mc["target_s"] + mc["tolerance_s"])
+            errors += [f"clip {c.source_start}-{c.source_end} dài quá {mc['max_clip_s']:.0f}s — chọn đoạn đắt nhất"
+                       for c in plan.clips if not c.replay and (c.source_end - c.source_start) / c.speed
+                       > mc["max_clip_s"] + 0.5]
         else:
             errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s, available=available)
         errors += check_policy(plan, banned, u.language)
@@ -500,6 +509,13 @@ BOTTOM_ON = ('- `titles_bottom` (2 dòng): nhân vật / kết luận về ngư�
 BOTTOM_OFF = "- `titles_bottom`: để RỖNG [] (bố cục chỉ có 2 dòng tiêu đề phía trên)."
 
 
+def _montage_cfg() -> dict:
+    h = config.load("hype") or {}
+    target, tol = float(h.get("montage_target_s", 120)), float(h.get("montage_tolerance_s", 20))
+    return {"target_s": target, "tolerance_s": tol, "min_s": target - tol, "max_s": target + tol,
+            "max_clip_s": float(h.get("montage_max_clip_s", 10))}
+
+
 def _hype_cfg(style: dict) -> dict:
     h = style.get("hype") if isinstance(style.get("hype"), dict) else {}
     return {"min_clip": float(h.get("min_clip_s", 3.0)), "max_clip": float(h.get("max_clip_s", 5.0))}
@@ -527,12 +543,20 @@ HYPE_RULE = """CHUYỂN CẢNH LIÊN TỤC (chủ dự án yêu cầu): cắt th
   vẫn cắt ngắn {min_clip:.0f}–{max_clip:.0f}s để chuyển cảnh liên tục tới cuối. Clip không chồng nhau. Đừng cắt giữa câu
   quan trọng; câu dài thì chọn đoạn hình đẹp nhất của nó. """
 
-MONTAGE_RULE = """
-  GHÉP NHIỀU VIDEO: footage là nhiều video nối lại (mốc giây dưới đây). Chọn cảnh hay từ GẦN NHƯ MỌI video (mỗi video
-  lấy một chút), ghép thành MỘT video mới có ý nghĩa: chọn một chủ đề / mạch chung (vd "những khoảnh khắc ... nhất"),
-  tiêu đề và chữ nói về chủ đề chung đó. Một clip chỉ nằm trong MỘT video (không vắt qua ranh giới).
+MONTAGE_RULE = """GHÉP NHIỀU VIDEO THÀNH MỘT CÂU CHUYỆN (chủ dự án chốt 08/10): footage là nhiều video (vd nhiều tập phim / hoạt
+  hình) nối lại — mốc giây từng video ở dưới. Hãy chọn lọc các đoạn HAY NHẤT, ghép thành MỘT video dài khoảng
+  {target_s:.0f} giây ({min_s:.0f}–{max_s:.0f}s) có Ý NGHĨA RIÊNG: một chặng đường, một quá trình trưởng thành, một khoảng thời
+  gian đáng nhớ, một câu chuyện tình bạn / tình cảm đẹp... (chọn mạch hợp nhất với nội dung, ghi ra trong editor_notes).
+  - Lấy cảnh từ GẦN NHƯ MỌI video (mỗi video một chút); xếp theo mạch câu chuyện có mở – diễn biến – cao trào – kết lắng
+    đọng (thường theo thứ tự thời gian của các tập để thấy được "chặng đường").
+  - Mỗi cảnh khoảng 3–5 giây; khoảnh khắc đắt (câu thoại / cảm xúc trọn vẹn) được dài hơn, tối đa {max_clip_s:.0f}s.
+    Không cắt giữa câu thoại quan trọng — tiếng gốc được GIỮ.
+  - Nhạc nền cảm xúc hợp mạch truyện (ấm áp / hoài niệm / truyền cảm hứng), chuyển cảnh mềm giữa các video, hiệu ứng tiết
+    chế; tiêu đề + chữ nói về ý nghĩa chung của câu chuyện, không nói về một tập riêng.
+  - Một clip chỉ nằm trong MỘT video (không vắt qua ranh giới).
 {parts}
 """
+
 
 REORDER_RULE = """ĐẢO THỨ TỰ CLIP (kiểu giải trí — khách muốn người xem không nhận ra video gốc): KHÔNG dựng theo
   thứ tự thời gian. Mở bằng khoảnh khắc đắt / buồn cười nhất (cold open), rồi nhảy về bối cảnh, xen kẽ trước–sau,

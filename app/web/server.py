@@ -301,7 +301,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <div class="row"><textarea id="footage" name="footage" rows="2" style="flex:1" placeholder="Bấm Chọn file… hoặc dán đường dẫn (nhiều video: mỗi dòng một file)" required></textarea>
             <button type="button" class="btn light" onclick="pick()">📂 Chọn file…</button></div>
             <div class="muted">🎞️ <b>Ghép nhiều video:</b> bấm Chọn file nhiều lần (mỗi lần thêm một dòng) — tool chọn cảnh hay
-            từ TẤT CẢ video, mỗi video một chút, ghép thành MỘT video mới (tự bật chuyển cảnh liên tục).</div>
+            từ TẤT CẢ video (mỗi video một chút), ghép thành MỘT câu chuyện ý nghĩa dài khoảng 2 phút (chặng đường, quá trình,
+            tình bạn…), giữ tiếng gốc + thêm nhạc nền, hiệu ứng.</div>
             <div class="muted" id="pickmsg"></div></div>
           <div class="field"><label>Kiểu dựng</label><div class="styles">{''.join(style_cards)}</div></div>
           <div class="field"><label>Tùy chọn</label><div class="toggles">
@@ -487,7 +488,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only,
             reframe_per_scene=bool(reframe) and not voice_only,
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and len(paths) == 1,
-            hype=(bool(hype) or len(paths) > 1) and not voice_only,
+            hype=bool(hype) and not voice_only,
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
             script_mode=script_mode if script_mode in ("rewrite", "translate") else ""))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})

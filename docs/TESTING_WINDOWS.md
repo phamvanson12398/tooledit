@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 55 — Ghép nhiều video thành một câu chuyện ~2 phút (giữ tiếng gốc + nhạc nền) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`.
+2. Ô **File footage**: thêm nhiều tập phim / hoạt hình (mỗi dòng một file). KHÔNG tick ⚡ (trừ khi muốn cảnh gay cấn lên
+   đầu) → Bắt đầu.
+3. Mở draft trong CapCut, kiểm tra:
+   - video dài khoảng 2 phút (100–140 giây);
+   - cảnh lấy từ hầu hết các tập, xếp thành một mạch có ý nghĩa (chặng đường / quá trình / tình bạn...) — đọc
+     "Ghi chú editor" trên trang job để xem AI chọn mạch gì;
+   - tiếng gốc của từng cảnh vẫn còn, có thêm nhạc nền cảm xúc (nhỏ đi khi có thoại), hiệu ứng / chuyển cảnh mềm;
+   - tiêu đề nói về ý nghĩa chung, không nói về một tập riêng.
+4. Chỉnh độ dài: `config\hype.yaml` → `montage_target_s` (mặc định 120), `montage_tolerance_s`, `montage_max_clip_s`.
+
 ## Bước 54 — Chuyển cảnh liên tục (gay cấn lên đầu) + Ghép nhiều video `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`.

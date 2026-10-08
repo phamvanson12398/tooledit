@@ -125,6 +125,35 @@ def test_web_multi_video_form(tmp_path):
     assert "Ghép nhiều video" in home and "Chuyển cảnh liên tục" in home
     r = client.post("/jobs", data={"footage": f"{a}\n\"{b}\"\n", "split": "on"}, follow_redirects=False)
     job = Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1])
-    assert len(job.footage) == 2 and job.options.hype and not job.options.split  # nhiều video: tự bật, không chia
+    assert len(job.footage) == 2 and not job.options.hype and not job.options.split  # ghép = câu chuyện, không chia
     r = client.post("/jobs", data={"footage": f"{a}\n{b}", "voice_only": "on", "target_language": "ko"})
     assert "MỘT video" in r.text
+
+
+def test_montage_story_mode_prompt_and_length(tmp_path):
+    """Ghép nhiều video (không tick ⚡): kể thành câu chuyện ~2 phút, không xếp gay cấn lên đầu, giữ tiếng gốc."""
+    from app.director.fake import FakeDirector
+    from app.director.tasks import make_plan, understand
+    from app.styles import load_style
+    from tests.test_director import make_analysis
+
+    a = make_analysis(tmp_path, duration=600.0)  # 600s footage gồm 4 video
+    from app.director.schemas import TimeRange
+
+    u = understand(FakeDirector(), a)
+    u = u.model_copy(update={"usable_range": TimeRange(start=0.0, end=600.0)})  # ghép nhiều video: dùng toàn bộ footage
+    parts = [{"index": i + 1, "name": f"ep{i + 1}.mp4", "start": i * 150.0, "end": (i + 1) * 150.0} for i in range(4)]
+    style = {**load_style("jp_telop"), "montage_parts": parts}
+    clips = [{"source_start": 10.0 + 150 * i, "source_end": 14.0 + 150 * i, "highlight": i == 3} for i in range(4)]
+    short = {**load("plan.json"), "clips": clips, "zooms": [], "emphasis": [], "sfx": [], "transitions": []}
+    long_clips = [{"source_start": 150 * (i % 4) + 5 * (i // 4) + 1, "source_end": 150 * (i % 4) + 5 * (i // 4) + 5}
+                  for i in range(28)]
+    good = {**short, "clips": sorted(long_clips, key=lambda c: c["source_start"])}  # 28 × 4s = 112s
+    d = FakeDirector(responses={"plan": [short, good]})
+    plan = make_plan(d, a, u, style)
+    prompt = d.calls[0]["prompt"]
+    assert "MỘT CÂU CHUYỆN" in prompt and "120 giây" in prompt and "video 4 (ep4.mp4)" in prompt
+    assert "CHUYỂN CẢNH LIÊN TỤC" not in prompt  # không tick ⚡ → không ép gay cấn lên đầu
+    assert "ngắn hơn 100" in d.calls[1]["prompt"]  # lần đầu chỉ 16s → bị yêu cầu làm lại cho đủ ~2 phút
+    starts = [c.source_start for c in plan.clips]
+    assert starts == sorted(starts)  # giữ mạch câu chuyện, code không đảo

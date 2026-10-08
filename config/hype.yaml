@@ -5,5 +5,10 @@ min_clip_s: 3.0        # mỗi cảnh khoảng 3–5 giây (kiểm tra nới th�
 max_clip_s: 5.0
 motion: {every_clip: true, max_scale: 1.15}   # cảnh nào chưa có zoom thì code tự thêm chuyển động nhẹ
 cold_open: false
-# Ghép nhiều video: tối thiểu bao nhiêu phần video phải góp cảnh (0.8 = 80% số video)
-montage_min_share: 0.8
+# GHÉP NHIỀU VIDEO (chủ dự án chốt 08/10): chọn đoạn hay từ nhiều tập phim, ghép thành MỘT câu chuyện ý nghĩa
+# (chặng đường / quá trình / tình bạn...), GIỮ tiếng gốc + thêm nhạc nền, hiệu ứng. Không bắt buộc "gay cấn lên đầu"
+# (tick ⚡ nếu muốn).
+montage_target_s: 120        # dài khoảng 2 phút
+montage_tolerance_s: 20      # chấp nhận 100–140 giây
+montage_max_clip_s: 10       # cảnh 3–5s, khoảnh khắc đắt tối đa 10s
+montage_min_share: 0.8       # tối thiểu 80% số video phải góp cảnh

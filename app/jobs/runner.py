@@ -311,7 +311,7 @@ class Runner:
         from app.director.tasks import for_video
 
         u = self._understanding(job)
-        if job.options.voice_only:  # chỉ thay tiếng: dùng toàn bộ video
+        if job.options.voice_only or job.data.get("montage_parts"):  # chỉ thay tiếng / ghép nhiều video: toàn bộ footage
             return for_video(u, {**video, "summary_vi": video.get("summary_vi") or u.summary_vi})
         return for_video(u, video) if job.options.split else u
 
@@ -439,7 +439,7 @@ class Runner:
         path = plan_dir / "segments.json"
         if not job.options.split:
             start, end = u.usable_range.start, u.usable_range.end
-            if job.options.voice_only:  # chỉ thay tiếng: giữ trọn video từ giây 0 tới hết
+            if job.options.voice_only or job.data.get("montage_parts"):  # giữ trọn footage từ giây 0 tới hết
                 start, end = 0.0, self._footage_size(job)[2] or end
             videos = [{"index": 1, "start": start, "end": end, "title_vi": "", "summary_vi": u.summary_vi}]
             path.write_text(json.dumps({"videos": videos, "confirmed": True}, ensure_ascii=False, indent=2),
