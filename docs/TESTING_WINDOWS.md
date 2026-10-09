@@ -1,5 +1,23 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 59 — Chế độ "🎬 Review phim / hoạt hình" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`, tải lại trang chủ (Ctrl+F5).
+2. Trang chủ: chọn một tập phim / hoạt hình (dài vài phút trở lên), tick **🎬 Review phim / hoạt hình**, chọn ngôn ngữ
+   lời review ở ô **🌐 Đổi ngôn ngữ** (Hàn / Nhật / Anh; để "Giữ nguyên" thì lời review dùng tiếng gốc — chỉ khi phim nói
+   Hàn / Nhật / Anh). Có thể tick thêm "Có hook voice" → Bắt đầu.
+3. Job dừng ở **Chờ duyệt chia video**: bảng liệt kê các ĐOẠN HAY AI chọn (mỗi đoạn một video) + các đoạn bị bỏ kèm lý
+   do. Chỉnh điểm cắt / bỏ bớt / thêm đoạn rồi bấm Xác nhận.
+4. Job dừng ở **Chờ voice thuyết minh**: kịch bản là LỜI REVIEW (kể lại + bình luận, có nghĩa tiếng Việt) cho từng video.
+   Thu bằng Voice Studio (từng câu, hoặc cả bài một file nghỉ ~1 giây giữa các câu) rồi tải lên.
+5. Mở các draft `…_video01`, `…_video02`… trong CapCut, kiểm tra:
+   - mỗi video dài **1:00–1:30** (kể cả hook), các cảnh theo đúng thứ tự phim, mỗi cảnh ngắn (≤ 12 giây);
+   - lời review gần như liên tục; tiếng phim vẫn nghe được nhưng NHỎ dưới voice (không tắt hẳn), chỗ không có voice
+     tiếng phim to lên;
+   - phụ đề chính = lời review; chữ vàng nhỏ tiếng Việt bên dưới để kiểm tra (tắt ở trang job trước khi xuất).
+6. Muốn tắt hẳn tiếng phim / đổi độ dài video: sửa `config\review.yaml` (`original_audio.mute`, `min_video_s`,
+   `max_video_s`).
+
 ## Bước 58 — Chọn NHIỀU file một lúc `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`, tải lại trang chủ (Ctrl+F5).

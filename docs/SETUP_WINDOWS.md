@@ -76,6 +76,18 @@ claude doctor        # kiểm tra cài đặt
 Đăng nhập lần đầu: gõ `claude`, làm theo hướng dẫn mở trình duyệt, đăng nhập tài khoản Claude Pro, rồi gõ
 `/exit` để thoát. Gói Free không dùng được Claude Code.
 
+**Đăng nhập lại / đổi tài khoản Claude** (vd hết hạn đăng nhập, tool báo lỗi xác thực, hoặc muốn dùng tài khoản khác).
+Đóng `start.bat` trước, rồi trong PowerShell:
+
+```powershell
+claude auth status    # xem đang đăng nhập tài khoản nào
+claude auth logout    # đăng xuất tài khoản hiện tại
+claude auth login     # mở trình duyệt → đăng nhập tài khoản Claude Pro → quay lại PowerShell thấy báo thành công
+```
+
+Cách khác: gõ `claude` để mở cửa sổ chat, gõ `/logout` (hoặc `/login` để đổi tài khoản), làm theo hướng dẫn trên trình
+duyệt, rồi gõ `/exit`. Xong mở lại `start.bat`.
+
 Nếu `claude` vẫn "not recognized" sau khi mở lại PowerShell: file cài nằm ở
 `%USERPROFILE%\.local\bin\claude.exe`; xem https://code.claude.com/docs/en/troubleshoot-install.
 

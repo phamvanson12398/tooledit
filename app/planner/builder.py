@@ -334,7 +334,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         return None if (crop is None and new is base) else new
 
     # Đổi ngôn ngữ: tắt hẳn tiếng gốc (chỉ còn voice thuyết minh + nhạc + SFX), cấu hình mute_original
-    mute_orig = dub is not None and bool(config.load("dub").get("mute_original", True))
+    # Review phim (09/10): kiểu dựng ghi đè bằng style["original_audio"] — tiếng phim chỉ hạ nhỏ dưới lời review
+    orig_cfg = style.get("original_audio") or {}
+    mute_orig = dub is not None and bool(orig_cfg.get("mute", config.load("dub").get("mute_original", True)))
     if mute_orig:
         notes.append("Đã tắt hẳn tiếng gốc của video (chế độ Đổi ngôn ngữ).")
     mirrored = mirror_picker(style, u, sc.get("scenes") or [], len(plan.clips))
@@ -440,8 +442,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             notes.append("Voice dài hơn chỗ trống (đã tăng tốc, câu sau lùi lại cho khỏi đè): " + ", ".join(late[:8])
                          + (" …" if len(late) > 8 else "") + " — bấm '✂️ Viết gọn các câu 🔴' rồi thu lại các câu đó.")
         voiced = [(a, e) for _, a, e, _, v, _ in dub_slots if v]
-        o_hi = db_to_gain(float(dcfg.get("original_db_no_voice", -6)))
-        o_lo = db_to_gain(float(dcfg.get("original_db", -20)))
+        o_hi = db_to_gain(float(orig_cfg.get("db_no_voice", dcfg.get("original_db_no_voice", -6))))
+        o_lo = db_to_gain(float(orig_cfg.get("db", dcfg.get("original_db", -20))))
 
     bgm_voiced = [(a, e) for _, a, e, _, v, _ in dub_slots if v]  # chỗ có voice thuyết minh → hạ nhạc nền gốc
 

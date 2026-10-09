@@ -208,6 +208,12 @@ quay chậm có nhãn 完成 / 완성 / FINAL LOOK + so trước–sau. Không h
   qua 2 video; không chia video. Không tự xếp gay cấn lên đầu (tick ⚡ nếu muốn). Cấu hình `montage_*` trong
   `config/hype.yaml`.
 
+**Thêm (chủ dự án yêu cầu 09/10): Review phim / hoạt hình** (ô tick 🎬, `JobOptions.review`, `config/review.yaml`): AI
+tìm các ĐOẠN HAY (luôn qua bảng duyệt chia video), mỗi đoạn thành **một video review 60–90 giây** (cảnh theo đúng thứ tự
+phim, ≤ 12s/cảnh); AI xem khung hình rồi viết **lời review** (kể lại + bình luận, phủ 60–95% thời lượng, prompt
+`dub_review.md`) bằng ngôn ngữ đích (không chọn thì tiếng gốc); chủ dự án thu voice như chế độ Đổi ngôn ngữ; tiếng phim
+**hạ nhỏ** dưới voice (`original_audio`), không tắt hẳn. Không dùng cùng "Chỉ thay tiếng" / "Phụ đề tiếng Việt"; tắt ⚡.
+
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.
 - Chuyển động hình: zoom giật, zoom chậm, lắc, dừng hình, quay chậm.

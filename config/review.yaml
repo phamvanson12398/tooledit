@@ -1,0 +1,20 @@
+# Chế độ "REVIEW PHIM / HOẠT HÌNH" (chủ dự án yêu cầu 09/10): AI tìm các ĐOẠN HAY trong phim / hoạt hình, mỗi đoạn
+# thành MỘT video review riêng dài 1 phút – 1 phút 30. Trên mỗi video là LỜI REVIEW (kể lại + bình luận) do AI viết,
+# chủ dự án tự thu voice bằng Voice Studio; tiếng gốc của phim được HẠ NHỎ bên dưới (không tắt hẳn).
+# Ngôn ngữ lời review = ngôn ngữ chọn ở ô "🌐 Đổi ngôn ngữ"; để "Giữ nguyên" thì dùng tiếng gốc (phải là Hàn / Nhật / Anh).
+min_video_s: 60          # mỗi video tối thiểu 1 phút (kể cả hook)
+max_video_s: 90          # tối đa 1 phút 30
+# Độ dài đoạn phim GỐC cho mỗi video (trước khi cắt gọn) — AI chọn đoạn liền trong khoảng này
+min_raw_s: 55
+max_raw_s: 240
+max_clip_s: 12           # mỗi cảnh tối đa 12 giây (giữ nhịp, đổi hình liên tục dưới lời review)
+# Lời review
+open_within_s: 1.0       # câu đầu cất lên ngay trong 1 giây đầu
+min_cover: 0.6           # lời review phủ 60–95% thời lượng (review là nói gần như liên tục, chừa chỗ cho cảnh đắt)
+max_cover: 0.95
+frames: 18               # số khung hình gửi AI xem để kể đúng chuyện
+# Tiếng gốc của phim dưới lời review
+original_audio:
+  mute: false            # true = tắt hẳn tiếng phim
+  db: -18                # dưới câu review đã có voice
+  db_no_voice: -6        # chỗ không có lời review (cảnh đắt để tiếng phim tự nói)

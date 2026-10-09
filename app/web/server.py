@@ -313,6 +313,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <label class="tg"><input type="checkbox" name="confirm"> Xác nhận trước khi dựng</label>
             <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label>
             <label class="tg"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục — cảnh gay cấn lên đầu (3–5s/cảnh)</label>
+            <label class="tg"><input type="checkbox" name="review"> 🎬 Review phim / hoạt hình — tìm đoạn hay, mỗi đoạn
+            một video 1:00–1:30 có lời review (bạn thu voice)</label>
             <label class="tg"><input type="checkbox" name="vi_sub"> 🇻🇳 Chỉ phụ đề tiếng Việt — xem hiểu video nước ngoài
             (không dựng lại; ra file .srt + draft giữ nguyên video)</label></div></div>
           {_music_select(lib)}
@@ -474,7 +476,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 split: str | None = Form(None), target_language: str = Form(""), music: str = Form(""),
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
                 keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None),
-                vi_sub: str | None = Form(None)):
+                vi_sub: str | None = Form(None), review: str | None = Form(None)):
         paths = [Path(x.strip().strip('"')) for x in footage.splitlines() if x.strip().strip('"')]
         missing_files = [p for p in paths if not p.is_file()]
         if not paths or missing_files:
@@ -491,11 +493,15 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Chỉ thay tiếng</b> cần chọn "
                          "ngôn ngữ mới ở ô <b>🌐 Đổi ngôn ngữ video</b> (Hàn / Nhật / Anh).</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
+        if review and (voice_only or vi_sub):
+            return _page("Lỗi", "<div class='card'><h2>Chọn một chế độ thôi</h2><p><b>Review phim</b> không dùng cùng "
+                         "<b>Chỉ thay tiếng</b> hay <b>Chỉ phụ đề tiếng Việt</b>. Bỏ bớt một ô tick.</p>"
+                         "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         job = Job.create(Path(jobs_root), [p.resolve() for p in paths], JobOptions(
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only,
             reframe_per_scene=bool(reframe) and not voice_only,
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and len(paths) == 1,
-            hype=bool(hype) and not voice_only,
+            hype=bool(hype) and not voice_only and not review, review=bool(review),
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
             script_mode=script_mode if script_mode in ("rewrite", "translate") else "",
             vi_sub=bool(vi_sub) and len(paths) == 1))
@@ -524,7 +530,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         cur = STEPS.index(job.step)
         chips = []
         for i, st in enumerate(STEPS):
-            if not job.applies(st) or st == "assets" or (st == "segment" and not job.options.split):
+            if not job.applies(st) or st == "assets" or (st == "segment" and not (job.options.split or job.options.review)):
                 continue
             cls = "done" if i < cur or job.status == Status.done else ("cur " + status if i == cur else "")
             chips.append(f"<span class='step {cls}'>{STEP_VI.get(st, st)}</span>")
@@ -807,14 +813,14 @@ def _manage_panel(job: Job) -> str:
                 f"<button type='submit' class='btn light small'>{label}</button></form>")
 
     buttons = []
-    if job.options.split and STEPS.index(job.step) > STEPS.index("review_segments"):
+    if (job.options.split or job.options.review) and STEPS.index(job.step) > STEPS.index("review_segments"):
         buttons.append(redo("segment", "✂️ Chia lại video",
                             "AI sẽ chia lại video; hook, kế hoạch và voice cũ sẽ phải làm lại. Tiếp tục?"))
     have_plan = STEPS.index(job.step) > STEPS.index("plan") or job.status == Status.done
     if have_plan:
         buttons.append(redo("write", "🔁 Dựng lại draft", "Ghi đè draft CapCut hiện tại? Đóng CapCut trước khi bấm."))
         buttons.append(redo("plan", "🎬 Lập lại kế hoạch dựng", "AI sẽ lập kế hoạch mới và dựng lại draft. Tiếp tục?"))
-    if job.options.target_language and STEPS.index(job.step) > STEPS.index("dub"):
+    if (job.options.target_language or job.options.review) and STEPS.index(job.step) > STEPS.index("dub"):
         buttons.append(redo("dub", "🌐 Viết lại thuyết minh", "AI viết lại câu thuyết minh; voice thuyết minh cũ phải thu "
                             "lại. Tiếp tục?"))
     if job.options.hook and STEPS.index(job.step) > STEPS.index("choose_hook"):

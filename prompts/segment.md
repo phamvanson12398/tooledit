@@ -15,6 +15,7 @@ Footage dài {{duration}} giây; đoạn dùng được {{range}} giây. Hãy ch
 - Các video không chồng nhau. Mọi mốc là giây trong footage gốc, nằm trong đoạn dùng được.
 - Ghi **cả các đoạn bị bỏ** vào `dropped` kèm lý do (tiếng Việt), để người dùng xem lại.
 - `title_vi`, `summary_vi`, `why_vi` viết tiếng Việt, ngắn. Không bịa nội dung không có trong footage.
+{{review_note}}
 
 ## Điều cấm
 {{sensitive_notes}}

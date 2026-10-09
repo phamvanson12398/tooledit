@@ -143,8 +143,8 @@ class Runner:
         return u.dubbed_to(target) if target and target != u.language else u
 
     def _dubbing(self, job: Job) -> bool:
-        """Đang ở chế độ Đổi ngôn ngữ và tiếng gốc khác tiếng đích."""
-        return bool(job.options.target_language) and not job.data.get("dub_same")
+        """Có lời thuyết minh: chế độ Đổi ngôn ngữ (tiếng gốc khác tiếng đích) hoặc Review phim (luôn có lời review)."""
+        return (bool(job.options.target_language) and not job.data.get("dub_same")) or job.options.review
 
     def _footage_size(self, job: Job) -> tuple[int, int, float]:
         """(rộng, cao, thời lượng giây) của footage, từ kết quả phân tích; chưa phân tích → (0, 0, 0)."""
@@ -171,7 +171,11 @@ class Runner:
             if not style.get("camera") and dcfg.get("camera_default"):
                 style["camera"] = dcfg["camera_default"]
         parts = job.data.get("montage_parts")
-        if (job.options.hype or parts) and not job.options.voice_only:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
+        if job.options.review:  # review phim: đoạn hay theo đúng thứ tự truyện, lời review phủ gần kín, tiếng phim hạ nhỏ
+            rcfg = config.load("review")
+            style = {**style, "review": rcfg, "reorder": False, "cold_open": False,
+                     "original_audio": rcfg.get("original_audio") or {}}
+        elif (job.options.hype or parts) and not job.options.voice_only:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
             hcfg = config.load("hype")
             style = {**style, "hype": {"min_clip_s": hcfg.get("min_clip_s", 3.0), "max_clip_s": hcfg.get("max_clip_s", 5.0)},
                      "reorder": False, "cold_open": bool(hcfg.get("cold_open", False))}
@@ -258,7 +262,7 @@ class Runner:
         from app.planner import hook_io
 
         if step not in self.REDO_STEPS or (step != "segment" and not job.applies(step)) or \
-                (step == "segment" and not job.options.split):
+                (step == "segment" and not (job.options.split or job.options.review)):
             raise ValueError(f"Không làm lại được bước {step!r}")
         d, _, plan_dir = self._paths(job)
         if step == "segment":
@@ -311,9 +315,11 @@ class Runner:
         from app.director.tasks import for_video
 
         u = self._understanding(job)
+        if job.options.split or job.options.review:
+            return for_video(u, video)
         if job.options.voice_only or job.data.get("montage_parts"):  # chỉ thay tiếng / ghép nhiều video: toàn bộ footage
             return for_video(u, {**video, "summary_vi": video.get("summary_vi") or u.summary_vi})
-        return for_video(u, video) if job.options.split else u
+        return u
 
     def _hook_for(self, d: Path, index: int):
         from app.planner import hook_io
@@ -415,7 +421,9 @@ class Runner:
         job.data["source_language"] = u.language
         if target and target == u.language:
             job.data["dub_same"] = True
-            self.log(f"Video gốc đã là {target} — không cần thuyết minh, chỉ dựng lại khác bản gốc.")
+            self.log(f"Video gốc đã là {target} — "
+                     + ("lời review viết luôn bằng tiếng này." if job.options.review else
+                        "không cần thuyết minh, chỉ dựng lại khác bản gốc."))
         elif target:
             job.data.pop("dub_same", None)
             self.log(f"Đổi ngôn ngữ: {u.language} → {target} (thuyết minh + phụ đề {target}).")
@@ -437,7 +445,7 @@ class Runner:
         _, analysis, plan_dir = self._paths(job)
         u = self._understanding(job)
         path = plan_dir / "segments.json"
-        if not job.options.split:
+        if not job.options.split and not job.options.review:
             start, end = u.usable_range.start, u.usable_range.end
             if job.options.voice_only or job.data.get("montage_parts"):  # giữ trọn footage từ giây 0 tới hết
                 start, end = 0.0, self._footage_size(job)[2] or end
@@ -449,7 +457,7 @@ class Runner:
         if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
             self.log("Đã có kết quả chia video, dùng lại.")
             return
-        sp = make_segments(self.director, analysis, u)
+        sp = make_segments(self.director, analysis, u, review=job.options.review)
         videos = [{"index": i, "start": v.start, "end": v.end, "title_vi": v.title_vi, "summary_vi": v.summary_vi,
                    "why_vi": v.why_vi} for i, v in enumerate(sorted(sp.videos, key=lambda v: v.start), 1)]
         data = {"proposal": sp.model_dump(), "videos": videos, "confirmed": False}
@@ -507,7 +515,7 @@ class Runner:
                 continue
             self.log(f"Viết hook cho video {v['index']:02d}…")
             sets.append(make_hooks(self.director, analysis, self._u_for(job, v), video_index=v["index"],
-                                   restrict=job.options.split))
+                                   restrict=job.options.split or job.options.review))
             hook_io.save_hooks(d, sorted(sets, key=lambda s: s.video_index), choices)
 
     def step_choose_hook(self, job: Job) -> None:
@@ -602,7 +610,7 @@ class Runner:
                 hook = self._hook_for(d, i) if job.options.hook else None
                 try:
                     s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i,
-                                 mode=self.script_mode(job))
+                                 mode="review" if job.options.review else self.script_mode(job))
                 except DirectorError as exc:
                     if exc.last is None:
                         raise

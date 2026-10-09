@@ -152,11 +152,24 @@ def for_video(u, video: dict):
                                 u.key_moments[:1], "summary_vi": summary})
 
 
-def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0):
-    """Chia footage dài thành nhiều video độc lập 60–150s (mục 4)."""
+REVIEW_SEGMENT_NOTE = """
+## CHẾ ĐỘ REVIEW PHIM / HOẠT HÌNH
+Đây là phim / hoạt hình. Mỗi video sẽ là một clip REVIEW: lời review (kể lại + bình luận) chạy trên các cảnh của đoạn
+đó. Hãy tìm các ĐOẠN HAY NHẤT — tình huống hài, cảm động, gay cấn, cú twist, màn thể hiện của nhân vật — mỗi đoạn là
+một câu chuyện nhỏ trọn vẹn (mở – diễn biến – kết) để kể lại được trong {min_video_s}–{max_video_s} giây. Đoạn nhạt,
+đoạn chuyển cảnh, giới thiệu / credit, quảng cáo thì bỏ (ghi vào `dropped`). `why_vi` nói rõ đoạn này hay ở chỗ nào.
+"""
+
+
+def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, review: bool = False):
+    """Chia footage dài thành nhiều video độc lập 60–150s (mục 4). review=True: tìm đoạn hay trong phim / hoạt hình,
+    mỗi đoạn một video review 60–90s (config/review.yaml)."""
     from app.director.schemas import SegmentPlan, check_segments
 
     cfg = config.load("split")
+    if review:
+        cfg = {**cfg, **{k: v for k, v in config.load("review").items()
+                         if k in ("min_video_s", "max_video_s", "min_raw_s", "max_raw_s")}}
     a = load_analysis(analysis_dir, footage)
     duration = a["scenes"]["duration"]
     segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
@@ -164,6 +177,8 @@ def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0):
     variables = {**_shared_context(u, segs, a.get("events")), "duration": f"{duration:.1f}",
                  "min_video_s": cfg.get("min_video_s", 60), "max_video_s": cfg.get("max_video_s", 150),
                  "min_raw_s": min_raw, "max_raw_s": max_raw,
+                 "review_note": REVIEW_SEGMENT_NOTE.format(min_video_s=cfg.get("min_video_s", 60),
+                                                           max_video_s=cfg.get("max_video_s", 90)) if review else "",
                  "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in a["scenes"]["scenes"]) or "(không có)",
                  "transcript": format_transcript(
                      [{**s, "text": apply_name_corrections(s["text"], u.name_corrections)} for s in segs],
@@ -309,7 +324,8 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                          if four else ("- Bố cục không có dòng tiêu đề: để `title_top`, `titles_top`, `titles_bottom` rỗng."
                                        if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
         "arrow_brief": arrow_brief,
-        "order_rule": (REMIX_RULE if style.get("remix") and not style.get("hype") and not style.get("montage_parts")
+        "order_rule": REVIEW_RULE.format(**_review_cfg(style)) if style.get("review") else
+                      (REMIX_RULE if style.get("remix") and not style.get("hype") and not style.get("montage_parts")
                        else "") + (
                        (HYPE_RULE.format(**_hype_cfg(style)) if style.get("hype") else "")
                        + (MONTAGE_RULE.format(parts=parts_brief(style["montage_parts"]), **_montage_cfg())
@@ -356,6 +372,16 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     def extra(plan) -> list[str]:
         if keep:  # không giới hạn 60–150 giây: giữ đúng độ dài video gốc
             errors = check_plan(plan, duration + 0.5, hook_s, min_s=0, max_s=1e9)
+        elif style.get("review"):  # review phim: mỗi video 60–90 giây (chủ dự án yêu cầu 09/10)
+            rc = _review_cfg(style)
+            errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s, min_s=rc["min_s"],
+                                max_s=rc["max_s"], available=available)
+            errors += [f"clip {c.source_start}-{c.source_end} dài quá {rc['max_clip_s']:.0f}s — tách hoặc cắt gọn"
+                       for c in plan.clips if not c.replay and (c.source_end - c.source_start) / c.speed
+                       > rc["max_clip_s"] + 0.5]
+            errors += [f"clip {c.source_start}-{c.source_end} nằm ngoài đoạn của video này "
+                       f"({u.usable_range.start:.1f}–{u.usable_range.end:.1f}s)"
+                       for c in plan.clips if c.source_end > u.usable_range.end + 0.5]
         elif style.get("montage_parts"):  # ghép nhiều video: một video khoảng 2 phút (chủ dự án chốt 08/10)
             mc = _montage_cfg()
             errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s,
@@ -507,6 +533,24 @@ FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video m
 BOTTOM_ON = ('- `titles_bottom` (2 dòng): nhân vật / kết luận về người trong video. '
              'Ví dụ: ["全くぶれない男だった", "亜細亜大のキャプテン"].')
 BOTTOM_OFF = "- `titles_bottom`: để RỖNG [] (bố cục chỉ có 2 dòng tiêu đề phía trên)."
+
+
+def _review_cfg(style: dict) -> dict:
+    r = style.get("review") if isinstance(style.get("review"), dict) else {}
+    return {"min_s": float(r.get("min_video_s", 60)), "max_s": float(r.get("max_video_s", 90)),
+            "max_clip_s": float(r.get("max_clip_s", 12))}
+
+
+REVIEW_RULE = """REVIEW PHIM / HOẠT HÌNH (chủ dự án yêu cầu 09/10): video này là một clip review — lời review (kể lại câu
+  chuyện + bình luận, sẽ viết ở bước sau và chủ dự án tự thu voice) chạy trên hình; tiếng phim được hạ nhỏ bên dưới.
+  - Tổng thời lượng {min_s:.0f}–{max_s:.0f} giây (kể cả hook). Chọn những cảnh kể được câu chuyện của đoạn này rõ nhất,
+    theo ĐÚNG THỨ TỰ thời gian của phim (người xem phải hiểu chuyện), clip không chồng nhau.
+  - Cắt gọn mạnh: bỏ cảnh chậm, đoạn chuyển, lặp; mỗi cảnh 2–8 giây, tối đa {max_clip_s:.0f}s; tua nhanh (speed 1.2–1.5)
+    đoạn dẫn dắt dài.
+  - Khoảnh khắc ĐẮT NHẤT (câu thoại chốt, cảnh hài / cảm động / twist): giữ trọn để tiếng phim tự nói, có thể thêm 1
+    clip replay quay chậm.
+  - Nhạc nền hợp không khí đoạn phim (nhỏ, nằm dưới lời review), chuyển cảnh nhẹ, zoom vào biểu cảm nhân vật ở điểm nhấn;
+    tiêu đề nêu cái hay / tình huống của đoạn này (không spoil đoạn kết)."""
 
 
 def _montage_cfg() -> dict:
@@ -880,11 +924,11 @@ def shorten_dub_lines(director: Director, script, items: list[tuple[int, int]], 
     return script.model_copy(update={"lines": lines})
 
 
-def check_rewrite(script, plan, cfg: dict) -> list[str]:
-    """Kịch bản viết mới: mở lời ngay đầu video, không nói kín mít."""
+def check_rewrite(script, plan, cfg: dict, rcfg: dict | None = None) -> list[str]:
+    """Kịch bản viết mới: mở lời ngay đầu video, không nói kín mít (review phim: còn phải phủ đủ — min_cover)."""
     from app.planner.timeline import TimeMap
 
-    rcfg = cfg.get("rewrite") or {}
+    rcfg = (cfg.get("rewrite") or {}) if rcfg is None else rcfg
     tmap = TimeMap(plan.clips)
     outs = [(tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)) for ln in script.lines]
     outs = [(a, b) for a, b in outs if a is not None and b is not None and b > a]
@@ -895,14 +939,19 @@ def check_rewrite(script, plan, cfg: dict) -> list[str]:
     cover = sum(b - a for a, b in outs) / total
     if cover > float(rcfg.get("max_cover", 0.9)):
         errors.append(f"lời chiếm {cover:.0%} thời lượng — quá kín, chừa chỗ thở (≤ {float(rcfg.get('max_cover', 0.9)):.0%})")
+    if outs and rcfg.get("min_cover") and cover < float(rcfg["min_cover"]):
+        errors.append(f"lời review chỉ phủ {cover:.0%} thời lượng — review cần kể gần như liên tục "
+                      f"(≥ {float(rcfg['min_cover']):.0%}), chỉ chừa chỗ cho khoảnh khắc đắt")
     return errors
 
 
-def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0):
+def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,
+                 review: bool = False):
+    """Viết mới lời thuyết minh (task dub_rewrite) hoặc lời REVIEW phim / hoạt hình (task dub_review)."""
     from app.director.schemas import DubScript
 
     cfg = config.load("dub")
-    rcfg = cfg.get("rewrite") or {}
+    rcfg = config.load("review") if review else (cfg.get("rewrite") or {})
     a = load_analysis(analysis_dir, footage)
     segs = a["transcript"].get("segments", [])
     kept_clips = [c for c in plan.clips if not c.replay and not c.repeat]
@@ -923,12 +972,13 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
                  "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)"}
 
     def extra(r) -> list[str]:
-        errors = check_dub(r, plan, u.language, cfg) + check_rewrite(r, plan, cfg)
+        errors = check_dub(r, plan, u.language, cfg) + check_rewrite(r, plan, cfg, rcfg)
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors
 
-    return director.run("dub_rewrite", variables, DubScript, [analysis_dir / f["file"] for f in frames],
+    return director.run("dub_review" if review else "dub_rewrite", variables, DubScript,
+                        [analysis_dir / f["file"] for f in frames],
                         extra_check=extra, repair=lambda r: repair_dub(r, plan, cfg, u.language))
 
 
@@ -936,12 +986,13 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
              mode: str = "translate"):
     """Kịch bản thuyết minh theo các clip của kế hoạch dựng (giây gốc), bằng ngôn ngữ đích u.language.
     mode="translate": dịch sát lời gốc (+ lời dẫn chỗ im lặng); mode="rewrite": AI xem hình rồi VIẾT MỚI nội dung
-    hợp khán giả nước đích (chủ dự án yêu cầu 07/10)."""
+    hợp khán giả nước đích (chủ dự án yêu cầu 07/10); mode="review": lời REVIEW phim / hoạt hình (09/10)."""
     from app.director.schemas import DubScript
 
     cfg = config.load("dub")
-    if mode == "rewrite":
-        return _rewrite_dub(director, analysis_dir, u, plan, hook=hook, video_index=video_index, footage=footage)
+    if mode in ("rewrite", "review"):
+        return _rewrite_dub(director, analysis_dir, u, plan, hook=hook, video_index=video_index, footage=footage,
+                            review=mode == "review")
     a = load_analysis(analysis_dir, footage)
     segs = a["transcript"].get("segments", [])
     kept = []
