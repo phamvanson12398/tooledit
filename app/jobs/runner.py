@@ -175,6 +175,8 @@ class Runner:
             rcfg = config.load("review")
             style = {**style, "review": rcfg, "reorder": False, "cold_open": False,
                      "original_audio": rcfg.get("original_audio") or {}}
+            if rcfg.get("layout"):  # bố cục như video mẫu: khối phim 9:10 cắt thẳng từ footage, bám nhân vật
+                style.update({"layout": rcfg["layout"], "block_ratio": "9:10", "crop_ratio": None})
         elif (job.options.hype or parts) and not job.options.voice_only:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
             hcfg = config.load("hype")
             style = {**style, "hype": {"min_clip_s": hcfg.get("min_clip_s", 3.0), "max_clip_s": hcfg.get("max_clip_s", 5.0)},

@@ -389,6 +389,10 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             errors += [f"clip {c.source_start}-{c.source_end} dài quá {rc['max_clip_s']:.0f}s — tách hoặc cắt gọn"
                        for c in plan.clips if not c.replay and (c.source_end - c.source_start) / c.speed
                        > rc["max_clip_s"] + 0.5]
+            normal = [(c.source_end - c.source_start) / c.speed for c in plan.clips if not c.replay]
+            if normal and sum(normal) / len(normal) > rc["avg_clip_s"] + 0.5:
+                errors.append(f"cảnh dài trung bình {sum(normal) / len(normal):.1f}s — phải chuyển cảnh nhanh hơn "
+                              f"(trung bình ≤ {rc['avg_clip_s']:.0f}s, mỗi cảnh 1–3 giây): chia nhỏ các clip dài")
             errors += [f"clip {c.source_start}-{c.source_end} nằm ngoài đoạn của video này "
                        f"({u.usable_range.start:.1f}–{u.usable_range.end:.1f}s)"
                        for c in plan.clips if c.source_end > u.usable_range.end + 0.5]
@@ -548,7 +552,7 @@ BOTTOM_OFF = "- `titles_bottom`: để RỖNG [] (bố cục chỉ có 2 dòng t
 def _review_cfg(style: dict) -> dict:
     r = style.get("review") if isinstance(style.get("review"), dict) else {}
     return {"min_s": float(r.get("min_video_s", 60)), "max_s": float(r.get("max_video_s", 90)),
-            "max_clip_s": float(r.get("max_clip_s", 12))}
+            "max_clip_s": float(r.get("max_clip_s", 6)), "avg_clip_s": float(r.get("avg_clip_s", 3.0))}
 
 
 REVIEW_RULE = """REVIEW PHIM / HOẠT HÌNH (chủ dự án yêu cầu 09/10): video này là một clip review — lời review (kể lại câu
@@ -556,12 +560,15 @@ REVIEW_RULE = """REVIEW PHIM / HOẠT HÌNH (chủ dự án yêu cầu 09/10): v
   - Video là MỘT CÂU CHUYỆN có mở đầu (nhân vật, hoàn cảnh) – mâu thuẫn – cao trào – kết; chọn cảnh phục vụ từng nhịp đó.
   - Tổng thời lượng {min_s:.0f}–{max_s:.0f} giây (kể cả hook). Chọn những cảnh kể được câu chuyện của đoạn này rõ nhất,
     theo ĐÚNG THỨ TỰ thời gian của phim (người xem phải hiểu chuyện), clip không chồng nhau.
-  - Cắt gọn mạnh: bỏ cảnh chậm, đoạn chuyển, lặp; mỗi cảnh 2–8 giây, tối đa {max_clip_s:.0f}s; tua nhanh (speed 1.2–1.5)
-    đoạn dẫn dắt dài.
-  - Khoảnh khắc ĐẮT NHẤT (câu thoại chốt, cảnh hài / cảm động / twist): giữ trọn để tiếng phim tự nói, có thể thêm 1
-    clip replay quay chậm.
+  - CHUYỂN CẢNH RẤT NHANH như video mẫu chủ dự án chọn: mỗi cảnh chỉ 1–3 giây (trung bình ≤ {avg_clip_s:.0f}s, tối đa
+    {max_clip_s:.0f}s), cắt liên tục theo nhịp lời kể — một câu kể thường chạy qua 2–3 cảnh. Lấy đúng khoảnh khắc biểu cảm /
+    hành động then chốt của mỗi cảnh, bỏ hết phần chậm, đoạn chuyển, lặp; giữa 2 cảnh liền nhau được bỏ qua vài giây phim.
+  - Khoảnh khắc ĐẮT NHẤT (câu thoại chốt, cảnh hài / cảm động / twist): được dài hơn (tối đa {max_clip_s:.0f}s) để tiếng
+    phim tự nói.
   - Nhạc nền hợp không khí đoạn phim (nhỏ, nằm dưới lời review), chuyển cảnh nhẹ, zoom vào biểu cảm nhân vật ở điểm nhấn;
-    tiêu đề nêu cái hay / tình huống của đoạn này (không spoil đoạn kết)."""
+    tiêu đề nêu cái hay / tình huống của đoạn này (không spoil đoạn kết).
+  - `titles_top` kiểu video mẫu: dòng 1 (chữ trắng) là bối cảnh / tính từ gây tò mò, dòng 2 (chữ XANH LÁ) là cú chốt
+    về nhân vật / sự kiện — vd "기억에서 지워진" / "징징이의 역습" (Cuộc phản công bị xóa khỏi ký ức của Squidward)."""
 
 
 def _montage_cfg() -> dict:
@@ -578,7 +585,7 @@ def _hype_cfg(style: dict) -> dict:
 
 def _bg_name(color: str) -> str:
     c = (color or "").upper()
-    return "trắng" if c.startswith("#FFFFFF") else "đen" if c.startswith("#000000") else f"màu {color}"
+    return "trắng" if c.startswith("#FFFFFF") else "đen" if c.startswith(("#000000", "#0B0B0B")) else f"màu {color}"
 
 
 REMIX_RULE = """BẢN DỰNG LẠI (khác bản gốc ~80%): giữ đúng THỨ TỰ thời gian của câu chuyện (không đảo cảnh), nhưng
@@ -799,7 +806,7 @@ def effective_cps(cfg: dict, language: str) -> float:
     return base
 
 
-def repair_dub(script, plan, cfg: dict | None = None, language: str = ""):
+def repair_dub(script, plan, cfg: dict | None = None, language: str = "", span: bool = False):
     """Tự sửa lỗi vặt của kịch bản thuyết minh (đỡ phải hỏi lại AI — mỗi lần mất vài phút):
     - câu vắt qua 2 clip → thu về clip chứa phần lớn câu (còn < 0.5 giây thì bỏ câu);
     - câu quá ngắn so với số chữ (nói không kịp) mà sát câu sau trong cùng clip → gộp 2 câu."""
@@ -812,6 +819,18 @@ def repair_dub(script, plan, cfg: dict | None = None, language: str = ""):
     fixes, lines = [], []
     for ln in script.lines:
         a, b = ln.source_start, ln.source_end
+        if span:  # review phim: câu kể chạy liền qua nhiều cảnh — chỉ kéo 2 đầu câu vào trong clip được giữ
+            na = next((max(a, c.source_start) for c in kept if c.source_end > a + 0.05), None)
+            nb = next((min(b, c.source_end) for c in reversed(kept) if c.source_start < b - 0.05), None)
+            if na is None or nb is None or tmap.to_out(na) is None or tmap.to_out(nb) is None or \
+                    tmap.to_out(nb) - tmap.to_out(na) < 500_000:
+                fixes.append(f"bỏ câu thuyết minh {a}-{b}s (nằm ngoài các clip được giữ)")
+                continue
+            if (round(na, 2), round(nb, 2)) != (round(a, 2), round(b, 2)):
+                fixes.append(f"câu {a}-{b}s: kéo 2 đầu câu vào trong cảnh được giữ → {na:.2f}-{nb:.2f}s")
+                ln = ln.model_copy(update={"source_start": round(na, 2), "source_end": round(nb, 2)})
+            lines.append(ln)
+            continue
         best = max(kept, key=lambda c: min(b, c.source_end) - max(a, c.source_start), default=None)
         if best is None or min(b, best.source_end) - max(a, best.source_start) < 0.5:
             fixes.append(f"bỏ câu thuyết minh {a}-{b}s (nằm ngoài các clip được giữ)")
@@ -830,7 +849,7 @@ def repair_dub(script, plan, cfg: dict | None = None, language: str = ""):
             dur = ((pb - pa) / 1e6 - 0.12) if pa is not None and pb is not None else 0  # giống check_dub
             too_fast = dur > 0 and speech_chars(prev.text) / dur > cps * 1.1
             close = ln.source_start - prev.source_end <= 0.6
-            if too_fast and close and same_clip:
+            if too_fast and close and (same_clip or span):
                 sep = "" if language == "ja" else " "
                 merged[-1] = prev.model_copy(update={
                     "source_end": ln.source_end, "text": prev.text.rstrip() + sep + ln.text.lstrip(),
@@ -845,7 +864,7 @@ def repair_dub(script, plan, cfg: dict | None = None, language: str = ""):
     return script.model_copy(update={"lines": merged}), fixes
 
 
-def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]:
+def check_dub(script, plan, language: str, cfg: dict | None = None, span: bool = False) -> list[str]:
     from app.director.policy import find_forbidden
     from app.planner.timeline import SEC, TimeMap
 
@@ -859,7 +878,11 @@ def check_dub(script, plan, language: str, cfg: dict | None = None) -> list[str]
     for i, ln in enumerate(script.lines, 1):
         clip = tmap.clip_containing((ln.source_start + ln.source_end) / 2)
         a, b = outs[i - 1]
-        if clip is None or a is None or b is None or b <= a or not (
+        if span:  # review phim: câu được chạy qua nhiều cảnh, chỉ cần 2 đầu câu nằm trong cảnh được giữ
+            if a is None or b is None or b <= a:
+                errors.append(f"câu {i} ({ln.source_start}-{ln.source_end}s): đầu và cuối câu phải nằm trong cảnh được giữ")
+                continue
+        elif clip is None or a is None or b is None or b <= a or not (
                 clip.source_start - 0.05 <= ln.source_start and ln.source_end <= clip.source_end + 0.05):
             errors.append(f"câu {i} ({ln.source_start}-{ln.source_end}s) phải nằm gọn trong MỘT clip được giữ")
             continue
@@ -1003,7 +1026,7 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
                  "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)"}
 
     def extra(r) -> list[str]:
-        errors = check_dub(r, plan, u.language, cfg) + check_rewrite(r, plan, cfg, rcfg)
+        errors = check_dub(r, plan, u.language, cfg, span=review) + check_rewrite(r, plan, cfg, rcfg)
         if review:
             errors += check_story(r, rcfg)
         if r.video_index != video_index:
@@ -1012,7 +1035,7 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
 
     return director.run("dub_review" if review else "dub_rewrite", variables, DubScript,
                         [analysis_dir / f["file"] for f in frames],
-                        extra_check=extra, repair=lambda r: repair_dub(r, plan, cfg, u.language))
+                        extra_check=extra, repair=lambda r: repair_dub(r, plan, cfg, u.language, span=review))
 
 
 def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,

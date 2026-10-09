@@ -13,7 +13,8 @@ from tests.test_planner import SAMPLE, load
 from tests.test_runner import make_runner
 
 
-def _clips(start: float, n: int, length: float = 11.0, gap: float = 1.0):
+def _clips(start: float, n: int, length: float = 2.5, gap: float = 0.2):
+    """Cảnh ngắn 2.5 giây như video mẫu chủ dự án gửi (chuyển cảnh rất nhanh)."""
     return [{"source_start": start + k * (length + gap), "source_end": start + k * (length + gap) + length}
             for k in range(n)]
 
@@ -23,21 +24,21 @@ def _plan(index: int, clips: list[dict]) -> dict:
 
     base = {**load("plan.json"), "emphasis": [], "zooms": [], "sfx": [], "effects": [], "stickers": [],
             "transitions": [], "arrows": [], "video_index": index, "clips": clips,
-            "zooms": [{"source_start": c["source_start"] + 2, "source_end": c["source_start"] + 4, "kind": "punch"}
+            "zooms": [{"source_start": c["source_start"] + 0.5, "source_end": c["source_start"] + 2, "kind": "punch"}
                       for c in clips[::2]]}
     base["filter"] = next(i.name for i in DraftTemplate(SAMPLE).library if i.kind == "filter")
     return base
 
 
 def _review(index: int, clips: list[dict]) -> dict:
-    """Lời review phủ ~90% mỗi clip: 2 câu 5 giây / clip 11 giây."""
+    """Lời review phủ ~90%: mỗi câu chạy liền qua 2 cảnh (cảnh chuyển nhanh, giọng kể không ngắt)."""
     lines = []
-    for c in clips:
-        a = c["source_start"]
-        lines += [{"source_start": a + 0.2, "source_end": a + 5.2, "text": "이 장면 진짜 웃겨요.", "text_vi": "Cảnh này hài thật.",
-                   "kind": "narration"},
-                  {"source_start": a + 5.5, "source_end": a + 10.5, "text": "표정 좀 보세요.", "text_vi": "Nhìn mặt kìa.",
-                   "kind": "narration"}]
+    for k in range(0, len(clips), 2):
+        a = clips[k]["source_start"] + 0.1
+        b = clips[k + 1]["source_end"] - 0.4 if k + 1 < len(clips) else clips[k]["source_end"] - 0.2
+        text, vi = (("이 장면 진짜 웃겨요.", "Cảnh này hài thật.") if k % 4 == 0 else ("그런데 그때였죠.", "Nhưng đúng lúc đó."))
+        lines.append({"source_start": round(a, 2), "source_end": round(b, 2), "text": text, "text_vi": vi,
+                      "kind": "narration"})
     return {"video_index": index, "lines": lines, "editor_notes": "kể lại + bình luận",
             "story_vi": "Mở đầu: cậu bé mất con mèo. Mâu thuẫn: cả làng không ai giúp. Cao trào: cậu tự đi tìm trong rừng. "
                         "Kết: con mèo tự quay về."}
@@ -61,26 +62,33 @@ def test_review_plan_60_to_90s_and_short_clips(tmp_path):
     u = understand(FakeDirector(), a)
     u = u.model_copy(update={"usable_range": u.usable_range.model_copy(update={"start": 0.0, "end": 200.0})})
     style = {"review": config.load("review")}
-    too_long = _plan(1, _clips(1.0, 9))                                        # 99 giây > 90
-    long_clip = _plan(1, [{"source_start": 1.0, "source_end": 30.0}, *_clips(31.0, 4)])  # clip 29 giây
-    good = _plan(1, _clips(1.0, 6))                                            # 66 giây
+    too_long = _plan(1, _clips(1.0, 37))                                       # 92.5 giây > 90
+    long_clip = _plan(1, [{"source_start": 1.0, "source_end": 9.5}, *_clips(10.0, 24)])  # một cảnh 8.5 giây
+    good = _plan(1, _clips(1.0, 26))                                           # 65 giây, cảnh 2.5 giây
     d = FakeDirector(responses={"plan": [too_long, long_clip, good]})
     plan = make_plan(d, a, u, style)
-    assert len(d.calls) == 3 and len(plan.clips) == 6
-    assert "REVIEW PHIM" in d.calls[0]["prompt"]
-    assert "vượt 90s" in d.calls[1]["prompt"] and "dài quá 12s" in d.calls[2]["prompt"]
+    assert len(d.calls) == 3 and len(plan.clips) == 26
+    assert "REVIEW PHIM" in d.calls[0]["prompt"] and "CHUYỂN CẢNH RẤT NHANH" in d.calls[0]["prompt"]
+    assert "vượt 90s" in d.calls[1]["prompt"] and "dài quá 6s" in d.calls[2]["prompt"]
+    # cảnh nào cũng 5 giây (không cảnh nào quá 6s) nhưng nhịp chậm → bị yêu cầu chuyển cảnh nhanh hơn
+    slow = _plan(1, _clips(1.0, 14, length=5.0))
+    d2 = FakeDirector(responses={"plan": [slow, good]})
+    make_plan(d2, a, u, style)
+    assert len(d2.calls) == 2 and "chuyển cảnh nhanh hơn" in d2.calls[1]["prompt"]
 
 
 def test_review_dub_prompt_and_cover(tmp_path):
     a = make_analysis(tmp_path, duration=200.0)
     u = understand(FakeDirector(), a).dubbed_to("ko")
-    clips = _clips(1.0, 6)
+    clips = _clips(1.0, 26)
     plan = EditPlan.model_validate(_plan(1, clips))
     d = FakeDirector(responses={"dub_review": _review(1, clips)})
     s = make_dub(d, a, u, plan, mode="review")
     call = d.calls[-1]
+    assert len(d.calls) == 1, d.calls[-1]["prompt"][-800:]
     assert call["task"] == "dub_review" and "MỘT CÂU CHUYỆN" in call["prompt"] and call["images"]
-    assert len(s.lines) == 12
+    assert "CHẠY LIỀN QUA NHIỀU CẢNH" in call["prompt"] and "~습니다" in call["prompt"]
+    assert len(s.lines) == 13  # mỗi câu chạy qua 2 cảnh — không bị cắt về một cảnh
     sparse = DubScript.model_validate({**_review(1, clips), "lines": _review(1, clips)["lines"][:3]})
     assert any("chỉ phủ" in e for e in check_rewrite(sparse, plan, {}, config.load("review")))
     assert check_rewrite(s, plan, {}, config.load("review")) == []
@@ -93,7 +101,7 @@ def test_review_job_end_to_end(tmp_path):
     r = make_runner(tmp_path, jobs)
     u = load("understand.json")
     u["usable_range"] = {"start": 0.0, "end": 200.0}
-    c1, c2 = _clips(1.0, 6), _clips(76.0, 6)
+    c1, c2 = _clips(1.0, 25), _clips(76.0, 25)
     r._director = FakeDirector(responses={"understand": u, "plan": [_plan(1, c1), _plan(2, c2)],
                                           "dub_review": [_review(1, c1), _review(2, c2)],
                                           "captions": [load("captions.json"), {**load("captions.json"), "video_index": 2}]})
@@ -106,12 +114,13 @@ def test_review_job_end_to_end(tmp_path):
     assert "📖 Câu chuyện: Mở đầu" in (jobs / "rv" / "dub_scripts.txt").read_text(encoding="utf-8")
     style = r._style(job)
     assert style["review"] and style["original_audio"]["mute"] is False and "hype" not in style
+    assert style["layout"] == "review_story" and style["block_ratio"] == "9:10"  # bố cục như video mẫu
     # tiếng phim chỉ hạ nhỏ (không tắt hẳn) dưới lời review
     job.data["dub_skip"] = True
     job = r.resume(job)
     assert job.status == Status.done, job.message
     content = (Path(job.data["drafts"][0]["draft"]) / "draft_content.json").read_text(encoding="utf-8")
-    assert "이 장면 진짜 웃겨요" in content
+    assert "이 장면 진짜" in content and "이 장면 진짜 웃겨요." not in content  # phụ đề cụm ngắn (≤ 10 ký tự) như video mẫu
     assert len(job.data["drafts"]) == 2
 
 
@@ -147,7 +156,7 @@ def test_review_must_be_a_story_not_scene_description(tmp_path):
     """Chủ dự án (09/10): review phải thành MỘT CÂU CHUYỆN, không thuật lại "người này đang làm gì"."""
     from app.director.tasks import check_story
 
-    clips = _clips(1.0, 6)
+    clips = _clips(1.0, 26)
     rcfg = config.load("review")
     good = DubScript.model_validate(_review(1, clips))
     assert check_story(good, rcfg) == []

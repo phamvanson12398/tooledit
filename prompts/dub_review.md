@@ -30,12 +30,16 @@ Cách làm:
    theo đặc điểm (cậu bé áo đỏ, chú mèo trắng…). Không bịa tình tiết, kết cục ngoài đoạn này.
 7. Khoảnh khắc ĐẮT (câu thoại chốt, cú twist, tiếng cười) thì NGỪNG kể 1–3 giây để tiếng phim tự lên, rồi kể tiếp.
 8. XEM KHUNG HÌNH (mở từng file bằng Read) để hiểu đúng diễn biến và đặt câu nào lên cảnh nào.
+9. GIỌNG KỂ như video mẫu chủ dự án chọn (kênh review hoạt hình Hàn): kể ở THÌ QUÁ KHỨ, đều đặn, cuốn, như kể lại một
+   câu chuyện có thật — tiếng Hàn dùng đuôi "~습니다 / ~었죠 / ~였는데요"; tiếng Nhật "〜でした / 〜んです / 〜ました";
+   tiếng Anh thì quá khứ, câu ngắn có nhịp. Câu ngắn gọn, nhiều câu nối tiếp nhau, gần như không ngắt quãng.
 
 {{localize_brief}}
 
 ## Luật thời gian
-- Mỗi câu (`lines`) đặt lên đoạn hình minh họa cho nó: `source_start`–`source_end` là giây GỐC, nằm gọn trong MỘT clip
-  được giữ, các câu theo thứ tự, không chồng nhau. Câu đầu tiên bắt đầu ngay đầu clip đầu tiên.
+- Cảnh chuyển RẤT NHANH (1–3 giây / cảnh) nên một câu kể được CHẠY LIỀN QUA NHIỀU CẢNH liên tiếp: `source_start` là giây
+  GỐC nằm trong cảnh câu bắt đầu, `source_end` là giây GỐC nằm trong cảnh câu kết thúc (2 đầu câu phải nằm trong cảnh
+  được giữ). Các câu theo thứ tự, không chồng nhau. Câu đầu tiên bắt đầu ngay đầu clip đầu tiên.
 - Mỗi câu dài {{line_min}}–{{line_max}} giây; đọc kịp: tối đa khoảng {{max_cps}} ký tự/giây (không tính dấu cách, dấu câu).
 - Kể GẦN NHƯ LIÊN TỤC: lời phủ khoảng 70–90% thời lượng; chỉ chừa khoảng lặng ở khoảnh khắc đắt.
 - `kind`: "narration" cho lời kể; "dub" nếu câu thuật lại đúng lời nhân vật đang nói.

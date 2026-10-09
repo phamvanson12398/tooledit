@@ -216,6 +216,10 @@ phim, ≤ 12s/cảnh); AI xem khung hình rồi viết **lời review** (kể l�
 Cập nhật 09/10: lời review là **KỂ CHUYỆN** (mở đầu – mâu thuẫn – cao trào – kết, nối nhân – quả, động cơ / cảm xúc
 nhân vật), KHÔNG thuật lại "ai đang làm gì": AI viết `story_vi` (dàn ý) trước; code chặn khi > 30% câu kiểu tả cảnh
 (`check_story`, `max_describe_share`); dàn ý in ở đầu mỗi video trong `dub_scripts.txt`.
+Cập nhật 09/10 (video mẫu chủ dự án gửi — review SpongeBob tiếng Hàn): **chuyển cảnh rất nhanh** (cảnh 1–3s, trung bình
+≤ `avg_clip_s` 3s, tối đa 6s), **một câu kể chạy liền qua nhiều cảnh** (`span` trong check_dub / repair_dub), giọng kể thì
+quá khứ (~습니다/~었죠); bố cục `review_story` (`config/layout.yaml`): nền tối, 2 dòng tiêu đề trắng + xanh lá, khối phim
+9:10 cố định, phụ đề trắng viền đen cụm ngắn (≤ 10 ký tự Hàn) ở ~2/3 khối.
 
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.

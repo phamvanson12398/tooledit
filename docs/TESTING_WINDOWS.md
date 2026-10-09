@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 61 — Review phim giống video mẫu (cảnh chuyển nhanh, bố cục tiêu đề trắng + xanh) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Tạo job MỚI với ô **🎬 Review phim / hoạt hình** (job cũ: bấm
+   **🎬 Lập lại kế hoạch dựng** rồi **🌐 Viết lại thuyết minh**).
+2. Mở draft trong CapCut, so với video mẫu:
+   - nền tối, 2 dòng tiêu đề trên cùng (dòng 1 trắng, dòng 2 XANH LÁ, viền đen), khung phim gần vuông (9:10) ở giữa;
+   - cảnh chuyển liên tục, mỗi cảnh khoảng 1–3 giây (CapCut: nhìn track video thấy rất nhiều đoạn ngắn);
+   - một câu voice kéo liền qua 2–3 cảnh, không bị ngắt ở chỗ đổi cảnh;
+   - phụ đề trắng viền đen, cụm ngắn, nằm ở khoảng 2/3 khung phim.
+3. Nếu chữ tiêu đề quá to / nhỏ hoặc lệch so với mẫu: sửa `review_story` trong `config\layout.yaml` (`title_rows`,
+   `title_width`, `subtitle_row`). Muốn cảnh chậm hơn / nhanh hơn: `avg_clip_s`, `max_clip_s` trong `config\review.yaml`.
+
 ## Bước 60 — Review phim kể thành MỘT CÂU CHUYỆN `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Tạo job mới với ô **🎬 Review phim / hoạt hình** (job cũ đã viết lời rồi

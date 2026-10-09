@@ -45,6 +45,34 @@ four_titles:
     topic_row: 0.24
     title_scale_max: 0.8
 
+# Review phim / hoạt hình (video mẫu chủ dự án gửi 09/10 — review SpongeBob tiếng Hàn): nền tối · 2 dòng tiêu đề cố định
+# phía trên (dòng 1 trắng, dòng 2 XANH LÁ, viền đen) · khối phim 9:10 (0.183–0.82 chiều cao) cắt giữa khung 16:9 bám
+# nhân vật · phụ đề trắng viền đen cụm ngắn ở ~2/3 khối phim.
+review_story:
+  titles: true
+  bottom_titles: false
+  background_color: "#0B0B0BFF"
+  block_ratio: "9:10"
+  frame_ratio: "9:10"          # khung cố định như video mẫu (không theo ô Khung video lúc tạo job)
+  title_rows: [0.07, 0.132, 0.9, 0.95]   # chỉ dùng 2 dòng đầu
+  subtitle_row: 0.64
+  emphasis_row: 0.45
+  topic_row: 0.2
+  topic_x: 0.30
+  title_width: 0.62
+  title_size: 20
+  char_width_per_size: 0.0017
+  title_scale_max: 1.0
+  title_styles:
+    - {color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.12}
+    - {color: [0.35, 1, 0.3], stroke_color: [0, 0, 0], stroke_width: 0.12}
+    - {color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.12}
+    - {color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.12}
+  subtitle: {size: 11, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.18}
+  subtitle_max_chars: {ja: 9, ko: 10, en: 18}   # cụm ngắn ~1 nhịp nói như video mẫu
+  topic: {size: 7, color: [1, 1, 1], stroke_color: [0.1, 0.25, 0.85], stroke_width: 0.2}
+  title_max_chars: {ja: 10, ko: 10, en: 20}
+
 # Thể thao / boxing (video mẫu 25/09): nền đen · khối video gần vuông 9:10 phóng to vào pha đấu, bám theo người ·
 # KHÔNG có dòng tiêu đề · phụ đề cụm ngắn chữ vàng viền đen ở 2/3 khối video · mũi tên xanh lá chỉ vào chi tiết
 # (găng, chân, bóng) · chuyển cảnh mờ, quay chậm pha quyết định.
