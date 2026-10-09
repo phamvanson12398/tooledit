@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 67 — Mỗi chế độ hiện quy trình riêng `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. QUAN TRỌNG: sau `git pull` phải **tắt hẳn cửa sổ `start.bat`** (bấm X) rồi mở lại — server cũ vẫn chạy code cũ dù đã
+   pull. Trên trình duyệt bấm Ctrl+F5.
+2. Mở một job review (hoặc tạo mới với ô 🎬): đầu trang ghi **🎬 Review phim / hoạt hình**; thanh tiến trình chỉ có:
+   Phân tích footage → AI hiểu nội dung → AI tìm đoạn hay → Chờ duyệt đoạn hay → AI chọn tiêu đề · nhạc → AI viết bài
+   lời đọc → Chờ bạn đọc cả bài → Dựng cảnh theo voice → CapCut → AI viết caption → Xong. KHÔNG có bước hook.
+3. Job thường / đổi ngôn ngữ / chỉ thay tiếng / phụ đề tiếng Việt: đầu trang ghi đúng chế độ, các bước theo chế độ đó.
+
 ## Bước 66 — Review: tool viết lời TRƯỚC → bạn đọc cả bài → tool dựng cảnh theo voice `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5. Tạo job MỚI với ô **🎬 Review phim / hoạt hình**

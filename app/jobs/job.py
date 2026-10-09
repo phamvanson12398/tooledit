@@ -132,13 +132,18 @@ class Job(BaseModel):
         self.status = Status.done if self.step == "done" else Status.pending
         self._log(message or f"chuyển sang bước {self.step}")
 
+    @property
+    def use_hook(self) -> bool:
+        """Có hook voice riêng. Review phim thì KHÔNG (câu mở đầu của bài lời đọc là hook; hook riêng làm đứt mạch kể)."""
+        return self.options.hook and not self.options.review
+
     def applies(self, step: str) -> bool:
         if self.options.vi_sub:  # chỉ phân tích (nhận dạng lời) rồi dịch + ghi phụ đề ở bước write
             return step in ("analyze", "write", "done")
         if step == "confirm_genre":
             return self.options.confirm_before_build
         if step in ("hooks", "choose_hook", "voice"):
-            return self.options.hook
+            return self.use_hook
         if step == "review_segments":
             return self.options.split or self.options.review
         if step in ("dub", "dub_voice"):

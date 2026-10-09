@@ -241,6 +241,9 @@ thật (`review_voice_cps`, kể cả nhanh hơn).
 theo tỉ lệ số chữ). (3) Khi dựng, tool cắt cảnh trong đoạn phim của từng câu, mỗi cảnh ~`cut_s` 2s, tổng đúng bằng câu
 đọc + `voice_gap_s` (`app/planner/review_sync.build_from_voice`); kế hoạch AI chỉ còn dùng cho tiêu đề / nhạc / filter /
 zoom. Câu chưa có voice tạm tính theo số chữ để dựng thử.
+Giao diện (09/10): thanh tiến trình đặt tên bước riêng theo chế độ (`STEP_VI_MODE`, `job_mode` trong
+`app/web/server.py`) + ghi rõ chế độ ở đầu trang job; review phim KHÔNG có hook riêng (`Job.use_hook`, kể cả job cũ đã
+tick) vì câu mở đầu bài lời đọc là hook.
 
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.

@@ -565,7 +565,7 @@ class Runner:
             if out.is_file():
                 continue
             hook, hook_s = None, 0.0
-            if job.options.hook:
+            if job.use_hook:
                 hook = self._hook_for(d, i)
                 voice = hook_io.find_voice(d, i)
                 hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else \
@@ -609,7 +609,7 @@ class Runner:
             if s is None:
                 self.log(f"Viết lời thuyết minh video {i:02d}…")
                 plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
-                hook = self._hook_for(d, i) if job.options.hook else None
+                hook = self._hook_for(d, i) if job.use_hook else None
                 try:
                     s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i,
                                  mode="review" if job.options.review else self.script_mode(job))
@@ -862,7 +862,7 @@ class Runner:
             for c in cut:  # lưới an toàn: đoạn vi phạm được đánh dấu sau khi đã có kế hoạch dựng
                 self.log(f"[video {i:02d}] {c}")
             hook, voice = None, None
-            if job.options.hook:
+            if job.use_hook:
                 hook = self._hook_for(d, i)
                 vpath = hook_io.find_voice(d, i)
                 voice = (vpath, self._voice_duration(vpath)) if vpath else None
@@ -987,7 +987,7 @@ class Runner:
                 c = Captions.model_validate_json(cap_json.read_text(encoding="utf-8"))
             else:
                 plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
-                hook = self._hook_for(d, i) if job.options.hook else None
+                hook = self._hook_for(d, i) if job.use_hook else None
                 c = make_captions(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i)
                 cap_json.write_text(c.model_dump_json(indent=2), encoding="utf-8")
             text = captions_text(c)

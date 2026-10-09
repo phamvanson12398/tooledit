@@ -255,3 +255,19 @@ def test_review_film_audio_muted_and_no_replay(tmp_path):
     d2 = FakeDirector(responses={"plan": [with_replay, _plan(1, _clips(1.0, 56))]})
     make_plan(d2, a2, u2.model_copy(update={"language": "ja"}), {"review": rcfg})
     assert len(d2.calls) == 2 and "không dùng replay" in d2.calls[1]["prompt"]
+
+
+def test_review_skips_hook_and_shows_own_steps(tmp_path):
+    """Chủ dự án 09/10: quy trình review phải nhìn khác — tên bước riêng, không có bước hook (kể cả job cũ đã tick hook)."""
+    from fastapi.testclient import TestClient
+
+    from app.web.server import create_app
+
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, hook=True), job_id="rh")
+    assert not job.use_hook and not job.applies("hooks") and not job.applies("choose_hook")
+    app = create_app(jobs, lambda root, log: None)
+    app.state.worker.start = lambda job_id, action=None: True
+    page = TestClient(app).get("/jobs/rh").text
+    assert "🎬 Review phim / hoạt hình" in page and "AI viết bài lời đọc" in page and "Chờ bạn đọc cả bài" in page
+    assert "Dựng cảnh theo voice" in page and "AI viết hook" not in page and "AI chia video" not in page

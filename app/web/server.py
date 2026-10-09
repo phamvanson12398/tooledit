@@ -85,6 +85,42 @@ STEP_VI = {
     "assets": "Tìm tài nguyên", "write": "Ghi dự án CapCut",
     "captions": "AI viết caption", "done": "Xong",
 }
+# Tên bước riêng theo chế độ (chủ dự án 09/10: "sao các quy trình chả khác gì nhau") — job.applies đã ẩn bước không chạy
+STEP_VI_MODE = {
+    "review": {"segment": "AI tìm đoạn hay", "review_segments": "Chờ duyệt đoạn hay",
+               "plan": "AI chọn tiêu đề · nhạc", "dub": "AI viết bài lời đọc", "dub_voice": "Chờ bạn đọc cả bài",
+               "write": "Dựng cảnh theo voice → CapCut"},
+    "vi_sub": {"write": "Dịch phụ đề tiếng Việt → CapCut"},
+    "voice_only": {"plan": "AI lập kế hoạch (giữ nguyên hình)", "dub": "AI viết thuyết minh",
+                   "dub_voice": "Chờ voice thuyết minh"},
+}
+MODE_VI = {"review": "🎬 Review phim / hoạt hình", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
+           "voice_only": "🎙️ Chỉ thay tiếng", "dub": "🌐 Đổi ngôn ngữ", "montage": "🎞️ Ghép nhiều video",
+           "normal": "✂️ Dựng thường"}
+
+
+def job_mode(job) -> str:
+    o = job.options
+    if o.review:
+        return "review"
+    if o.vi_sub:
+        return "vi_sub"
+    if o.voice_only:
+        return "voice_only"
+    if len(job.footage) > 1:
+        return "montage"
+    return "dub" if o.target_language else "normal"
+
+
+def esc_mode(job) -> str:
+    """Nhãn chế độ ngắn trước tên bước trong danh sách job (trang chủ)."""
+    return f"{MODE_VI[job_mode(job)].split(' ')[0]} " if job_mode(job) != "normal" else ""
+
+
+def step_label(job, st: str) -> str:
+    return STEP_VI_MODE.get(job_mode(job), {}).get(st) or STEP_VI.get(st, st)
+
+
 STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong",
              "stopped": "đã dừng"}
 
@@ -261,7 +297,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         jobs_html = "".join(
             f"<a class='job' href='/jobs/{j.job_id}'><div><div class='name'>{html.escape(Path(j.footage[0]).name)}</div>"
             f"<div class='sub'>{j.job_id} · {html.escape(j.data.get('style_used') or j.data.get('style') or '')} · "
-            f"{STEP_VI.get(j.step, j.step)}</div></div>{badge(j)}</a>" for j in list_jobs())
+            f"{esc_mode(j)}{step_label(j, j.step)}</div></div>{badge(j)}</a>" for j in list_jobs())
         status = (f"<p class='muted'>Đang chạy <b>{len(worker.active)}/{max_jobs()}</b> luồng"
                   f"{f', {len(queued_ids)} xếp hàng' if queued_ids else ''}</p>")
         return status + (jobs_html or "<p class='muted'>Chưa có video nào.</p>")
@@ -503,7 +539,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                          "<b>Chỉ thay tiếng</b> hay <b>Chỉ phụ đề tiếng Việt</b>. Bỏ bớt một ô tick.</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         job = Job.create(Path(jobs_root), [p.resolve() for p in paths], JobOptions(
-            client_id=client.strip() or "khach", hook=bool(hook) and not voice_only,
+            client_id=client.strip() or "khach", hook=bool(hook) and not voice_only and not review,
             reframe_per_scene=bool(reframe) and not voice_only,
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and len(paths) == 1,
             hype=bool(hype) and not voice_only and not review, review=bool(review),
@@ -538,11 +574,12 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             if not job.applies(st) or st == "assets" or (st == "segment" and not (job.options.split or job.options.review)):
                 continue
             cls = "done" if i < cur or job.status == Status.done else ("cur " + status if i == cur else "")
-            chips.append(f"<span class='step {cls}'>{STEP_VI.get(st, st)}</span>")
+            chips.append(f"<span class='step {cls}'>{step_label(job, st)}</span>")
         style = job.data.get("style_used") or job.data.get("style") or "auto"
         head = (f"<div class='card'><div style='display:flex;justify-content:space-between;align-items:center'>"
                 f"<div><h2 style='margin:0'>{html.escape(Path(job.footage[0]).name)}</h2>"
-                f"<div class='muted'>{job.job_id} · kiểu dựng: {html.escape(style)} · {html.escape(job.footage[0])}</div></div>"
+                f"<div class='muted'><b>{MODE_VI[job_mode(job)]}</b> · {job.job_id} · kiểu dựng: {html.escape(style)} · "
+                f"{html.escape(job.footage[0])}</div></div>"
                 f"<span class='badge b-{status}'>{'<span class=spinner></span> ' if running else ''}{STATUS_VI[status]}</span>"
                 f"</div><div class='stepper' style='margin-top:14px'>{''.join(chips)}</div>")
         if job.data.get("summary_vi"):
@@ -563,7 +600,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             else:
                 parts.append(f"<div class='card'><span class='spinner'></span> "
                              + (f"{html.escape(job.message)}" if waiting_turn else
-                                f"Đang <b>{STEP_VI.get(job.step, job.step)}</b>…")
+                                f"Đang <b>{step_label(job, job.step)}</b>…")
                              + f" Trang tự làm mới.{stop_btn}</div>")
         elif queued:
             parts.append(f"<div class='card'>⏳ <b>Đang xếp hàng</b> — đợi một luồng trống (đang chạy {len(worker.active)}/"
@@ -828,9 +865,9 @@ def _manage_panel(job: Job) -> str:
     if (job.options.target_language or job.options.review) and STEPS.index(job.step) > STEPS.index("dub"):
         buttons.append(redo("dub", "🌐 Viết lại thuyết minh", "AI viết lại câu thuyết minh; voice thuyết minh cũ phải thu "
                             "lại. Tiếp tục?"))
-    if job.options.hook and STEPS.index(job.step) > STEPS.index("choose_hook"):
+    if job.use_hook and STEPS.index(job.step) > STEPS.index("choose_hook"):
         buttons.append(redo("choose_hook", "🎣 Chọn hook khác"))
-    if job.options.hook and STEPS.index(job.step) > STEPS.index("hooks"):
+    if job.use_hook and STEPS.index(job.step) > STEPS.index("hooks"):
         buttons.append(redo("hooks", "✍️ Viết hook mới", "AI sẽ viết 3 phương án hook mới. Tiếp tục?"))
     buttons.append(f"<form method='post' action='/jobs/{jid}/delete' onsubmit=\"return confirm('Xóa job này? "
                    "(draft đã ghi trong CapCut vẫn giữ nguyên)')\"><button type='submit' class='btn danger small'>"
@@ -1352,7 +1389,7 @@ def _step_panel(job: Job, d: Path) -> str:
         return (f"<div class='card'><h2>⚠️ Có lỗi</h2><pre>{esc(job.message)}</pre>"
                 f"{_pending_dub_html(job, d)}{_continue_button(job, 'Chạy lại bước này')}</div>")
     if job.status == Status.stopped:
-        return (f"<div class='card'><h2>⏹️ Đã dừng</h2><p>Dừng ở bước <b>{esc(STEP_VI.get(job.step, job.step))}</b>. "
+        return (f"<div class='card'><h2>⏹️ Đã dừng</h2><p>Dừng ở bước <b>{esc(step_label(job, job.step))}</b>. "
                 "Kết quả các bước trước vẫn giữ nguyên.</p>"
                 f"{_continue_button(job, '▶️ Chạy tiếp từ bước này')}</div>")
     if job.status == Status.waiting and job.step == "choose_hook":
