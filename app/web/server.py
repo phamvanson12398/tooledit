@@ -1343,8 +1343,12 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                      "<br><button type='submit' class='btn small'>✍️ Viết lại theo góp ý</button>"
                      "<span class='muted'> · muốn AI học giọng kênh bạn thích: dán lời video mẫu vào "
                      "<b>config\\review_style.txt</b></span></form></div>")
+        rd = (job.data.get("ready_drafts") or {}).get(str(v))
+        ready_html = (f"<div class='note'>✅ <b>Đã ghi dự án CapCut</b> cho video này ({rd.get('duration_s', 0)}s): "
+                      f"<code>{esc(Path(rd['draft']).name)}</code> — mở CapCut xem / chỉnh được ngay, không cần chờ các video "
+                      "khác. Tải voice mới thì tool ghi lại.</div>" if rd else "")
         forms.append(
-            f"<h2 style='margin-top:14px'>🎬 Video {v:02d} — đã có {done}/{len(script.lines)} câu</h2>{whole}"
+            f"<h2 style='margin-top:14px'>🎬 Video {v:02d} — đã có {done}/{len(script.lines)} câu</h2>{ready_html}{whole}"
             f"<details {'open' if done < len(script.lines) else ''}><summary>Kịch bản thuyết minh</summary>"
             f"<table><tr><th></th><th>File</th><th>Câu cần thu</th></tr>{''.join(rows)}</table></details>{tools}"
             f"<form class='upload' method='post' action='/jobs/{job.job_id}/dub-voice' enctype='multipart/form-data'>"

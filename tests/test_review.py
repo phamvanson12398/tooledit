@@ -321,3 +321,54 @@ def test_rewrite_review_with_feedback(tmp_path):
     app = create_app(jobs, lambda root, log: None)
     page = TestClient(app).get("/jobs/fb").text
     assert "Viết lại theo góp ý" in page and "📜 Bài lời đọc" in page
+
+
+def test_write_draft_as_soon_as_one_video_has_voice(tmp_path):
+    """Chủ dự án 09/10: job ra 2–3 video — thu xong voice video nào thì ghi CapCut video đó ngay, không chờ video khác."""
+    import os
+
+    from fastapi.testclient import TestClient
+
+    from app.web.server import create_app
+
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, target_language="ko"), job_id="rw")
+    make_analysis(jobs / "rw", duration=400.0)
+    r = make_runner(tmp_path, jobs)
+    u = load("understand.json")
+    u["usable_range"] = {"start": 0.0, "end": 400.0}
+    seg = {"videos": [{"start": 1.0, "end": 190.0, "title_vi": "a", "summary_vi": "a", "why_vi": "a"},
+                      {"start": 200.0, "end": 390.0, "title_vi": "b", "summary_vi": "b", "why_vi": "b"}],
+           "dropped": [], "editor_notes": "2 đoạn"}
+    r._director = FakeDirector(responses={"understand": u, "segment": seg,
+                                          "plan": [_plan(1, _clips(1.0, 56)), _plan(2, _clips(201.0, 56))],
+                                          "dub_review": [_script(1, 1.0), _script(2, 201.0)],
+                                          "review_polish": [_script(1, 1.0), _script(2, 201.0)],
+                                          "captions": [load("captions.json"), {**load("captions.json"), "video_index": 2}]})
+    job = r.run(job)
+    r.apply_segments(job, json.loads((jobs / "rw" / "plan" / "segments.json").read_text(encoding="utf-8"))["videos"])
+    job = r.resume(job)
+    assert job.step == "dub_voice" and job.status == Status.waiting
+    drafts = tmp_path / "drafts"
+    assert not (drafts / "khach_rw_video01").exists()
+    vdir = jobs / "rw" / "voice"
+    for n in range(1, 16):  # thu xong video 1
+        (vdir / f"video01_dub{n:02d}.wav").write_bytes(b"RIFF")
+    job = r.resume(job)
+    assert job.step == "dub_voice" and job.status == Status.waiting           # vẫn chờ voice video 2…
+    assert (drafts / "khach_rw_video01" / "draft_content.json").is_file()     # …nhưng video 1 đã có trong CapCut
+    assert not (drafts / "khach_rw_video02").exists()
+    assert "1" in job.data["ready_drafts"]
+    sig = job.data["ready_drafts"]["1"]["sig"]
+    assert r.write_ready_videos(job) == []                                    # voice không đổi → không ghi lại
+    f = vdir / "video01_dub03.wav"
+    f.write_bytes(b"RIFF-new")
+    os.utime(f, (f.stat().st_atime, f.stat().st_mtime + 5))
+    assert r.write_ready_videos(job) == [1] and job.data["ready_drafts"]["1"]["sig"] != sig  # thu lại 1 câu → ghi lại
+    page = TestClient(create_app(jobs, lambda root, log: None)).get("/jobs/rw").text
+    assert "Đã ghi dự án CapCut" in page and "khach_rw_video01" in page
+    for n in range(1, 16):  # thu xong video 2 → dựng tiếp như thường, xong cả job
+        (vdir / f"video02_dub{n:02d}.wav").write_bytes(b"RIFF")
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+    assert len(job.data["drafts"]) == 2 and (drafts / "khach_rw_video02" / "draft_content.json").is_file()

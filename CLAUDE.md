@@ -249,6 +249,10 @@ AI đọc lại cả bài như biên tập viên bản xứ, sửa câu cứng /
 (`polish_review_script`, prompt `review_polish.md`, `polish: true` trong `config/review.yaml`; sai thì giữ bản nháp);
 (2) văn mẫu `config/review_style.txt` — chủ dự án dán lời video review họ thích, AI học giọng / nhịp (cả 2 lượt);
 (3) nút "✍️ Viết lại theo góp ý" trên trang voice (`Runner.rewrite_review`, gửi góp ý + bản trước; voice cũ → *_cu).
+**Voice đến đâu ghi CapCut đến đấy (chủ dự án yêu cầu 09/10, mọi chế độ có voice thuyết minh / review):** job ra
+nhiều video thì video nào ĐỦ voice được ghi draft CapCut NGAY ở bước chờ voice (`Runner.write_ready_videos`, lưu
+`job.data.ready_drafts` + dấu vân tay voice — thu lại câu nào thì ghi lại), không chờ các video khác; đủ hết thì bước
+write ghi lại toàn bộ như thường. Trang voice báo "✅ Đã ghi dự án CapCut" cho từng video.
 
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.

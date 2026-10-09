@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 69 — Voice đến đâu ghi CapCut đến đấy `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. Dùng một job review (hoặc đổi ngôn ngữ) có 2–3 video, đang ở bước **Chờ bạn đọc cả bài** / **Chờ voice thuyết minh**.
+3. Thu và tải lên voice của **riêng video 01** (ô "Một file cả bài" của video 01).
+4. Đợi vài giây, tải lại trang: dưới tiêu đề "🎬 Video 01" có dòng **✅ Đã ghi dự án CapCut … khach_<job>_video01**;
+   nhật ký có "✅ Video 01 đủ voice — đã ghi dự án CapCut". Job vẫn chờ voice các video còn lại.
+5. Mở CapCut (hoặc bấm vào màn hình chính CapCut để làm mới danh sách): dự án `…_video01` đã có, mở xem / chỉnh được.
+6. Thu lại một câu của video 01 rồi tải lên → draft video 01 được ghi lại (đóng dự án đó trong CapCut trước khi tải).
+7. Tải xong voice các video còn lại → job tự dựng tiếp tới Xong như thường.
+
 ## Bước 68 — Lời review hay & tự nhiên hơn: biên tập 2 lượt, văn mẫu, viết lại theo góp ý `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. (Nên làm) Mở `config\review_style.txt` bằng Notepad, xóa đoạn mẫu tiếng Hàn của tool, dán LỜI ĐỌC của 1–3 video review

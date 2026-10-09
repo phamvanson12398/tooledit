@@ -741,6 +741,7 @@ class Runner:
         d, _, _ = self._paths(job)
         missing = dub_io.missing_lines(d, self._dub_scripts(job))
         if missing:
+            self.write_ready_videos(job)  # voice đến đâu ghi CapCut đến đấy
             job.wait(f"Thu voice thuyết minh theo kịch bản bên dưới rồi tải lên. Còn thiếu {len(missing)} file: "
                      + ", ".join(missing[:8]) + (" …" if len(missing) > 8 else ""))
 
@@ -859,18 +860,11 @@ class Runner:
     def step_assets(self, job: Job) -> None:
         """Giai đoạn 1: tài nguyên lấy từ dự án mẫu; thiếu gì ghi vào missing_assets.json ở bước write."""
 
-    def step_write(self, job: Job) -> None:
-        from app.director.schemas import EditPlan
-        from app.director.policy import cut_ranges, repair_policy
-        from app.director.policy import load_cfg as policy_cfg
+    def _write_ctx(self, job: Job) -> dict:
+        """Dữ liệu dùng chung khi ghi draft CapCut cho các video của job."""
         from app.director.tasks import load_analysis
-        from app.planner import hook_io
-        from app.planner.builder import build
 
-        if job.options.vi_sub:
-            return self._write_vi_sub(job)
         d, analysis, plan_dir = self._paths(job)
-        tpl = self._template()
         style = self._style(job)
         a = load_analysis(analysis)
         a["text_boxes"] = self._text_boxes(job, analysis, a)
@@ -881,71 +875,129 @@ class Runner:
                 clean = light
             else:
                 self.log("Job phân tích trước khi có bản lọc ồn nhẹ — dùng bản lọc ồn thường (tạo job mới để có).")
+        return {"d": d, "analysis": analysis, "plan_dir": plan_dir, "tpl": self._template(), "style": style, "a": a,
+                "clean": clean}
+
+    def _write_video(self, job: Job, v: dict, ctx: dict) -> tuple[dict, list]:
+        """Ghi draft CapCut cho MỘT video; trả (thông tin draft, tài nguyên còn thiếu)."""
+        from app.director.schemas import EditPlan
+        from app.director.policy import cut_ranges, repair_policy
+        from app.director.policy import load_cfg as policy_cfg
+        from app.planner import hook_io
+        from app.planner.builder import build
+
+        d, analysis, plan_dir = ctx["d"], ctx["analysis"], ctx["plan_dir"]
+        tpl, style, a, clean = ctx["tpl"], ctx["style"], ctx["a"], ctx["clean"]
+        i = v["index"]
+        plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
+        u_v = self._u_for(job, v)
+        plan, cut = repair_policy(plan, cut_ranges(u_v), policy_cfg().get("min_piece_s", 0.5))
+        for c in cut:  # lưới an toàn: đoạn vi phạm được đánh dấu sau khi đã có kế hoạch dựng
+            self.log(f"[video {i:02d}] {c}")
+        hook, voice = None, None
+        if job.use_hook:
+            hook = self._hook_for(d, i)
+            vpath = hook_io.find_voice(d, i)
+            voice = (vpath, self._voice_duration(vpath)) if vpath else None
+        name = f"{job.options.client_id or 'khach'}_{job.job_id}_video{i:02d}"
+        dub, dub_voices = None, None
+        if self._dubbing(job):
+            from app.planner import dub_io
+
+            dub = dub_io.load_dub(d, i)
+            if dub is not None:
+                dub_voices = {}
+                for n in range(1, len(dub.lines) + 1):
+                    f = dub_io.find_line_voice(d, i, n)
+                    if f is not None:
+                        dub_voices[n] = (f.resolve(), self._voice_duration(f))
+                rate = dub_io.voice_rate(d, i, dub)
+                if rate:  # nhớ tốc độ đọc thật của giọng bạn → lần sau AI viết câu vừa giọng, khỏi đè tiếng
+                    key = "review_voice_cps" if job.options.review else "voice_cps"
+                    saved = dub_io.remember_voice_rate(u_v.language, rate, key)
+                    self.log(f"Giọng thu của bạn đọc ~{rate:.1f} ký tự/giây ({u_v.language}); đã lưu {saved:.1f} "
+                             + ("(giọng review) " if job.options.review else "")
+                             + "để lần sau viết câu vừa giọng.")
+        if job.options.review and dub is not None:  # review: DỰNG TỪ VOICE — cảnh cắt theo bài đọc + voice đã thu
+            from app.director.tasks import effective_cps, review_dub_cfg
+            from app.planner.review_sync import build_from_voice
+
+            rcfg = config.load("review")
+            plan, dub, sync_notes = build_from_voice(
+                plan, dub, {n: us / 1_000_000 for n, (_, us) in (dub_voices or {}).items()},
+                [x["start"] for x in a["scenes"].get("scenes", [])],
+                cps=effective_cps(review_dub_cfg(config.load("dub")), u_v.language),
+                gap_s=float(rcfg.get("voice_gap_s", 0.12)), cut_s=float(rcfg.get("cut_s", 2.0)),
+                min_cut_s=float(rcfg.get("min_cut_s", 1.0)))
+            for n in sync_notes:
+                self.log(f"[video {i:02d}] {n}")
+        bgm = self._bgm(job, analysis) if job.options.voice_only and job.options.keep_bgm else None
+        res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
+                    hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
+                    video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job),
+                    bgm_audio=bgm)
+        out = res.writer.save(overwrite=True)
+        dur = round(res.duration_us / 1_000_000, 1)
+        info = {"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),
+                       "start": v["start"], "end": v["end"],
+                       "short": dur < config.load("split").get("min_video_s", 60),
+                       "credits": self._credits(res.used_local)}
+        for n in res.notes:
+            self.log(f"[video {i:02d}] {n}")
+        self.log(f"Đã ghi draft CapCut: {out} ({dur}s)")
+        return info, res.missing_assets
+
+    def step_write(self, job: Job) -> None:
+        if job.options.vi_sub:
+            return self._write_vi_sub(job)
+        ctx = self._write_ctx(job)
         drafts, missing = [], []
         for v in self.videos(job):
-            i = v["index"]
-            plan = EditPlan.model_validate_json((plan_dir / f"edit_plan_video{i:02d}.json").read_text(encoding="utf-8"))
-            u_v = self._u_for(job, v)
-            plan, cut = repair_policy(plan, cut_ranges(u_v), policy_cfg().get("min_piece_s", 0.5))
-            for c in cut:  # lưới an toàn: đoạn vi phạm được đánh dấu sau khi đã có kế hoạch dựng
-                self.log(f"[video {i:02d}] {c}")
-            hook, voice = None, None
-            if job.use_hook:
-                hook = self._hook_for(d, i)
-                vpath = hook_io.find_voice(d, i)
-                voice = (vpath, self._voice_duration(vpath)) if vpath else None
-            name = f"{job.options.client_id or 'khach'}_{job.job_id}_video{i:02d}"
-            dub, dub_voices = None, None
-            if self._dubbing(job):
-                from app.planner import dub_io
-
-                dub = dub_io.load_dub(d, i)
-                if dub is not None:
-                    dub_voices = {}
-                    for n in range(1, len(dub.lines) + 1):
-                        f = dub_io.find_line_voice(d, i, n)
-                        if f is not None:
-                            dub_voices[n] = (f.resolve(), self._voice_duration(f))
-                    rate = dub_io.voice_rate(d, i, dub)
-                    if rate:  # nhớ tốc độ đọc thật của giọng bạn → lần sau AI viết câu vừa giọng, khỏi đè tiếng
-                        key = "review_voice_cps" if job.options.review else "voice_cps"
-                        saved = dub_io.remember_voice_rate(u_v.language, rate, key)
-                        self.log(f"Giọng thu của bạn đọc ~{rate:.1f} ký tự/giây ({u_v.language}); đã lưu {saved:.1f} "
-                                 + ("(giọng review) " if job.options.review else "")
-                                 + "để lần sau viết câu vừa giọng.")
-            if job.options.review and dub is not None:  # review: DỰNG TỪ VOICE — cảnh cắt theo bài đọc + voice đã thu
-                from app.director.tasks import effective_cps, review_dub_cfg
-                from app.planner.review_sync import build_from_voice
-
-                rcfg = config.load("review")
-                plan, dub, sync_notes = build_from_voice(
-                    plan, dub, {n: us / 1_000_000 for n, (_, us) in (dub_voices or {}).items()},
-                    [x["start"] for x in a["scenes"].get("scenes", [])],
-                    cps=effective_cps(review_dub_cfg(config.load("dub")), u_v.language),
-                    gap_s=float(rcfg.get("voice_gap_s", 0.12)), cut_s=float(rcfg.get("cut_s", 2.0)),
-                    min_cut_s=float(rcfg.get("min_cut_s", 1.0)))
-                for n in sync_notes:
-                    self.log(f"[video {i:02d}] {n}")
-            bgm = self._bgm(job, analysis) if job.options.voice_only and job.options.keep_bgm else None
-            res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
-                        hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
-                        video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job),
-                        bgm_audio=bgm)
-            out = res.writer.save(overwrite=True)
-            dur = round(res.duration_us / 1_000_000, 1)
-            drafts.append({"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),
-                           "start": v["start"], "end": v["end"],
-                           "short": dur < config.load("split").get("min_video_s", 60),
-                           "credits": self._credits(res.used_local)})
-            missing += res.missing_assets
-            for n in res.notes:
-                self.log(f"[video {i:02d}] {n}")
-            self.log(f"Đã ghi draft CapCut: {out} ({dur}s)")
-        (d / "missing_assets.json").write_text(json.dumps(missing, ensure_ascii=False, indent=2), encoding="utf-8")
+            info, miss = self._write_video(job, v, ctx)
+            drafts.append(info)
+            missing += miss
+        (ctx["d"] / "missing_assets.json").write_text(json.dumps(missing, ensure_ascii=False, indent=2), encoding="utf-8")
         job.data["drafts"] = drafts
         job.data["draft"] = drafts[0]["draft"]
         job.data["duration_s"] = drafts[0]["duration_s"]
         job.data["missing_assets"] = len(missing)
+        job.data.pop("ready_drafts", None)
+
+    def _voice_sig(self, d: Path, index: int) -> str:
+        """Dấu vân tay voice của một video (tên + cỡ + giờ sửa) — đổi voice thì ghi lại draft."""
+        files = sorted((d / "voice").glob(f"video{index:02d}_dub*.*")) if (d / "voice").is_dir() else []
+        return "|".join(f"{f.name}:{f.stat().st_size}:{int(f.stat().st_mtime)}" for f in files if "_cu" not in f.stem)
+
+    def write_ready_videos(self, job: Job) -> list[int]:
+        """Voice đến đâu ghi CapCut đến đấy (chủ dự án yêu cầu 09/10): video nào ĐỦ voice thì ghi draft ngay, không
+        chờ các video khác. Voice đổi thì ghi lại. Trả các video vừa ghi."""
+        from app.planner import dub_io
+
+        if not self._dubbing(job) or job.options.vi_sub:
+            return []
+        d, _, _ = self._paths(job)
+        scripts = self._dub_scripts(job)
+        ready = job.data.setdefault("ready_drafts", {})
+        todo = []
+        for v in self.videos(job):
+            i, s = v["index"], scripts.get(v["index"])
+            if s is None or dub_io.missing_lines(d, {i: s}):
+                continue
+            sig = self._voice_sig(d, i)
+            if ready.get(str(i), {}).get("sig") != sig:
+                todo.append((v, sig))
+        if not todo:
+            return []
+        ctx = self._write_ctx(job)
+        done = []
+        for v, sig in todo:
+            info, _ = self._write_video(job, v, ctx)
+            ready[str(v["index"])] = {**info, "sig": sig}
+            done.append(v["index"])
+            self.log(f"✅ Video {v['index']:02d} đủ voice — đã ghi dự án CapCut (mở CapCut xem được ngay, các video "
+                     "khác vẫn chờ voice).")
+        job.save(self.jobs_root)
+        return done
 
     def _write_vi_sub(self, job: Job) -> None:
         """Phụ đề tiếng Việt: dịch lời (lưu plan/subtitle_vi.json, dịch một lần) → .srt + draft CapCut giữ nguyên video."""
