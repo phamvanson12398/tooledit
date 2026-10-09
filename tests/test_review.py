@@ -176,3 +176,4 @@ def test_review_must_be_a_story_not_scene_description(tmp_path):
     make_dub(d, a, u, plan, mode="review")
     assert len(d.calls) == 2 and "KỂ THÀNH CÂU CHUYỆN" in d.calls[1]["prompt"]
     assert "KỂ CHUYỆN, không phải thuyết minh" in d.calls[0]["prompt"]
+    assert "Cả đời cậu bé chỉ mong một điều" in d.calls[0]["prompt"] and "소년의 소원은" in d.calls[0]["prompt"]

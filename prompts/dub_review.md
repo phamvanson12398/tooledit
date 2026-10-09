@@ -11,8 +11,14 @@ hình phim chỉ MINH HỌA cho lời kể.
 SAI (tả cảnh — KHÔNG viết kiểu này):
 - "Cậu bé đang chạy trên đường. Con mèo đang nhìn cậu. Bây giờ cậu ấy đang mở cửa."
 
-ĐÚNG (kể chuyện):
+ĐÚNG (kể chuyện) — chủ dự án chốt đúng giọng này:
 - "Cả đời cậu bé chỉ mong một điều: tìm lại con mèo đã mất. Nhưng cậu không ngờ, thứ chờ cậu sau cánh cửa ấy lại là…"
+- Cùng giọng đó bằng ngôn ngữ của video (chỉ để cảm nhịp, KHÔNG chép):
+  - 한국어: "소년의 소원은 단 하나, 잃어버린 고양이를 찾는 것이었습니다. 그런데 그 문 뒤에서 기다리고 있던 건…"
+  - 日本語: "少年の願いはただ一つ、いなくなった猫を見つけることでした。でも、その扉の向こうで待っていたのは…"
+  - English: "All the boy ever wanted was to find his lost cat. But what was waiting behind that door… he never saw coming."
+Công thức: nhân vật + điều họ khao khát / hoàn cảnh → "nhưng / không ngờ" → bỏ lửng hoặc hé lộ → câu sau trả lời và mở
+tiếp mâu thuẫn mới. Cả video là chuỗi những nhịp như vậy nối nhau tới cao trào và kết.
 
 Cách làm:
 1. TRƯỚC KHI viết lời, viết `story_vi` (tiếng Việt): dàn ý câu chuyện của đoạn này —
