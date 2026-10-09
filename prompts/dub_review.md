@@ -1,7 +1,9 @@
 # Nhiệm vụ: KỂ LẠI đoạn phim / hoạt hình số {{video_index}} thành MỘT CÂU CHUYỆN bằng {{language_name}} cho {{market}}
 
-Video này là một clip REVIEW KỂ CHUYỆN: các cảnh hay của phim chạy liên tục, tiếng phim hạ nhỏ bên dưới, người xem nghe
-GIỌNG KỂ của bạn (chủ dự án tự thu voice từng câu) và đọc phụ đề chính là các câu này. Phim gốc nói {{source_name}} —
+Video này là một clip REVIEW KỂ CHUYỆN: các cảnh hay của phim chạy liên tục nhưng **TIẾNG PHIM TẮT HẲN** — phim gốc chỉ
+lấy HÌNH. TOÀN BỘ âm thanh là GIỌNG KỂ của bạn (chủ dự án tự thu voice) nói LIỀN MẠCH từ giây đầu tới giây cuối (+ nhạc
+nền nhẹ), và phụ đề chính là các câu này. Người xem không nghe được lời nhân vật, nên điều gì quan trọng nhân vật nói
+ra thì bạn phải KỂ lại trong lời của mình. Phim gốc nói {{source_name}} —
 lời thoại gốc dưới đây chỉ để bạn HIỂU chuyện, không dịch lại.
 
 ## Đây là KỂ CHUYỆN, không phải thuyết minh hình ảnh
@@ -34,7 +36,8 @@ Cách làm:
    chuyện có dư âm. Không "xem phần sau", không kêu gọi follow / subscribe, không nhắc nền tảng khác.
 6. ĐÚNG SỰ THẬT của phim: gọi nhân vật bằng tên có trong phim (xem "tên riêng đúng" / lời thoại); không rõ tên thì gọi
    theo đặc điểm (cậu bé áo đỏ, chú mèo trắng…). Không bịa tình tiết, kết cục ngoài đoạn này.
-7. Khoảnh khắc ĐẮT (câu thoại chốt, cú twist, tiếng cười) thì NGỪNG kể 1–3 giây để tiếng phim tự lên, rồi kể tiếp.
+7. KHÔNG BAO GIỜ ngừng kể để "nghe tiếng phim" — tiếng phim đã tắt. Khoảnh khắc đắt (cú twist, câu chốt, chỗ buồn cười)
+   thì KỂ nó thật cuốn (nhấn bằng câu ngắn, bất ngờ), không im lặng.
 8. XEM KHUNG HÌNH (mở từng file bằng Read) để hiểu đúng diễn biến và đặt câu nào lên cảnh nào.
 9. GIỌNG KỂ như video mẫu chủ dự án chọn (kênh review hoạt hình Hàn): kể ở THÌ QUÁ KHỨ, đều đặn, cuốn, như kể lại một
    câu chuyện có thật — tiếng Hàn dùng đuôi "~습니다 / ~었죠 / ~였는데요"; tiếng Nhật "〜でした / 〜んです / 〜ました";
@@ -47,7 +50,8 @@ Cách làm:
   GỐC nằm trong cảnh câu bắt đầu, `source_end` là giây GỐC nằm trong cảnh câu kết thúc (2 đầu câu phải nằm trong cảnh
   được giữ). Các câu theo thứ tự, không chồng nhau. Câu đầu tiên bắt đầu ngay đầu clip đầu tiên.
 - Mỗi câu dài {{line_min}}–{{line_max}} giây; đọc kịp: tối đa khoảng {{max_cps}} ký tự/giây (không tính dấu cách, dấu câu).
-- Kể GẦN NHƯ LIÊN TỤC: lời phủ khoảng 70–90% thời lượng; chỉ chừa khoảng lặng ở khoảnh khắc đắt.
+- Kể LIÊN TỤC từ giây đầu tới giây cuối: câu sau bắt đầu NGAY khi câu trước hết (cách nhau tối đa ~0.5 giây — chỉ đủ
+  lấy hơi), lời phủ ≥ 90% thời lượng, câu cuối kết thúc sát cảnh cuối. Không có khoảng lặng nào.
 - `kind`: "narration" cho lời kể; "dub" nếu câu thuật lại đúng lời nhân vật đang nói.
 - `text_vi` = nghĩa tiếng Việt (cũng là giọng kể chuyện); `action_vi` = trên hình đang có gì (tiếng Việt, ngắn — chỉ để
   chủ dự án đối chiếu, KHÔNG đưa vào lời kể); `adapt_vi` = chỗ bạn bản địa hóa, không có thì để trống.

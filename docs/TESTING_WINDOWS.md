@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 64 — Review: tắt hẳn tiếng phim, giọng review nói liền mạch `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5. Tạo job MỚI với ô **🎬 Review phim / hoạt hình**
+   (job cũ: bấm **🎬 Lập lại kế hoạch dựng** rồi **🌐 Viết lại thuyết minh**).
+2. `dub_scripts.txt`: các câu nối liền nhau thành một câu chuyện, không chỗ nào để trống. Mẹo: đọc CẢ BÀI vào MỘT file
+   (nghỉ ~1 giây giữa các câu) rồi tải lên ô "Một file cả bài" — tool tự cắt và xếp sát nhau.
+3. Mở draft trong CapCut, bật loa nghe:
+   - KHÔNG còn nghe tiếng phim (track video bị tắt tiếng);
+   - từ giây đầu tới giây cuối chỉ có giọng review của bạn nói liên tục + nhạc nền nhỏ;
+   - không có clip quay chậm / lặp lại.
+4. Muốn nghe lại tiếng phim nhỏ bên dưới: `config\review.yaml` → `original_audio: mute: false`.
+
 ## Bước 63 — Trang chủ hiện đúng độ dài video review `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Đóng cửa sổ `start.bat` (bấm X hoặc Ctrl+C), rồi trong PowerShell ở thư mục tool:

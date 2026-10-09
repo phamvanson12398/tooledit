@@ -389,6 +389,8 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             errors += [f"clip {c.source_start}-{c.source_end} dài quá {rc['max_clip_s']:.0f}s — tách hoặc cắt gọn"
                        for c in plan.clips if not c.replay and (c.source_end - c.source_start) / c.speed
                        > rc["max_clip_s"] + 0.5]
+            errors += [f"clip {c.source_start}-{c.source_end}: review không dùng replay / lặp lại (lời kể chạy liên tục)"
+                       for c in plan.clips if c.replay or c.repeat]
             normal = [(c.source_end - c.source_start) / c.speed for c in plan.clips if not c.replay]
             if normal and sum(normal) / len(normal) > rc["avg_clip_s"] + 0.5:
                 errors.append(f"cảnh dài trung bình {sum(normal) / len(normal):.1f}s — phải chuyển cảnh nhanh hơn "
@@ -556,15 +558,16 @@ def _review_cfg(style: dict) -> dict:
 
 
 REVIEW_RULE = """REVIEW PHIM / HOẠT HÌNH (chủ dự án yêu cầu 09/10): video này là một clip review — lời review (kể lại câu
-  chuyện + bình luận, sẽ viết ở bước sau và chủ dự án tự thu voice) chạy trên hình; tiếng phim được hạ nhỏ bên dưới.
+  chuyện + bình luận, sẽ viết ở bước sau và chủ dự án tự thu voice) chạy LIỀN MẠCH từ đầu tới cuối trên hình; tiếng
+  phim TẮT HẲN — phim gốc chỉ lấy HÌNH, nên chọn cảnh theo HÌNH (biểu cảm, hành động), không cần giữ trọn câu thoại.
   - Video là MỘT CÂU CHUYỆN có mở đầu (nhân vật, hoàn cảnh) – mâu thuẫn – cao trào – kết; chọn cảnh phục vụ từng nhịp đó.
   - Tổng thời lượng {min_s:.0f}–{max_s:.0f} giây (kể cả hook). Chọn những cảnh kể được câu chuyện của đoạn này rõ nhất,
     theo ĐÚNG THỨ TỰ thời gian của phim (người xem phải hiểu chuyện), clip không chồng nhau.
   - CHUYỂN CẢNH RẤT NHANH như video mẫu chủ dự án chọn: mỗi cảnh chỉ 1–3 giây (trung bình ≤ {avg_clip_s:.0f}s, tối đa
     {max_clip_s:.0f}s), cắt liên tục theo nhịp lời kể — một câu kể thường chạy qua 2–3 cảnh. Lấy đúng khoảnh khắc biểu cảm /
     hành động then chốt của mỗi cảnh, bỏ hết phần chậm, đoạn chuyển, lặp; giữa 2 cảnh liền nhau được bỏ qua vài giây phim.
-  - Khoảnh khắc ĐẮT NHẤT (câu thoại chốt, cảnh hài / cảm động / twist): được dài hơn (tối đa {max_clip_s:.0f}s) để tiếng
-    phim tự nói.
+  - Khoảnh khắc ĐẮT NHẤT (cảnh hài / cảm động / twist): được dài hơn (tối đa {max_clip_s:.0f}s). KHÔNG dùng clip replay /
+    lặp lại (lời review chạy liên tục, không có chỗ dừng).
   - Nhạc nền hợp không khí đoạn phim (nhỏ, nằm dưới lời review), chuyển cảnh nhẹ, zoom vào biểu cảm nhân vật ở điểm nhấn;
     tiêu đề nêu cái hay / tình huống của đoạn này (không spoil đoạn kết).
   - `titles_top` kiểu video mẫu: dòng 1 (chữ trắng) là bối cảnh / tính từ gây tò mò, dòng 2 (chữ XANH LÁ) là cú chốt
@@ -990,6 +993,29 @@ def check_rewrite(script, plan, cfg: dict, rcfg: dict | None = None) -> list[str
 DESCRIBE_MARKERS = (" đang ", "Đang ")  # nghĩa tiếng Việt kiểu "anh ấy đang chạy" = tả cảnh, không phải kể chuyện
 
 
+def check_continuous(script, plan, rcfg: dict) -> list[str]:
+    """Review phim (chủ dự án chốt 09/10): giọng review nói LIỀN MẠCH từ đầu tới cuối — không chừa khoảng lặng."""
+    from app.planner.timeline import TimeMap
+
+    tmap = TimeMap(plan.clips)
+    outs = sorted((tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)) for ln in script.lines
+                  if tmap.to_out(ln.source_start) is not None and tmap.to_out(ln.source_end) is not None)
+    if not outs:
+        return []
+    gap_max, tail_max = float(rcfg.get("max_gap_s", 0.6)), float(rcfg.get("max_tail_s", 1.5))
+    holes = [(i, (b0 - a1) / 1e6) for i, ((_, a1), (b0, _)) in enumerate(zip(outs, outs[1:]), 1)
+             if (b0 - a1) / 1e6 > gap_max + 0.05]
+    errors = []
+    if holes:
+        errors.append(f"có {len(holes)} khoảng lặng giữa các câu (sau câu {', '.join(f'{i} ({g:.1f}s)' for i, g in holes[:6])})"
+                      f" — review phải NÓI LIỀN MẠCH: câu sau bắt đầu ngay khi câu trước hết (cách ≤ {gap_max}s); "
+                      "kéo dài câu / thêm câu kể để lấp")
+    tail = (tmap.end - outs[-1][1]) / 1e6
+    if tail > tail_max:
+        errors.append(f"{tail:.1f}s cuối video không có lời — kể tới tận cảnh cuối (câu kết thúc trong {tail_max}s cuối)")
+    return errors
+
+
 def check_story(script, rcfg: dict) -> list[str]:
     """Review phim phải là MỘT CÂU CHUYỆN (chủ dự án yêu cầu 09/10), không phải tả "người này đang làm gì"."""
     errors = []
@@ -1038,7 +1064,7 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
     def extra(r) -> list[str]:
         errors = check_dub(r, plan, u.language, cfg, span=review) + check_rewrite(r, plan, cfg, rcfg)
         if review:
-            errors += check_story(r, rcfg)
+            errors += check_story(r, rcfg) + check_continuous(r, plan, rcfg)
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors

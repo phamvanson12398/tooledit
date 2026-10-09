@@ -117,9 +117,8 @@ def test_review_job_end_to_end(tmp_path):
     assert {c["task"] for c in r._director.calls} >= {"segment", "plan", "dub_review"}
     assert "📖 Câu chuyện: Mở đầu" in (jobs / "rv" / "dub_scripts.txt").read_text(encoding="utf-8")
     style = r._style(job)
-    assert style["review"] and style["original_audio"]["mute"] is False and "hype" not in style
+    assert style["review"] and style["original_audio"]["mute"] is True and "hype" not in style  # tiếng phim tắt hẳn
     assert style["layout"] == "review_story" and style["block_ratio"] == "9:10"  # bố cục như video mẫu
-    # tiếng phim chỉ hạ nhỏ (không tắt hẳn) dưới lời review
     job.data["dub_skip"] = True
     job = r.resume(job)
     assert job.status == Status.done, job.message
@@ -202,3 +201,38 @@ def test_review_voice_speed_is_separate(tmp_path, monkeypatch):
     d = FakeDirector(responses={"dub_review": _review(1, clips)})
     make_dub(d, a, u, EditPlan.model_validate(_plan(1, clips)), mode="review")
     assert f"khoảng {round(8.0 * float(dub.get('write_cps_factor', 0.85)), 1)} ký tự/giây" in d.calls[0]["prompt"]
+
+
+def test_review_voice_is_continuous_and_film_audio_muted(tmp_path):
+    """Chủ dự án chốt 09/10: phim gốc chỉ lấy HÌNH (tiếng phim tắt hẳn), giọng review nói LIỀN MẠCH, không khoảng lặng."""
+    from app.director.tasks import check_continuous
+
+    rcfg = config.load("review")
+    assert rcfg["original_audio"]["mute"] is True and rcfg["min_cover"] >= 0.9
+    clips = _clips(1.0, 26)
+    plan = EditPlan.model_validate(_plan(1, clips))
+    good = DubScript.model_validate(_review(1, clips))
+    assert check_continuous(good, plan, rcfg) == []
+    holey = _review(1, clips)
+    holey["lines"] = holey["lines"][:3] + holey["lines"][5:]  # bỏ 2 câu → khoảng lặng ~10 giây
+    assert any("khoảng lặng" in e for e in check_continuous(DubScript.model_validate(holey), plan, rcfg))
+    short_end = _review(1, clips)
+    short_end["lines"] = short_end["lines"][:-2]               # 2 câu cuối bị bỏ → cuối video im
+    assert any("cuối video không có lời" in e for e in check_continuous(DubScript.model_validate(short_end), plan, rcfg))
+
+    # AI chừa khoảng lặng lần đầu → bị yêu cầu viết lại liền mạch; prompt nói rõ tiếng phim tắt hẳn
+    a = make_analysis(tmp_path, duration=200.0)
+    u = understand(FakeDirector(), a).dubbed_to("ko")
+    d = FakeDirector(responses={"dub_review": [holey, _review(1, clips)]})
+    make_dub(d, a, u, plan, mode="review")
+    assert len(d.calls) == 2 and "NÓI LIỀN MẠCH" in d.calls[1]["prompt"]
+    assert "TIẾNG PHIM TẮT HẲN" in d.calls[0]["prompt"] and "NGỪNG kể 1–3 giây" not in d.calls[0]["prompt"]
+
+    # kế hoạch dựng review không được dùng replay (sẽ tạo chỗ dừng)
+    a2 = make_analysis(tmp_path / "b", duration=400.0)
+    u2 = understand(FakeDirector(), a2)
+    u2 = u2.model_copy(update={"usable_range": u2.usable_range.model_copy(update={"start": 0.0, "end": 400.0})})
+    with_replay = _plan(1, [*_clips(1.0, 56), {"source_start": 5.0, "source_end": 6.0, "speed": 0.5, "replay": True}])
+    d2 = FakeDirector(responses={"plan": [with_replay, _plan(1, _clips(1.0, 56))]})
+    make_plan(d2, a2, u2, {"review": rcfg})
+    assert len(d2.calls) == 2 and "không dùng replay" in d2.calls[1]["prompt"]

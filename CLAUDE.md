@@ -224,6 +224,10 @@ Cập nhật 09/10: mỗi video review dài **2:30** (`min_video_s` 130 – `max
 **tốc độ đọc riêng của giọng review** `voice_cps` trong `config/review.yaml` (tiếng Hàn 8.7 chữ/giây — đo từ voice mẫu
 "스펀지밥이 잡지에서 베프 퀴즈를 발견했습니다." = 20 chữ / 2.3s); tốc độ đo thật khi dựng lưu riêng
 `config/local.yaml → review_voice_cps`, không lẫn với giọng thuyết minh (`review_dub_cfg`).
+**Chủ dự án chốt 09/10 (thay các mục "tiếng phim hạ nhỏ" / "ngừng kể ở khoảnh khắc đắt" ở trên): phim gốc CHỈ LẤY
+HÌNH — tiếng phim TẮT HẲN** (`original_audio.mute: true`); **toàn bộ âm thanh là giọng review nói LIỀN MẠCH** từ đầu tới
+cuối (+ nhạc nền nhẹ): lời phủ ≥ 90%, 2 câu cách nhau ≤ `max_gap_s` 0.6s, câu cuối sát cảnh cuối (`check_continuous`);
+không clip replay / lặp lại; điều quan trọng nhân vật nói thì người review kể lại bằng lời của mình.
 
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.

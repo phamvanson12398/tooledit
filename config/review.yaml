@@ -20,12 +20,16 @@ layout: review_story     # bố cục như video mẫu (config/layout.yaml): n�
 # (lưu config/local.yaml → review_voice_cps, tách riêng với giọng thuyết minh).
 voice_cps: {ko: 8.7}
 open_within_s: 1.0       # câu đầu cất lên ngay trong 1 giây đầu
-min_cover: 0.6           # lời review phủ 60–95% thời lượng (review là nói gần như liên tục, chừa chỗ cho cảnh đắt)
-max_cover: 0.95
+# Chủ dự án chốt 09/10: review NÓI LIỀN MẠCH từ đầu tới cuối, KHÔNG ngừng để nghe tiếng phim — toàn bộ âm thanh là
+# giọng review (+ nhạc nền nhẹ). Phim gốc chỉ lấy HÌNH.
+min_cover: 0.9           # lời review phủ ≥ 90% thời lượng
+max_cover: 1.01          # (không giới hạn trên)
+max_gap_s: 0.6           # 2 câu liền nhau cách nhau tối đa 0.6 giây (chỉ đủ lấy hơi)
+max_tail_s: 1.5          # câu cuối kết thúc trong 1.5 giây cuối video
 max_describe_share: 0.3  # tối đa 30% số câu được kiểu tả cảnh ("… đang …") — còn lại phải KỂ CHUYỆN (09/10)
 frames: 18               # số khung hình gửi AI xem để kể đúng chuyện
 # Tiếng gốc của phim dưới lời review
 original_audio:
-  mute: false            # true = tắt hẳn tiếng phim
-  db: -18                # dưới câu review đã có voice
-  db_no_voice: -6        # chỗ không có lời review (cảnh đắt để tiếng phim tự nói)
+  mute: true             # TẮT HẲN tiếng phim (chủ dự án chốt 09/10) — false = chỉ hạ nhỏ theo 2 mức dưới
+  db: -18                # (khi mute: false) dưới câu review đã có voice
+  db_no_voice: -6        # (khi mute: false) chỗ không có lời review
