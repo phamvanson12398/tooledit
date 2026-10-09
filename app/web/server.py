@@ -287,6 +287,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                    f"<form method='post' action='/settings/cleanup' class='row' style='align-items:center;gap:8px;margin-top:6px'>"
                    f"<span class='muted'>Tự xóa job không hoạt động quá:</span>"
                    f"<select name='days' onchange='this.form.submit()' style='width:auto'>{day_opts}</select></form>")
+        rcfg = app_config.load("review")  # độ dài video review lấy từ config/review.yaml (đổi config là trang tự đổi)
+
+        def mmss(sec) -> str:
+            return f"{int(sec) // 60}:{int(sec) % 60:02d}"
+        review_len = f"{mmss(rcfg.get('min_video_s', 130))}–{mmss(rcfg.get('max_video_s', 150))}"
         style_cards = ["<label class='style'><input type='radio' name='style' value='auto' checked>"
                        "<b>✨ AI tự chọn</b><span>Đạo diễn xem nội dung rồi chọn kiểu phù hợp</span></label>"]
         for key, st in available_styles().items():
@@ -314,7 +319,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label>
             <label class="tg"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục — cảnh gay cấn lên đầu (3–5s/cảnh)</label>
             <label class="tg"><input type="checkbox" name="review"> 🎬 Review phim / hoạt hình — tìm đoạn hay, mỗi đoạn
-            một video ~2:30 có lời review (bạn thu voice)</label>
+            một video {review_len} có lời review (bạn thu voice)</label>
             <label class="tg"><input type="checkbox" name="vi_sub"> 🇻🇳 Chỉ phụ đề tiếng Việt — xem hiểu video nước ngoài
             (không dựng lại; ra file .srt + draft giữ nguyên video)</label></div></div>
           {_music_select(lib)}

@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 63 — Trang chủ hiện đúng độ dài video review `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Đóng cửa sổ `start.bat` (bấm X hoặc Ctrl+C), rồi trong PowerShell ở thư mục tool:
+   ```powershell
+   git pull
+   git log --oneline -1      # phải thấy dòng "Trang chủ: độ dài video review đọc từ config"
+   ```
+2. Nhấp đúp `start.bat` lại, trên trình duyệt bấm **Ctrl+F5**.
+3. Ô 🎬 phải ghi "mỗi đoạn một video **2:10–2:30** có lời review". Đổi `min_video_s` / `max_video_s` trong
+   `config\review.yaml` rồi mở lại `start.bat` → dòng chữ đổi theo.
+
 ## Bước 62 — Review phim: video 2:30 + tốc độ đọc riêng của giọng review `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Tạo job MỚI với ô **🎬 Review phim / hoạt hình** (phim nên dài ≥ 5 phút

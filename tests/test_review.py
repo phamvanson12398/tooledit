@@ -147,7 +147,8 @@ def test_web_form_review(tmp_path):
     app = create_app(tmp_path / "jobs", lambda root, log: None)
     app.state.worker.start = lambda job_id, action=None: True
     client = TestClient(app)
-    assert "Review phim / hoạt hình" in client.get("/").text
+    home = client.get("/").text
+    assert "Review phim / hoạt hình" in home and "một video 2:10–2:30" in home and "1:00–1:30" not in home
     r = client.post("/jobs", data={"footage": str(f), "review": "on", "hype": "on", "target_language": "en"},
                     follow_redirects=False)
     job = Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1])
