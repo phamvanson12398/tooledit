@@ -13,6 +13,7 @@ max_clip_s: 12           # mỗi cảnh tối đa 12 giây (giữ nhịp, đổi
 open_within_s: 1.0       # câu đầu cất lên ngay trong 1 giây đầu
 min_cover: 0.6           # lời review phủ 60–95% thời lượng (review là nói gần như liên tục, chừa chỗ cho cảnh đắt)
 max_cover: 0.95
+max_describe_share: 0.3  # tối đa 30% số câu được kiểu tả cảnh ("… đang …") — còn lại phải KỂ CHUYỆN (09/10)
 frames: 18               # số khung hình gửi AI xem để kể đúng chuyện
 # Tiếng gốc của phim dưới lời review
 original_audio:

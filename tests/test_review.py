@@ -38,7 +38,9 @@ def _review(index: int, clips: list[dict]) -> dict:
                    "kind": "narration"},
                   {"source_start": a + 5.5, "source_end": a + 10.5, "text": "표정 좀 보세요.", "text_vi": "Nhìn mặt kìa.",
                    "kind": "narration"}]
-    return {"video_index": index, "lines": lines, "editor_notes": "kể lại + bình luận"}
+    return {"video_index": index, "lines": lines, "editor_notes": "kể lại + bình luận",
+            "story_vi": "Mở đầu: cậu bé mất con mèo. Mâu thuẫn: cả làng không ai giúp. Cao trào: cậu tự đi tìm trong rừng. "
+                        "Kết: con mèo tự quay về."}
 
 
 def test_review_segments_prompt_and_limits(tmp_path):
@@ -77,7 +79,7 @@ def test_review_dub_prompt_and_cover(tmp_path):
     d = FakeDirector(responses={"dub_review": _review(1, clips)})
     s = make_dub(d, a, u, plan, mode="review")
     call = d.calls[-1]
-    assert call["task"] == "dub_review" and "LỜI REVIEW" in call["prompt"] and call["images"]
+    assert call["task"] == "dub_review" and "MỘT CÂU CHUYỆN" in call["prompt"] and call["images"]
     assert len(s.lines) == 12
     sparse = DubScript.model_validate({**_review(1, clips), "lines": _review(1, clips)["lines"][:3]})
     assert any("chỉ phủ" in e for e in check_rewrite(sparse, plan, {}, config.load("review")))
@@ -101,6 +103,7 @@ def test_review_job_end_to_end(tmp_path):
     job = r.resume(job)
     assert job.step == "dub_voice" and job.status == Status.waiting, job.message
     assert {c["task"] for c in r._director.calls} >= {"segment", "plan", "dub_review"}
+    assert "📖 Câu chuyện: Mở đầu" in (jobs / "rv" / "dub_scripts.txt").read_text(encoding="utf-8")
     style = r._style(job)
     assert style["review"] and style["original_audio"]["mute"] is False and "hype" not in style
     # tiếng phim chỉ hạ nhỏ (không tắt hẳn) dưới lời review
@@ -138,3 +141,29 @@ def test_web_form_review(tmp_path):
     assert job.options.review and not job.options.hype and job.options.target_language == "en"
     bad = client.post("/jobs", data={"footage": str(f), "review": "on", "vi_sub": "on"})
     assert "Chọn một chế độ thôi" in bad.text
+
+
+def test_review_must_be_a_story_not_scene_description(tmp_path):
+    """Chủ dự án (09/10): review phải thành MỘT CÂU CHUYỆN, không thuật lại "người này đang làm gì"."""
+    from app.director.tasks import check_story
+
+    clips = _clips(1.0, 6)
+    rcfg = config.load("review")
+    good = DubScript.model_validate(_review(1, clips))
+    assert check_story(good, rcfg) == []
+    no_story = DubScript.model_validate({**_review(1, clips), "story_vi": ""})
+    assert any("story_vi" in e for e in check_story(no_story, rcfg))
+    data = _review(1, clips)
+    for ln in data["lines"][:8]:
+        ln["text_vi"] = "Cậu bé đang chạy, con mèo đang nhìn."
+    errs = check_story(DubScript.model_validate(data), rcfg)
+    assert any("TẢ CẢNH" in e for e in errs)
+
+    # AI tả cảnh lần đầu → bị yêu cầu viết lại thành câu chuyện
+    a = make_analysis(tmp_path, duration=200.0)
+    u = understand(FakeDirector(), a).dubbed_to("ko")
+    plan = EditPlan.model_validate(_plan(1, clips))
+    d = FakeDirector(responses={"dub_review": [data, _review(1, clips)]})
+    make_dub(d, a, u, plan, mode="review")
+    assert len(d.calls) == 2 and "KỂ THÀNH CÂU CHUYỆN" in d.calls[1]["prompt"]
+    assert "KỂ CHUYỆN, không phải thuyết minh" in d.calls[0]["prompt"]

@@ -154,8 +154,8 @@ def for_video(u, video: dict):
 
 REVIEW_SEGMENT_NOTE = """
 ## CHẾ ĐỘ REVIEW PHIM / HOẠT HÌNH
-Đây là phim / hoạt hình. Mỗi video sẽ là một clip REVIEW: lời review (kể lại + bình luận) chạy trên các cảnh của đoạn
-đó. Hãy tìm các ĐOẠN HAY NHẤT — tình huống hài, cảm động, gay cấn, cú twist, màn thể hiện của nhân vật — mỗi đoạn là
+Đây là phim / hoạt hình. Mỗi video sẽ là một clip REVIEW kể chuyện: người review KỂ LẠI đoạn đó thành MỘT CÂU CHUYỆN
+(mở đầu – mâu thuẫn – cao trào – kết), hình phim minh họa cho lời kể. Hãy tìm các ĐOẠN HAY NHẤT — tình huống hài, cảm động, gay cấn, cú twist, màn thể hiện của nhân vật — mỗi đoạn là
 một câu chuyện nhỏ trọn vẹn (mở – diễn biến – kết) để kể lại được trong {min_video_s}–{max_video_s} giây. Đoạn nhạt,
 đoạn chuyển cảnh, giới thiệu / credit, quảng cáo thì bỏ (ghi vào `dropped`). `why_vi` nói rõ đoạn này hay ở chỗ nào.
 Phim dài có nhiều đoạn hay thì tách thành NHIỀU video (không giới hạn số video), mỗi video một đoạn liền, không chồng nhau.
@@ -553,6 +553,7 @@ def _review_cfg(style: dict) -> dict:
 
 REVIEW_RULE = """REVIEW PHIM / HOẠT HÌNH (chủ dự án yêu cầu 09/10): video này là một clip review — lời review (kể lại câu
   chuyện + bình luận, sẽ viết ở bước sau và chủ dự án tự thu voice) chạy trên hình; tiếng phim được hạ nhỏ bên dưới.
+  - Video là MỘT CÂU CHUYỆN có mở đầu (nhân vật, hoàn cảnh) – mâu thuẫn – cao trào – kết; chọn cảnh phục vụ từng nhịp đó.
   - Tổng thời lượng {min_s:.0f}–{max_s:.0f} giây (kể cả hook). Chọn những cảnh kể được câu chuyện của đoạn này rõ nhất,
     theo ĐÚNG THỨ TỰ thời gian của phim (người xem phải hiểu chuyện), clip không chồng nhau.
   - Cắt gọn mạnh: bỏ cảnh chậm, đoạn chuyển, lặp; mỗi cảnh 2–8 giây, tối đa {max_clip_s:.0f}s; tua nhanh (speed 1.2–1.5)
@@ -955,6 +956,26 @@ def check_rewrite(script, plan, cfg: dict, rcfg: dict | None = None) -> list[str
     return errors
 
 
+DESCRIBE_MARKERS = (" đang ", "Đang ")  # nghĩa tiếng Việt kiểu "anh ấy đang chạy" = tả cảnh, không phải kể chuyện
+
+
+def check_story(script, rcfg: dict) -> list[str]:
+    """Review phim phải là MỘT CÂU CHUYỆN (chủ dự án yêu cầu 09/10), không phải tả "người này đang làm gì"."""
+    errors = []
+    if len((script.story_vi or "").strip()) < 40:
+        errors.append("thiếu `story_vi`: viết dàn ý câu chuyện (mở đầu – mâu thuẫn – cao trào – kết) trước rồi mới viết lời")
+    lines = [ln for ln in script.lines if ln.text_vi.strip()]
+    if len(lines) >= 4:
+        desc = [i for i, ln in enumerate(script.lines, 1) if any(m in f" {ln.text_vi}" for m in DESCRIBE_MARKERS)]
+        share = len(desc) / len(lines)
+        limit = float(rcfg.get("max_describe_share", 0.3))
+        if share > limit:
+            errors.append(f"{len(desc)}/{len(lines)} câu đang TẢ CẢNH (\"… đang …\": câu {', '.join(map(str, desc[:8]))}) — "
+                          "đừng thuật lại ai đang làm gì; KỂ THÀNH CÂU CHUYỆN: vì sao, rồi chuyện gì xảy ra, nhân vật "
+                          "muốn gì / cảm thấy gì, nối các câu bằng nhân – quả (nhưng, thế là, không ngờ, cuối cùng…)")
+    return errors
+
+
 def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,
                  review: bool = False):
     """Viết mới lời thuyết minh (task dub_rewrite) hoặc lời REVIEW phim / hoạt hình (task dub_review)."""
@@ -983,6 +1004,8 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
 
     def extra(r) -> list[str]:
         errors = check_dub(r, plan, u.language, cfg) + check_rewrite(r, plan, cfg, rcfg)
+        if review:
+            errors += check_story(r, rcfg)
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors

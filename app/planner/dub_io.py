@@ -200,6 +200,8 @@ def write_dub_scripts(job_dir: Path, scripts: dict[int, DubScript], windows: dic
              "ra từng câu và báo câu nào dài quá cần thu lại.", ""]
     for v, s in sorted(scripts.items()):
         lines.append(f"=== VIDEO {v:02d} ===")
+        if s.story_vi:  # review phim: đọc dàn ý câu chuyện trước để thu voice đúng giọng kể
+            lines += [f"📖 Câu chuyện: {s.story_vi}", ""]
         for i, ln in enumerate(s.lines, 1):
             tag = f"  [LỜI DẪN — {ln.action_vi or 'chỗ không có giọng nói'}]" if ln.kind == "narration" else ""
             w = (windows or {}).get(v, [])

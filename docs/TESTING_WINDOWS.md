@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 60 — Review phim kể thành MỘT CÂU CHUYỆN `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Tạo job mới với ô **🎬 Review phim / hoạt hình** (job cũ đã viết lời rồi
+   thì bấm **🌐 Viết lại thuyết minh** ở trang job).
+2. Khi tới bước **Chờ voice thuyết minh**, mở `dub_scripts.txt`: đầu mỗi video có dòng **📖 Câu chuyện:** (mở đầu – mâu
+   thuẫn – cao trào – kết).
+3. Đọc cột **Nghĩa** các câu: phải nghe như đang KỂ một câu chuyện nối liền ("Cả đời cậu bé chỉ mong… Nhưng không ngờ…"),
+   KHÔNG phải kiểu "cậu bé đang chạy, con mèo đang nhìn". Nếu vẫn thấy tả cảnh nhiều, hạ `max_describe_share` trong
+   `config\review.yaml` (vd 0.2) rồi bấm Viết lại thuyết minh.
+
 ## Bước 59 — Chế độ "🎬 Review phim / hoạt hình" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`, tải lại trang chủ (Ctrl+F5).

@@ -213,6 +213,9 @@ tìm các ĐOẠN HAY (luôn qua bảng duyệt chia video), mỗi đoạn thàn
 phim, ≤ 12s/cảnh); AI xem khung hình rồi viết **lời review** (kể lại + bình luận, phủ 60–95% thời lượng, prompt
 `dub_review.md`) bằng ngôn ngữ đích (không chọn thì tiếng gốc); chủ dự án thu voice như chế độ Đổi ngôn ngữ; tiếng phim
 **hạ nhỏ** dưới voice (`original_audio`), không tắt hẳn. Không dùng cùng "Chỉ thay tiếng" / "Phụ đề tiếng Việt"; tắt ⚡.
+Cập nhật 09/10: lời review là **KỂ CHUYỆN** (mở đầu – mâu thuẫn – cao trào – kết, nối nhân – quả, động cơ / cảm xúc
+nhân vật), KHÔNG thuật lại "ai đang làm gì": AI viết `story_vi` (dàn ý) trước; code chặn khi > 30% câu kiểu tả cảnh
+(`check_story`, `max_describe_share`); dàn ý in ở đầu mỗi video trong `dub_scripts.txt`.
 
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.

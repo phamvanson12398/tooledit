@@ -566,6 +566,8 @@ class DubScript(BaseModel):
     video_index: int = Field(ge=1)
     lines: list[DubLine] = Field(min_length=1)
     editor_notes: str
+    story_vi: str = Field(default="", description="(review phim) dàn ý CÂU CHUYỆN bằng tiếng Việt: mở đầu – mâu thuẫn – "
+                                                  "cao trào – kết, viết TRƯỚC rồi mới viết lời")
 
 
 # ---------------- Phụ đề tiếng Việt (chế độ "xem hiểu video nước ngoài") ----------------
