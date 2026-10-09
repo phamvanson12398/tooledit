@@ -633,6 +633,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         worker.start(job_id, action=lambda runner, job: runner.shorten_dub(job))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/review-feedback")
+    def review_feedback(job_id: str, video: int = Form(...), feedback: str = Form("")):
+        worker.start(job_id, action=lambda runner, job: runner.rewrite_review(job, video, feedback))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/accept-dub")
     def accept_dub(job_id: str):
         worker.start(job_id, action=lambda runner, job: runner.accept_pending_dub(job))  # rồi worker tự chạy tiếp
@@ -1328,7 +1333,16 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                      f"<p class='muted'>🇻🇳 {esc(' '.join(ln.text_vi.strip() for ln in script.lines))}</p>"
                      f"<p class='muted'>📖 {esc(script.story_vi)}</p>"
                      "<p class='muted'>Tool đo từng câu bạn đọc rồi tự cắt cảnh của đúng đoạn phim câu đó kể, dài đúng bằng câu "
-                     "— đọc nhanh hay chậm đều khớp.</p></div>")
+                     "— đọc nhanh hay chậm đều khớp.</p>"
+                     f"<form method='post' action='/jobs/{job.job_id}/review-feedback' onsubmit=\"return confirm('AI sẽ viết "
+                     "lại cả bài theo góp ý; voice đã tải của video này được cất thành *_cu. Tiếp tục?')\">"
+                     f"<input type='hidden' name='video' value='{v}'>"
+                     "<b>✍️ Chưa hay / chưa tự nhiên? Góp ý để AI viết lại</b><br>"
+                     "<textarea name='feedback' rows='3' style='width:100%' required placeholder='vd: câu cứng quá, nói tự "
+                     "nhiên như kể chuyện với bạn bè; câu mở đầu chưa cuốn; thêm chút hài; bớt lặp 그런데…'></textarea>"
+                     "<br><button type='submit' class='btn small'>✍️ Viết lại theo góp ý</button>"
+                     "<span class='muted'> · muốn AI học giọng kênh bạn thích: dán lời video mẫu vào "
+                     "<b>config\\review_style.txt</b></span></form></div>")
         forms.append(
             f"<h2 style='margin-top:14px'>🎬 Video {v:02d} — đã có {done}/{len(script.lines)} câu</h2>{whole}"
             f"<details {'open' if done < len(script.lines) else ''}><summary>Kịch bản thuyết minh</summary>"

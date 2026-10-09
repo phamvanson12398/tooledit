@@ -28,6 +28,16 @@ tiếp mâu thuẫn mới; cả bài là chuỗi những nhịp như vậy nối
 5. ĐÚNG SỰ THẬT: tên nhân vật đúng như trong phim (xem "Tên riêng đúng"); không rõ tên thì gọi theo đặc điểm. Không bịa
    tình tiết, kết cục ngoài đoạn này.
 
+6. TỰ NHIÊN NHƯ NÓI (rất quan trọng — chủ dự án chê "chưa hay, chưa tự nhiên"): viết văn NÓI của người bản xứ, không
+   văn viết, không dịch máy; câu dài ngắn xen kẽ, câu ngắn bật ra ở chỗ bất ngờ; KHÔNG lặp cùng một từ nối ở nhiều câu
+   liền (그런데 / でも / but…); không giải thích điều hình đã cho thấy; chêm chút hài / cảm xúc của người kể đúng chỗ.
+
+## Văn mẫu chủ dự án thích (học GIỌNG, NHỊP, CÁCH NỐI CÂU — không chép nội dung)
+{{style_examples}}
+
+## Góp ý của chủ dự án
+{{feedback}}
+
 {{localize_brief}}
 
 ## Độ dài và gắn đoạn phim

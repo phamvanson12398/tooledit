@@ -7,7 +7,7 @@ from pathlib import Path
 
 from app import config
 from app.styles import available_styles, styles_for_prompt
-from app.director.base import Director
+from app.director.base import Director, DirectorError
 from app.director.schemas import Understanding, check_ranges
 
 
@@ -1096,8 +1096,51 @@ def check_review_script(script, u, cfg: dict, rcfg: dict, hook_s: float = 0.0) -
     return errors
 
 
+def review_style_examples() -> str:
+    """Văn mẫu chủ dự án dán vào config/review_style.txt (lời các video review họ thích) — AI học giọng, nhịp, cách nối câu."""
+    p = config.ROOT / "config" / "review_style.txt"
+    try:
+        text = "\n".join(ln for ln in p.read_text(encoding="utf-8").splitlines() if not ln.lstrip().startswith("#"))
+    except OSError:
+        return "(chưa có)"
+    return text.strip()[:6000] or "(chưa có)"
+
+
+def _script_lines(script) -> str:
+    return "\n".join(f"[{i}] ({ln.source_start:.1f}–{ln.source_end:.1f}s) {ln.text}  // {ln.text_vi}"
+                     for i, ln in enumerate(script.lines, 1))
+
+
+def polish_review_script(director: Director, script, u, cfg: dict, rcfg: dict, hook_s: float = 0.0, feedback: str = ""):
+    """Lượt 2 (chủ dự án 09/10: "viết thoại chưa hay, chưa tự nhiên"): AI đọc lại cả bài như người bản xứ biên tập — sửa
+    câu cứng / dịch máy / lặp từ nối / nhịp đều đều — GIỮ số câu và đoạn phim từng câu (code tự chép lại nếu AI đổi)."""
+    from app.director.schemas import DubScript
+
+    variables = {"language_name": LANGUAGE_NAMES.get(u.language, u.language), "market": MARKETS.get(u.language, "TikTok"),
+                 "lines": _script_lines(script), "n": len(script.lines), "story": script.story_vi,
+                 "style_examples": review_style_examples(), "cps": f"{effective_cps(cfg, u.language):.1f}",
+                 "feedback": feedback.strip() or "(không có)", "localize_brief": localize_brief(u),
+                 "sensitive_notes": _shared_context(u, []).get("sensitive_notes", "")}
+
+    def repair(r):
+        if len(r.lines) != len(script.lines):
+            return r, []
+        lines = [ln.model_copy(update={"source_start": o.source_start, "source_end": o.source_end,
+                                       "action_vi": ln.action_vi or o.action_vi})
+                 for ln, o in zip(r.lines, script.lines)]
+        return r.model_copy(update={"lines": lines, "story_vi": r.story_vi or script.story_vi,
+                                    "video_index": script.video_index}), []
+
+    def extra(r) -> list[str]:
+        if len(r.lines) != len(script.lines):
+            return [f"phải giữ đúng {len(script.lines)} câu (chỉ sửa chữ, không thêm / bớt / gộp câu)"]
+        return check_story(r, rcfg) + check_review_script(r, u, cfg, rcfg, hook_s)
+
+    return director.run("review_polish", variables, DubScript, extra_check=extra, repair=repair)
+
+
 def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, hook_s: float = 0.0,
-                       video_index: int = 1, footage: int = 0):
+                       video_index: int = 1, footage: int = 0, feedback: str = "", previous=None):
     """REVIEW PHIM — viết bài lời đọc TRƯỚC (chủ dự án yêu cầu 09/10): AI xem khung hình cả đoạn phim, viết một bài kể
     chuyện liền mạch; mỗi câu ghi đoạn phim nó kể. Chủ dự án đọc cả bài một file, tool dựa vào voice để chọn cảnh và
     dựng (app/planner/review_sync.build_from_voice)."""
@@ -1122,7 +1165,11 @@ def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, 
                  "target_chars": f"{int(mn * cps)}–{int(mx * cps)}",
                  "scenes": "\n".join(f"- {x['start']:.1f}–{x['end']:.1f}" for x in a["scenes"].get("scenes", [])
                                      if x["end"] > lo and x["start"] < hi) or "(không có)",
-                 "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)"}
+                 "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)",
+                 "style_examples": review_style_examples(),
+                 "feedback": (f"GÓP Ý CỦA CHỦ DỰ ÁN cho bản trước (sửa ĐÚNG theo góp ý này, giữ cái hay của bản trước):\n"
+                              f"{feedback.strip()}\n\nBản trước:\n{_script_lines(previous)}" if feedback.strip() and previous
+                              else f"GÓP Ý CỦA CHỦ DỰ ÁN: {feedback.strip()}" if feedback.strip() else "(không có)")}
 
     def extra(r) -> list[str]:
         errors = check_story(r, rcfg) + check_review_script(r, u, cfg, rcfg, hook_s)
@@ -1130,8 +1177,14 @@ def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, 
             errors.append(f"video_index phải là {video_index}")
         return errors
 
-    return director.run("dub_review", variables, DubScript, [analysis_dir / f["file"] for f in frames],
-                        extra_check=extra)
+    draft = director.run("dub_review", variables, DubScript, [analysis_dir / f["file"] for f in frames],
+                         extra_check=extra)
+    if not rcfg.get("polish", True):
+        return draft
+    try:  # lượt 2: biên tập cho tự nhiên; lỗi thì giữ bản nháp (đã hợp lệ)
+        return polish_review_script(director, draft, u, cfg, rcfg, hook_s, feedback)
+    except DirectorError:
+        return draft
 
 
 def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,

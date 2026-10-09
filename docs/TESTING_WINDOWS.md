@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 68 — Lời review hay & tự nhiên hơn: biên tập 2 lượt, văn mẫu, viết lại theo góp ý `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. (Nên làm) Mở `config\review_style.txt` bằng Notepad, xóa đoạn mẫu tiếng Hàn của tool, dán LỜI ĐỌC của 1–3 video review
+   bạn thấy hay (chép từ phụ đề), lưu lại. AI sẽ học giọng / nhịp kể theo văn mẫu này.
+2. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5. Tạo job MỚI với ô 🎬 (job cũ: 🌐 Viết lại thuyết minh).
+3. Bước "AI viết bài lời đọc" giờ lâu hơn một chút (AI viết xong rồi tự biên tập lại lượt 2). Đọc khung 📜 Bài lời đọc:
+   câu phải trôi, câu dài ngắn xen kẽ, không lặp một từ nối liên tục.
+4. Chưa ưng: gõ góp ý vào ô **✍️ Chưa hay / chưa tự nhiên? Góp ý để AI viết lại** (vd "câu cứng quá, nói như kể chuyện
+   với bạn bè, mở đầu chưa cuốn") → bấm **Viết lại theo góp ý** → vài phút sau có bài mới. Voice đã tải của video đó
+   được cất thành `*_cu` (không mất).
+5. Muốn tắt lượt biên tập cho nhanh: `config\review.yaml` → `polish: false`.
+
 ## Bước 67 — Mỗi chế độ hiện quy trình riêng `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. QUAN TRỌNG: sau `git pull` phải **tắt hẳn cửa sổ `start.bat`** (bấm X) rồi mở lại — server cũ vẫn chạy code cũ dù đã

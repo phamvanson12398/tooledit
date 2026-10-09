@@ -45,3 +45,7 @@ original_audio:
   mute: true             # TẮT HẲN tiếng phim (chủ dự án chốt 09/10) — false = chỉ hạ nhỏ theo 2 mức dưới
   db: -18                # (khi mute: false) dưới câu review đã có voice
   db_no_voice: -6        # (khi mute: false) chỗ không có lời review
+# Lời review hay & tự nhiên (chủ dự án yêu cầu 09/10):
+polish: true             # lượt 2: AI đọc lại cả bài như biên tập viên bản xứ, sửa cho tự nhiên (thêm 1 lần hỏi AI)
+# Văn mẫu: dán lời các video review bạn thích vào config/review_style.txt — AI học giọng / nhịp theo đó.
+

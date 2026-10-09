@@ -116,10 +116,16 @@ def test_review_script_is_written_first(tmp_path):
     """Chủ dự án chốt 09/10: tool viết TRƯỚC một bài lời đọc liền mạch (không phụ thuộc cảnh đã chọn), xem hết khung hình."""
     a = make_analysis(tmp_path, duration=200.0)
     u = _u(a)
-    d = FakeDirector(responses={"dub_review": _script(1, 1.0)})
+    polished = _script(1, 1.0)
+    polished["lines"][0]["text"] = "평범한 하루였습니다. " + SENT.strip()[:80]
+    polished["lines"][0]["source_start"] = 99.0                      # AI lỡ đổi đoạn phim → code chép lại như bản nháp
+    d = FakeDirector(responses={"dub_review": _script(1, 1.0), "review_polish": polished})
     s = make_dub(d, a, u, plan=None, mode="review")
     call = d.calls[0]
-    assert len(d.calls) == 1, call["prompt"][-600:]
+    assert len(d.calls) == 2, d.calls[-1]["prompt"][-600:]           # lượt 1 viết, lượt 2 biên tập cho tự nhiên
+    pol = d.calls[1]
+    assert pol["task"] == "review_polish" and "TỰ NHIÊN" in pol["prompt"] and "평범한 하루였습니다" in pol["prompt"]
+    assert s.lines[0].text.startswith("평범한 하루였습니다") and s.lines[0].source_start == 1.0
     assert call["task"] == "dub_review" and "VIẾT TRƯỚC bài lời đọc" in call["prompt"]
     assert "Tiếng phim TẮT HẲN" in call["prompt"] and "~습니다" in call["prompt"] and "Cả đời cậu bé" in call["prompt"]
     assert "giây" in call["prompt"] and "chữ" in call["prompt"] and len(call["images"]) >= 10
@@ -187,6 +193,7 @@ def test_review_job_end_to_end(tmp_path):
            "dropped": [], "editor_notes": "2 đoạn hay"}
     r._director = FakeDirector(responses={"understand": u, "segment": seg, "plan": [_plan(1, c1), _plan(2, c2)],
                                           "dub_review": [_script(1, 1.0), _script(2, 201.0)],
+                                          "review_polish": [_script(1, 1.0), _script(2, 201.0)],
                                           "captions": [load("captions.json"), {**load("captions.json"), "video_index": 2}]})
     job = r.run(job)
     assert job.step == "review_segments" and job.status == Status.waiting, job.message  # duyệt các đoạn hay
@@ -221,9 +228,9 @@ def test_review_must_be_a_story_not_scene_description(tmp_path):
         ln["text_vi"] = "Cậu bé đang chạy, con mèo đang nhìn."
     assert any("TẢ CẢNH" in e for e in check_story(DubScript.model_validate(data), rcfg))
     a = make_analysis(tmp_path, duration=200.0)
-    d = FakeDirector(responses={"dub_review": [data, _script(1, 1.0)]})
+    d = FakeDirector(responses={"dub_review": [data, _script(1, 1.0)], "review_polish": _script(1, 1.0)})
     make_dub(d, a, _u(a), plan=None, mode="review")
-    assert len(d.calls) == 2 and "KỂ THÀNH CÂU CHUYỆN" in d.calls[1]["prompt"]
+    assert len(d.calls) == 3 and "KỂ THÀNH CÂU CHUYỆN" in d.calls[1]["prompt"]
 
 
 def test_review_voice_speed_is_separate(tmp_path, monkeypatch):
@@ -271,3 +278,46 @@ def test_review_skips_hook_and_shows_own_steps(tmp_path):
     page = TestClient(app).get("/jobs/rh").text
     assert "🎬 Review phim / hoạt hình" in page and "AI viết bài lời đọc" in page and "Chờ bạn đọc cả bài" in page
     assert "Dựng cảnh theo voice" in page and "AI viết hook" not in page and "AI chia video" not in page
+
+
+def test_polish_must_keep_lines_and_falls_back_to_draft(tmp_path):
+    """Lượt biên tập thêm / bớt câu → bị yêu cầu sửa; sai mãi thì giữ bản nháp (đã hợp lệ), không làm hỏng job."""
+    a = make_analysis(tmp_path, duration=200.0)
+    fewer = _script(1, 1.0, n=14)
+    d = FakeDirector(responses={"dub_review": _script(1, 1.0), "review_polish": fewer})
+    s = make_dub(d, a, _u(a), plan=None, mode="review")
+    assert len(s.lines) == 15 and any("giữ đúng 15 câu" in c["prompt"] for c in d.calls[2:])
+
+
+def test_rewrite_review_with_feedback(tmp_path):
+    """Nút "✍️ Viết lại theo góp ý": AI nhận góp ý + bản trước, viết lại; voice cũ cất *_cu; job về chờ đọc lại."""
+    from fastapi.testclient import TestClient
+
+    from app.planner import dub_io
+    from app.web.server import create_app
+
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, target_language="ko"), job_id="fb")
+    make_analysis(jobs / "fb", duration=400.0)
+    r = make_runner(tmp_path, jobs)
+    u = load("understand.json")
+    u["usable_range"] = {"start": 0.0, "end": 400.0}
+    seg = {"videos": [{"start": 1.0, "end": 190.0, "title_vi": "a", "summary_vi": "a", "why_vi": "a"}],
+           "dropped": [], "editor_notes": "1 đoạn"}
+    r._director = FakeDirector(responses={"understand": u, "segment": seg, "plan": _plan(1, _clips(1.0, 56)),
+                                          "dub_review": _script(1, 1.0), "review_polish": _script(1, 1.0)})
+    job = r.run(job)
+    r.apply_segments(job, json.loads((jobs / "fb" / "plan" / "segments.json").read_text(encoding="utf-8"))["videos"])
+    job = r.resume(job)
+    assert job.step == "dub_voice"
+    (jobs / "fb" / "voice" / "video01_dub01.wav").write_bytes(b"RIFF")
+    r.rewrite_review(job, 1, "câu cứng quá, nói tự nhiên như kể với bạn bè")
+    last = [c for c in r._director.calls if c["task"] == "dub_review"][-1]["prompt"]
+    assert "GÓP Ý CỦA CHỦ DỰ ÁN" in last and "câu cứng quá" in last and "Bản trước" in last
+    assert (jobs / "fb" / "voice" / "video01_dub01_cu.wav").is_file() and dub_io.find_line_voice(jobs / "fb", 1, 1) is None
+    assert job.step == "dub_voice" and job.data["review_feedback"][0]["video"] == 1
+    job = r.run(job)  # worker chạy tiếp → dừng chờ đọc lại cả bài
+    assert job.step == "dub_voice" and job.status == Status.waiting
+    app = create_app(jobs, lambda root, log: None)
+    page = TestClient(app).get("/jobs/fb").text
+    assert "Viết lại theo góp ý" in page and "📜 Bài lời đọc" in page

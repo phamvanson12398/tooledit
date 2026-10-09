@@ -244,6 +244,11 @@ zoom. Câu chưa có voice tạm tính theo số chữ để dựng thử.
 Giao diện (09/10): thanh tiến trình đặt tên bước riêng theo chế độ (`STEP_VI_MODE`, `job_mode` trong
 `app/web/server.py`) + ghi rõ chế độ ở đầu trang job; review phim KHÔNG có hook riêng (`Job.use_hook`, kể cả job cũ đã
 tick) vì câu mở đầu bài lời đọc là hook.
+**Lời review hay & tự nhiên (chủ dự án 09/10: "viết thoại chưa hay, chưa tự nhiên"):** (1) lượt 2 biên tập —
+AI đọc lại cả bài như biên tập viên bản xứ, sửa câu cứng / dịch máy / lặp từ nối / nhịp đều đều, giữ số câu + đoạn phim
+(`polish_review_script`, prompt `review_polish.md`, `polish: true` trong `config/review.yaml`; sai thì giữ bản nháp);
+(2) văn mẫu `config/review_style.txt` — chủ dự án dán lời video review họ thích, AI học giọng / nhịp (cả 2 lượt);
+(3) nút "✍️ Viết lại theo góp ý" trên trang voice (`Runner.rewrite_review`, gửi góp ý + bản trước; voice cũ → *_cu).
 
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.

@@ -672,6 +672,34 @@ class Runner:
                     out.setdefault(v, []).append((i, max(3, int(rate * (win[2] + delay) * max_speed * 0.95))))
         return out
 
+    def rewrite_review(self, job: Job, video_index: int, feedback: str) -> None:
+        """Review phim — nút "✍️ Viết lại theo góp ý": AI viết lại bài lời đọc của một video theo đúng góp ý của chủ dự
+        án (kèm bản trước), voice cũ của video đó cất thành *_cu, job quay về chờ đọc lại cả bài."""
+        from app.director.tasks import make_review_script
+        from app.planner import dub_io
+
+        if not feedback.strip():
+            raise ValueError("Hãy gõ góp ý (vd: câu cứng quá, nói tự nhiên như kể với bạn bè, thêm chỗ hài…).")
+        d, analysis, _ = self._paths(job)
+        scripts = self._dub_scripts(job)
+        v = next(x for x in self.videos(job) if x["index"] == video_index)
+        u = self._u_for(job, v)
+        self.log(f"Video {video_index:02d}: AI viết lại bài lời đọc theo góp ý của bạn…")
+        script = make_review_script(self.director, analysis, u, video_index=video_index, feedback=feedback,
+                                    previous=scripts.get(video_index))
+        dub_io.dub_path(d, video_index).write_text(script.model_dump_json(indent=2), encoding="utf-8")
+        scripts[video_index] = script
+        for old in (d / "voice").glob(f"video{video_index:02d}_dub*.*"):
+            if "_cu" not in old.stem:
+                old.replace(old.with_name(f"{old.stem}_cu{old.suffix}"))
+        dub_io.write_dub_scripts(d, scripts, {i: dub_io.windows_for(d, i, s) for i, s in scripts.items()})
+        job.data.setdefault("review_feedback", []).append({"video": video_index, "feedback": feedback.strip()})
+        job.data.pop("dub_skip", None)
+        job.step = "dub_voice"
+        job.status = Status.pending
+        job.save(self.jobs_root)
+        self.log(f"Video {video_index:02d}: đã có bài lời đọc mới ({len(script.lines)} câu) — đọc lại cả bài rồi tải lên.")
+
     def shorten_dub(self, job: Job) -> int:
         """Nút "✂️ Viết gọn các câu 🔴": AI viết lại NGẮN HƠN đúng những câu voice bị tràn (giữ thời điểm, giữ các câu
         khác), voice cũ của các câu đó cất thành *_cu, job quay về chờ thu lại đúng các câu này. Trả số câu đã viết lại."""
