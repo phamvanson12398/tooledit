@@ -8,6 +8,8 @@
    Hàn / Nhật / Anh). Có thể tick thêm "Có hook voice" → Bắt đầu.
 3. Job dừng ở **Chờ duyệt chia video**: bảng liệt kê các ĐOẠN HAY AI chọn (mỗi đoạn một video) + các đoạn bị bỏ kèm lý
    do. Chỉnh điểm cắt / bỏ bớt / thêm đoạn rồi bấm Xác nhận.
+   Phim dài (vd 20 phút) có nhiều đoạn hay → bảng có NHIỀU video (mỗi đoạn hay một video). AI được xem ~24 khung hình rải
+   đều cả phim nên đoạn hoạt hình ít thoại mà hình hay vẫn được chọn (`segment_frames` trong `config\review.yaml`).
 4. Job dừng ở **Chờ voice thuyết minh**: kịch bản là LỜI REVIEW (kể lại + bình luận, có nghĩa tiếng Việt) cho từng video.
    Thu bằng Voice Studio (từng câu, hoặc cả bài một file nghỉ ~1 giây giữa các câu) rồi tải lên.
 5. Mở các draft `…_video01`, `…_video02`… trong CapCut, kiểm tra:

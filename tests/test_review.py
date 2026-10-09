@@ -48,9 +48,10 @@ def test_review_segments_prompt_and_limits(tmp_path):
     make_segments(d, a, u, review=True)
     prompt = d.calls[0]["prompt"]
     assert "REVIEW PHIM" in prompt and "60–90 giây" in prompt
+    assert "NHIỀU video" in prompt and len(d.calls[0]["images"]) >= 10  # xem khung hình để tìm đoạn hay
     d2 = FakeDirector()
     make_segments(d2, a, u)
-    assert "REVIEW PHIM" not in d2.calls[0]["prompt"]
+    assert "REVIEW PHIM" not in d2.calls[0]["prompt"] and not d2.calls[0]["images"]
 
 
 def test_review_plan_60_to_90s_and_short_clips(tmp_path):

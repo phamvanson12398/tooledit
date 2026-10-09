@@ -7,6 +7,7 @@ max_video_s: 90          # tối đa 1 phút 30
 # Độ dài đoạn phim GỐC cho mỗi video (trước khi cắt gọn) — AI chọn đoạn liền trong khoảng này
 min_raw_s: 55
 max_raw_s: 240
+segment_frames: 24      # số khung hình (rải đều cả phim) gửi AI xem khi tìm đoạn hay — hoạt hình ít thoại vẫn tìm đúng
 max_clip_s: 12           # mỗi cảnh tối đa 12 giây (giữ nhịp, đổi hình liên tục dưới lời review)
 # Lời review
 open_within_s: 1.0       # câu đầu cất lên ngay trong 1 giây đầu

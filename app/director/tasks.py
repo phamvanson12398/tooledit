@@ -158,6 +158,9 @@ REVIEW_SEGMENT_NOTE = """
 đó. Hãy tìm các ĐOẠN HAY NHẤT — tình huống hài, cảm động, gay cấn, cú twist, màn thể hiện của nhân vật — mỗi đoạn là
 một câu chuyện nhỏ trọn vẹn (mở – diễn biến – kết) để kể lại được trong {min_video_s}–{max_video_s} giây. Đoạn nhạt,
 đoạn chuyển cảnh, giới thiệu / credit, quảng cáo thì bỏ (ghi vào `dropped`). `why_vi` nói rõ đoạn này hay ở chỗ nào.
+Phim dài có nhiều đoạn hay thì tách thành NHIỀU video (không giới hạn số video), mỗi video một đoạn liền, không chồng nhau.
+Hoạt hình thường ít thoại: XEM CÁC KHUNG HÌNH dưới đây (mở bằng Read) để thấy đoạn nào hành động / biểu cảm hay.
+{frames}
 """
 
 
@@ -174,16 +177,23 @@ def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, r
     duration = a["scenes"]["duration"]
     segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
     min_raw, max_raw = cfg.get("min_raw_s", 55), cfg.get("max_raw_s", 300)
+    frames = []
+    if review:  # hoạt hình ít thoại: cho AI xem khung hình rải đều để tìm đoạn hay bằng mắt
+        lo, hi = u.usable_range.start, u.usable_range.end
+        pool = [f for f in a["frames"] if lo <= f["t"] <= hi] or a["frames"]
+        frames = pick_evenly(sorted(pool, key=lambda f: f["t"]), int(config.load("review").get("segment_frames", 24)))
     variables = {**_shared_context(u, segs, a.get("events")), "duration": f"{duration:.1f}",
                  "min_video_s": cfg.get("min_video_s", 60), "max_video_s": cfg.get("max_video_s", 150),
                  "min_raw_s": min_raw, "max_raw_s": max_raw,
-                 "review_note": REVIEW_SEGMENT_NOTE.format(min_video_s=cfg.get("min_video_s", 60),
-                                                           max_video_s=cfg.get("max_video_s", 90)) if review else "",
+                 "review_note": REVIEW_SEGMENT_NOTE.format(
+                     min_video_s=cfg.get("min_video_s", 60), max_video_s=cfg.get("max_video_s", 90),
+                     frames="\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)")
+                 if review else "",
                  "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in a["scenes"]["scenes"]) or "(không có)",
                  "transcript": format_transcript(
                      [{**s, "text": apply_name_corrections(s["text"], u.name_corrections)} for s in segs],
                      max_chars=cfg.get("transcript_max_chars", 30000)) or "(không có thoại)"}
-    return director.run("segment", variables, SegmentPlan,
+    return director.run("segment", variables, SegmentPlan, [analysis_dir / f["file"] for f in frames],
                         extra_check=lambda r: check_segments(r, duration, u.usable_range, min_raw, max_raw))
 
 
