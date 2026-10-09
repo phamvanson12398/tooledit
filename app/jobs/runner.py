@@ -656,11 +656,9 @@ class Runner:
         from app.planner import dub_io
 
         d, _, _ = self._paths(job)
+        if job.options.review:  # review: hình chạy theo giọng → không có câu "tràn"
+            return {}
         cfg = config.load("dub")
-        if job.options.review:
-            from app.director.tasks import review_dub_cfg
-
-            cfg = review_dub_cfg(cfg)
         max_speed, delay = float(cfg.get("max_speed", 1.25)), float(cfg.get("max_delay_s", 0.8))
         out: dict[int, list[tuple[int, int]]] = {}
         for v, script in self._dub_scripts(job).items():
@@ -887,6 +885,15 @@ class Runner:
                         self.log(f"Giọng thu của bạn đọc ~{rate:.1f} ký tự/giây ({u_v.language}); đã lưu {saved:.1f} "
                                  + ("(giọng review) " if job.options.review else "")
                                  + "để lần sau viết câu vừa giọng.")
+            if job.options.review and dub is not None and dub_voices:  # review: HÌNH chạy theo GIỌNG đã thu
+                from app.planner.review_sync import fit_to_voice
+
+                rcfg = config.load("review")
+                plan, dub, sync_notes = fit_to_voice(
+                    plan, dub, {n: us / 1_000_000 for n, (_, us) in dub_voices.items()}, a["scenes"]["duration"],
+                    gap_s=float(rcfg.get("voice_gap_s", 0.12)), min_clip_s=float(rcfg.get("min_clip_s", 0.4)))
+                for n in sync_notes:
+                    self.log(f"[video {i:02d}] {n}")
             bgm = self._bgm(job, analysis) if job.options.voice_only and job.options.keep_bgm else None
             res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                         hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,

@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 65 — Review: HÌNH CHẠY THEO GIỌNG (đọc nhanh / chậm đều khớp) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. Job review đang chờ voice (hoặc tạo job mới với ô 🎬): mỗi câu giờ ghi "đọc theo nhịp của bạn · hình tự co / giãn
+   khớp giọng" thay cho "chỗ 4.5s".
+3. Đọc CẢ BÀI liền mạch theo nhịp tự nhiên (nghỉ ~1 giây giữa các câu để tool cắt được) → tải lên ô "Một file cả bài".
+   Mỗi câu hiện "🟢 voice 2.0s — cảnh của câu này sẽ dài đúng 2.0s".
+4. Bấm chạy tiếp → nhật ký có dòng "Hình chạy theo giọng: … câu co cảnh, … câu kéo dài cảnh".
+5. Mở draft trong CapCut: giọng chạy liền từ đầu tới cuối, KHÔNG có khoảng im giữa các câu; mỗi câu kể đúng lúc cảnh của
+   nó hiện; tổng thời lượng video ≈ tổng thời lượng giọng của bạn.
+6. Video ngắn hơn 2:10 vì bạn đọc nhanh: bấm **🌐 Viết lại thuyết minh** — lần này AI viết theo tốc độ thật của bạn
+   (đã lưu `review_voice_cps` trong `config\local.yaml`) nên kịch bản dài hơn, đủ 2:10–2:30.
+
 ## Bước 64 — Review: tắt hẳn tiếng phim, giọng review nói liền mạch `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5. Tạo job MỚI với ô **🎬 Review phim / hoạt hình**

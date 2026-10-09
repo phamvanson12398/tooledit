@@ -228,6 +228,12 @@ Cập nhật 09/10: mỗi video review dài **2:30** (`min_video_s` 130 – `max
 HÌNH — tiếng phim TẮT HẲN** (`original_audio.mute: true`); **toàn bộ âm thanh là giọng review nói LIỀN MẠCH** từ đầu tới
 cuối (+ nhạc nền nhẹ): lời phủ ≥ 90%, 2 câu cách nhau ≤ `max_gap_s` 0.6s, câu cuối sát cảnh cuối (`check_continuous`);
 không clip replay / lặp lại; điều quan trọng nhân vật nói thì người review kể lại bằng lời của mình.
+**HÌNH CHẠY THEO GIỌNG (chủ dự án yêu cầu 09/10):** khi dựng, tool đo độ dài voice THẬT từng câu rồi co / giãn các cảnh
+của câu đó cho khớp (giữ số lần cắt; co thì bỏ cảnh < `min_clip_s`; giãn thì kéo phần phim liền sau, hết chỗ thì chậm nhẹ
+tới 0.8x) — câu nối liền cách `voice_gap_s`, video dài đúng bằng tổng giọng (`app/planner/review_sync.py`). Trang voice
+không còn "chỗ trống" cố định cho review; thu cả bài một file thì tool cắt theo tỉ lệ số chữ. AI được xem khung hình của
+TỪNG cảnh (tối đa `frames` 80). Tốc độ giọng review: base `voice_cps` ko 10 (đo 22 chữ / 2s), sau đó dùng ĐÚNG tốc độ đo
+thật (`review_voice_cps`, kể cả nhanh hơn).
 
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.

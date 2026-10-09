@@ -804,8 +804,8 @@ def effective_cps(cfg: dict, language: str) -> float:
         from app import settings
 
         measured = (settings.load().get(cfg.get("measured_key", "voice_cps")) or {}).get(language)
-        if measured:
-            return min(base, float(measured))
+        if measured:  # review: hình chạy theo giọng → lấy đúng tốc độ thật của bạn (nhanh hay chậm đều được)
+            return float(measured) if cfg.get("measured_override") else min(base, float(measured))
     return base
 
 
@@ -814,7 +814,7 @@ def review_dub_cfg(cfg: dict, rcfg: dict | None = None) -> dict:
     án đo 09/10) và tốc độ đo thật lưu riêng (review_voice_cps), không lẫn với giọng thuyết minh thường."""
     rcfg = config.load("review") if rcfg is None else rcfg
     return {**cfg, "max_cps": {**(cfg.get("max_cps") or {}), **(rcfg.get("voice_cps") or {})},
-            "measured_key": "review_voice_cps"}
+            "measured_key": "review_voice_cps", "measured_override": True}
 
 
 def repair_dub(script, plan, cfg: dict | None = None, language: str = "", span: bool = False):
@@ -1048,6 +1048,14 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
     kept = [s for s in segs if any(s["end"] > c.source_start and s["start"] < c.source_end for c in kept_clips)]
     pool = [f for f in a["frames"] if any(c.source_start - 0.3 <= f["t"] <= c.source_end + 0.3 for c in kept_clips)]
     frames = pick_evenly(sorted(pool, key=lambda f: f["t"]), int(rcfg.get("frames", 16)))
+    clip_frame: dict[int, dict] = {}
+    if review and a["frames"]:  # review: AI xem khung hình của TỪNG cảnh để kể khớp hình (chủ dự án yêu cầu 09/10)
+        for i, c in enumerate(kept_clips):
+            mid = (c.source_start + c.source_end) / 2
+            clip_frame[i] = min(a["frames"], key=lambda f, m=mid: abs(f["t"] - m))
+        chosen = {f["file"]: f for f in clip_frame.values()}
+        frames = sorted(chosen.values(), key=lambda f: f["t"])
+        frames = pick_evenly(frames, int(rcfg.get("frames", 80))) if len(frames) > int(rcfg.get("frames", 80)) else frames
     lo, hi = cfg.get("line_s", [1.5, 9.0])
     variables = {**_shared_context(u, kept, a.get("events")), "video_index": video_index,
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language),
@@ -1058,6 +1066,7 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
                  "hook": f"{hook_text(hook)} ({hook_text(hook, vi=True)})" if hook else "không có hook",
                  "clips": "\n".join(f"- clip {i}: {c.source_start:.1f}–{c.source_end:.1f}s"
                                     f"{' (replay / lặp lại — không thuyết minh)' if c.replay or c.repeat else ''}"
+                                    + (f" — khung: {Path(clip_frame[i]['file']).name}" if i in clip_frame else "")
                                     for i, c in enumerate(plan.clips)),
                  "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)"}
 

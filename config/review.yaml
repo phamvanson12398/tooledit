@@ -18,7 +18,9 @@ layout: review_story     # bố cục như video mẫu (config/layout.yaml): n�
 # "스펀지밥이 잡지에서 베프 퀴즈를 발견했습니다." = 20 chữ trong 2.3 giây ≈ 8.7 chữ/giây (nhanh hơn giọng thuyết minh 7.0).
 # Ngôn ngữ chưa có ở đây thì dùng max_cps trong config/dub.yaml. Tool tự đo lại giọng review thật khi dựng
 # (lưu config/local.yaml → review_voice_cps, tách riêng với giọng thuyết minh).
-voice_cps: {ko: 8.7}
+# Cập nhật 09/10: chủ dự án đọc "첫 문제는 '내 절친의 배꼽은 들어갔을까, 나왔을까?'였죠." (22 chữ) trong 2 giây ≈ 11
+# chữ/giây → lấy 10. Sau lần dựng đầu, tool dùng ĐÚNG tốc độ đo từ voice thật (review_voice_cps), nhanh hơn cũng theo.
+voice_cps: {ko: 10.0}
 open_within_s: 1.0       # câu đầu cất lên ngay trong 1 giây đầu
 # Chủ dự án chốt 09/10: review NÓI LIỀN MẠCH từ đầu tới cuối, KHÔNG ngừng để nghe tiếng phim — toàn bộ âm thanh là
 # giọng review (+ nhạc nền nhẹ). Phim gốc chỉ lấy HÌNH.
@@ -26,8 +28,12 @@ min_cover: 0.9           # lời review phủ ≥ 90% thời lượng
 max_cover: 1.01          # (không giới hạn trên)
 max_gap_s: 0.6           # 2 câu liền nhau cách nhau tối đa 0.6 giây (chỉ đủ lấy hơi)
 max_tail_s: 1.5          # câu cuối kết thúc trong 1.5 giây cuối video
+# HÌNH CHẠY THEO GIỌNG (chủ dự án yêu cầu 09/10): khi dựng, tool đo độ dài voice thật của từng câu rồi co / giãn các
+# cảnh của câu đó cho khớp — bạn đọc nhanh hay chậm thế nào video cũng khớp, giọng chạy liền không khoảng im.
+voice_gap_s: 0.12        # nghỉ giữa 2 câu (giây)
+min_clip_s: 0.4          # cảnh co còn ngắn hơn mức này thì bỏ bớt cảnh
 max_describe_share: 0.3  # tối đa 30% số câu được kiểu tả cảnh ("… đang …") — còn lại phải KỂ CHUYỆN (09/10)
-frames: 18               # số khung hình gửi AI xem để kể đúng chuyện
+frames: 80               # gửi AI khung hình của TỪNG cảnh (tối đa 80) để lời kể khớp đúng hình
 # Tiếng gốc của phim dưới lời review
 original_audio:
   mute: true             # TẮT HẲN tiếng phim (chủ dự án chốt 09/10) — false = chỉ hạ nhỏ theo 2 mức dưới

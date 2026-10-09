@@ -119,9 +119,13 @@ def test_review_job_end_to_end(tmp_path):
     style = r._style(job)
     assert style["review"] and style["original_audio"]["mute"] is True and "hype" not in style  # tiếng phim tắt hẳn
     assert style["layout"] == "review_story" and style["block_ratio"] == "9:10"  # bố cục như video mẫu
-    job.data["dub_skip"] = True
+    for v, c in ((1, c1), (2, c2)):  # thu đủ voice: mỗi câu 3 giây (máy đo giả 3s) → hình co / giãn theo giọng
+        for n in range(1, len(_review(v, c)["lines"]) + 1):
+            (jobs / "rv" / "voice" / f"video{v:02d}_dub{n:02d}.wav").write_bytes(b"RIFF")
     job = r.resume(job)
     assert job.status == Status.done, job.message
+    n_lines = len(_review(1, c1)["lines"])
+    assert abs(job.data["drafts"][0]["duration_s"] - n_lines * (3.0 + 0.12)) < 1.0  # video dài đúng bằng tổng giọng
     content = (Path(job.data["drafts"][0]["draft"]) / "draft_content.json").read_text(encoding="utf-8")
     assert "이 장면 진짜" in content and "이 장면 진짜 웃겨요." not in content  # phụ đề cụm ngắn (≤ 10 ký tự) như video mẫu
     assert len(job.data["drafts"]) == 2
@@ -184,16 +188,19 @@ def test_review_must_be_a_story_not_scene_description(tmp_path):
 
 
 def test_review_voice_speed_is_separate(tmp_path, monkeypatch):
-    """Giọng review đọc nhanh hơn giọng thuyết minh (chủ dự án đo 09/10: 20 chữ / 2.3 giây ≈ 8.7 chữ/giây)."""
+    """Giọng review đọc nhanh hơn giọng thuyết minh (chủ dự án đo 09/10: 22 chữ / 2 giây ≈ 11 chữ/giây → 10)."""
     from app import settings
     from app.director.tasks import effective_cps, review_dub_cfg
 
     monkeypatch.setattr(settings, "load", lambda: {"voice_cps": {"ko": 6.0}})
     dub = config.load("dub")
     assert effective_cps(dub, "ko") == 6.0                      # giọng thuyết minh đã đo: 6.0
-    assert effective_cps(review_dub_cfg(dub), "ko") == 8.7      # giọng review: tốc độ riêng, không lẫn
+    assert effective_cps(review_dub_cfg(dub), "ko") == 10.0     # giọng review: tốc độ riêng, không lẫn
     monkeypatch.setattr(settings, "load", lambda: {"review_voice_cps": {"ko": 8.0}})
-    assert effective_cps(review_dub_cfg(dub), "ko") == 8.0      # đã đo giọng review thật (chậm hơn) → theo giọng thật
+    assert effective_cps(review_dub_cfg(dub), "ko") == 8.0      # đã đo giọng review thật → theo đúng giọng thật
+    monkeypatch.setattr(settings, "load", lambda: {"review_voice_cps": {"ko": 12.0}})
+    assert effective_cps(review_dub_cfg(dub), "ko") == 12.0     # nhanh hơn cũng theo (hình chạy theo giọng)
+    monkeypatch.setattr(settings, "load", lambda: {"review_voice_cps": {"ko": 8.0}})
     # prompt lời review nhắm ~85% tốc độ giọng review
     a = make_analysis(tmp_path, duration=200.0)
     u = understand(FakeDirector(), a).dubbed_to("ko")
@@ -236,3 +243,41 @@ def test_review_voice_is_continuous_and_film_audio_muted(tmp_path):
     d2 = FakeDirector(responses={"plan": [with_replay, _plan(1, _clips(1.0, 56))]})
     make_plan(d2, a2, u2, {"review": rcfg})
     assert len(d2.calls) == 2 and "không dùng replay" in d2.calls[1]["prompt"]
+
+
+def test_picture_follows_voice():
+    """Chủ dự án (09/10): câu đọc mất 2 giây thì cảnh của câu đó dài đúng ~2 giây (không để chỗ 4.5 giây im)."""
+    from app.planner.review_sync import fit_to_voice
+    from app.planner.timeline import TimeMap
+
+    clips = _clips(1.0, 26)  # 26 cảnh 2.5 giây, mỗi câu phủ 2 cảnh (~4.5 giây)
+    plan = EditPlan.model_validate(_plan(1, clips))
+    script = DubScript.model_validate(_review(1, clips))
+    voice = {i: 2.0 for i in range(1, len(script.lines) + 1)}  # đọc nhanh: mỗi câu 2 giây
+    voice[3] = 5.5                                             # một câu đọc dài 5.5 giây → kéo dài cảnh (+ chậm nhẹ)
+    p2, s2, notes = fit_to_voice(plan, script, voice, footage_s=200.0, gap_s=0.1)
+    tmap = TimeMap(p2.clips)
+    outs = [(tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)) for ln in s2.lines]
+    lens = [(b - a) / 1e6 for a, b in outs]
+    assert abs(lens[0] - 2.1) < 0.05 and abs(lens[2] - 5.6) < 0.05      # cảnh dài đúng bằng voice (+ nghỉ 0.1s)
+    assert all(outs[k + 1][0] - outs[k][1] < 20_000 for k in range(len(outs) - 1))  # câu nối liền, không khoảng im
+    assert abs(tmap.end / 1e6 - sum(v + 0.1 for v in voice.values())) < 0.2         # video dài đúng bằng tổng giọng
+    assert len([c for c in p2.clips if c.source_start >= s2.lines[0].source_start
+                and c.source_end <= s2.lines[0].source_end + 1e-6]) == 2  # vẫn giữ 2 lần cắt trong câu (nhịp nhanh)
+    srcs = sorted((c.source_start, c.source_end) for c in p2.clips)
+    assert all(b1 <= a2 + 1e-6 for (_, b1), (a2, _) in zip(srcs, srcs[1:]))      # cảnh kéo dài không lấn cảnh sau
+    assert notes and "Hình chạy theo giọng" in notes[0]
+    # câu chưa thu voice: giữ nguyên độ dài cũ
+    p3, s3, _ = fit_to_voice(plan, script, {}, footage_s=200.0)
+    assert len(p3.clips) == len(plan.clips)
+
+
+def test_review_ai_sees_every_scene(tmp_path):
+    a = make_analysis(tmp_path, duration=200.0)
+    u = understand(FakeDirector(), a).dubbed_to("ko")
+    clips = _clips(1.0, 20)
+    d = FakeDirector(responses={"dub_review": _review(1, clips)})
+    make_dub(d, a, u, EditPlan.model_validate(_plan(1, clips)), mode="review")
+    prompt = d.calls[0]["prompt"]
+    assert prompt.count("— khung: ") == 20  # mỗi cảnh có khung hình riêng để AI kể khớp hình
+    assert len(d.calls[0]["images"]) >= 10

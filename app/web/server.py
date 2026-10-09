@@ -1253,7 +1253,12 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
             win = windows[i - 1] if i - 1 < len(windows) else None
             slot = (f"chỗ {win[1]:.1f}s · tối đa {win[2]:.1f}s" if win else f"~{ln.source_end - ln.source_start:.1f}s")
             fit = ""
-            if have and win:
+            if script.story_vi:  # review: hình tự co / giãn theo giọng — đọc theo nhịp tự nhiên của bạn
+                slot = "đọc theo nhịp của bạn · hình tự co / giãn khớp giọng"
+                secs = dub_io.voice_seconds(have) if have else None
+                if secs is not None:
+                    fit = f"<br><span class='muted'>🟢 voice {secs:.1f}s — cảnh của câu này sẽ dài đúng {secs:.1f}s</span>"
+            elif have and win:
                 secs = dub_io.voice_seconds(have)
                 if secs is not None:
                     level, msg = dub_io.fit_status(secs, win[1], win[2] + delay, max_speed)

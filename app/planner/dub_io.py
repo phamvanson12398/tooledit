@@ -97,9 +97,14 @@ def split_upload(job_dir: Path, video_index: int, src: Path, *, exe: str | None 
     script = load_dub(job_dir, video_index)
     if script is None:
         raise ValueError("Video này chưa có kịch bản thuyết minh.")
-    win = windows_for(job_dir, video_index, script)
-    expected = [(w[1] if w else max(0.5, ln.source_end - ln.source_start)) for w, ln in
-                zip(win or [None] * len(script.lines), script.lines)]
+    if script.story_vi:  # review phim: hình chạy theo giọng → độ dài từng câu tỉ lệ theo số chữ, không theo chỗ trống
+        from app.director.tasks import speech_chars
+
+        expected = [max(0.5, speech_chars(ln.text) / 10.0) for ln in script.lines]
+    else:
+        win = windows_for(job_dir, video_index, script)
+        expected = [(w[1] if w else max(0.5, ln.source_end - ln.source_start)) for w, ln in
+                    zip(win or [None] * len(script.lines), script.lines)]
     vdir = Path(job_dir) / "voice"
     vdir.mkdir(parents=True, exist_ok=True)
     outs = [vdir / f"{line_name(video_index, i)}.wav" for i in range(1, len(script.lines) + 1)]
