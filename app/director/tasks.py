@@ -993,29 +993,6 @@ def check_rewrite(script, plan, cfg: dict, rcfg: dict | None = None) -> list[str
 DESCRIBE_MARKERS = (" đang ", "Đang ")  # nghĩa tiếng Việt kiểu "anh ấy đang chạy" = tả cảnh, không phải kể chuyện
 
 
-def check_continuous(script, plan, rcfg: dict) -> list[str]:
-    """Review phim (chủ dự án chốt 09/10): giọng review nói LIỀN MẠCH từ đầu tới cuối — không chừa khoảng lặng."""
-    from app.planner.timeline import TimeMap
-
-    tmap = TimeMap(plan.clips)
-    outs = sorted((tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)) for ln in script.lines
-                  if tmap.to_out(ln.source_start) is not None and tmap.to_out(ln.source_end) is not None)
-    if not outs:
-        return []
-    gap_max, tail_max = float(rcfg.get("max_gap_s", 0.6)), float(rcfg.get("max_tail_s", 1.5))
-    holes = [(i, (b0 - a1) / 1e6) for i, ((_, a1), (b0, _)) in enumerate(zip(outs, outs[1:]), 1)
-             if (b0 - a1) / 1e6 > gap_max + 0.05]
-    errors = []
-    if holes:
-        errors.append(f"có {len(holes)} khoảng lặng giữa các câu (sau câu {', '.join(f'{i} ({g:.1f}s)' for i, g in holes[:6])})"
-                      f" — review phải NÓI LIỀN MẠCH: câu sau bắt đầu ngay khi câu trước hết (cách ≤ {gap_max}s); "
-                      "kéo dài câu / thêm câu kể để lấp")
-    tail = (tmap.end - outs[-1][1]) / 1e6
-    if tail > tail_max:
-        errors.append(f"{tail:.1f}s cuối video không có lời — kể tới tận cảnh cuối (câu kết thúc trong {tail_max}s cuối)")
-    return errors
-
-
 def check_story(script, rcfg: dict) -> list[str]:
     """Review phim phải là MỘT CÂU CHUYỆN (chủ dự án yêu cầu 09/10), không phải tả "người này đang làm gì"."""
     errors = []
@@ -1073,7 +1050,7 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
     def extra(r) -> list[str]:
         errors = check_dub(r, plan, u.language, cfg, span=review) + check_rewrite(r, plan, cfg, rcfg)
         if review:
-            errors += check_story(r, rcfg) + check_continuous(r, plan, rcfg)
+            errors += check_story(r, rcfg)
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors
@@ -1081,6 +1058,80 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
     return director.run("dub_review" if review else "dub_rewrite", variables, DubScript,
                         [analysis_dir / f["file"] for f in frames],
                         extra_check=extra, repair=lambda r: repair_dub(r, plan, cfg, u.language, span=review))
+
+
+def check_review_script(script, u, cfg: dict, rcfg: dict, hook_s: float = 0.0) -> list[str]:
+    """Bài lời đọc review (viết TRƯỚC, chưa có cảnh): mỗi câu gắn với một đoạn phim liền (giây gốc) mà nó kể, theo thứ
+    tự, không chồng nhau; đủ phim để minh họa câu; tổng thời lượng đọc vừa độ dài video."""
+    from app.director.policy import find_forbidden
+
+    cps = effective_cps(cfg, u.language)
+    lo, hi = u.usable_range.start, u.usable_range.end
+    errors, prev_end, total = [], lo - 1.0, 0.0
+    for i, ln in enumerate(script.lines, 1):
+        est = speech_chars(ln.text) / cps
+        total += est
+        span = ln.source_end - ln.source_start
+        if ln.source_start < lo - 0.5 or ln.source_end > hi + 0.5 or span <= 0:
+            errors.append(f"câu {i}: đoạn phim {ln.source_start}-{ln.source_end}s phải nằm trong {lo:.1f}–{hi:.1f}s")
+            continue
+        if ln.source_start < prev_end - 0.05:
+            errors.append(f"câu {i}: đoạn phim chồng lên / đi ngược câu trước (phải theo thứ tự, không chồng nhau)")
+        prev_end = max(prev_end, ln.source_end)
+        if span < max(1.0, est * float(rcfg.get("min_footage_ratio", 0.9))):
+            errors.append(f"câu {i} đọc ~{est:.1f}s nhưng đoạn phim chỉ {span:.1f}s — chọn đoạn phim dài hơn cho câu này")
+        if est > float(rcfg.get("max_line_s", 12)):
+            errors.append(f"câu {i} đọc ~{est:.1f}s — tách thành 2 câu")
+        bad = find_forbidden(ln.text, u.language)
+        if bad:
+            errors.append(f"câu {i} có từ không được phép trên TikTok ({', '.join(bad)})")
+        odd = localize_violations(ln.text, u.language)
+        if odd:
+            errors.append(f"câu {i}: '{', '.join(odd)}' không quen với khán giả này")
+    mn = float(rcfg.get("min_video_s", 130)) - hook_s
+    mx = float(rcfg.get("max_video_s", 150)) - hook_s
+    if total < mn * 0.92 or total > mx * 1.03:
+        errors.append(f"cả bài đọc ~{total:.0f}s (tốc độ {cps:.1f} chữ/giây) — cần {mn:.0f}–{mx:.0f}s: "
+                      + ("viết THÊM câu kể" if total < mn * 0.92 else "rút gọn bớt"))
+    return errors
+
+
+def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, hook_s: float = 0.0,
+                       video_index: int = 1, footage: int = 0):
+    """REVIEW PHIM — viết bài lời đọc TRƯỚC (chủ dự án yêu cầu 09/10): AI xem khung hình cả đoạn phim, viết một bài kể
+    chuyện liền mạch; mỗi câu ghi đoạn phim nó kể. Chủ dự án đọc cả bài một file, tool dựa vào voice để chọn cảnh và
+    dựng (app/planner/review_sync.build_from_voice)."""
+    from app.director.schemas import DubScript
+
+    cfg = review_dub_cfg(config.load("dub"))
+    rcfg = config.load("review")
+    a = load_analysis(analysis_dir, footage)
+    lo, hi = u.usable_range.start, u.usable_range.end
+    segs = _segments_in(a["transcript"].get("segments", []), lo, hi)
+    pool = sorted((f for f in a["frames"] if lo - 0.3 <= f["t"] <= hi + 0.3), key=lambda f: f["t"]) or a["frames"]
+    frames = pick_evenly(pool, int(rcfg.get("frames", 80)))
+    cps = effective_cps(cfg, u.language)
+    mn = float(rcfg.get("min_video_s", 130)) - hook_s
+    mx = float(rcfg.get("max_video_s", 150)) - hook_s
+    variables = {**_shared_context(u, segs, a.get("events")), "video_index": video_index,
+                 "language_name": LANGUAGE_NAMES.get(u.language, u.language),
+                 "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
+                 "market": MARKETS.get(u.language, "TikTok"), "localize_brief": localize_brief(u),
+                 "hook": f"{hook_text(hook)} ({hook_text(hook, vi=True)})" if hook else "không có hook",
+                 "target_s": f"{mn:.0f}–{mx:.0f}", "cps": f"{cps:.1f}",
+                 "target_chars": f"{int(mn * cps)}–{int(mx * cps)}",
+                 "scenes": "\n".join(f"- {x['start']:.1f}–{x['end']:.1f}" for x in a["scenes"].get("scenes", [])
+                                     if x["end"] > lo and x["start"] < hi) or "(không có)",
+                 "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)"}
+
+    def extra(r) -> list[str]:
+        errors = check_story(r, rcfg) + check_review_script(r, u, cfg, rcfg, hook_s)
+        if r.video_index != video_index:
+            errors.append(f"video_index phải là {video_index}")
+        return errors
+
+    return director.run("dub_review", variables, DubScript, [analysis_dir / f["file"] for f in frames],
+                        extra_check=extra)
 
 
 def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,
@@ -1091,9 +1142,10 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
     from app.director.schemas import DubScript
 
     cfg = config.load("dub")
-    if mode in ("rewrite", "review"):
-        return _rewrite_dub(director, analysis_dir, u, plan, hook=hook, video_index=video_index, footage=footage,
-                            review=mode == "review")
+    if mode == "review":  # bài lời đọc viết trước, không phụ thuộc cảnh của kế hoạch dựng
+        return make_review_script(director, analysis_dir, u, hook=hook, video_index=video_index, footage=footage)
+    if mode == "rewrite":
+        return _rewrite_dub(director, analysis_dir, u, plan, hook=hook, video_index=video_index, footage=footage)
     a = load_analysis(analysis_dir, footage)
     segs = a["transcript"].get("segments", [])
     kept = []

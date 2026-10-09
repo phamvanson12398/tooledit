@@ -1282,8 +1282,18 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                       "bạn thu lại đúng các câu này. Tiếp tục?')\"><button type='submit' class='btn small'>"
                       f"✂️ Viết gọn {n_long} câu 🔴 (AI viết lại ngắn hơn)</button></form>")
         done = sum(1 for i in range(1, len(script.lines) + 1) if dub_io.find_line_voice(d, v, i))
+        whole = ""
+        if script.story_vi:  # review: bài lời đọc viết trước — đọc liền một mạch, tool dựng cảnh theo voice
+            sep = "" if job.options.target_language == "ja" else " "
+            whole = (f"<div class='card' style='background:#f7f7ff'><b>📜 Bài lời đọc — đọc LIỀN MỘT MẠCH, nghỉ ~1 giây "
+                     f"giữa các câu, rồi tải lên ô <u>Một file cả bài</u></b>"
+                     f"<p style='font-size:1.15em;line-height:1.7'>{esc(sep.join(ln.text.strip() for ln in script.lines))}</p>"
+                     f"<p class='muted'>🇻🇳 {esc(' '.join(ln.text_vi.strip() for ln in script.lines))}</p>"
+                     f"<p class='muted'>📖 {esc(script.story_vi)}</p>"
+                     "<p class='muted'>Tool đo từng câu bạn đọc rồi tự cắt cảnh của đúng đoạn phim câu đó kể, dài đúng bằng câu "
+                     "— đọc nhanh hay chậm đều khớp.</p></div>")
         forms.append(
-            f"<h2 style='margin-top:14px'>🎬 Video {v:02d} — đã có {done}/{len(script.lines)} câu</h2>"
+            f"<h2 style='margin-top:14px'>🎬 Video {v:02d} — đã có {done}/{len(script.lines)} câu</h2>{whole}"
             f"<details {'open' if done < len(script.lines) else ''}><summary>Kịch bản thuyết minh</summary>"
             f"<table><tr><th></th><th>File</th><th>Câu cần thu</th></tr>{''.join(rows)}</table></details>{tools}"
             f"<form class='upload' method='post' action='/jobs/{job.job_id}/dub-voice' enctype='multipart/form-data'>"

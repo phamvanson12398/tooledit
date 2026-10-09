@@ -885,13 +885,17 @@ class Runner:
                         self.log(f"Giọng thu của bạn đọc ~{rate:.1f} ký tự/giây ({u_v.language}); đã lưu {saved:.1f} "
                                  + ("(giọng review) " if job.options.review else "")
                                  + "để lần sau viết câu vừa giọng.")
-            if job.options.review and dub is not None and dub_voices:  # review: HÌNH chạy theo GIỌNG đã thu
-                from app.planner.review_sync import fit_to_voice
+            if job.options.review and dub is not None:  # review: DỰNG TỪ VOICE — cảnh cắt theo bài đọc + voice đã thu
+                from app.director.tasks import effective_cps, review_dub_cfg
+                from app.planner.review_sync import build_from_voice
 
                 rcfg = config.load("review")
-                plan, dub, sync_notes = fit_to_voice(
-                    plan, dub, {n: us / 1_000_000 for n, (_, us) in dub_voices.items()}, a["scenes"]["duration"],
-                    gap_s=float(rcfg.get("voice_gap_s", 0.12)), min_clip_s=float(rcfg.get("min_clip_s", 0.4)))
+                plan, dub, sync_notes = build_from_voice(
+                    plan, dub, {n: us / 1_000_000 for n, (_, us) in (dub_voices or {}).items()},
+                    [x["start"] for x in a["scenes"].get("scenes", [])],
+                    cps=effective_cps(review_dub_cfg(config.load("dub")), u_v.language),
+                    gap_s=float(rcfg.get("voice_gap_s", 0.12)), cut_s=float(rcfg.get("cut_s", 2.0)),
+                    min_cut_s=float(rcfg.get("min_cut_s", 1.0)))
                 for n in sync_notes:
                     self.log(f"[video {i:02d}] {n}")
             bgm = self._bgm(job, analysis) if job.options.voice_only and job.options.keep_bgm else None

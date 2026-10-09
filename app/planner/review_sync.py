@@ -1,97 +1,72 @@
-"""Review phim: HÌNH CHẠY THEO GIỌNG (chủ dự án yêu cầu 09/10).
+"""Review phim — DỰNG TỪ VOICE (chủ dự án chốt 09/10).
 
-Chế độ thuyết minh thường cho mỗi câu một "chỗ trống" cố định trên video rồi bắt voice khớp vào. Với review thì ngược
-lại: chủ dự án đọc LIỀN MẠCH theo nhịp của mình (vd câu 22 chữ đọc mất 2 giây, không phải 4.5 giây), nên tool đo độ dài
-voice THẬT của từng câu rồi co / giãn các cảnh minh họa câu đó cho vừa khít:
-
-- câu i được đặt ngay sau câu i-1 (cách `gap_s` để lấy hơi) → giọng chạy liền từ đầu tới cuối, không khoảng im;
-- các cảnh nằm trong [source_start, source_end] của câu được giữ nguyên SỐ LẦN CẮT (nhịp chuyển cảnh nhanh), mỗi cảnh
-  co lại (voice ngắn hơn) hoặc kéo dài thêm phần phim liền sau (voice dài hơn) theo cùng tỉ lệ;
-- cảnh nào co còn dưới `min_clip_s` thì bỏ bớt (câu quá ngắn so với số cảnh), cảnh kéo dài không lấn sang cảnh sau;
-  phim không còn chỗ để kéo thì quay chậm nhẹ (tới `min_speed`), vẫn thiếu thì để voice tự tăng tốc như thường.
-
-Câu chưa có file voice: giữ nguyên độ dài cũ (để dựng thử trước khi thu).
+Quy trình: tool viết TRƯỚC một bài lời đọc kể chuyện liền mạch (mỗi câu ghi đoạn phim nó kể) → chủ dự án đọc CẢ BÀI vào
+một file voice → tool tự cắt ra từng câu, đo độ dài thật, rồi cắt cảnh trong đoạn phim của từng câu sao cho tổng đúng
+bằng câu đọc. Giọng chạy liền từ đầu tới cuối, video dài đúng bằng tổng giọng, đọc nhanh hay chậm đều khớp.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
-
-@dataclass
-class _Piece:
-    a: float
-    b: float
-    speed: float
-    parent: int  # chỉ số clip gốc trong kế hoạch
-
-    @property
-    def out(self) -> float:
-        return (self.b - self.a) / self.speed
-
-
-def _pieces_for(line, clips) -> list[_Piece]:
-    out = []
-    for k, c in enumerate(clips):
-        a, b = max(c.source_start, line.source_start), min(c.source_end, line.source_end)
-        if b - a > 0.05:
-            out.append(_Piece(a, b, c.speed, k))
-    return out
-
-
-def fit_to_voice(plan, script, voice_s: dict[int, float], footage_s: float, *, gap_s: float = 0.12,
-                 min_clip_s: float = 0.4, min_speed: float = 0.8):
-    """Trả (plan mới, script mới, ghi chú). voice_s: {số câu (1-based): độ dài voice giây}."""
-    clips = [c for c in plan.clips if not c.replay and not c.repeat]
-    starts = sorted(c.source_start for c in clips)
-    new_clips, new_lines, notes = [], [], []
-    shrunk = grown = dropped = 0
-    for i, ln in enumerate(script.lines, 1):
-        pieces = _pieces_for(ln, clips)
-        if not pieces:
-            notes.append(f"câu {i} không nằm trên cảnh nào được giữ — bỏ qua")
-            continue
-        have = sum(p.out for p in pieces)
-        want = (voice_s[i] + gap_s) if voice_s.get(i) else have
-        if want < have - 0.05:  # voice ngắn hơn → co cảnh, bỏ bớt cảnh quá ngắn
-            shrunk += 1
-            while len(pieces) > 1 and want / len(pieces) < min_clip_s:
-                pieces.remove(min(pieces, key=lambda p: p.out))
-                dropped += 1
-            f = want / sum(p.out for p in pieces)
-            for p in pieces:
-                p.b = p.a + p.out * f * p.speed
-        elif want > have + 0.05:  # voice dài hơn → kéo dài từng cảnh bằng phần phim liền sau
-            grown += 1
-            f = want / have
-            for p in pieces:
-                limit = min([s for s in starts if s > p.a + 1e-6] + [footage_s])
-                p.b = min(p.a + p.out * f * p.speed, max(p.b, limit))
-            short = want - sum(p.out for p in pieces)
-            if short > 0.05:  # hết phim để kéo → quay chậm nhẹ
-                total = sum(p.b - p.a for p in pieces)
-                speed = max(min_speed, total / want) if want > 0 else 1.0
-                for p in pieces:
-                    p.speed = min(p.speed, round(speed, 3))
-        for p in pieces:
-            src = clips[p.parent]
-            new_clips.append(src.model_copy(update={"source_start": round(p.a, 3), "source_end": round(p.b, 3),
-                                                    "speed": p.speed}))
-        new_lines.append(ln.model_copy(update={"source_start": round(pieces[0].a, 3),
-                                               "source_end": round(pieces[-1].b, 3)}))
-    if not new_clips:
-        return plan, script, notes
-
+def _keep_decor(plan, new_clips) -> dict:
+    """Zoom / chữ nhấn / SFX / hiệu ứng / sticker / mũi tên chỉ giữ cái nằm trên cảnh còn dùng."""
     def inside(t: float) -> bool:
         return any(c.source_start - 1e-6 <= t <= c.source_end + 1e-6 for c in new_clips)
 
-    upd = {"clips": new_clips, "transitions": []}  # chuyển cảnh theo chỉ số clip cũ không còn đúng → bỏ
+    upd = {"clips": new_clips, "transitions": []}
     for field, attr in (("zooms", "source_start"), ("emphasis", "source_time"), ("sfx", "source_time"),
                         ("effects", "source_time"), ("stickers", "source_time"), ("arrows", "source_time")):
         items = getattr(plan, field, None)
         if items:
             upd[field] = [x for x in items if inside(getattr(x, attr))]
-    if shrunk or grown:
-        notes.insert(0, f"Hình chạy theo giọng: {shrunk} câu co cảnh, {grown} câu kéo dài cảnh"
-                        + (f", bỏ {dropped} cảnh quá ngắn" if dropped else "") + " để khớp đúng độ dài voice đã thu.")
-    return plan.model_copy(update=upd), script.model_copy(update={"lines": new_lines}), notes
+    return upd
+
+
+def build_from_voice(plan, script, voice_s: dict[int, float], scene_starts: list[float], *, cps: float,
+                     gap_s: float = 0.12, cut_s: float = 2.0, min_cut_s: float = 1.0, min_speed: float = 0.8):
+    """REVIEW — DỰNG TỪ VOICE (chủ dự án chốt 09/10): bài lời đọc viết trước, mỗi câu ghi đoạn phim nó kể; chủ dự án đọc
+    cả bài → tool cắt cảnh từ đoạn phim của từng câu sao cho tổng đúng bằng độ dài câu đọc (+ `gap_s`):
+    chia đoạn phim thành n khúc đều nhau (n ≈ độ dài câu / `cut_s`), mỗi khúc lấy 1 cảnh ở giữa (bám điểm đổi cảnh gần
+    nhất nếu có) → cảnh chuyển nhanh, rải đều suốt đoạn phim mà câu kể. Đoạn phim ngắn hơn câu thì quay chậm nhẹ.
+    Câu chưa có voice: ước lượng theo số chữ / `cps` (để dựng thử trước khi thu).
+    Trả (plan mới — clip do tool tạo, giữ tiêu đề / nhạc / filter của kế hoạch AI —, script mới, ghi chú)."""
+    from app.director.tasks import speech_chars
+
+    base = plan.clips[0]
+    clips, lines, notes, est_n = [], [], [], 0
+    prev_end = 0.0
+    for i, ln in enumerate(script.lines, 1):
+        a, b = max(ln.source_start, prev_end), ln.source_end
+        if b - a < 0.3:
+            notes.append(f"câu {i}: đoạn phim {ln.source_start}-{ln.source_end}s trùng câu trước — bỏ qua")
+            continue
+        v = voice_s.get(i)
+        if not v:
+            v = max(1.0, speech_chars(ln.text) / max(cps, 1e-6))
+            est_n += 1
+        want = v + gap_s
+        n = max(1, min(round(want / cut_s), int((b - a) / min_cut_s) or 1))
+        seg, w = want / n, (b - a) / n
+        pieces = []
+        for k in range(n):
+            sa, se = a + k * w, a + (k + 1) * w
+            if w >= seg:  # đủ phim: lấy khúc ở giữa, bám điểm đổi cảnh gần nhất nếu nằm trong khoảng cho phép
+                start = sa + (w - seg) / 2
+                near = [s for s in scene_starts if sa <= s <= se - seg]
+                if near:
+                    start = min(near, key=lambda s: abs(s - start))
+                pieces.append((start, start + seg, 1.0))
+            else:  # thiếu phim: lấy cả khúc, quay chậm nhẹ
+                pieces.append((sa, se, round(max(min_speed, w / seg), 3)))
+        for pa, pb, sp in pieces:
+            clips.append(base.model_copy(update={"source_start": round(pa, 3), "source_end": round(pb, 3), "speed": sp,
+                                                 "ratio": None, "replay": False, "repeat": False}))
+        lines.append(ln.model_copy(update={"source_start": round(pieces[0][0], 3),
+                                           "source_end": round(pieces[-1][1], 3)}))
+        prev_end = b
+    if not clips:
+        return plan, script, notes
+    total = sum((c.source_end - c.source_start) / c.speed for c in clips)
+    notes.insert(0, f"Dựng từ voice: {len(lines)} câu → {len(clips)} cảnh, dài {total:.1f}s"
+                    + (f" ({est_n} câu chưa có voice — tạm tính theo số chữ, thu xong dựng lại)" if est_n else "") + ".")
+    return (plan.model_copy(update=_keep_decor(plan, clips)), script.model_copy(update={"lines": lines}), notes)

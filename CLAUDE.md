@@ -234,6 +234,13 @@ tới 0.8x) — câu nối liền cách `voice_gap_s`, video dài đúng bằng 
 không còn "chỗ trống" cố định cho review; thu cả bài một file thì tool cắt theo tỉ lệ số chữ. AI được xem khung hình của
 TỪNG cảnh (tối đa `frames` 80). Tốc độ giọng review: base `voice_cps` ko 10 (đo 22 chữ / 2s), sau đó dùng ĐÚNG tốc độ đo
 thật (`review_voice_cps`, kể cả nhanh hơn).
+**QUY TRÌNH REVIEW CHỐT 09/10 (thay "hình chạy theo giọng" ở trên): VIẾT LỜI TRƯỚC → THU VOICE → DỰNG TỪ VOICE.**
+(1) AI xem khung hình cả đoạn phim, viết TRƯỚC một bài lời đọc kể chuyện liền mạch, độ dài theo tốc độ giọng
+(`make_review_script`, prompt `dub_review.md`); mỗi câu ghi ĐOẠN PHIM nó kể (giây gốc, theo thứ tự, không chồng, đủ dài —
+`check_review_script`). (2) Trang voice + `dub_scripts.txt` hiện CẢ BÀI để đọc liền một mạch vào MỘT file (tool cắt
+theo tỉ lệ số chữ). (3) Khi dựng, tool cắt cảnh trong đoạn phim của từng câu, mỗi cảnh ~`cut_s` 2s, tổng đúng bằng câu
+đọc + `voice_gap_s` (`app/planner/review_sync.build_from_voice`); kế hoạch AI chỉ còn dùng cho tiêu đề / nhạc / filter /
+zoom. Câu chưa có voice tạm tính theo số chữ để dựng thử.
 
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.

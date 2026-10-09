@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 66 — Review: tool viết lời TRƯỚC → bạn đọc cả bài → tool dựng cảnh theo voice `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5. Tạo job MỚI với ô **🎬 Review phim / hoạt hình**
+   (job cũ: bấm **🌐 Viết lại thuyết minh**).
+2. Duyệt các đoạn hay → job dừng ở **Chờ voice thuyết minh**. Mỗi video có khung **📜 Bài lời đọc**: cả bài viết liền
+   một đoạn (kèm nghĩa tiếng Việt và dàn ý câu chuyện). File `dub_scripts.txt` cũng có mục "📜 BÀI LỜI ĐỌC".
+3. Đọc CẢ BÀI một lượt trong Voice Studio theo nhịp tự nhiên, NGHỈ ~1 giây giữa các câu → tải lên ô **Một file cả bài**.
+4. Chạy tiếp → nhật ký có dòng "Dựng từ voice: N câu → M cảnh, dài …s".
+5. Mở draft trong CapCut: giọng chạy liền từ đầu tới cuối; câu nào kể đoạn phim nào thì hình đoạn đó chạy dưới câu đó,
+   cắt cảnh nhanh ~2 giây; video dài đúng bằng file voice của bạn; không còn tiếng phim.
+6. Muốn cảnh dài / ngắn hơn: `cut_s` trong `config\review.yaml` (vd 1.5 = nhanh hơn, 3 = chậm hơn).
+
 ## Bước 65 — Review: HÌNH CHẠY THEO GIỌNG (đọc nhanh / chậm đều khớp) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.

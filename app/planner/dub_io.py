@@ -206,8 +206,12 @@ def write_dub_scripts(job_dir: Path, scripts: dict[int, DubScript], windows: dic
              "ra từng câu và báo câu nào dài quá cần thu lại.", ""]
     for v, s in sorted(scripts.items()):
         lines.append(f"=== VIDEO {v:02d} ===")
-        if s.story_vi:  # review phim: đọc dàn ý câu chuyện trước để thu voice đúng giọng kể
-            lines += [f"📖 Câu chuyện: {s.story_vi}", ""]
+        if s.story_vi:  # review phim: bài lời đọc viết trước — đọc liền một mạch vào MỘT file
+            lines += [f"📖 Câu chuyện: {s.story_vi}", "",
+                      "📜 BÀI LỜI ĐỌC (đọc liền một mạch, nghỉ ~1 giây giữa các câu, tải lên ô 'Một file cả bài'):",
+                      " ".join(ln.text.strip() for ln in s.lines), "",
+                      "🇻🇳 " + " ".join(ln.text_vi.strip() for ln in s.lines), "",
+                      "— Từng câu (tool tự cắt từ file cả bài; thu riêng từng câu cũng được) —", ""]
         for i, ln in enumerate(s.lines, 1):
             tag = f"  [LỜI DẪN — {ln.action_vi or 'chỗ không có giọng nói'}]" if ln.kind == "narration" else ""
             w = (windows or {}).get(v, [])
