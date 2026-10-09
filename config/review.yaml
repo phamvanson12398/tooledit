@@ -2,17 +2,23 @@
 # thành MỘT video review riêng dài 1 phút – 1 phút 30. Trên mỗi video là LỜI REVIEW (kể lại + bình luận) do AI viết,
 # chủ dự án tự thu voice bằng Voice Studio; tiếng gốc của phim được HẠ NHỎ bên dưới (không tắt hẳn).
 # Ngôn ngữ lời review = ngôn ngữ chọn ở ô "🌐 Đổi ngôn ngữ"; để "Giữ nguyên" thì dùng tiếng gốc (phải là Hàn / Nhật / Anh).
-min_video_s: 60          # mỗi video tối thiểu 1 phút (kể cả hook)
-max_video_s: 90          # tối đa 1 phút 30
+# Chủ dự án chốt 09/10: mỗi video review dài 2:30 (cho phép 2:10–2:30)
+min_video_s: 130
+max_video_s: 150
 # Độ dài đoạn phim GỐC cho mỗi video (trước khi cắt gọn) — AI chọn đoạn liền trong khoảng này
-min_raw_s: 55
-max_raw_s: 240
+min_raw_s: 140
+max_raw_s: 420
 segment_frames: 24      # số khung hình (rải đều cả phim) gửi AI xem khi tìm đoạn hay — hoạt hình ít thoại vẫn tìm đúng
 # NHỊP CHUYỂN CẢNH theo video mẫu chủ dự án gửi 09/10 (57 lần cắt / 142 giây: trung bình 2.5s, phần lớn 1–2s):
 max_clip_s: 6            # mỗi cảnh tối đa 6 giây (chỉ khoảnh khắc đắt mới dài vậy)
 avg_clip_s: 3.0          # độ dài TRUNG BÌNH các cảnh không quá 3 giây (kiểm tra nới +0.5s)
 layout: review_story     # bố cục như video mẫu (config/layout.yaml): nền tối, 2 dòng tiêu đề trắng + xanh lá, khối 9:10
 # Lời review
+# TỐC ĐỘ ĐỌC RIÊNG của giọng review (chữ / giây, không tính dấu cách, dấu câu). Đo từ voice mẫu chủ dự án gửi 09/10:
+# "스펀지밥이 잡지에서 베프 퀴즈를 발견했습니다." = 20 chữ trong 2.3 giây ≈ 8.7 chữ/giây (nhanh hơn giọng thuyết minh 7.0).
+# Ngôn ngữ chưa có ở đây thì dùng max_cps trong config/dub.yaml. Tool tự đo lại giọng review thật khi dựng
+# (lưu config/local.yaml → review_voice_cps, tách riêng với giọng thuyết minh).
+voice_cps: {ko: 8.7}
 open_within_s: 1.0       # câu đầu cất lên ngay trong 1 giây đầu
 min_cover: 0.6           # lời review phủ 60–95% thời lượng (review là nói gần như liên tục, chừa chỗ cho cảnh đắt)
 max_cover: 0.95

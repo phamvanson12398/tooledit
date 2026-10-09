@@ -800,10 +800,18 @@ def effective_cps(cfg: dict, language: str) -> float:
     if cfg.get("use_measured_rate", True):
         from app import settings
 
-        measured = (settings.load().get("voice_cps") or {}).get(language)
+        measured = (settings.load().get(cfg.get("measured_key", "voice_cps")) or {}).get(language)
         if measured:
             return min(base, float(measured))
     return base
+
+
+def review_dub_cfg(cfg: dict, rcfg: dict | None = None) -> dict:
+    """Cấu hình thuyết minh cho REVIEW PHIM: tốc độ đọc riêng của giọng review (config/review.yaml → voice_cps, chủ dự
+    án đo 09/10) và tốc độ đo thật lưu riêng (review_voice_cps), không lẫn với giọng thuyết minh thường."""
+    rcfg = config.load("review") if rcfg is None else rcfg
+    return {**cfg, "max_cps": {**(cfg.get("max_cps") or {}), **(rcfg.get("voice_cps") or {})},
+            "measured_key": "review_voice_cps"}
 
 
 def repair_dub(script, plan, cfg: dict | None = None, language: str = "", span: bool = False):
@@ -1006,6 +1014,8 @@ def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, 
 
     cfg = config.load("dub")
     rcfg = config.load("review") if review else (cfg.get("rewrite") or {})
+    if review:
+        cfg = review_dub_cfg(cfg, rcfg)
     a = load_analysis(analysis_dir, footage)
     segs = a["transcript"].get("segments", [])
     kept_clips = [c for c in plan.clips if not c.replay and not c.repeat]

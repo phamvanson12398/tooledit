@@ -160,15 +160,16 @@ def voice_rate(job_dir: Path, video_index: int, script: DubScript, min_lines: in
     return round(median(rates), 2) if len(rates) >= min_lines else None
 
 
-def remember_voice_rate(language: str, rate: float) -> float:
-    """Lưu tốc độ đọc đo được vào config/local.yaml (trung bình dần với lần trước). Trả giá trị đã lưu."""
+def remember_voice_rate(language: str, rate: float, key: str = "voice_cps") -> float:
+    """Lưu tốc độ đọc đo được vào config/local.yaml (trung bình dần với lần trước). Trả giá trị đã lưu.
+    key = "review_voice_cps" cho giọng review phim (tách riêng với giọng thuyết minh)."""
     from app import settings
 
-    saved = dict(settings.load().get("voice_cps") or {})
+    saved = dict(settings.load().get(key) or {})
     old = saved.get(language)
     new = round(rate if old is None else 0.6 * float(old) + 0.4 * rate, 2)
     saved[language] = new
-    settings.save({"voice_cps": saved})
+    settings.save({key: saved})
     return new
 
 

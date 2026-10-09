@@ -390,7 +390,7 @@ def test_dense_note_and_measured_rate(monkeypatch):
 
 def test_shorten_long_dub_lines(tmp_path, monkeypatch):
     remembered = []
-    monkeypatch.setattr(dub_io, "remember_voice_rate", lambda lang, rate: remembered.append((lang, rate)) or rate)
+    monkeypatch.setattr(dub_io, "remember_voice_rate", lambda lang, rate, key="voice_cps": remembered.append((lang, rate)) or rate)
     jobs, job = prepare(tmp_path, JobOptions(target_language="ko", client_id="k"))
     r = make_runner(tmp_path, jobs)
     job = r.run(job)

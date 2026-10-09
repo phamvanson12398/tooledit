@@ -220,6 +220,10 @@ Cập nhật 09/10 (video mẫu chủ dự án gửi — review SpongeBob tiến
 ≤ `avg_clip_s` 3s, tối đa 6s), **một câu kể chạy liền qua nhiều cảnh** (`span` trong check_dub / repair_dub), giọng kể thì
 quá khứ (~습니다/~었죠); bố cục `review_story` (`config/layout.yaml`): nền tối, 2 dòng tiêu đề trắng + xanh lá, khối phim
 9:10 cố định, phụ đề trắng viền đen cụm ngắn (≤ 10 ký tự Hàn) ở ~2/3 khối.
+Cập nhật 09/10: mỗi video review dài **2:30** (`min_video_s` 130 – `max_video_s` 150, đoạn phim gốc 140–420s);
+**tốc độ đọc riêng của giọng review** `voice_cps` trong `config/review.yaml` (tiếng Hàn 8.7 chữ/giây — đo từ voice mẫu
+"스펀지밥이 잡지에서 베프 퀴즈를 발견했습니다." = 20 chữ / 2.3s); tốc độ đo thật khi dựng lưu riêng
+`config/local.yaml → review_voice_cps`, không lẫn với giọng thuyết minh (`review_dub_cfg`).
 
 Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định, không dùng hết mọi thứ cho mọi video):
 - Cắt và nhịp: bỏ khoảng lặng, câu vấp, đoạn thừa; tăng tốc đoạn nhàm.

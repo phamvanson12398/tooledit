@@ -314,7 +314,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label>
             <label class="tg"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục — cảnh gay cấn lên đầu (3–5s/cảnh)</label>
             <label class="tg"><input type="checkbox" name="review"> 🎬 Review phim / hoạt hình — tìm đoạn hay, mỗi đoạn
-            một video 1:00–1:30 có lời review (bạn thu voice)</label>
+            một video ~2:30 có lời review (bạn thu voice)</label>
             <label class="tg"><input type="checkbox" name="vi_sub"> 🇻🇳 Chỉ phụ đề tiếng Việt — xem hiểu video nước ngoài
             (không dựng lại; ra file .srt + draft giữ nguyên video)</label></div></div>
           {_music_select(lib)}

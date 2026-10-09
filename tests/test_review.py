@@ -1,4 +1,4 @@
-"""Chế độ Review phim / hoạt hình (chủ dự án yêu cầu 09/10): tìm đoạn hay, mỗi đoạn một video 60–90s có lời review."""
+"""Chế độ Review phim / hoạt hình (chủ dự án yêu cầu 09/10): tìm đoạn hay, mỗi đoạn một video 2:10–2:30 có lời review."""
 
 import json
 from pathlib import Path
@@ -50,28 +50,29 @@ def test_review_segments_prompt_and_limits(tmp_path):
     d = FakeDirector()
     make_segments(d, a, u, review=True)
     prompt = d.calls[0]["prompt"]
-    assert "REVIEW PHIM" in prompt and "60–90 giây" in prompt
+    rc = config.load("review")
+    assert "REVIEW PHIM" in prompt and f"{rc['min_video_s']}–{rc['max_video_s']} giây" in prompt
     assert "NHIỀU video" in prompt and len(d.calls[0]["images"]) >= 10  # xem khung hình để tìm đoạn hay
     d2 = FakeDirector()
     make_segments(d2, a, u)
     assert "REVIEW PHIM" not in d2.calls[0]["prompt"] and not d2.calls[0]["images"]
 
 
-def test_review_plan_60_to_90s_and_short_clips(tmp_path):
-    a = make_analysis(tmp_path, duration=200.0)
+def test_review_plan_length_and_short_clips(tmp_path):
+    a = make_analysis(tmp_path, duration=400.0)
     u = understand(FakeDirector(), a)
-    u = u.model_copy(update={"usable_range": u.usable_range.model_copy(update={"start": 0.0, "end": 200.0})})
+    u = u.model_copy(update={"usable_range": u.usable_range.model_copy(update={"start": 0.0, "end": 400.0})})
     style = {"review": config.load("review")}
-    too_long = _plan(1, _clips(1.0, 37))                                       # 92.5 giây > 90
-    long_clip = _plan(1, [{"source_start": 1.0, "source_end": 9.5}, *_clips(10.0, 24)])  # một cảnh 8.5 giây
-    good = _plan(1, _clips(1.0, 26))                                           # 65 giây, cảnh 2.5 giây
+    too_long = _plan(1, _clips(1.0, 61))                                       # 152.5 giây > 150
+    long_clip = _plan(1, [{"source_start": 1.0, "source_end": 9.5}, *_clips(10.0, 50)])  # một cảnh 8.5 giây
+    good = _plan(1, _clips(1.0, 56))                                           # 140 giây (~2:20), cảnh 2.5 giây
     d = FakeDirector(responses={"plan": [too_long, long_clip, good]})
     plan = make_plan(d, a, u, style)
-    assert len(d.calls) == 3 and len(plan.clips) == 26
+    assert len(d.calls) == 3 and len(plan.clips) == 56
     assert "REVIEW PHIM" in d.calls[0]["prompt"] and "CHUYỂN CẢNH RẤT NHANH" in d.calls[0]["prompt"]
-    assert "vượt 90s" in d.calls[1]["prompt"] and "dài quá 6s" in d.calls[2]["prompt"]
+    assert "vượt 150s" in d.calls[1]["prompt"] and "dài quá 6s" in d.calls[2]["prompt"]
     # cảnh nào cũng 5 giây (không cảnh nào quá 6s) nhưng nhịp chậm → bị yêu cầu chuyển cảnh nhanh hơn
-    slow = _plan(1, _clips(1.0, 14, length=5.0))
+    slow = _plan(1, _clips(1.0, 28, length=5.0))
     d2 = FakeDirector(responses={"plan": [slow, good]})
     make_plan(d2, a, u, style)
     assert len(d2.calls) == 2 and "chuyển cảnh nhanh hơn" in d2.calls[1]["prompt"]
@@ -97,12 +98,15 @@ def test_review_dub_prompt_and_cover(tmp_path):
 def test_review_job_end_to_end(tmp_path):
     jobs = tmp_path / "jobs"
     job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, target_language="ko"), job_id="rv")
-    make_analysis(jobs / "rv", duration=200.0)
+    make_analysis(jobs / "rv", duration=400.0)
     r = make_runner(tmp_path, jobs)
     u = load("understand.json")
-    u["usable_range"] = {"start": 0.0, "end": 200.0}
-    c1, c2 = _clips(1.0, 25), _clips(76.0, 25)
-    r._director = FakeDirector(responses={"understand": u, "plan": [_plan(1, c1), _plan(2, c2)],
+    u["usable_range"] = {"start": 0.0, "end": 400.0}
+    c1, c2 = _clips(1.0, 56), _clips(201.0, 56)  # mỗi video ~140 giây (2:20)
+    seg = {"videos": [{"start": 1.0, "end": 190.0, "title_vi": "a", "summary_vi": "a", "why_vi": "a"},
+                      {"start": 200.0, "end": 390.0, "title_vi": "b", "summary_vi": "b", "why_vi": "b"}],
+           "dropped": [], "editor_notes": "2 đoạn hay"}
+    r._director = FakeDirector(responses={"understand": u, "segment": seg, "plan": [_plan(1, c1), _plan(2, c2)],
                                           "dub_review": [_review(1, c1), _review(2, c2)],
                                           "captions": [load("captions.json"), {**load("captions.json"), "video_index": 2}]})
     job = r.run(job)
@@ -177,3 +181,23 @@ def test_review_must_be_a_story_not_scene_description(tmp_path):
     assert len(d.calls) == 2 and "KỂ THÀNH CÂU CHUYỆN" in d.calls[1]["prompt"]
     assert "KỂ CHUYỆN, không phải thuyết minh" in d.calls[0]["prompt"]
     assert "Cả đời cậu bé chỉ mong một điều" in d.calls[0]["prompt"] and "소년의 소원은" in d.calls[0]["prompt"]
+
+
+def test_review_voice_speed_is_separate(tmp_path, monkeypatch):
+    """Giọng review đọc nhanh hơn giọng thuyết minh (chủ dự án đo 09/10: 20 chữ / 2.3 giây ≈ 8.7 chữ/giây)."""
+    from app import settings
+    from app.director.tasks import effective_cps, review_dub_cfg
+
+    monkeypatch.setattr(settings, "load", lambda: {"voice_cps": {"ko": 6.0}})
+    dub = config.load("dub")
+    assert effective_cps(dub, "ko") == 6.0                      # giọng thuyết minh đã đo: 6.0
+    assert effective_cps(review_dub_cfg(dub), "ko") == 8.7      # giọng review: tốc độ riêng, không lẫn
+    monkeypatch.setattr(settings, "load", lambda: {"review_voice_cps": {"ko": 8.0}})
+    assert effective_cps(review_dub_cfg(dub), "ko") == 8.0      # đã đo giọng review thật (chậm hơn) → theo giọng thật
+    # prompt lời review nhắm ~85% tốc độ giọng review
+    a = make_analysis(tmp_path, duration=200.0)
+    u = understand(FakeDirector(), a).dubbed_to("ko")
+    clips = _clips(1.0, 26)
+    d = FakeDirector(responses={"dub_review": _review(1, clips)})
+    make_dub(d, a, u, EditPlan.model_validate(_plan(1, clips)), mode="review")
+    assert f"khoảng {round(8.0 * float(dub.get('write_cps_factor', 0.85)), 1)} ký tự/giây" in d.calls[0]["prompt"]

@@ -657,6 +657,10 @@ class Runner:
 
         d, _, _ = self._paths(job)
         cfg = config.load("dub")
+        if job.options.review:
+            from app.director.tasks import review_dub_cfg
+
+            cfg = review_dub_cfg(cfg)
         max_speed, delay = float(cfg.get("max_speed", 1.25)), float(cfg.get("max_delay_s", 0.8))
         out: dict[int, list[tuple[int, int]]] = {}
         for v, script in self._dub_scripts(job).items():
@@ -878,9 +882,11 @@ class Runner:
                             dub_voices[n] = (f.resolve(), self._voice_duration(f))
                     rate = dub_io.voice_rate(d, i, dub)
                     if rate:  # nhớ tốc độ đọc thật của giọng bạn → lần sau AI viết câu vừa giọng, khỏi đè tiếng
-                        saved = dub_io.remember_voice_rate(u_v.language, rate)
+                        key = "review_voice_cps" if job.options.review else "voice_cps"
+                        saved = dub_io.remember_voice_rate(u_v.language, rate, key)
                         self.log(f"Giọng thu của bạn đọc ~{rate:.1f} ký tự/giây ({u_v.language}); đã lưu {saved:.1f} "
-                                 "để lần sau viết câu thuyết minh vừa giọng.")
+                                 + ("(giọng review) " if job.options.review else "")
+                                 + "để lần sau viết câu vừa giọng.")
             bgm = self._bgm(job, analysis) if job.options.voice_only and job.options.keep_bgm else None
             res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                         hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,

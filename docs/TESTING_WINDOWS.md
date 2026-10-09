@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 62 — Review phim: video 2:30 + tốc độ đọc riêng của giọng review `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull`, đóng hẳn và mở lại `start.bat`. Tạo job MỚI với ô **🎬 Review phim / hoạt hình** (phim nên dài ≥ 5 phút
+   để mỗi video có đủ ~2:30).
+2. Bảng duyệt chia video: mỗi đoạn AI chọn dài khoảng 2:20–7:00 phim gốc (dựng gọn lại còn 2:10–2:30).
+3. Ở bước chờ voice: mở `dub_scripts.txt`, đọc thử vài câu bằng giọng review của bạn — câu vừa với "chỗ trống" ghi bên
+   cạnh (AI viết theo 8.7 chữ/giây × 85%). Thu và tải lên → hầu hết câu 🟢 khớp hoặc 🟡 tăng tốc nhẹ, ít câu 🔴.
+4. Draft trong CapCut dài 2:10–2:30. Nhật ký có dòng "Giọng thu của bạn đọc ~… ký tự/giây (ko); đã lưu … (giọng review)".
+5. Giọng review đổi tốc độ / thêm tiếng Nhật, Anh: sửa `voice_cps` trong `config\review.yaml`
+   (vd `voice_cps: {ko: 8.7, ja: 7.5, en: 16}`).
+
 ## Bước 61 — Review phim giống video mẫu (cảnh chuyển nhanh, bố cục tiêu đề trắng + xanh) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull`, đóng hẳn và mở lại `start.bat`. Tạo job MỚI với ô **🎬 Review phim / hoạt hình** (job cũ: bấm
