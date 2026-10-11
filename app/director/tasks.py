@@ -152,7 +152,8 @@ def for_video(u, video: dict):
                                 u.key_moments[:1], "summary_vi": summary})
 
 
-# "Đoạn hay" là gì (chủ dự án 11/10: "câu nói hay, đoạn hay, hài hước, gay cấn — nói chung cái gì cảm thấy hấp dẫn")
+# "Đoạn hay" là gì — CHỈ cho chế độ chọn đoạn hay (Lồng tiếng nhân vật). Chủ dự án 11/10: "câu nói hay, đoạn hay, hài
+# hước, gay cấn — nói chung cái gì cảm thấy hấp dẫn"; "review phim và chọn đoạn hay là 2 chức năng khác nhau".
 HOOKY_KINDS = """Đoạn hay = BẤT CỨ thứ gì khiến người xem TikTok DỪNG LƯỚT và xem hết, ví dụ:
   · CÂU NÓI HAY / thoại đắt: câu chốt thâm thúy, câu triết lý, câu thoại đáng nhớ người ta muốn chép lại / chia sẻ, câu
     đáp trả sắc bén, câu tỏ tình / an ủi chạm lòng;
@@ -168,10 +169,8 @@ HOOKY_KINDS = """Đoạn hay = BẤT CỨ thứ gì khiến người xem TikTok 
 REVIEW_SEGMENT_NOTE = """
 ## CHẾ ĐỘ REVIEW PHIM / HOẠT HÌNH
 Đây là phim / hoạt hình. Mỗi video sẽ là một clip REVIEW kể chuyện: người review KỂ LẠI đoạn đó thành MỘT CÂU CHUYỆN
-(mở đầu – mâu thuẫn – cao trào – kết), hình phim minh họa cho lời kể. Hãy tìm các ĐOẠN HAY NHẤT — mỗi đoạn là
-một câu chuyện nhỏ trọn vẹn (mở – diễn biến – kết) để kể lại được trong {min_video_s}–{max_video_s} giây.
-""" + HOOKY_KINDS + """
- Đoạn nhạt,
+(mở đầu – mâu thuẫn – cao trào – kết), hình phim minh họa cho lời kể. Hãy tìm các ĐOẠN HAY NHẤT — tình huống hài, cảm động, gay cấn, cú twist, màn thể hiện của nhân vật — mỗi đoạn là
+một câu chuyện nhỏ trọn vẹn (mở – diễn biến – kết) để kể lại được trong {min_video_s}–{max_video_s} giây. Đoạn nhạt,
 đoạn chuyển cảnh, giới thiệu / credit, quảng cáo thì bỏ (ghi vào `dropped`). `why_vi` nói rõ đoạn này hay ở chỗ nào.
 Phim dài có nhiều đoạn hay thì tách thành NHIỀU video (không giới hạn số video), mỗi video một đoạn liền, không chồng nhau.
 Hoạt hình thường ít thoại: XEM CÁC KHUNG HÌNH dưới đây (mở bằng Read) để thấy đoạn nào hành động / biểu cảm hay.
@@ -224,7 +223,7 @@ def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, r
                  "review_note": (REVIEW_SEGMENT_NOTE if review else HIGHLIGHT_SEGMENT_NOTE).format(
                      min_video_s=cfg.get("min_video_s", 60), max_video_s=cfg.get("max_video_s", 90),
                      sit_lo=sit_lo, sit_hi=sit_hi, frames="\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)")
-                 if review or highlight else "\n" + HOOKY_KINDS + "\n",  # chia video thường: cũng chọn đoạn hấp dẫn
+                 if review or highlight else "",
                  "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in a["scenes"]["scenes"]) or "(không có)",
                  "transcript": format_transcript(
                      [{**s, "text": apply_name_corrections(s["text"], u.name_corrections)} for s in segs],

@@ -375,8 +375,9 @@ def test_separate_only_selected_ranges(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("mode", ["highlight", "review", "split"])
-def test_hooky_kinds_in_every_segment_prompt(tmp_path, mode):
-    """Chủ dự án 11/10: "đoạn hay" gồm câu nói hay, hài, gay cấn… — nói chung cái gì hấp dẫn; áp dụng mọi chế độ chọn đoạn."""
+def test_hooky_kinds_only_for_highlight_mode(tmp_path, mode):
+    """Chủ dự án 11/10: "đoạn hay" gồm câu nói hay, hài, gay cấn… — CHỈ cho chế độ chọn đoạn hay (lồng tiếng nhân vật);
+    "review phim và chọn đoạn hay là 2 chức năng khác nhau" → review / chia video giữ cách chọn riêng."""
     a = make_analysis(tmp_path, duration=400.0)
     u = understand(FakeDirector(), a)
     d = FakeDirector()
@@ -387,5 +388,8 @@ def test_hooky_kinds_in_every_segment_prompt(tmp_path, mode):
     except DirectorError:
         pass                                   # dữ liệu mẫu có thể sai khuôn — chỉ cần xem đề bài gửi AI
     prompt = d.calls[0]["prompt"]
-    assert "CÂU NÓI HAY" in prompt and "HÀI HƯỚC" in prompt and "GAY CẤN" in prompt and "DỪNG LƯỚT" in prompt
-    assert "Cứ thấy HẤP DẪN là chọn" in prompt
+    assert ("Cứ thấy HẤP DẪN là chọn" in prompt) == (mode == "highlight")
+    if mode == "highlight":
+        assert "CÂU NÓI HAY" in prompt and "HÀI HƯỚC" in prompt and "GAY CẤN" in prompt
+    if mode == "review":
+        assert "CHẾ ĐỘ REVIEW PHIM" in prompt and "KỂ LẠI" in prompt

@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 85 — Tách riêng: "chọn đoạn hay" (Lồng tiếng nhân vật) khác Review phim `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Job **Lồng tiếng nhân vật**: bảng duyệt vẫn ghi loại từng tình huống ("câu nói hay: …", "hài: …", "gay cấn: …").
+3. Job **Review phim**: AI chọn đoạn theo kiểu cũ của review — mỗi đoạn là một câu chuyện nhỏ trọn vẹn để KỂ LẠI
+   (không còn danh sách "câu nói hay / hài / gay cấn…" của chế độ chọn đoạn hay).
+4. Thanh tiến trình trang job: Review ghi "AI chọn đoạn phim để kể", Lồng tiếng nhân vật ghi "AI chọn đoạn hay (TikTok)".
+   Thẻ trên trang chủ cũng mô tả rõ hai chức năng khác nhau.
+
 ## Bước 84 — Phân tích footage nhanh hơn: chạy song song + nhận dạng thoại theo lô trên GPU `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
@@ -30,7 +39,7 @@
 ## Bước 82 — AI chọn "đoạn hay" rộng hơn: câu nói hay, hài, gay cấn, bất ngờ, cảm xúc… `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
-2. Tạo job mới (Lồng tiếng nhân vật / Review / Chia video dài). Ở bảng duyệt, ghi chú từng đoạn / tình huống giờ ghi
+2. Tạo job mới **Lồng tiếng nhân vật** (từ Bước 85: chỉ chế độ này, Review phim chọn đoạn theo cách riêng). Ở bảng duyệt, ghi chú từng đoạn / tình huống giờ ghi
    rõ loại: "câu nói hay: …", "hài: …", "gay cấn: …", "bất ngờ: …", "cảm xúc: …".
 3. Kiểm tra có những đoạn chỉ hay vì CÂU THOẠI (không có hành động) — trước đây AI hay bỏ qua loại này.
 

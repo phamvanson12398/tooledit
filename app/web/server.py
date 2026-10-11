@@ -122,10 +122,10 @@ STEP_VI = {
 }
 # Tên bước riêng theo chế độ (chủ dự án 09/10: "sao các quy trình chả khác gì nhau") — job.applies đã ẩn bước không chạy
 STEP_VI_MODE = {
-    "review": {"segment": "AI tìm đoạn hay", "review_segments": "Chờ duyệt đoạn hay",
+    "review": {"segment": "AI chọn đoạn phim để kể", "review_segments": "Chờ duyệt đoạn phim",
                "plan": "AI chọn tiêu đề · nhạc", "dub": "AI viết bài lời đọc", "dub_voice": "Chờ bạn đọc cả bài",
                "write": "Dựng cảnh theo voice → CapCut"},
-    "char_dub": {"segment": "AI tìm đoạn hay (TikTok)", "review_segments": "Chờ duyệt đoạn hay",
+    "char_dub": {"segment": "AI chọn đoạn hay (TikTok)", "review_segments": "Chờ duyệt đoạn hay",
                  "plan": "AI cắt bỏ đoạn rề rà", "dub": "AI dịch thoại + nhận diện nhân vật",
                  "dub_voice": "Chờ voice từng nhân vật", "write": "Ghép giọng mới + nền gốc → CapCut"},
     "vi_sub": {"write": "Dịch phụ đề tiếng Việt → CapCut"},
@@ -397,8 +397,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ("dub", "🌐", "Đổi ngôn ngữ", "Thuyết minh + phụ đề tiếng Hàn / Nhật / Anh, dựng lại khác bản gốc"),
                 ("voice_only", "🎙️", "Chỉ thay tiếng", "Giữ NGUYÊN hình, chỉ thay voice + phụ đề ngôn ngữ mới"),
                 ("review", "🎬", "Review phim / hoạt hình",
-                 f"Tìm đoạn hay, mỗi đoạn một video {review_len} có lời review kể chuyện"),
-                ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn tình huống hay, thay giọng từng nhân vật, giữ nhạc nền gốc"),
+                 f"AI chọn đoạn phim rồi viết lời review KỂ CHUYỆN, mỗi đoạn một video {review_len}"),
+                ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn đoạn hay (câu nói hay, hài, gay cấn…), thay giọng từng nhân vật, giữ nhạc nền gốc"),
                 ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
             ))
         ratios = ''.join(
