@@ -247,6 +247,7 @@ def test_char_dub_keeps_original_voice_where_not_dubbed_and_no_edits(tmp_path, m
     write_wav(audio / "vocals_00.wav", np.zeros(48000, dtype=np.int16))
     r = make_runner(tmp_path, jobs)
     monkeypatch.setattr(type(r), "_bgm", lambda self, job, analysis: (analysis / "audio" / "bgm_00.wav").resolve())
+    monkeypatch.setattr(type(r), "_transcribe", lambda self, *a: (_ for _ in ()).throw(RuntimeError("không có model")))
     u = load("understand.json")
     u["usable_range"] = {"start": 0.0, "end": 400.0}
     busy = {**_plan(1, _clips(1.0, 40)), "emphasis": [{"source_time": 31.0, "text": "와"}], "filter": "Film"}
@@ -270,3 +271,47 @@ def test_char_dub_keeps_original_voice_where_not_dubbed_and_no_edits(tmp_path, m
     assert len(segs) == len(MOMENTS)                                     # mỗi tình huống một đoạn giọng gốc
     first = segs[0]["common_keyframes"][0]["keyframe_list"]
     assert min(k["values"][0] for k in first) == 0.0 and max(k["values"][0] for k in first) > 0.9  # tắt trong câu lồng
+
+
+def test_retranscribe_on_separated_vocals(tmp_path, monkeypatch):
+    """Chủ dự án 11/10: "nhiều khi không bắt được tiếng gốc" → nhận dạng lại trên giọng đã tách nhạc, VAD nhạy hơn."""
+    from app.analysis import transcribe as tr_mod
+    from app.analysis.transcribe import Segment, Transcript
+    from app.planner.voice_split import write_wav
+
+    calls = []
+
+    class FakeModel:
+        def transcribe(self, audio, **kw):
+            calls.append(kw)
+
+            class Info:
+                language, language_probability, duration = "ja", 0.99, 60.0
+            return iter([type("S", (), {"start": 1.0, "end": 2.0, "text": " え？", "words": []})()]), Info()
+
+    t = tr_mod.transcribe(Path("v.wav"), cfg={"model": "x", "device": "cpu"}, factory=lambda *a, **k: FakeModel(),
+                          options=config.load("char_dub")["whisper_options"], language="ja")
+    assert calls[0]["vad_parameters"]["threshold"] == 0.3 and calls[0]["language"] == "ja"
+    assert calls[0]["condition_on_previous_text"] is False and t.segments[0].text == "え？"
+
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/anime.mp4")], JobOptions(char_dub=True, target_language="ko"), job_id="rv")
+    a = make_analysis(jobs / "rv", duration=400.0)
+    (a / "audio").mkdir()
+    write_wav(a / "audio" / "vocals_00.wav", np.zeros(4800, dtype=np.int16))
+    r = make_runner(tmp_path, jobs)
+    logs = []
+    r.log = logs.append
+    monkeypatch.setattr(type(r), "_bgm", lambda self, job, analysis: analysis / "audio" / "bgm_00.wav")
+    got = []
+    monkeypatch.setattr(type(r), "_transcribe", lambda self, audio, options, language: got.append((audio, language))
+                        or Transcript(language="ja", language_probability=1.0, duration=400.0, model="m",
+                                      device="cpu", segments=[Segment(start=float(k), end=k + 1.0, text=f"台詞{k}")
+                                                              for k in range(1, 6)]))
+    r._vocals_transcript(job, a, "ja")
+    data = json.loads((a / "transcript.json").read_text(encoding="utf-8"))
+    assert len(data[0]["segments"]) == 5 and got[0][0].name == "vocals_00.wav" and got[0][1] == "ja"
+    assert len(json.loads((a / "transcript_mix.json").read_text(encoding="utf-8"))[0]["segments"]) == 1  # bản cũ
+    assert any("1 → 5 câu" in m for m in logs) and job.data["vocals_transcript"] == "done"
+    r._vocals_transcript(job, a, "ja")
+    assert len(got) == 1                                                       # làm một lần thôi

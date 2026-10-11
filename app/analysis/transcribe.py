@@ -58,27 +58,33 @@ def pick_language(detected: str, probs: list[tuple[str, float]] | None, allowed:
 
 
 def transcribe(audio: Path, cfg: dict | None = None, factory: Callable | None = None,
-               log: Callable[[str], None] = lambda msg: None) -> Transcript:
+               log: Callable[[str], None] = lambda msg: None, options: dict | None = None,
+               language: str | None = None) -> Transcript:
     """Thử lần lượt từng cấu hình (GPU rồi CPU...). Lỗi GPU có thể chỉ lộ ra lúc bắt đầu tính
-    (ví dụ thiếu cublas64_12.dll), nên mỗi lần thử phải chạy trọn cả nhận dạng."""
+    (ví dụ thiếu cublas64_12.dll), nên mỗi lần thử phải chạy trọn cả nhận dạng.
+    options: tham số thêm cho model.transcribe (vd vad_parameters nhạy hơn — đối chiếu faster-whisper 1.2.1);
+    language: biết trước tiếng gốc thì khỏi tự nhận."""
     cfg = cfg or config.load("whisper")
     errors = []
     for attempt in attempts(cfg):
         try:
             model = load_model(attempt, factory)
-            return _run(model, attempt, audio, cfg)
+            return _run(model, attempt, audio, cfg, options, language)
         except Exception as exc:  # thiếu CUDA/cuDNN, GPU không hỗ trợ, hết VRAM, chưa tải được model...
             errors.append(f"{attempt}: {exc}")
             log(f"Không chạy được với {attempt.get('device')}/{attempt.get('model')}: {exc}. Thử cách khác...")
     raise RuntimeError("Không chạy được nhận dạng thoại:\n" + "\n".join(errors))
 
 
-def _run(model, used: dict, audio: Path, cfg: dict) -> Transcript:
+def _run(model, used: dict, audio: Path, cfg: dict, options: dict | None = None,
+         language: str | None = None) -> Transcript:
     allowed = cfg.get("languages", ["ko", "ja", "en"])
     kwargs = dict(beam_size=cfg.get("beam_size", 5), word_timestamps=cfg.get("word_timestamps", True),
-                  vad_filter=True)
+                  vad_filter=True, **(options or {}))
+    if language:
+        kwargs["language"] = language
     segments, info = model.transcribe(str(audio), **kwargs)
-    forced = pick_language(info.language, getattr(info, "all_language_probs", None), allowed)
+    forced = None if language else pick_language(info.language, getattr(info, "all_language_probs", None), allowed)
     if forced:
         segments, info = model.transcribe(str(audio), language=forced, **kwargs)
     out = [
@@ -88,6 +94,6 @@ def _run(model, used: dict, audio: Path, cfg: dict) -> Transcript:
         )
         for s in segments  # generator: nhận dạng chạy thật ở đây
     ]
-    return Transcript(language=forced or info.language, language_probability=info.language_probability,
+    return Transcript(language=forced or language or info.language, language_probability=info.language_probability,
                       duration=info.duration, model=used.get("model", ""), device=used.get("device", ""),
                       segments=out)

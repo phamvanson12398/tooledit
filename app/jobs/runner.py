@@ -474,6 +474,8 @@ class Runner:
         if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
             self.log("Đã có kết quả chia video, dùng lại.")
             return
+        if job.options.char_dub:  # bắt lời thoại gốc đầy đủ hơn trước khi chọn tình huống / dịch
+            self._vocals_transcript(job, analysis, u.source_language)
         sp = make_segments_long(self.director, analysis, u, review=job.options.review,
                                 highlight=job.options.char_dub, log=self.log)
         videos = [{"index": i, "start": v.start, "end": v.end, "title_vi": v.title_vi, "summary_vi": v.summary_vi,
@@ -902,6 +904,47 @@ class Runner:
         self.log(f"Dò được {len(boxes)} vùng chữ in sẵn trên footage.")
         return boxes
 
+    def _vocals_transcript(self, job: Job, analysis: Path, language: str | None) -> None:
+        """Lồng tiếng nhân vật (chủ dự án 11/10: "nhiều khi không bắt được tiếng gốc"): nhận dạng LẠI lời thoại trên phần
+        giọng nói Demucs đã tách khỏi nhạc, bộ lọc giọng nói nhạy hơn (config/char_dub.yaml → whisper_options). Lời thoại
+        cũ cất ở analysis/transcript_mix.json. Không tách được giọng / lỗi → giữ lời thoại cũ, ghi lý do."""
+        ccfg = config.load("char_dub")
+        if job.data.get("vocals_transcript") or not ccfg.get("vocals_transcribe", True):
+            return
+        job.data["vocals_transcript"] = "skipped"
+        if self._bgm(job, analysis) is None:
+            return
+        voc = analysis / "audio" / "vocals_00.wav"
+        if not voc.is_file():
+            self.log("Chưa có phần giọng nói tách riêng — giữ lời thoại đã nhận dạng.")
+            return
+        from app.jobs.limits import group_slot
+
+        try:
+            with group_slot("gpu", on_wait=lambda what: self.log(f"Đang đợi lượt {what} để nhận dạng lại thoại…")):
+                self.log("Nhận dạng lại lời thoại trên giọng nói đã tách nhạc (bắt câu ngắn / câu nói chen nhạc)…")
+                tr = self._transcribe(voc, ccfg.get("whisper_options") or {}, language)
+        except Exception as exc:
+            self.log(f"Không nhận dạng lại được lời thoại — giữ bản cũ. Lý do: {exc}")
+            return
+        path = analysis / "transcript.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        backup = analysis / "transcript_mix.json"
+        if not backup.is_file():
+            backup.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        old = next((t for t in data if t.get("footage", 0) == 0), None)
+        before = len((old or {}).get("segments") or [])
+        new = {"footage": 0, **tr.model_dump()}
+        data = [new if t is old else t for t in data] if old is not None else [new, *data]
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        job.data["vocals_transcript"] = "done"
+        self.log(f"Lời thoại gốc: {before} → {len(tr.segments)} câu sau khi nhận dạng lại trên giọng đã tách nhạc.")
+
+    def _transcribe(self, audio: Path, options: dict, language: str | None):
+        from app.analysis.transcribe import transcribe
+
+        return transcribe(audio, options=options, language=language, log=self.log)
+
     def _unvoiced_vocals(self, job: Job, analysis: Path, bgm: Path | None) -> Path | None:
         """Lồng tiếng nhân vật: giọng gốc Demucs tách ra, phát ở chỗ không có câu lồng tiếng (tiếng cười, hét…)."""
         if not (job.options.char_dub and bgm and config.load("char_dub").get("keep_unvoiced", True)):
@@ -1046,7 +1089,8 @@ class Runner:
                 for n in range(1, len(dub.lines) + 1):
                     f = dub_io.find_line_voice(d, i, n)
                     if f is not None:
-                        dub_voices[n] = (f.resolve(), self._voice_duration(f))
+                        dub_voices[n] = self._review_trimmed(d, f) if job.options.review else \
+                            (f.resolve(), self._voice_duration(f))
                 rate = dub_io.voice_rate(d, i, dub)
                 if rate:  # nhớ tốc độ đọc thật của giọng bạn → lần sau AI viết câu vừa giọng, khỏi đè tiếng
                     key = "review_voice_cps" if job.options.review else "voice_cps"
@@ -1099,6 +1143,19 @@ class Runner:
         job.data["duration_s"] = drafts[0]["duration_s"]
         job.data["missing_assets"] = len(missing)
         job.data.pop("ready_drafts", None)
+
+    def _review_trimmed(self, d: Path, f: Path) -> tuple[Path, int]:
+        """Review nói liền mạch (chủ dự án 11/10): bản voice đã cắt sạch lặng đầu / cuối (voice/_lien_mach/, làm lại khi
+        file gốc đổi) — độ dài câu đo trên bản này nên cảnh và giọng nối sát nhau. Không đọc được file → dùng file gốc."""
+        from app.planner.voice_split import trim_file
+
+        out = d / "voice" / "_lien_mach" / f"{f.stem}.wav"
+        try:
+            if not out.is_file() or out.stat().st_mtime < f.stat().st_mtime:
+                trim_file(f, out, float(config.load("review").get("voice_trim_keep_s", 0.03)))
+            return out.resolve(), self._voice_duration(out)
+        except Exception:
+            return f.resolve(), self._voice_duration(f)
 
     def _voice_sig(self, d: Path, index: int) -> str:
         """Dấu vân tay voice của một video (tên + cỡ + giờ sửa) — đổi voice thì ghi lại draft."""

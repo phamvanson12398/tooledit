@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from app import config
 from app.director.fake import FakeDirector
 from app.director.schemas import DubScript, EditPlan
@@ -210,7 +212,9 @@ def test_review_job_end_to_end(tmp_path):
             (jobs / "rv" / "voice" / f"video{v:02d}_dub{n:02d}.wav").write_bytes(b"RIFF")
     job = r.resume(job)
     assert job.status == Status.done, job.message
-    assert abs(job.data["drafts"][0]["duration_s"] - 15 * (3.0 + 0.12)) < 1.0  # video dài đúng bằng tổng giọng
+    gap = config.load("review")["voice_gap_s"]
+    assert gap <= 0.05                                                          # nói liền mạch, nghỉ rất nhỏ
+    assert abs(job.data["drafts"][0]["duration_s"] - 15 * (3.0 + gap)) < 0.5  # video dài đúng bằng tổng giọng
     content = (Path(job.data["drafts"][0]["draft"]) / "draft_content.json").read_text(encoding="utf-8")
     assert "이 장면 진짜" in content and "이 장면 진짜 웃겨요." not in content  # phụ đề cụm ngắn như video mẫu
     assert len(job.data["drafts"]) == 2
@@ -372,3 +376,38 @@ def test_write_draft_as_soon_as_one_video_has_voice(tmp_path):
     job = r.resume(job)
     assert job.status == Status.done, job.message
     assert len(job.data["drafts"]) == 2 and (drafts / "khach_rw_video02" / "draft_content.json").is_file()
+
+
+def test_review_voice_continuous_no_gaps(tmp_path, monkeypatch):
+    """Chủ dự án 11/10: review nói LIÊN TỤC — mỗi câu voice cắt sạch lặng đầu / cuối, 2 câu nghỉ đúng voice_gap_s."""
+    import numpy as np
+
+    from app.analysis import ffmpeg as ffm
+    from app.planner.dub_io import place_voices
+    from app.planner.voice_split import trim_file, write_wav
+    from tests.test_voice_sync import _silence, _tone
+
+    ff = pytest.importorskip("imageio_ffmpeg").get_ffmpeg_exe()
+    monkeypatch.setattr(ffm, "ffmpeg_exe", lambda *a, **k: ff)
+    src = tmp_path / "video01_dub01.wav"
+    write_wav(src, np.concatenate([_silence(0.5), _tone(1.0), _silence(0.7)]))
+    secs = trim_file(src, tmp_path / "out" / "a.wav", 0.03)
+    assert 0.98 <= secs <= 1.12                                       # 2.2s → ~1s: bỏ lặng đầu / cuối
+
+    r = make_runner(tmp_path, tmp_path / "jobs")
+    d = tmp_path / "job"
+    (d / "voice").mkdir(parents=True)
+    f = d / "voice" / "video01_dub01.wav"
+    f.write_bytes(src.read_bytes())
+    path, _ = r._review_trimmed(d, f)
+    assert path.parent.name == "_lien_mach" and path.is_file()
+    bad = d / "voice" / "video01_dub02.wav"
+    bad.write_bytes(b"RIFF")                                          # file hỏng → dùng file gốc, không lỗi
+    assert r._review_trimmed(d, bad)[0] == bad.resolve()
+
+    gap = config.load("review")["voice_gap_s"]
+    windows = [(0, 2.0, 2.0), (2_050_000, 2.0, 2.0), (4_100_000, 2.0, 2.0)]
+    placed = place_voices(windows, {1: 2_000_000, 2: 2_000_000, 3: 2_000_000}, gap_s=gap)
+    starts = [placed[i]["start"] for i in (1, 2, 3)]
+    assert starts == [0, 2_050_000, 4_100_000]                        # nối sát, không trôi chậm dần
+    assert all(placed[i]["delay_s"] == 0 for i in (1, 2, 3))

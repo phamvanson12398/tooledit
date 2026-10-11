@@ -117,6 +117,18 @@ def _trim(piece: np.ndarray, db: np.ndarray, start_frame: int, voiced: float, ke
     return piece[a:b]
 
 
+def trim_file(src: Path, dst: Path, keep_s: float = 0.03, *, exe: str | None = None) -> float:
+    """Cắt sạch khoảng lặng đầu / cuối một câu voice (chừa keep_s cho khỏi cụt tiếng), ghi .wav ra dst, trả độ dài (giây).
+    Review nói liền mạch (chủ dự án 11/10): voice thu tay / OmniVoice thường dính lặng lúc bấm thu, lúc lấy hơi."""
+    pcm = decode(src, exe)
+    db = frame_db(pcm)
+    voiced = float(np.percentile(db, 90)) if len(db) else 0.0
+    piece = _trim(pcm, db, 0, voiced, keep_s) if len(db) else pcm
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    write_wav(dst, piece)
+    return len(piece) / RATE
+
+
 def write_wav(path: Path, pcm: np.ndarray) -> None:
     with wave.open(str(path), "wb") as w:
         w.setnchannels(1)

@@ -11,6 +11,13 @@ max_line_s: 7.0          # câu thoại gốc dài hơn thì tách ở chỗ ng�
 keep_unvoiced: true      # giữ GIỌNG GỐC ở chỗ không có câu lồng tiếng (tiếng cười, hét, câu Whisper nghe sót) thay vì
                          # im lặng; tắt đúng trong các câu lồng tiếng (cần Demucs)
 unvoiced_db: 0           # âm lượng giọng gốc ở các chỗ đó (dB)
+# Bắt lời thoại gốc đầy đủ hơn (chủ dự án 11/10: "nhiều khi không bắt được tiếng gốc"): nhận dạng LẠI trên phần giọng
+# nói Demucs đã tách khỏi nhạc (analysis/audio/vocals_00.wav), bộ lọc giọng nói nhạy hơn mặc định (faster-whisper 1.2.1
+# mặc định: threshold 0.5, phải lặng 2000 ms mới tách câu, pad 400 ms). Chưa cài Demucs thì giữ lời thoại cũ.
+vocals_transcribe: true
+whisper_options:
+  vad_parameters: {threshold: 0.3, min_silence_duration_ms: 500, speech_pad_ms: 200}
+  condition_on_previous_text: false   # phim nhiều nhạc: tránh Whisper lặp / bịa câu theo câu trước
 frames: 40               # khung hình gửi AI để nhận ra nhân vật nào đang nói
 # Nhận diện nhân vật: AI đoán người nói từng câu theo lời thoại (tên gọi, xưng hô, ngữ cảnh) + khung hình. Có thể nhầm —
 # sửa tên nhân vật từng câu ngay trên trang voice trước khi thu.

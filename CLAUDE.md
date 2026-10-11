@@ -150,6 +150,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   AI phải trả ĐÚNG mỗi câu gốc một câu dịch (`check_char_dub`); giọng gốc Demucs tách ra phát lại ở chỗ không có câu lồng
   (tiếng cười / hét / câu nghe sót — `keep_unvoiced`, builder `vocals_audio`); kế hoạch dựng tự bỏ zoom / hiệu ứng /
   sticker / SFX / chữ nhấn / chuyển cảnh / filter, không tự thêm chuyển động hình — chỉ chọn đoạn hay.
+  **Cập nhật 11/10 ("nhiều khi không bắt được tiếng gốc"):** trước khi chọn tình huống, tool tách giọng bằng Demucs rồi
+  nhận dạng LẠI lời thoại trên `vocals_00.wav` với bộ lọc giọng nói nhạy hơn (`whisper_options` trong
+  `config/char_dub.yaml`: VAD threshold 0.3, lặng 500 ms, không bám câu trước — đối chiếu faster-whisper 1.2.1;
+  `Runner._vocals_transcript`, bản cũ ở `transcript_mix.json`).
 - Chủ dự án thu voice THEO NHÂN VẬT: mỗi nhân vật một file (đọc hết câu của nhân vật đó, nghỉ ~1 giây) — tool cắt đúng vào
   các câu (`dub_io.split_upload_speaker`); sửa tên nhân vật AI đoán nhầm ngay trên trang voice (`set_speakers`).
 - Âm thanh: tiếng nói gốc tách bỏ bằng Demucs, NHẠC + TIẾNG NỀN GỐC GIỮ NGUYÊN (hạ nhỏ dưới giọng lồng), không thêm
@@ -285,6 +289,8 @@ zoom. Câu chưa có voice tạm tính theo số chữ để dựng thử.
 Giao diện (09/10): thanh tiến trình đặt tên bước riêng theo chế độ (`STEP_VI_MODE`, `job_mode` trong
 `app/web/server.py`) + ghi rõ chế độ ở đầu trang job; review phim KHÔNG có hook riêng (`Job.use_hook`, kể cả job cũ đã
 tick) vì câu mở đầu bài lời đọc là hook.
+**Review nói LIÊN TỤC (chủ dự án 11/10):** khi dựng, mỗi câu voice được cắt sạch lặng đầu / cuối (bản ở
+`voice/_lien_mach/`, `voice_trim_keep_s` 0.03), 2 câu nghỉ `voice_gap_s` 0.05s (bộ xếp voice dùng đúng khoảng này cho review).
 **Lời review hay & tự nhiên (chủ dự án 09/10: "viết thoại chưa hay, chưa tự nhiên"):** (1) lượt 2 biên tập —
 AI đọc lại cả bài như biên tập viên bản xứ, sửa câu cứng / dịch máy / lặp từ nối / nhịp đều đều, giữ số câu + đoạn phim
 (`polish_review_script`, prompt `review_polish.md`, `polish: true` trong `config/review.yaml`; sai thì giữ bản nháp);

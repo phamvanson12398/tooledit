@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 80 — Lồng tiếng bắt đủ câu thoại gốc hơn; review nói liền mạch, gần như không hở `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. **Lồng tiếng nhân vật** (job MỚI): sau bước AI hiểu nội dung, nhật ký có "Nhận dạng lại lời thoại trên giọng nói đã
+   tách nhạc…" rồi "Lời thoại gốc: A → B câu…" — B thường lớn hơn A (bắt thêm câu ngắn / câu nói chen nhạc). Bước này
+   cần Demucs + GPU, mất thêm vài phút. Mở `dub_scripts.txt` / trang voice: các câu ngắn như "え？", "うわっ" phải có.
+   Chỗ nào nhân vật vẫn nói mà không có câu lồng: tool phát giọng gốc ở đó (như Bước 75) — ghi lại giây gửi Claude.
+3. **Review** (job cũ cũng được): bấm **🔁 Dựng lại draft** (không cần thu lại). Nhật ký báo video ngắn hơn trước một
+   chút. Mở CapCut nghe: các câu nối sát nhau, chỉ còn nghỉ ~0,05 giây; không còn khoảng lặng ở đầu / cuối từng câu.
+   Bản voice đã cắt lặng nằm ở `jobs\<job>\voice\_lien_mach\` (file gốc của bạn giữ nguyên).
+4. Thấy hơi gấp quá: tăng `voice_gap_s` (vd 0.1) trong `config\review.yaml` rồi dựng lại; thấy cụt chữ đầu / cuối câu:
+   tăng `voice_trim_keep_s` (vd 0.06).
+
 ## Bước 79 — Video dài chia phần cho AI làm song song (nhanh hơn, nhất là với Gemini) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.

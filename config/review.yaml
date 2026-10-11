@@ -30,7 +30,8 @@ max_gap_s: 0.6           # 2 câu liền nhau cách nhau tối đa 0.6 giây (ch
 max_tail_s: 1.5          # câu cuối kết thúc trong 1.5 giây cuối video
 # HÌNH CHẠY THEO GIỌNG (chủ dự án yêu cầu 09/10): khi dựng, tool đo độ dài voice thật của từng câu rồi co / giãn các
 # cảnh của câu đó cho khớp — bạn đọc nhanh hay chậm thế nào video cũng khớp, giọng chạy liền không khoảng im.
-voice_gap_s: 0.12        # nghỉ giữa 2 câu (giây)
+voice_gap_s: 0.05        # nghỉ giữa 2 câu (giây) — chủ dự án 11/10: nói liên tục, khoảng trống rất nhỏ
+voice_trim_keep_s: 0.03  # mỗi câu voice cắt sạch lặng đầu / cuối, chỉ chừa chừng này cho khỏi cụt tiếng
 min_clip_s: 0.4          # cảnh co còn ngắn hơn mức này thì bỏ bớt cảnh
 # DỰNG TỪ VOICE (chủ dự án chốt 09/10): tool viết TRƯỚC bài lời đọc (mỗi câu ghi đoạn phim nó kể) → bạn đọc cả bài một
 # file → tool cắt cảnh trong đoạn phim của từng câu, tổng đúng bằng độ dài câu đọc.

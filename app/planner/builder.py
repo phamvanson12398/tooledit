@@ -419,9 +419,12 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         from app.planner.dub_io import line_windows, place_voices
 
         windows = line_windows(dub, tmap)
+        rv = style.get("review") if isinstance(style.get("review"), dict) else None
         placed = place_voices(windows, {i: v[1] for i, v in (dub_voices or {}).items()}, max_speed=max_speed,
                               hard_max_speed=float(dcfg.get("hard_max_speed", 1.4)),
-                              max_delay_s=float(dcfg.get("max_delay_s", 0.8)))
+                              max_delay_s=float(dcfg.get("max_delay_s", 0.8)),
+                              # review nói liền mạch (chủ dự án 11/10): nghỉ giữa 2 câu đúng voice_gap_s, không 0.12s
+                              **({"gap_s": float(rv.get("voice_gap_s", 0.05))} if rv else {}))
         late = []
         for i, ln in enumerate(dub.lines, 1):
             win = windows[i - 1]
