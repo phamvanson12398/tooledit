@@ -18,6 +18,17 @@ vocals_transcribe: true
 whisper_options:
   vad_parameters: {threshold: 0.3, min_silence_duration_ms: 500, speech_pad_ms: 200}
   condition_on_previous_text: false   # phim nhiều nhạc: tránh Whisper lặp / bịa câu theo câu trước
+  batched: false                      # đoạn ngắn → chạy thường (chính xác hơn chạy theo lô)
+# Nghe lại chỗ sót (chủ dự án 11/10 "cứ bắt sót câu"): chỗ giọng nói đã tách nhạc CÓ tiếng người mà chưa có câu nào →
+# nhận dạng lại riêng, không qua bộ lọc giọng nói. rescue_rel_db: tiếng nhỏ hơn mức giọng nói chừng này dB vẫn tính.
+rescue_gaps: true
+rescue_rel_db: 28
+rescue_min_s: 0.45
+rescue_max: 60
+# Nhóm giọng (máy đo cao độ + âm sắc từng câu trên giọng nói đã tách): câu cùng nhóm thường cùng một nhân vật → AI ghi tên
+# nhân vật đúng và thống nhất; trang voice hiện nhóm giọng từng câu. voice_group_threshold nhỏ hơn = tách nhóm kỹ hơn.
+voice_groups: true
+voice_group_threshold: 0.35
 frames: 40               # khung hình gửi AI để nhận ra nhân vật nào đang nói
 # Nhận diện nhân vật: AI đoán người nói từng câu theo lời thoại (tên gọi, xưng hô, ngữ cảnh) + khung hình. Có thể nhầm —
 # sửa tên nhân vật từng câu ngay trên trang voice trước khi thu.

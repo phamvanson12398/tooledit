@@ -92,6 +92,14 @@ def test_char_dub_script_needs_speaker_per_line(tmp_path):
     assert all(ln.kind == "dub" for ln in s.lines)
     assert [ln.speaker for ln in s.lines] == ["징징이", "스펀지밥", "징징이", "스펀지밥"]
     assert dub_io.speakers_of(s) == {"징징이": [1, 3], "스펀지밥": [2, 4]}
+    # 11/10 "giọng nhân vật nào phải chuẩn": máy đo nhóm giọng từng câu → ghi vào đề bài cho AI
+    info = [{"group": "G1", "pitch": "trầm", "f0": 130}, {"group": "G2", "pitch": "cao", "f0": 270},
+            {"group": "G1", "pitch": "trầm", "f0": 128}, None]
+    d2 = FakeDirector(responses={"dub_char": _script(lines=LINES)})
+    make_dub(d2, a, _u(a), plan, mode="char", voice_info=info)
+    p2 = d2.calls[0]["prompt"]
+    assert "Nhóm giọng do MÁY ĐO" in p2 and "1. [2.00–5.00s, 3.0s] [giọng G1 · trầm ~130Hz] 台詞1" in p2
+    assert "[giọng ?]" in p2 and "Nhóm giọng do MÁY ĐO" not in d.calls[0]["prompt"]
 
 
 def test_source_lines_from_transcript():
@@ -393,3 +401,56 @@ def test_hooky_kinds_only_for_highlight_mode(tmp_path, mode):
         assert "CÂU NÓI HAY" in prompt and "HÀI HƯỚC" in prompt and "GAY CẤN" in prompt
     if mode == "review":
         assert "CHẾ ĐỘ REVIEW PHIM" in prompt and "KỂ LẠI" in prompt
+
+
+def test_rescue_missed_lines_on_vocals(tmp_path, monkeypatch):
+    """Chủ dự án 11/10 "cứ bắt sót câu": chỗ giọng nói đã tách CÓ tiếng người mà Whisper chưa có câu → nghe lại riêng
+    (không VAD), đặt đúng giây gốc; câu "bịa" quen thuộc của Whisper bị bỏ."""
+    import wave
+
+    from app.analysis import ffmpeg as ffm
+    from app.analysis.transcribe import Segment, Transcript
+    from tests.test_speech_gaps import voice
+
+    ff = pytest.importorskip("imageio_ffmpeg").get_ffmpeg_exe()
+    monkeypatch.setattr(ffm, "ffmpeg_exe", lambda *a, **k: ff)
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/anime.mp4")], JobOptions(char_dub=True, target_language="ko"), job_id="rg")
+    a = make_analysis(jobs / "rg", duration=400.0)
+    _talk(a)
+    job.data["videos"] = [{"index": 1, "start": 1.0, "end": 19.0, "moments": [{"start": 1.0, "end": 19.0}]}]
+    r = make_runner(tmp_path, jobs)
+    r.log = lambda m: None
+    sr = 16000
+
+    def fake_bgm(self, job, analysis):  # giọng nói nối liền 0–18s ↔ giây gốc 1–19s; có tiếng ở 2–4s và 10–11.5s
+        (analysis / "audio").mkdir(exist_ok=True)
+        x = np.zeros(sr * 18, dtype=np.float32)
+        x[2 * sr:4 * sr] = voice(200, 2.0, 0.6)
+        x[10 * sr:int(11.5 * sr)] = voice(250, 1.5, 0.7)
+        with wave.open(str(analysis / "audio" / "vocals_concat.wav"), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(sr)
+            w.writeframes((x * 32767).astype(np.int16).tobytes())
+        job.data["bgm_layout"] = [{"start": 1.0, "end": 19.0, "offset": 0.0}]
+        return analysis / "audio" / "bgm_00.wav"
+
+    monkeypatch.setattr(type(r), "_bgm", fake_bgm)
+    calls = []
+
+    def fake_tr(self, audio, options, language):
+        calls.append((audio.name, options))
+        if audio.name == "vocals_concat.wav":  # lượt chính: chỉ bắt được câu 2–4s, sót câu 10–11.5s
+            segs = [Segment(start=2.0, end=4.0, text="台詞A")]
+        else:  # lượt nghe lại chỗ sót: câu thật + một câu "bịa"
+            segs = [Segment(start=0.2, end=1.6, text="えっ、本当？"), Segment(start=2.5, end=3.0, text="ご視聴ありがとうございました")]
+        return Transcript(language="ja", language_probability=1.0, duration=20.0, model="m", device="cpu", segments=segs)
+
+    monkeypatch.setattr(type(r), "_transcribe", fake_tr)
+    r._vocals_transcript(job, a, "ja")
+    assert calls[1][0] == "vocals_gaps.wav" and calls[1][1]["vad_filter"] is False and calls[1][1]["batched"] is False
+    segs = json.loads((a / "transcript.json").read_text(encoding="utf-8"))[0]["segments"]
+    texts = [(round(s["start"], 1), s["text"]) for s in segs if 1.0 <= s["start"] <= 19.0]
+    assert texts[0] == (3.0, "台詞A") and texts[1][1] == "えっ、本当？" and 10.5 <= texts[1][0] <= 11.6
+    assert all("ご視聴" not in s["text"] for s in segs) and segs[[s["text"] for s in segs].index("えっ、本当？")]["rescued"]

@@ -172,8 +172,16 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   các câu (`dub_io.split_upload_speaker`); sửa tên nhân vật AI đoán nhầm ngay trên trang voice (`set_speakers`).
 - Âm thanh: tiếng nói gốc tách bỏ bằng Demucs, NHẠC + TIẾNG NỀN GỐC GIỮ NGUYÊN (hạ nhỏ dưới giọng lồng), không thêm
   nhạc AI; chưa cài Demucs thì dùng nhạc AI và ghi lý do vào nhật ký. Voice đến đâu ghi CapCut đến đấy như các chế độ khác.
-- Nhận diện nhân vật hiện do AI đoán theo ngữ cảnh, CHƯA dùng nhận diện giọng bằng âm thanh (pyannote / speechbrain cần
-  tải model — để sau nếu cần).
+- ~~Nhận diện nhân vật chỉ do AI đoán theo ngữ cảnh~~ **Cập nhật 11/10 (chủ dự án: "cứ bắt sót câu, sót ý; giọng của nhân
+  vật nào thì phải chuẩn"):** (1) **nghe lại chỗ sót** — trên `vocals_concat.wav`, chỗ có tiếng người (`voiced_regions`)
+  mà chưa có câu (`uncovered_speech`) được ghép lại nhận dạng KHÔNG VAD, bỏ câu "bịa" quen thuộc (`HALLUCINATIONS`),
+  thêm vào lời thoại (`Runner._rescue_gaps`, `rescue_*` trong `config/char_dub.yaml`); nhận dạng lại trên giọng tách
+  nhạc chạy thường (`batched: false`); (2) **nhóm giọng** — máy đo cao độ (tự tương quan) + âm sắc (MFCC) từng câu, gom
+  nhóm G1, G2… (`app/analysis/speech_gaps.voice_groups`, chỉ numpy, không tải model), ghi vào đề bài `dub_char.md`
+  (`VOICE_NOTE`, mỗi câu `[giọng Gx · cao ~Hz]`), lưu `plan/voice_groups_videoNN.json`; `check_char_dub` bắt AI xem lại
+  nhóm giọng ≥ 4 câu bị gán lẫn tên (< 60% cùng tên) và câu dịch ngắn bất thường (sót ý); trang voice hiện giọng máy đo
+  + "đặt tên cả nhóm"; OmniVoice clone chỉ lấy mẫu từ nhóm giọng chính của nhân vật. SpeechBrain (chính xác hơn) chưa
+  dùng vì kéo theo torchaudio CPU có thể làm hỏng PyTorch GPU.
 - **Giọng AI bằng OmniVoice (chủ dự án yêu cầu 11/10, tùy chọn — áp dụng cho mọi chế độ có voice thuyết minh):** nút
   "🤖 Cho OmniVoice đọc" trên trang voice; mỗi nhân vật (`speaker`, không có thì "Người dẫn") một giọng: "Mô tả giọng"
   (`instruct` — AI đề xuất trong `DubScript.cast`), "OmniVoice tự chọn", hoặc "Clone từ giọng gốc" (3–10 giây cắt từ phần

@@ -668,7 +668,8 @@ class Runner:
                 try:
                     s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i,
                                  mode="review" if job.options.review else "char" if job.options.char_dub
-                                 else self.script_mode(job), review_s=job.options.review_s)
+                                 else self.script_mode(job), review_s=job.options.review_s,
+                                 voice_info=self._voice_info(job, analysis, plan, i) if job.options.char_dub else None)
                 except DirectorError as exc:
                     if exc.last is None:
                         raise
@@ -817,6 +818,13 @@ class Runner:
                         voc = analysis / "audio" / "vocals_00.wav"
                         audio_src = voc if voc.is_file() else analysis / "audio" / "clean_00.wav"
                     lines = [ln for s in scripts.values() for ln in s.lines]
+                    tagged = [(ln, g) for vi, s in scripts.items()  # chỉ lấy mẫu từ nhóm giọng chính của nhân vật
+                              for ln, g in zip(s.lines, dub_io.voice_groups(d, vi, len(s.lines)) or [None] * len(s.lines))
+                              if ov.voice_key(ln) == name]
+                    gs = [g["group"] for _, g in tagged if g]
+                    if gs:
+                        main = max(set(gs), key=gs.count)
+                        lines = [ln for ln, g in tagged if g and g["group"] == main] or lines
                     span = ov.pick_reference(lines, name, float(cfg.get("min_ref_s", 3.0)), float(cfg.get("max_ref_s", 10.0)))
                     if span is None or not audio_src.is_file():
                         self.log(f"🎭 {name}: không tìm được đoạn giọng gốc để clone — dùng giọng mô tả / tự chọn.")
@@ -988,6 +996,16 @@ class Runner:
                      if (ws := to_source_time(w.start, layout)) is not None and (we := to_source_time(w.end, layout))
                      is not None]
             new_segs.append({**sg.model_dump(), "start": a, "end": b, "words": [w.model_dump() for w in words]})
+        if ccfg.get("rescue_gaps", True):  # chủ dự án 11/10 "cứ bắt sót câu": nghe lại chỗ có tiếng người mà chưa có câu
+            try:
+                extra = self._rescue_gaps(concat, [(sg.start, sg.end) for sg in tr.segments], layout, language, ccfg)
+            except Exception as exc:
+                self.log(f"Bỏ qua bước nghe lại chỗ sót câu: {exc}")
+                extra = []
+            if extra:
+                self.log(f"Nghe lại chỗ sót: thêm {len(extra)} câu Whisper bỏ lỡ ("
+                         + ", ".join(f"{x['start']:.1f}s" for x in extra[:6]) + ("…" if len(extra) > 6 else "") + ").")
+                new_segs = sorted(new_segs + extra, key=lambda x: x["start"])
         path = analysis / "transcript.json"
         data = json.loads(path.read_text(encoding="utf-8"))
         backup = analysis / "transcript_mix.json"
@@ -1005,6 +1023,91 @@ class Runner:
         job.data["vocals_transcript"] = sig
         self.log(f"Lời thoại gốc trong các tình huống: {len(old)} → {len(new_segs)} câu sau khi nhận dạng lại trên giọng "
                  "đã tách nhạc.")
+
+    def _voice_info(self, job: Job, analysis: Path, plan, video_index: int) -> list | None:
+        """Lồng tiếng nhân vật (chủ dự án 11/10: "giọng nhân vật nào phải chuẩn"): đo nhóm giọng từng câu thoại gốc trên
+        giọng nói đã tách nhạc (app/analysis/speech_gaps.voice_groups) → gợi ý cho AI ghi tên nhân vật đúng, lưu
+        plan/voice_groups_videoNN.json để trang voice hiện. Không có giọng tách riêng / lỗi → None (AI đoán như cũ)."""
+        from app.analysis import speech_gaps as sg
+        from app.director.tasks import load_analysis
+        from app.planner.char_lines import source_lines
+
+        ccfg = config.load("char_dub")
+        concat = analysis / "audio" / "vocals_concat.wav"
+        layout = job.data.get("bgm_layout") or []
+        if not ccfg.get("voice_groups", True) or not concat.is_file() or not layout:
+            return None
+        try:
+            src = source_lines(load_analysis(analysis)["transcript"].get("segments", []), plan.clips,
+                               max_s=float(ccfg.get("max_line_s", 7.0)))
+            spans = []
+            for x in src:
+                a, b = sg.to_concat_time(x["start"], layout), sg.to_concat_time(x["end"], layout)
+                spans.append((a, b) if a is not None and b is not None and b > a else None)
+            info = sg.voice_groups(sg.decode16k(concat), spans, threshold=float(ccfg.get("voice_group_threshold", 0.35)))
+        except Exception as exc:
+            self.log(f"Không đo được nhóm giọng — AI đoán nhân vật theo lời thoại + hình như cũ. Lý do: {exc}")
+            return None
+        _, _, plan_dir = self._paths(job)
+        (plan_dir / f"voice_groups_video{video_index:02d}.json").write_text(json.dumps(
+            [{"start": x["start"], "end": x["end"], **(v or {})} for x, v in zip(src, info)], ensure_ascii=False),
+            encoding="utf-8")
+        groups = sorted({v["group"] for v in info if v}, key=lambda g: int(g[1:]))
+        self.log(f"Video {video_index:02d}: máy đo được {len(groups)} nhóm giọng trên {len(src)} câu thoại "
+                 f"({', '.join(groups[:8])}) — gửi AI để ghi đúng nhân vật.")
+        return info
+
+    def _rescue_gaps(self, concat: Path, covered: list[tuple[float, float]], layout: list[dict], language: str | None,
+                     ccfg: dict) -> list[dict]:
+        """Chỗ trên giọng nói đã tách nhạc CÓ tiếng người mà chưa câu nào phủ tới → ghép các chỗ đó (cách nhau 0.8 giây
+        lặng) thành một file, nhận dạng KHÔNG qua bộ lọc giọng nói (VAD hay bỏ câu ngắn / nói nhỏ / nói chen) rồi đặt lại
+        đúng giây gốc. Bỏ câu "bịa" quen thuộc của Whisper. Trả câu mới (giây gốc)."""
+        import wave
+
+        import numpy as np
+
+        from app.analysis import speech_gaps as sg
+        from app.analysis.separate import to_source_time
+
+        x = sg.decode16k(concat)
+        gaps = sg.uncovered_speech(sg.voiced_regions(x, rel_db=float(ccfg.get("rescue_rel_db", 28))), covered,
+                                   min_s=float(ccfg.get("rescue_min_s", 0.45)))[: int(ccfg.get("rescue_max", 60))]
+        if not gaps:
+            return []
+        gap_pad, sil = 0.15, np.zeros(int(0.8 * sg.SR), dtype=np.float32)
+        parts, table, pos = [], [], 0.0
+        for a, b in gaps:
+            a2, b2 = max(0.0, a - gap_pad), min(len(x) / sg.SR, b + gap_pad)
+            piece = x[int(a2 * sg.SR):int(b2 * sg.SR)]
+            table.append((pos, pos + len(piece) / sg.SR, a2))
+            parts += [piece, sil]
+            pos += (len(piece) + len(sil)) / sg.SR
+        out = concat.with_name("vocals_gaps.wav")
+        with wave.open(str(out), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(sg.SR)
+            w.writeframes((np.clip(np.concatenate(parts), -1, 1) * 32767).astype(np.int16).tobytes())
+        tr = self._transcribe(out, {"vad_filter": False, "condition_on_previous_text": False, "batched": False}, language)
+
+        def to_src(t: float) -> float | None:
+            for r0, r1, c0 in table:
+                if r0 - 0.05 <= t <= r1 + 0.05:
+                    return to_source_time(c0 + min(max(t, r0), r1) - r0, layout)
+            return None
+
+        found = []
+        for seg in tr.segments:
+            if sg.is_hallucination(seg.text):
+                continue
+            a, b = to_src(seg.start), to_src(seg.end)
+            if a is None or b is None or b - a < 0.2:
+                continue
+            words = [w.model_copy(update={"start": ws, "end": we}) for w in seg.words
+                     if (ws := to_src(w.start)) is not None and (we := to_src(w.end)) is not None]
+            found.append({**seg.model_dump(), "start": a, "end": b, "words": [w.model_dump() for w in words],
+                          "rescued": True})
+        return found
 
     def _transcribe(self, audio: Path, options: dict, language: str | None):
         from app.analysis.transcribe import transcribe

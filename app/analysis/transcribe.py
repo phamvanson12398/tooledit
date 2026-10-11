@@ -79,12 +79,14 @@ def transcribe(audio: Path, cfg: dict | None = None, factory: Callable | None = 
 def _run(model, used: dict, audio: Path, cfg: dict, options: dict | None = None,
          language: str | None = None, log: Callable[[str], None] = lambda msg: None) -> Transcript:
     allowed = cfg.get("languages", ["ko", "ja", "en"])
-    kwargs = dict(beam_size=cfg.get("beam_size", 5), word_timestamps=cfg.get("word_timestamps", True),
-                  vad_filter=True, **(options or {}))
+    options = dict(options or {})
+    batched = options.pop("batched", None)  # "batched": False = không chạy theo lô (vd nghe lại đoạn ngắn, tắt VAD)
+    kwargs = dict(beam_size=cfg.get("beam_size", 5), word_timestamps=cfg.get("word_timestamps", True), vad_filter=True)
+    kwargs.update(options)  # options được ghi đè mặc định (vd vad_filter=False)
     if language:
         kwargs["language"] = language
     runner = model
-    if use_batched(cfg, used) and hasattr(model, "feature_extractor"):  # chỉ WhisperModel thật (không phải model giả khi test)  # chủ dự án 11/10 "phân tích lâu": chạy theo lô trên GPU, nhanh hơn nhiều lần
+    if batched is not False and use_batched(cfg, used) and hasattr(model, "feature_extractor"):  # chỉ WhisperModel thật (không phải model giả khi test)  # chủ dự án 11/10 "phân tích lâu": chạy theo lô trên GPU, nhanh hơn nhiều lần
         try:
             from faster_whisper import BatchedInferencePipeline
 

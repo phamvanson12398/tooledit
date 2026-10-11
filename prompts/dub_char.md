@@ -11,6 +11,7 @@ phụ đề chính là các câu này.
   "Squidward" — chọn tên khán giả {{market}} quen; xem "Tên riêng đúng"). Không biết tên thì đặt theo đặc điểm, ngắn, dễ
   nhớ: "Cậu bé áo đỏ", "Ông chủ", "Người dẫn chuyện".
 
+{{voice_note}}
 ## 2. Giọng từng nhân vật (`cast`)
 Với MỖI nhân vật có trong `speaker`, thêm một phần tử `cast`: `speaker` (đúng tên), `instruct` = mô tả giọng cho máy đọc
 OmniVoice bằng thuộc tính TIẾNG ANH cách nhau dấu phẩy, chỉ chọn trong: male / female; child / teenager / young adult /
@@ -23,6 +24,8 @@ giọng khi thu tay.
   thứ tự số: phần tử thứ k là bản dịch của câu gốc số k. KHÔNG gộp câu, KHÔNG bỏ câu nào, KHÔNG thêm câu — kể cả câu rất
   ngắn, câu cảm thán, tiếng kêu có chữ ("え？" → "어?", "うわっ！" → "으악!"): chỗ nào nhân vật mở miệng thì phải có giọng lồng.
 - `source_start` / `source_end`: chép đúng giây của câu gốc đó (tool tự đặt lại cho khớp, bạn không cần chọn).
+- Dịch ĐỦ Ý từng câu (chủ dự án: "đừng sót ý") — không lược bỏ chi tiết, câu đùa, lời đáp của câu gốc; chỉ nói gọn lại
+  cách diễn đạt khi cần cho vừa thời gian.
 - Dịch thành văn NÓI tự nhiên của người bản xứ {{market}}, ĐÚNG TÍNH CÁCH từng nhân vật (trẻ con nói kiểu trẻ con, người
   già kiểu người già, cáu thì cáu, đùa thì đùa); xưng hô đúng quan hệ nhân vật. Không dịch từng chữ.
 - Đọc kịp trong thời gian câu gốc (khớp miệng): tối đa khoảng {{max_cps}} ký tự/giây theo độ dài ghi ở mỗi câu (không tính

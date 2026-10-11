@@ -99,6 +99,18 @@ def speakers_of(script) -> dict[str, list[int]]:
     return out
 
 
+def voice_groups(job_dir: Path, video_index: int, n_lines: int) -> list[dict | None]:
+    """Nhóm giọng máy đo cho từng câu (plan/voice_groups_videoNN.json — lồng tiếng nhân vật); không có / lệch số câu → []."""
+    import json
+
+    p = job_dir / "plan" / f"voice_groups_video{video_index:02d}.json"
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [x if x.get("group") else None for x in data] if len(data) == n_lines else []
+
+
 def set_speakers(job_dir: Path, video_index: int, names: dict[int, str]) -> int:
     """Chủ dự án sửa tên nhân vật từng câu (AI đoán nhầm). Trả số câu đã đổi."""
     script = load_dub(job_dir, video_index)

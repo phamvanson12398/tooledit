@@ -784,6 +784,13 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         video = int(form.get("video", 1))
         names = {int(k[3:]): str(v) for k, v in form.items() if k.startswith("sp_") and k[3:].isdigit()}
         d = Job.dir_for(Path(jobs_root), job_id)
+        script = dub_io.load_dub(d, video)
+        groups = dub_io.voice_groups(d, video, len(script.lines)) if script else []
+        for k, v in form.items():  # đặt tên cho CẢ nhóm giọng một lần (máy đo cùng một giọng)
+            if k.startswith("group_") and str(v).strip() and groups:
+                for i, g in enumerate(groups, 1):
+                    if g and g["group"] == k[6:]:
+                        names[i] = str(v).strip()
         dub_io.set_speakers(d, video, names)
         scripts = {v: dub_io.load_dub(d, v) for v in [int(p.stem.replace("dub_video", ""))
                                                      for p in sorted((d / "plan").glob("dub_video*.json"))]}
@@ -1481,14 +1488,35 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                     f"{', '.join(str(i) for i in idx[:12])}{' …' if len(idx) > 12 else ''}, nghỉ ~1 giây giữa các câu)</span>"
                     f"<br><input type='file' name='file' accept='.wav,.mp3,.m4a,audio/*' required>"
                     f"<button type='submit' class='btn small'>✂️ Tải giọng {esc(name)} và tự cắt</button></form>")
+            vg = dub_io.voice_groups(d, v, len(script.lines))
+            from app.director.tasks import voice_tag
+
             edit_rows = "".join(
                 f"<tr><td>{i}</td><td><input type='text' name='sp_{i}' value='{esc(ln.speaker)}' style='width:9em'></td>"
-                f"<td>{esc(ln.text)}<br><span class='muted'>🇻🇳 {esc(ln.text_vi)}</span></td></tr>"
+                + (f"<td class='muted'>{esc(voice_tag(vg[i - 1]))}</td>" if vg else "")
+                + f"<td>{esc(ln.text)}<br><span class='muted'>🇻🇳 {esc(ln.text_vi)}</span></td></tr>"
                 for i, ln in enumerate(script.lines, 1))
+            group_rows, mixed = "", False
+            if vg:  # mỗi nhóm giọng máy đo: AI đang gán cho ai + ô đặt tên cho cả nhóm
+                names_by: dict[str, list[str]] = {}
+                for ln, g in zip(script.lines, vg):
+                    if g:
+                        names_by.setdefault(g["group"], []).append(ln.speaker)
+                mixed = any(len(set(ns)) > 1 for ns in names_by.values())  # nhóm gán lẫn tên → mở sẵn để sửa
+                group_rows = "".join(
+                    f"<tr><td><b>{esc(g)}</b></td><td class='muted'>{len(ns)} câu · AI gán: "
+                    f"{esc(', '.join(f'{n} ({ns.count(n)})' for n in sorted(set(ns), key=ns.count, reverse=True)))}</td>"
+                    f"<td><input type='text' name='group_{esc(g)}' placeholder='đặt tên cho cả nhóm' style='width:10em'></td></tr>"
+                    for g, ns in sorted(names_by.items(), key=lambda kv: int(kv[0][1:])))
+                group_rows = (f"<p class='muted'>🔊 Nhóm giọng do máy đo từ âm thanh (cùng nhóm thường là cùng một người). "
+                              f"Nhóm nào AI gán lẫn nhiều tên thì đặt tên cho cả nhóm ở đây:</p>"
+                              f"<table><tr><th>Nhóm</th><th>Hiện tại</th><th>Đặt tên cả nhóm</th></tr>{group_rows}</table>")
             blocks.append(
-                f"<details><summary>✏️ AI đoán nhầm nhân vật? Sửa tên người nói từng câu</summary>"
+                f"<details{' open' if mixed else ''}>"
+                f"<summary>✏️ AI đoán nhầm nhân vật? Sửa tên người nói từng câu / cả nhóm giọng</summary>"
                 f"<form method='post' action='/jobs/{job.job_id}/dub-speakers'><input type='hidden' name='video' value='{v}'>"
-                f"<table><tr><th>#</th><th>Nhân vật</th><th>Câu</th></tr>{edit_rows}</table>"
+                f"{group_rows}"
+                f"<table><tr><th>#</th><th>Nhân vật</th>{'<th>Giọng máy đo</th>' if vg else ''}<th>Câu</th></tr>{edit_rows}</table>"
                 f"<button type='submit' class='btn small'>💾 Lưu tên nhân vật</button></form></details>")
             tools += "<h3>🎭 Thu voice theo nhân vật</h3>" + "".join(blocks)
         rd = (job.data.get("ready_drafts") or {}).get(str(v))

@@ -1434,7 +1434,14 @@ def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, 
         return draft
 
 
-def check_char_dub(script, src: list[dict] | None = None, max_cps: float | None = None) -> list[str]:
+def voice_tag(v: dict | None) -> str:
+    if not v:
+        return "giọng ?"
+    return f"giọng {v['group']} · {v['pitch']}" + (f" ~{v['f0']}Hz" if v.get("f0") else "")
+
+
+def check_char_dub(script, src: list[dict] | None = None, max_cps: float | None = None,
+                   voice_info: list | None = None) -> list[str]:
     """Lồng tiếng nhân vật: MỖI câu gốc đúng một câu lồng tiếng (đúng thứ tự, mốc giờ do code đặt), câu nào cũng có tên
     nhân vật và lời dịch; không có lời dẫn; câu dịch đọc kịp trong thời gian câu gốc."""
     errors = []
@@ -1453,10 +1460,45 @@ def check_char_dub(script, src: list[dict] | None = None, max_cps: float | None 
             if n > max_cps * room * 1.3 + 2:
                 errors.append(f"câu {i}: {n} ký tự cho {room:.1f}s — quá dài, nhân vật nói xong mà giọng lồng chưa xong; "
                               f"viết gọn còn ≤ {int(max_cps * room) + 1} ký tự")
+    if src is not None and len(script.lines) == len(src):  # chủ dự án 11/10 "sót ý": câu dịch ngắn bất thường so với gốc
+        def too_short(ln, x) -> bool:
+            dur = x["end"] - x["start"]
+            n = sum(ch.isalnum() for ch in ln.text)
+            src_n = sum(ch.isalnum() for ch in x.get("text", ""))
+            by_time = dur >= 1.5 and max_cps and n < max(2.0, 0.15 * max_cps * dur)
+            by_text = src_n >= 12 and n < 0.2 * src_n  # tiếng Anh nhiều chữ cái hơn Hàn / Nhật → ngưỡng rộng
+            return bool(by_time or by_text)
+
+        short = [i for i, (ln, x) in enumerate(zip(script.lines, src), 1) if too_short(ln, x)]
+        if short:
+            errors.append(f"câu {', '.join(map(str, short[:10]))}: dịch quá ngắn so với câu gốc (nhân vật nói dài mà lời "
+                          "dịch chỉ vài chữ) — dịch ĐỦ Ý của câu gốc, không lược bỏ ý")
+    if voice_info and len(voice_info) == len(script.lines):  # cả nhóm giọng mà tên nhân vật lộn xộn → AI xem lại
+        by_group: dict[str, list[str]] = {}
+        for ln, v in zip(script.lines, voice_info):
+            if v:
+                by_group.setdefault(v["group"], []).append(ln.speaker.strip())
+        for g, names in by_group.items():
+            if len(names) >= 4:
+                top = max(set(names), key=names.count)
+                if names.count(top) / len(names) < 0.6:
+                    errors.append(f"nhóm giọng {g} ({len(names)} câu, máy đo cùng một giọng) đang gán cho nhiều nhân vật "
+                                  f"({', '.join(sorted(set(names)))}) — xem lại: cùng giọng thường là cùng một người")
     return errors
 
 
-def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_index: int = 1, footage: int = 0):
+VOICE_NOTE = """
+## Nhóm giọng do MÁY ĐO từ âm thanh (cao độ + âm sắc trên giọng nói đã tách nhạc)
+Mỗi câu gốc bên dưới có ghi `giọng Gx · cao / trung / trầm (~Hz)`. Các câu CÙNG nhóm Gx thường là CÙNG MỘT nhân vật,
+khác nhóm thường là người khác; giọng cao ~250 Hz trở lên thường là phụ nữ / trẻ em, trầm < 150 Hz thường là đàn ông lớn
+tuổi. Dùng để ghi `speaker` ĐÚNG và THỐNG NHẤT: cả nhóm cùng một tên, trừ khi lời thoại / khung hình cho thấy rõ là người
+khác (máy có thể nhầm với câu rất ngắn, tiếng hét, 2 người nói chen). Câu ghi "giọng ?" là máy không đo được.
+Giọng mô tả trong `cast` (male / female, cao / thấp) phải khớp số đo của nhóm giọng nhân vật đó.
+"""
+
+
+def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_index: int = 1, footage: int = 0,
+                  voice_info: list | None = None):
     """LỒNG TIẾNG NHÂN VẬT (chủ dự án yêu cầu 11/10): dịch từng câu thoại sang ngôn ngữ đích, ghi TÊN NHÂN VẬT nói câu
     đó (AI nhận ra qua lời thoại + khung hình) để chủ dự án thu voice theo nhân vật. Mốc giờ từng câu = đúng câu thoại
     gốc (code đặt, `char_lines.source_lines`) → giọng lồng khớp lúc nhân vật mở miệng, không sót câu nào."""
@@ -1470,6 +1512,7 @@ def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_inde
     if not src:
         raise DirectorError("Các tình huống đã chọn không có câu thoại nào (Whisper không nghe thấy lời) — không có gì để "
                             "lồng tiếng. Chọn đoạn khác có thoại.")
+    info = voice_info if voice_info and len(voice_info) == len(src) else None
     near = []
     for sg in src:  # mỗi câu thoại một khung hình gần nhất → AI nhìn ai đang nói
         if a["frames"]:
@@ -1483,9 +1526,11 @@ def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_inde
                  "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
                  "market": MARKETS.get(u.language, "TikTok"), "max_cps": max_cps, "n_lines": len(src),
                  "localize_brief": localize_brief(u),
+                 "voice_note": VOICE_NOTE if info else "",
                  "source_lines": "\n".join(
-                     f"{i}. [{x['start']:.2f}–{x['end']:.2f}s, {x['end'] - x['start']:.1f}s] "
-                     f"{apply_name_corrections(x['text'], u.name_corrections)}" for i, x in enumerate(src, 1)),
+                     f"{i}. [{x['start']:.2f}–{x['end']:.2f}s, {x['end'] - x['start']:.1f}s]"
+                     + (f" [{voice_tag(info[i - 1])}]" if info else "")
+                     + f" {apply_name_corrections(x['text'], u.name_corrections)}" for i, x in enumerate(src, 1)),
                  "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)"}
 
     def repair(r):  # mốc giờ lấy đúng câu gốc (AI chỉ dịch + nhận nhân vật)
@@ -1496,7 +1541,7 @@ def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_inde
         return r.model_copy(update={"lines": lines}), []
 
     def extra(r) -> list[str]:
-        errors = check_char_dub(r, src, max_cps)
+        errors = check_char_dub(r, src, max_cps, info)
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors
@@ -1506,7 +1551,7 @@ def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_inde
 
 
 def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,
-             mode: str = "translate", review_s: int = 0):
+             mode: str = "translate", review_s: int = 0, voice_info: list | None = None):
     """Kịch bản thuyết minh theo các clip của kế hoạch dựng (giây gốc), bằng ngôn ngữ đích u.language.
     mode="translate": dịch sát lời gốc (+ lời dẫn chỗ im lặng); mode="rewrite": AI xem hình rồi VIẾT MỚI nội dung
     hợp khán giả nước đích (chủ dự án yêu cầu 07/10); mode="review": lời REVIEW phim / hoạt hình (09/10)."""
@@ -1514,7 +1559,8 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
 
     cfg = config.load("dub")
     if mode == "char":  # lồng tiếng nhân vật: dịch thoại từng nhân vật, khớp miệng
-        return make_char_dub(director, analysis_dir, u, plan, video_index=video_index, footage=footage)
+        return make_char_dub(director, analysis_dir, u, plan, video_index=video_index, footage=footage,
+                             voice_info=voice_info)
     if mode == "review":  # bài lời đọc viết trước, không phụ thuộc cảnh của kế hoạch dựng
         return make_review_script(director, analysis_dir, u, hook=hook, video_index=video_index, footage=footage,
                                   review_s=review_s)

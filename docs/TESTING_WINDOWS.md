@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 93 — Lồng tiếng nhân vật: bớt sót câu / sót ý, nhận đúng giọng nhân vật `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`. Cần Demucs (đã cài) — các phần mới chạy trên giọng nói đã tách nhạc.
+2. Tạo job **🎭 Lồng tiếng nhân vật** mới (job cũ: bấm làm lại từ bước chia đoạn để chạy lại phần nhận dạng).
+3. Nhật ký sau bước duyệt đoạn hay:
+   - "Nghe lại chỗ sót: thêm N câu Whisper bỏ lỡ (…)" — các câu nghe được thêm (tiếng kêu ngắn, nói nhỏ, nói chen).
+   - "Video 01: máy đo được K nhóm giọng trên M câu thoại (G1, G2…) — gửi AI để ghi đúng nhân vật."
+4. Trang voice → mở **✏️ AI đoán nhầm nhân vật?**: mỗi câu có cột "Giọng máy đo" (G1 · cao ~260Hz…); bảng nhóm giọng
+   cho biết AI gán mỗi nhóm cho ai. Nhóm nào gán lẫn nhiều tên → gõ tên vào "Đặt tên cả nhóm" → 💾 Lưu (cả nhóm đổi một lần).
+   Khung này tự mở sẵn khi có nhóm bị gán lẫn.
+5. So với trước: còn câu nhân vật mở miệng mà không có câu lồng tiếng không? Câu dịch còn thiếu ý không (AI bị bắt dịch lại
+   câu ngắn bất thường)? Ghi lại vài chỗ còn sai (giây + nhân vật) gửi mình để chỉnh ngưỡng.
+6. Chỉnh được trong `config/char_dub.yaml`: `rescue_rel_db` (to hơn = bắt cả tiếng nhỏ hơn), `voice_group_threshold`
+   (nhỏ hơn = tách nhiều nhóm hơn, vd 2 nhân vật giọng gần giống nhau bị gộp thì giảm xuống 0.28).
+
 ## Bước 92 — OmniVoice: tải lên giọng mẫu để clone `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
