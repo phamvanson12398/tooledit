@@ -432,7 +432,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <section class="stepbox"><div class="num">2</div><div class="sb">
             <h3>Bạn muốn làm gì?</h3>
             <div class="modes">{modes}</div>
-            <div class="langbox" data-modes="dub voice_only review char_dub">
+            <div class="langbox" data-modes="normal dub voice_only review char_dub">
               <label>🌐 Ngôn ngữ video mới</label>
               <select name="target_language" id="lang"><option value="">Giữ nguyên ngôn ngữ gốc</option>
                 <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
@@ -486,7 +486,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               m.textContent=n>1?('Đã có '+n+' video — tool sẽ ghép thành một video.'):'Đã chọn 1 video.';}}
             else m.textContent=d.error||'Chưa chọn file.';}}catch(e){{m.textContent='Không mở được hộp thoại: '+e;}}
         }}
-        const HINT={{normal:'', dub:'Bạn sẽ thu voice từng câu bằng Voice Studio (hoặc cho OmniVoice đọc).',
+        const HINT={{normal:'Video gốc tiếng Hàn / Nhật / Anh thì để Giữ nguyên. Tiếng khác (Trung, Việt…) thì chọn ngôn ngữ cho bản TikTok.', dub:'Bạn sẽ thu voice từng câu bằng Voice Studio (hoặc cho OmniVoice đọc).',
           voice_only:'Không cắt, không đổi khung — chỉ thay tiếng. Cần chọn ngôn ngữ mới.',
           review:'Không chọn ngôn ngữ = lời review bằng tiếng gốc của phim.',
           char_dub:'Cần chọn ngôn ngữ mới (vd phim Nhật → tiếng Hàn). Nên cài Demucs để giữ nhạc nền gốc.',
@@ -496,11 +496,13 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           document.querySelectorAll('#newjob [data-modes]').forEach(el=>{{
             const on=el.dataset.modes.split(' ').includes(m); el.hidden=!on;
             el.querySelectorAll('input,select').forEach(i=>i.disabled=!on);}});
-          const lang=document.getElementById('lang'); lang.options[0].hidden=(m!=='review');
-          if(m!=='review'&&!lang.value&&['dub','voice_only','char_dub'].includes(m)) lang.value='ko';
+          const lang=document.getElementById('lang'); lang.options[0].hidden=!['review','normal'].includes(m);
+          if(lang.options[0].hidden&&!lang.value){{lang.value='ko'; lang.dataset.auto='1';}}
+          else if(!lang.options[0].hidden&&lang.dataset.auto==='1'){{lang.value=''; lang.dataset.auto='';}}  // tool tự chọn thì trả về "Giữ nguyên"
           document.getElementById('langhint').textContent=HINT[m]||'';
           document.getElementById('modehint').textContent=m==='normal'?'':'Chế độ: '+document.querySelector('input[name=mode]:checked').parentElement.querySelector('b').textContent;
         }}
+        document.getElementById('lang').addEventListener('change',e=>{{e.target.dataset.auto='';}});
         document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change',syncMode)); syncMode();
         </script>"""
         body += """<script>
@@ -607,7 +609,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         if mode in MODES:  # trang chủ mới: chọn MỘT chế độ (thẻ) thay cho các ô tick riêng
             review, char_dub, vi_sub, voice_only = (("on" if mode == m else None)
                                                     for m in ("review", "char_dub", "vi_sub", "voice_only"))
-            if mode in ("normal", "vi_sub"):
+            if mode == "vi_sub":
                 target_language = ""
             if mode == "dub" and target_language not in ("ko", "ja", "en"):
                 return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Đổi ngôn ngữ</b> cần chọn "
@@ -1016,6 +1018,18 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             job = Job.load(Path(jobs_root), job_id)
             job.options.ai = ai
             job.save(Path(jobs_root))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/language")
+    def set_language(job_id: str, target_language: str = Form(...)):
+        """Video gốc không phải Hàn / Nhật / Anh: chọn ngôn ngữ bản TikTok rồi chạy tiếp từ bước hiểu nội dung."""
+        if target_language in ("ko", "ja", "en") and job_id not in worker.active:
+            job = Job.load(Path(jobs_root), job_id)
+            job.options.target_language = target_language
+            job.data["reuse_understanding"] = True
+            job.resume("người dùng chọn ngôn ngữ bản TikTok")
+            job.save(Path(jobs_root))
+            worker.start(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/redo")
@@ -1517,6 +1531,16 @@ def _pending_dub_html(job: Job, d: Path) -> str:
 
 def _step_panel(job: Job, d: Path) -> str:
     esc = html.escape
+    if job.status == Status.error and job.data.get("need_language") and job.step == "understand":
+        # video gốc không phải Hàn / Nhật / Anh → chọn ngôn ngữ bản TikTok ngay tại đây rồi chạy tiếp (khỏi tạo job mới)
+        return (f"<div class='card'><h2>🌐 Chọn ngôn ngữ cho bản TikTok</h2><pre>{esc(job.message)}</pre>"
+                f"<form method='post' action='/jobs/{job.job_id}/language' class='row' style='align-items:center'>"
+                "<select name='target_language' style='width:auto'>"
+                "<option value='ko'>Tiếng Hàn (한국어)</option><option value='ja'>Tiếng Nhật (日本語)</option>"
+                "<option value='en'>Tiếng Anh (English)</option></select>"
+                "<button type='submit' class='btn'>▶️ Chạy tiếp với ngôn ngữ này</button></form>"
+                "<p class='muted'>Tool thuyết minh + phụ đề bằng ngôn ngữ đã chọn (như chế độ Đổi ngôn ngữ), "
+                "không phải hỏi lại AI phần hiểu nội dung.</p></div>")
     if job.status == Status.error:
         return (f"<div class='card'><h2>⚠️ Có lỗi</h2><pre>{esc(job.message)}</pre>"
                 f"{_pending_dub_html(job, d)}{_continue_button(job, 'Chạy lại bước này')}</div>")

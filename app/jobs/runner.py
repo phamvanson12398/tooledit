@@ -104,6 +104,10 @@ def _load_labels_safe() -> dict:
     return _load_labels()
 
 
+LANG_VI = {"zh": "Trung", "vi": "Việt", "th": "Thái", "es": "Tây Ban Nha", "fr": "Pháp", "de": "Đức", "ru": "Nga",
+           "id": "Indonesia", "pt": "Bồ Đào Nha", "ko": "Hàn", "ja": "Nhật", "en": "Anh"}
+
+
 class Runner:
     def __init__(self, jobs_root: Path, *, director=None, analyze_fn=None, probe_duration_fn=None,
                  drafts_dir: Path | None = None, template_dir: Path | None = None,
@@ -437,7 +441,13 @@ class Runner:
         from app.director.tasks import understand
 
         _, analysis, plan_dir = self._paths(job)
-        u = understand(self.director, analysis)
+        saved = plan_dir / "understanding.json"
+        if job.data.pop("reuse_understanding", False) and saved.is_file():  # vừa chọn ngôn ngữ sau lỗi → khỏi hỏi lại AI
+            from app.director.schemas import Understanding
+
+            u = Understanding.model_validate_json(saved.read_text(encoding="utf-8"))
+        else:
+            u = understand(self.director, analysis)
         plan_dir.mkdir(parents=True, exist_ok=True)
         (plan_dir / "understanding.json").write_text(u.model_dump_json(indent=2), encoding="utf-8")
         job.data["summary_vi"] = u.summary_vi
@@ -453,8 +463,10 @@ class Runner:
             job.data.pop("dub_same", None)
             self.log(f"Đổi ngôn ngữ: {u.language} → {target} (thuyết minh + phụ đề {target}).")
         elif u.language not in ("ko", "ja", "en"):
-            raise ValueError(f"Video gốc nói tiếng '{u.language}': hãy tạo job mới và chọn 'Đổi ngôn ngữ sang' "
-                             "tiếng Hàn / Nhật / Anh.")
+            job.data["need_language"] = u.language
+            raise ValueError(f"Video gốc nói tiếng '{LANG_VI.get(u.language, u.language)}' — bản TikTok phải là tiếng "
+                             "Hàn / Nhật / Anh. Chọn ngôn ngữ ở ô bên dưới rồi bấm Chạy tiếp.")
+        job.data.pop("need_language", None)
         if u.policy_issues:
             total = sum(x.end - x.start for x in u.policy_issues)
             self.log(f"Phát hiện {len(u.policy_issues)} đoạn vi phạm chính sách TikTok (~{total:.0f}s) — sẽ cắt bỏ.")

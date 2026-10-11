@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 91 — Dựng video TikTok: chọn được ngôn ngữ (video gốc tiếng Trung / Việt…) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm Ctrl+F5.
+2. Trang chủ → thẻ **✂️ Dựng video TikTok**: giờ có ô **🌐 Ngôn ngữ video mới** (mặc định "Giữ nguyên ngôn ngữ gốc").
+   Video gốc tiếng Hàn / Nhật / Anh thì để nguyên; tiếng Trung, Việt… thì chọn Hàn / Nhật / Anh.
+3. Job cũ đang lỗi "Video gốc nói tiếng … Chọn ngôn ngữ…": mở trang job → khung **🌐 Chọn ngôn ngữ cho bản TikTok** →
+   chọn ngôn ngữ → bấm **▶️ Chạy tiếp với ngôn ngữ này**. Job chạy tiếp, KHÔNG hỏi lại AI bước hiểu nội dung.
+   (Job lỗi trước bản cập nhật này chưa có khung chọn: bấm "Chạy lại bước này" một lần để hiện khung.)
+
 ## Bước 90 — Gemini lỡ định mở web (ReadUrlContent) → tool dặn trước + tự hỏi lại `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

@@ -136,7 +136,14 @@ def test_chinese_source_requires_target(tmp_path):
     jobs, job = prepare(tmp_path, JobOptions())
     r = make_runner(tmp_path, jobs, understand={**GOOD, "language": "zh"})
     job = r.run(job)
-    assert job.status == Status.error and "Đổi ngôn ngữ" in job.message
+    assert job.status == Status.error and "Chọn ngôn ngữ" in job.message and job.data["need_language"] == "zh"
+    calls = len(r._director.calls)
+    job.options.target_language = "ko"           # chọn ngôn ngữ trên trang job → chạy tiếp, không hỏi lại AI hiểu nội dung
+    job.data["reuse_understanding"] = True
+    job.resume()
+    job = r.run(job)
+    assert "need_language" not in job.data and job.step != "understand"
+    assert not any(c["task"] == "understand" for c in r._director.calls[calls:])
 
 
 def test_web_dub_flow(tmp_path):

@@ -346,8 +346,10 @@ def test_home_mode_cards_map_to_options(tmp_path):
         r = client.post("/jobs", data={"footage": str(f), **data}, follow_redirects=False)
         return Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1]).options
 
-    o = make(mode="normal", target_language="ko", review="on", hook="on")
+    o = make(mode="normal", review="on", hook="on")
     assert not o.target_language and not o.review and o.hook
+    o = make(mode="normal", target_language="ko")          # 11/10: dựng TikTok cũng chọn được ngôn ngữ (video gốc tiếng Trung…)
+    assert o.target_language == "ko" and not o.voice_only
     o = make(mode="char_dub", target_language="ja", hook="on")
     assert o.char_dub and o.target_language == "ja" and not o.review
     o = make(mode="vi_sub", target_language="ko")
@@ -355,3 +357,28 @@ def test_home_mode_cards_map_to_options(tmp_path):
     o = make(mode="voice_only", target_language="en", hook="on")
     assert o.voice_only and not o.hook
     assert "Chưa chọn ngôn ngữ" in client.post("/jobs", data={"footage": str(f), "mode": "dub"}).text
+
+
+def test_pick_language_after_error_and_continue(tmp_path):
+    """Chủ dự án 11/10: dựng video TikTok lỗi "chưa chọn ngôn ngữ" (video gốc tiếng Trung) — chọn ngay trên trang job."""
+    from fastapi.testclient import TestClient
+
+    from app.jobs.job import Job, JobOptions, Status
+    from app.web.server import create_app
+
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/a.mp4")], JobOptions(), job_id="zh")
+    job.step = "understand"
+    job.data["need_language"] = "zh"
+    job.fail("Video gốc nói tiếng 'Trung' — bản TikTok phải là tiếng Hàn / Nhật / Anh.")
+    job.save(jobs)
+    app = create_app(jobs, lambda root, log: None)
+    started = []
+    app.state.worker.start = lambda job_id, action=None: started.append(job_id) or True
+    client = TestClient(app)
+    page = client.get("/jobs/zh").text
+    assert "Chọn ngôn ngữ cho bản TikTok" in page and "/jobs/zh/language" in page
+    client.post("/jobs/zh/language", data={"target_language": "ja"})
+    job = Job.load(jobs, "zh")
+    assert job.options.target_language == "ja" and job.data["reuse_understanding"] and job.status == Status.pending
+    assert started == ["zh"] and job.step == "understand"
