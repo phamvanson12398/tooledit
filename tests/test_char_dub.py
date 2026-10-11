@@ -454,3 +454,41 @@ def test_rescue_missed_lines_on_vocals(tmp_path, monkeypatch):
     texts = [(round(s["start"], 1), s["text"]) for s in segs if 1.0 <= s["start"] <= 19.0]
     assert texts[0] == (3.0, "台詞A") and texts[1][1] == "えっ、本当？" and 10.5 <= texts[1][0] <= 11.6
     assert all("ご視聴" not in s["text"] for s in segs) and segs[[s["text"] for s in segs].index("えっ、本当？")]["rescued"]
+
+
+def test_less_old_voice_leak(tmp_path, monkeypatch):
+    """Chủ dự án 11/10 "bị lẫn giọng cũ": model tách kỹ hơn (htdemucs_ft), tắt giọng gốc rộng hơn + cả khoảng hở ngắn,
+    nhạc nền hạ sâu hơn dưới giọng lồng."""
+    from app.analysis import separate
+    from app.planner.builder import merge_close
+
+    cmd = separate.demucs_cmd(Path("a.wav"), Path("out"), "htdemucs_ft", "auto", 2)
+    assert cmd[cmd.index("-n") + 1] == "htdemucs_ft" and cmd[cmd.index("--shifts") + 1] == "2"
+    assert "--shifts" not in separate.demucs_cmd(Path("a.wav"), Path("out"))
+    assert merge_close([(0, 1_000_000), (1_500_000, 2_000_000), (4_000_000, 5_000_000)], 1_000_000) == [
+        (0, 2_000_000), (4_000_000, 5_000_000)]
+    ccfg = config.load("char_dub")
+    assert ccfg["demucs_model"] == "htdemucs_ft" and ccfg["bgm_duck_db"] <= -12 and ccfg["unvoiced_pad_s"] >= 0.3
+
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/anime.mp4")], JobOptions(char_dub=True, target_language="ko"), job_id="lk")
+    a = make_analysis(jobs / "lk", duration=400.0)
+    job.data["videos"] = [{"index": 1, "start": 1.0, "end": 19.0, "moments": [{"start": 1.0, "end": 19.0}]}]
+    r = make_runner(tmp_path, jobs)
+    r.log = lambda m: None
+    seen = []
+    def fake_sep(src, ranges, bgm_dst, voc_dst, **kw):
+        seen.append(kw)
+        bgm_dst.parent.mkdir(parents=True, exist_ok=True)
+        bgm_dst.write_bytes(b"RIFF")
+        return [{"start": 1.0, "end": 19.0, "offset": 0.0}]
+
+    monkeypatch.setattr(separate, "separate_ranges", fake_sep)
+    monkeypatch.setattr(separate, "torch_device", lambda: "cuda")
+    r._bgm(job, a)
+    assert seen[0]["model"] == "htdemucs_ft" and seen[0]["shifts"] == 1
+    r._bgm(job, a)
+    assert len(seen) == 1                                   # cùng tình huống + cùng model → không tách lại
+    job.data["bgm_model"] = "htdemucs/1"                    # job tách bằng model cũ → tách lại bằng model mới
+    r._bgm(job, a)
+    assert len(seen) == 2

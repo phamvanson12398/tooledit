@@ -182,6 +182,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   nhóm giọng ≥ 4 câu bị gán lẫn tên (< 60% cùng tên) và câu dịch ngắn bất thường (sót ý); trang voice hiện giọng máy đo
   + "đặt tên cả nhóm"; OmniVoice clone chỉ lấy mẫu từ nhóm giọng chính của nhân vật. SpeechBrain (chính xác hơn) chưa
   dùng vì kéo theo torchaudio CPU có thể làm hỏng PyTorch GPU.
+  **Cập nhật 11/10 ("bị lẫn giọng cũ"):** lồng tiếng nhân vật tách nhạc bằng `htdemucs_ft` (`demucs_model`, `demucs_shifts`
+  → cờ `--shifts`, đối chiếu demucs 4.1.0; đổi model thì tự tách lại — `job.data.bgm_model`); giọng gốc tắt rộng thêm
+  `unvoiced_pad_s` quanh mỗi câu và tắt cả khoảng hở < `unvoiced_min_gap_s` (`builder.merge_close`); nhạc nền gốc hạ
+  `bgm_duck_db` (-14) dưới giọng lồng để che giọng gốc còn sót.
 - **Giọng AI bằng OmniVoice (chủ dự án yêu cầu 11/10, tùy chọn — áp dụng cho mọi chế độ có voice thuyết minh):** nút
   "🤖 Cho OmniVoice đọc" trên trang voice; mỗi nhân vật (`speaker`, không có thì "Người dẫn") một giọng: "Mô tả giọng"
   (`instruct` — AI đề xuất trong `DubScript.cast`), "OmniVoice tự chọn", hoặc "Clone từ giọng gốc" (3–10 giây cắt từ phần

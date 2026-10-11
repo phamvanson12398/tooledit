@@ -34,11 +34,15 @@ def torch_device() -> str | None:
         return None
 
 
-def demucs_cmd(audio: Path, out_dir: Path, model: str = "htdemucs", device: str = "auto") -> list[str]:
+def demucs_cmd(audio: Path, out_dir: Path, model: str = "htdemucs", device: str = "auto", shifts: int = 0) -> list[str]:
+    """shifts > 1: Demucs tách nhiều lần với độ lệch ngẫu nhiên rồi lấy trung bình — sạch hơn, chậm hơn ~shifts lần
+    (cờ --shifts, đối chiếu demucs 4.1.0)."""
     cmd = [sys.executable, "-m", "demucs.separate", "--two-stems", "vocals", "-n", model, "-o", str(out_dir),
            "--filename", "{stem}.{ext}"]
     if device and device != "auto":
         cmd += ["-d", device]
+    if shifts and shifts > 1:
+        cmd += ["--shifts", str(int(shifts))]
     return cmd + [str(audio)]
 
 
@@ -153,7 +157,7 @@ def merge_ranges(ranges: list[tuple[float, float]], join_s: float = 1.0) -> list
 def separate_ranges(src: Path, ranges: list[tuple[float, float]], bgm_dst: Path, vocals_dst: Path, *,
                     total_s: float, concat_vocals_dst: Path | None = None, model: str = "htdemucs",
                     device: str = "auto", ffmpeg_exe: str | None = None, run=subprocess.run, pad_s: float = 1.0,
-                    gap_s: float = 0.6) -> list[dict]:
+                    gap_s: float = 0.6, shifts: int = 0) -> list[dict]:
     """Chỉ tách nhạc ở các ĐOẠN cần dùng (chủ dự án 11/10: "tách nhạc nền lâu cực") — vd các tình huống đã duyệt của
     lồng tiếng nhân vật, thay vì cả bộ phim. Các đoạn (thêm pad_s mỗi bên làm ngữ cảnh) nối thành MỘT file, tách một
     lần, rồi đặt lại đúng giây gốc trong bgm_dst / vocals_dst dài bằng video (total_s; ngoài các đoạn là im lặng) → phần
@@ -182,7 +186,7 @@ def separate_ranges(src: Path, ranges: list[tuple[float, float]], bgm_dst: Path,
         tmp = Path(tmp)
         joined = tmp / "doan.wav"
         _write_stereo(joined, np.concatenate(parts))
-        r = run(demucs_cmd(joined, tmp / "out", model, device), capture_output=True, text=True, encoding="utf-8",
+        r = run(demucs_cmd(joined, tmp / "out", model, device, shifts), capture_output=True, text=True, encoding="utf-8",
                 errors="replace", env=utf8_env())
         out_bgm, out_voc = tmp / "out" / model / "no_vocals.wav", tmp / "out" / model / "vocals.wav"
         if getattr(r, "returncode", 1) != 0 or not out_bgm.is_file():

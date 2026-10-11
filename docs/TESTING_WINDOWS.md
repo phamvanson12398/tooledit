@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 94 — Lồng tiếng nhân vật: bớt "lẫn giọng cũ" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Mở job Lồng tiếng nhân vật (cũ cũng được) → bấm Chạy tiếp / dựng lại draft. Tool tự TÁCH LẠI nhạc nền bằng model kỹ
+   hơn `htdemucs_ft` (lần đầu tải model ~320 MB; tách chậm hơn ~4 lần nhưng chỉ tách các tình huống đã duyệt).
+3. Mở draft trong CapCut, nghe các câu lồng tiếng: giọng gốc tiếng Nhật còn lẫn phía dưới không? Đuôi câu gốc còn lọt
+   ra sau giọng lồng không?
+4. Nếu vẫn còn lẫn, chỉnh `config/char_dub.yaml` rồi dựng lại:
+   - `demucs_shifts: 2` (tách 2 lượt lấy trung bình — sạch hơn, chậm gấp đôi);
+   - `bgm_duck_db: -18` (nhạc nền hạ sâu hơn khi giọng lồng nói);
+   - `unvoiced_pad_s: 0.5` (tắt giọng gốc rộng hơn quanh mỗi câu);
+   - `keep_unvoiced: false` (KHÔNG phát lại giọng gốc ở đâu cả — mất tiếng cười / hét gốc nhưng hết lẫn hẳn).
+
 ## Bước 93 — Lồng tiếng nhân vật: bớt sót câu / sót ý, nhận đúng giọng nhân vật `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`. Cần Demucs (đã cài) — các phần mới chạy trên giọng nói đã tách nhạc.

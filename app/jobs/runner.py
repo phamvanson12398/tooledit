@@ -1137,12 +1137,18 @@ class Runner:
         huống thì tách lại. Không tách được → None (dùng nhạc AI chọn như thường) và ghi lý do vào nhật ký."""
         out = analysis / "audio" / "bgm_00.wav"
         ranges = self._bgm_ranges(job)
-        if out.is_file() and job.data.get("bgm_ranges", []) == ranges:
+        sep_sig = f"{config.load('char_dub').get('demucs_model', '')}/{config.load('char_dub').get('demucs_shifts', '')}" \
+            if job.options.char_dub else ""
+        if out.is_file() and job.data.get("bgm_ranges", []) == ranges and job.data.get("bgm_model", "") == sep_sig:
             return out.resolve()
         from app.analysis.separate import separate_bgm, separate_ranges, torch_device
         from app.jobs.limits import group_slot
 
-        bcfg = (config.load("dub").get("voice_only") or {}).get("keep_bgm") or {}
+        bcfg = dict((config.load("dub").get("voice_only") or {}).get("keep_bgm") or {})
+        if job.options.char_dub:  # lồng tiếng nhân vật: model tách kỹ hơn (chủ dự án 11/10 "bị lẫn giọng cũ")
+            ccfg = config.load("char_dub")
+            bcfg.update({k: v for k, v in (("model", ccfg.get("demucs_model")), ("shifts", ccfg.get("demucs_shifts")))
+                         if v})
         dev = torch_device()
         where = ("GPU" if dev == "cuda" else
                  "CPU — CHẬM: nhấp đúp install_gpu_torch.bat để dùng GPU" if dev == "cpu" else "?")
@@ -1156,7 +1162,8 @@ class Runner:
                                              analysis / "audio" / "vocals_00.wav",
                                              concat_vocals_dst=analysis / "audio" / "vocals_concat.wav",
                                              total_s=self._footage_size(job)[2] or max(b for _, b in ranges) + 1,
-                                             model=bcfg.get("model", "htdemucs"), device=str(bcfg.get("device", "auto")))
+                                             model=bcfg.get("model", "htdemucs"), device=str(bcfg.get("device", "auto")),
+                                             shifts=int(bcfg.get("shifts") or 0))
                     job.data["bgm_layout"] = layout
                 else:
                     self.log(f"Tách nhạc nền khỏi giọng nói của video gốc (Demucs chạy bằng {where}, có thể mất vài "
@@ -1167,6 +1174,7 @@ class Runner:
             self.log(f"Không giữ được nhạc nền gốc — dùng nhạc AI chọn thay thế. Lý do: {exc}")
             return None
         job.data["bgm_ranges"] = ranges
+        job.data["bgm_model"] = sep_sig
         self.log("Đã tách xong nhạc nền gốc.")
         return out.resolve()
 

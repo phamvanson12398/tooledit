@@ -230,6 +230,17 @@ def subject_center(subjects: dict, start: float, end: float) -> float:
     return sum(pts) / len(pts) if pts else 0.5
 
 
+def merge_close(spans: list[tuple[int, int]], min_gap: int) -> list[tuple[int, int]]:
+    """Gộp các khoảng cách nhau < min_gap (µs) thành một."""
+    out: list[list[int]] = []
+    for a, b in sorted(spans):
+        if out and a - out[-1][1] < min_gap:
+            out[-1][1] = max(out[-1][1], b)
+        else:
+            out.append([a, b])
+    return [(a, b) for a, b in out]
+
+
 def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTemplate, drafts_root: Path,
           name: str, style: dict, *, hook: HookOption | None = None, voice: tuple[Path, int] | None = None,
           clean_audio: Path | None = None, video_index: int = 1, beats_fn=None, dub=None,
@@ -521,16 +532,21 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             n_mirror += mirrored(clip.source_start, idx)
         if bgm_audio and not clip.replay:  # nhạc nền gốc (đã bỏ giọng nói) chạy đúng theo hình, hạ nhỏ dưới voice
             bcfg = (config.load("dub").get("voice_only") or {}).get("keep_bgm") or {}
+            ccd = style.get("char_dub") if isinstance(style.get("char_dub"), dict) else {}
+            duck = float(ccd.get("bgm_duck_db", bcfg.get("duck_db", -8)) if ccd else bcfg.get("duck_db", -8))
             b_hi = db_to_gain(float(bcfg.get("volume_db", 0)))
-            b_lo = db_to_gain(float(bcfg.get("volume_db", 0)) + float(bcfg.get("duck_db", -8)))
+            b_lo = db_to_gain(float(bcfg.get("volume_db", 0)) + duck)  # lồng tiếng: hạ sâu hơn → che giọng gốc còn sót
             w.add_local_audio(bgm_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed,
                               keyframes=duck_keyframes(p.out_start, p.out_end, bgm_voiced, b_lo, b_hi, 150_000) or None)
         if vocals_audio and dub is not None and not clip.replay:  # giọng gốc chỉ ở chỗ không có câu lồng tiếng
-            pad = 150_000
-            mute = [(x - pad, y + pad) for x, y in orig_spans + bgm_voiced]
-            v_on = db_to_gain(float((style.get("char_dub") or {}).get("unvoiced_db", 0)
-                                    if isinstance(style.get("char_dub"), dict) else 0))
+            ccd = style.get("char_dub") if isinstance(style.get("char_dub"), dict) else {}
+            # chủ dự án 11/10 "bị lẫn giọng cũ": tắt giọng gốc rộng hơn quanh mỗi câu (đuôi câu Whisper thường cắt sớm) và
+            # tắt luôn khoảng hở ngắn giữa 2 câu — chỉ phát giọng gốc ở chỗ hở dài (tiếng cười / hét thật sự)
+            mute = merge_close([(x - round(float(ccd.get("unvoiced_pad_s", 0.35)) * SEC),
+                                 y + round(float(ccd.get("unvoiced_pad_s", 0.35)) * SEC)) for x, y in orig_spans + bgm_voiced],
+                               round(float(ccd.get("unvoiced_min_gap_s", 1.0)) * SEC))
+            v_on = db_to_gain(float(ccd.get("unvoiced_db", 0)))
             w.add_local_audio(vocals_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed,
                               keyframes=duck_keyframes(p.out_start, p.out_end, mute, 0.0, v_on, 80_000) or None)
