@@ -1323,14 +1323,25 @@ def _segments_panel(job: Job, d: Path) -> str:
     prop = data.get("proposal") or {}
     min_s = app_config.load("split").get("min_video_s", 60)
 
+    def situations(v: dict) -> str:  # lồng tiếng nhân vật: video ghép từ các tình huống ngắn
+        ms = v.get("moments") or []
+        if not ms:
+            return ""
+        items = "".join(f"<li>{float(m['start']):.1f}–{float(m['end']):.1f}s ({float(m['end']) - float(m['start']):.0f}s)"
+                        f"{' — ' + esc(m['note_vi']) if m.get('note_vi') else ''}</li>" for m in ms)
+        return (f"<details><summary class='muted'>🎬 {len(ms)} tình huống ghép thành video (chỗ giữa các tình huống "
+                f"bị bỏ)</summary><ol style='margin:4px 0'>{items}</ol></details>")
+
     def row(key: str, v: dict, keep: bool, note: str) -> str:
         span = float(v["end"]) - float(v["start"])
+        if v.get("moments"):
+            span = sum(float(m["end"]) - float(m["start"]) for m in v["moments"])
         short = f" <span class='badge b-waiting'>ngắn hơn {min_s}s</span>" if span < min_s else ""
         return (f"<tr><td><input type='checkbox' name='keep_{key}' {'checked' if keep else ''}></td>"
                 f"<td><input type='number' step='0.1' name='start_{key}' value='{float(v['start']):.1f}' style='width:90px'>"
                 f" – <input type='number' step='0.1' name='end_{key}' value='{float(v['end']):.1f}' style='width:90px'></td>"
                 f"<td>{span:.0f}s{short}</td><td><b>{esc(v.get('title_vi', ''))}</b><br>"
-                f"<span class='muted'>{esc(v.get('summary_vi', '') or note)}</span>"
+                f"<span class='muted'>{esc(v.get('summary_vi', '') or note)}</span>{situations(v)}"
                 f"<input type='hidden' name='title_{key}' value='{esc(v.get('title_vi', ''))}'>"
                 f"<input type='hidden' name='summary_{key}' value='{esc(v.get('summary_vi', '') or note)}'></td></tr>")
 

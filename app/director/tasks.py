@@ -165,12 +165,18 @@ Hoạt hình thường ít thoại: XEM CÁC KHUNG HÌNH dưới đây (mở b�
 
 
 HIGHLIGHT_SEGMENT_NOTE = """
-## CHẾ ĐỘ LỒNG TIẾNG NHÂN VẬT — CHỌN ĐOẠN HAY CHO NGƯỜI XEM TIKTOK
-Mỗi video giữ nguyên hình + thoại của nhân vật (sẽ lồng tiếng sang ngôn ngữ khác), nên chọn những đoạn mà người xem
-TikTok xem là DÍNH: vào chuyện ngay, có tình huống hài / gay cấn / cảm động / cãi nhau / bất ngờ, thoại sắc, kết có điểm
-nhấn — xem {min_video_s}–{max_video_s} giây không chán. BỎ đoạn rề rà: chào hỏi lê thê, đi lại, giới thiệu, chờ đợi,
-đoạn thoại giải thích dài không có hành động. Mỗi đoạn tự hiểu được không cần xem phần khác. `why_vi` nói rõ vì sao
-người xem TikTok sẽ xem hết đoạn này.
+## CHẾ ĐỘ LỒNG TIẾNG NHÂN VẬT — CHỌN TÌNH HUỐNG HAY CHO NGƯỜI XEM TIKTOK
+(Chế độ này THAY luật "mỗi video là một đoạn footage liền" ở trên.)
+Mỗi video giữ nguyên hình + thoại của nhân vật (sẽ lồng tiếng sang ngôn ngữ khác). KHÔNG lấy một khúc phim dài liền:
+hãy chọn từng TÌNH HUỐNG ngắn {sit_lo:.0f}–{sit_hi:.0f} giây mà người xem TikTok thấy DÍNH — một màn cãi nhau, một câu
+đùa có cú chốt, một pha bất ngờ / gay cấn, một khoảnh khắc cảm động, một phản ứng buồn cười. Mỗi tình huống có đầu có đuôi
+(bắt đầu ngay trước câu mở màn, kết sau cú chốt / phản ứng), không cắt giữa câu thoại. BỎ hết chỗ rề rà giữa các tình
+huống: chào hỏi lê thê, đi lại, giới thiệu, chờ đợi, thoại giải thích dài không có hành động.
+- Ghép vài tình huống (thường 4–8) thành MỘT video {min_video_s}–{max_video_s} giây (tổng các tình huống), theo đúng thứ tự
+  phim, cùng một mạch / cùng nhân vật để người xem hiểu được mà không cần xem phần khác.
+- Mỗi video: `moments` = danh sách tình huống (`start`, `end` giây gốc, `note_vi` = tình huống gì); `start` / `end` của
+  video = đầu tình huống đầu / cuối tình huống cuối. Các video không chồng nhau.
+- `why_vi` nói rõ vì sao người xem TikTok sẽ xem hết video này. Chỗ bỏ đáng kể ghi vào `dropped`.
 Hoạt hình / phim ít thoại: XEM CÁC KHUNG HÌNH dưới đây (mở bằng Read).
 {frames}
 """
@@ -180,12 +186,13 @@ def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, r
                   highlight: bool = False):
     """Chia footage dài thành nhiều video độc lập 60–150s (mục 4). review=True: tìm đoạn hay trong phim / hoạt hình,
     mỗi đoạn một video review 60–90s (config/review.yaml)."""
-    from app.director.schemas import SegmentPlan, check_segments
+    from app.director.schemas import SegmentPlan, check_moments, check_segments
 
     cfg = config.load("split")
     if review or highlight:
         cfg = {**cfg, **{k: v for k, v in config.load("review" if review else "char_dub").items()
-                         if k in ("min_video_s", "max_video_s", "min_raw_s", "max_raw_s")}}
+                         if k in ("min_video_s", "max_video_s", "min_raw_s", "max_raw_s", "situation_s")}}
+    sit_lo, sit_hi = (float(x) for x in (cfg.get("situation_s") or [10, 20]))
     a = load_analysis(analysis_dir, footage)
     duration = a["scenes"]["duration"]
     segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
@@ -200,14 +207,36 @@ def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, r
                  "min_raw_s": min_raw, "max_raw_s": max_raw,
                  "review_note": (REVIEW_SEGMENT_NOTE if review else HIGHLIGHT_SEGMENT_NOTE).format(
                      min_video_s=cfg.get("min_video_s", 60), max_video_s=cfg.get("max_video_s", 90),
-                     frames="\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)")
+                     sit_lo=sit_lo, sit_hi=sit_hi, frames="\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)")
                  if review or highlight else "",
                  "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in a["scenes"]["scenes"]) or "(không có)",
                  "transcript": format_transcript(
                      [{**s, "text": apply_name_corrections(s["text"], u.name_corrections)} for s in segs],
                      max_chars=cfg.get("transcript_max_chars", 30000)) or "(không có thoại)"}
+    whole_short = u.usable_range.end - u.usable_range.start < float(cfg.get("min_video_s", 60))
+
+    def extra(r) -> list[str]:
+        errors = check_segments(r, duration, u.usable_range, min_raw, max_raw)
+        if highlight:  # tình huống ngắn 10–20 giây ghép thành video (chủ dự án yêu cầu 11/10)
+            errors += check_moments(r, (sit_lo, sit_hi), float(cfg.get("min_video_s", 60)),
+                                    float(cfg.get("max_video_s", 120)), whole_short)
+        return errors
+
+    def repair(r):  # start / end của video = đầu / cuối các tình huống (AI hay ghi lệch vài giây)
+        if not highlight:
+            return r, []
+        fixes, vids = [], []
+        for v in r.videos:
+            if v.moments:
+                a, b = min(m.start for m in v.moments), max(m.end for m in v.moments)
+                if abs(a - v.start) > 0.05 or abs(b - v.end) > 0.05:
+                    fixes.append(f"video {v.start:.1f}–{v.end:.1f}s → {a:.1f}–{b:.1f}s theo các tình huống")
+                    v = v.model_copy(update={"start": a, "end": b})
+            vids.append(v)
+        return r.model_copy(update={"videos": vids}), fixes
+
     return director.run("segment", variables, SegmentPlan, [analysis_dir / f["file"] for f in frames],
-                        extra_check=lambda r: check_segments(r, duration, u.usable_range, min_raw, max_raw))
+                        extra_check=extra, repair=repair)
 
 
 def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,
@@ -283,7 +312,9 @@ def cap_per_mood(items: list, per_mood: int, total: int) -> list:
 def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=None, hook_s: float = 0.0,
               music_items: list | None = None, sfx_items: list | None = None, decor_items: list | None = None,
               business: bool = False,
-              reframe: bool = False, default_ratio: str = "4:3", video_index: int = 1, footage: int = 0):
+              reframe: bool = False, default_ratio: str = "4:3", video_index: int = 1, footage: int = 0,
+              moments: list | None = None):
+    """moments (lồng tiếng nhân vật): các tình huống ngắn đã duyệt — clip của video đúng bằng các tình huống này."""
     from app import config
     from app.analysis.montage import parts_brief
     from app.director.schemas import (EditPlan, check_hype, check_montage, check_plan, check_remix, check_reorder,
@@ -326,6 +357,9 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     def lines(kind: str) -> str:  # tên trong ngoặc kép, nhóm tách riêng — để đạo diễn không chép nhầm nhóm vào tên
         return "\n".join(f'- "{i.name}"{"  · nhóm: " + i.category if i.category else ""}' for i in decor[kind]) or "(trống)"
     b = u.burned_in_text
+    sits = [(float(m["start"]), float(m["end"]), m.get("note_vi", "")) for m in moments or []] \
+        if style.get("char_dub") else []
+    sit_total = sum(e - a for a, e, _ in sits)
     variables = {
         **_shared_context(u, segs, a.get("events")), "video_index": video_index,
         "style_name": style.get("name", ""), "style_description": style.get("description_vi", ""),
@@ -348,7 +382,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                                        if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
         "arrow_brief": arrow_brief,
         "order_rule": REVIEW_RULE.format(**_review_cfg(style)) if style.get("review") else
-                      CHAR_DUB_RULE.format(**_char_cfg(style)) if style.get("char_dub") else
+                      CHAR_DUB_RULE.format(**_char_cfg(style)) + _moments_rule(sits) if style.get("char_dub") else
                       (REMIX_RULE if style.get("remix") and not style.get("hype") and not style.get("montage_parts")
                        else "") + (
                        (HYPE_RULE.format(**_hype_cfg(style)) if style.get("hype") else "")
@@ -398,8 +432,11 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             errors = check_plan(plan, duration + 0.5, hook_s, min_s=0, max_s=1e9)
         elif style.get("char_dub"):  # lồng tiếng nhân vật: đoạn hay TikTok, giữ trọn câu thoại để lồng tiếng khớp miệng
             cc = _char_cfg(style)
-            errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s, min_s=cc["min_s"],
-                                max_s=cc["max_s"], available=available)
+            lo_s, hi_s = cc["min_s"], cc["max_s"]
+            if sits:  # clip = đúng các tình huống đã duyệt → độ dài theo tổng các tình huống
+                lo_s, hi_s = min(lo_s, sit_total - 2.0), max(hi_s, sit_total + 2.0)
+            errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s, min_s=lo_s,
+                                max_s=hi_s, available=available)
             errors += [f"clip {c.source_start}-{c.source_end} nằm ngoài đoạn của video này "
                        f"({u.usable_range.start:.1f}–{u.usable_range.end:.1f}s)"
                        for c in plan.clips if c.source_end > u.usable_range.end + 0.5]
@@ -478,9 +515,12 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
             p = p.model_copy(update=upd)
             p, more = repair_names(p, {k: [i.name for i in v] for k, v in decor.items()}, names, sfx_names)
             return p, more
+        sit_fix = []
+        if sits:  # lồng tiếng nhân vật: clip đúng bằng các tình huống đã duyệt (tốc độ 1.0, theo thứ tự)
+            p, sit_fix = situation_clips(p, sits)
         p, cut = repair_policy(p, banned, load_cfg().get("min_piece_s", 0.5))
         p, fixes = repair_plan(p, min(duration, u.usable_range.end + 0.5))
-        fixes = cut + fixes
+        fixes = sit_fix + cut + fixes
         if style.get("montage_parts"):
             p, more = repair_montage(p, style["montage_parts"])
             fixes += more
@@ -491,6 +531,31 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         return p, fixes + more
 
     return director.run("plan", variables, EditPlan, images, extra_check=extra, repair=repair)
+
+
+def _moments_rule(sits: list) -> str:
+    if not sits:
+        return ""
+    return ("\n  - CÁC TÌNH HUỐNG ĐÃ DUYỆT — `clips` là ĐÚNG các đoạn này (mỗi tình huống một clip, tốc độ 1.0, giữ thứ tự, "
+            "không thêm / bớt; tool tự đặt lại nếu lệch); chữ nhấn / SFX / zoom chỉ đặt ở giây nằm trong các tình huống:\n"
+            + "\n".join(f"    {i}. {a:.1f}–{e:.1f}s ({e - a:.0f}s){' — ' + n if n else ''}"
+                        for i, (a, e, n) in enumerate(sits, 1)))
+
+
+def situation_clips(plan, sits: list):
+    """Đặt clip của kế hoạch = các tình huống đã duyệt; giữ purpose / ratio của clip AI viết trùng tình huống."""
+    from app.director.schemas import PlanClip
+
+    clips = []
+    for a, e, note in sits:
+        same = next((c for c in plan.clips if c.source_start < e and c.source_end > a), None)
+        clips.append(PlanClip(source_start=round(a, 2), source_end=round(e, 2),
+                              purpose_vi=(same.purpose_vi if same else "") or note or "tình huống",
+                              ratio=same.ratio if same else None))
+    want = [(c.source_start, c.source_end) for c in clips]
+    if [(c.source_start, c.source_end, c.speed) for c in plan.clips] == [(x, y, 1.0) for x, y in want]:
+        return plan, []
+    return plan.model_copy(update={"clips": clips}), [f"clip đặt lại đúng {len(clips)} tình huống đã duyệt"]
 
 
 def match_name(name: str, valid: list[str] | set[str]) -> str | None:

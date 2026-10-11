@@ -106,10 +106,16 @@ def compact_schema(model: type[BaseModel]) -> dict:
 
 # ---------------- Chia video dài (mục 4) ----------------
 
+class Situation(TimeRange):
+    note_vi: str = Field(default="", description="tình huống gì (tiếng Việt, ngắn): cãi nhau, cú hài, pha bất ngờ...")
+
+
 class SegmentVideo(TimeRange):
     title_vi: str = Field(description="tên ngắn của video (tiếng Việt) để người dùng nhận ra")
     summary_vi: str = Field(description="tóm tắt nội dung video: mở – diễn biến – kết (tiếng Việt)")
     why_vi: str = Field(description="vì sao đoạn này đứng được một mình và đáng thành video")
+    moments: list[Situation] = Field(default_factory=list, description=(
+        "chế độ lồng tiếng nhân vật: các TÌNH HUỐNG ngắn ghép thành video này (giây gốc, theo thứ tự)"))
 
 
 class DroppedPart(TimeRange):
@@ -138,6 +144,38 @@ def check_segments(sp: SegmentPlan, duration: float, usable: TimeRange, min_raw:
         if span > max_raw:
             errors.append(f"video {v.start:.1f}–{v.end:.1f}s dài {span:.0f}s footage, tối đa {max_raw:.0f}s "
                           "(tách thành hai video độc lập)")
+    return errors
+
+
+def check_moments(sp: SegmentPlan, situation_s: tuple[float, float], min_s: float, max_s: float,
+                  whole_short: bool = False) -> list[str]:
+    """Lồng tiếng nhân vật (chủ dự án yêu cầu 11/10): mỗi video ghép từ vài TÌNH HUỐNG ngắn (~10–20 giây), theo thứ tự,
+    không chồng nhau, nằm trong đoạn của video; tổng thời lượng trong giới hạn video."""
+    lo, hi = situation_s
+    errors = []
+    for v in sp.videos:
+        name = f"video {v.start:.1f}–{v.end:.1f}s"
+        if not v.moments:
+            errors.append(f"{name}: thiếu `moments` — liệt kê các tình huống {lo:.0f}–{hi:.0f} giây ghép thành video")
+            continue
+        for m in v.moments:
+            span = m.end - m.start
+            if span < lo * 0.7 or span > hi * 1.5:
+                errors.append(f"{name}: tình huống {m.start:.1f}–{m.end:.1f}s dài {span:.0f}s — mỗi tình huống "
+                              f"{lo:.0f}–{hi:.0f} giây (dài thì tách, ngắn thì nối với câu liền kề)")
+            if m.start < v.start - 0.5 or m.end > v.end + 0.5:
+                errors.append(f"{name}: tình huống {m.start:.1f}–{m.end:.1f}s nằm ngoài video "
+                              "(start/end của video = đầu tình huống đầu / cuối tình huống cuối)")
+        ms = sorted(v.moments, key=lambda m: m.start)
+        if ms != list(v.moments):
+            errors.append(f"{name}: các tình huống phải theo đúng thứ tự thời gian")
+        for a, b in zip(ms, ms[1:]):
+            if b.start < a.end - 0.2:
+                errors.append(f"{name}: tình huống {a.start:.1f}–{a.end:.1f}s và {b.start:.1f}–{b.end:.1f}s chồng nhau")
+        total = sum(m.end - m.start for m in v.moments)
+        if total > max_s + 1 or (total < min_s - 1 and not whole_short):
+            errors.append(f"{name}: tổng các tình huống {total:.0f}s — cần {min_s:.0f}–{max_s:.0f} giây "
+                          "(thêm / bớt tình huống)")
     return errors
 
 

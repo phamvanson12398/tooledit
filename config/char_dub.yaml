@@ -3,8 +3,10 @@
 # gốc được tách bỏ (Demucs), NHẠC + TIẾNG NỀN GỐC GIỮ NGUYÊN; hình chỉ cắt bỏ đoạn rề rà, không đổi khung / lật / filter.
 min_video_s: 60          # mỗi video tối thiểu 1 phút
 max_video_s: 120         # tối đa 2 phút (đoạn hay TikTok — gọn, không lê thê)
-min_raw_s: 60            # đoạn phim gốc của mỗi video (trước khi cắt rề rà)
-max_raw_s: 300
+situation_s: [10, 20]    # chủ dự án yêu cầu 11/10: chọn từng TÌNH HUỐNG ngắn 10–20 giây rồi ghép vài tình huống
+                         # thành một video (không lấy một khúc 80 giây liền); máy chấp nhận 7–30 giây
+min_raw_s: 60            # khoảng phim gốc từ tình huống đầu tới tình huống cuối của mỗi video
+max_raw_s: 900
 frames: 40               # khung hình gửi AI để nhận ra nhân vật nào đang nói
 # Nhận diện nhân vật: AI đoán người nói từng câu theo lời thoại (tên gọi, xưng hô, ngữ cảnh) + khung hình. Có thể nhầm —
 # sửa tên nhân vật từng câu ngay trên trang voice trước khi thu.

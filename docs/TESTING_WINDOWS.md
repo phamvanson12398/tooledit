@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 72 — 🎭 Lồng tiếng nhân vật: chọn TÌNH HUỐNG 10–20 giây thay vì một khúc dài `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. Tạo job mới: một video tiếng Nhật dài (vd 10–20 phút), tick **🎭 Lồng tiếng nhân vật**, 🌐 chọn **tiếng Hàn**.
+   (Job cũ đã chia đoạn xong thì vẫn chạy kiểu cũ — muốn thử kiểu mới phải tạo job mới.)
+3. Bảng **✂️ Duyệt chia video**: mỗi video có dòng **🎬 N tình huống ghép thành video** — bấm mở ra thấy danh sách từng
+   tình huống (vd `30.0–45.0s (15s) — cú hài`). Kiểm tra: mỗi tình huống khoảng 10–20 giây, là một màn trọn vẹn (cãi
+   nhau, cú hài, pha bất ngờ…); cột Độ dài = TỔNG các tình huống (60–120 giây).
+4. Xác nhận → mở draft CapCut: video là các tình huống nối nhau theo thứ tự phim, chỗ rề rà giữa các tình huống đã bị
+   bỏ, không cắt giữa câu thoại.
+5. Nếu sửa giây bắt đầu / kết thúc của video trong bảng: tool chỉ giữ các tình huống nằm trong khoảng mới.
+
 ## Bước 71 — 🤖 OmniVoice đọc thoại thay bạn (giọng AI, clone giọng nhân vật) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Cài OmniVoice theo docs/SETUP_WINDOWS.md mục "OmniVoice", sửa `python:` trong `config\tts.yaml`.

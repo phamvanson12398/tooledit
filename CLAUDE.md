@@ -134,7 +134,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - Ô tick "🎭 Lồng tiếng nhân vật" (`JobOptions.char_dub`, `config/char_dub.yaml`), một video, cần chọn ngôn ngữ đích
   (vd phim tiếng Nhật → Hàn). Không hook riêng, không review, không ⚡.
 - AI chọn các ĐOẠN HAY hợp người xem TikTok (vào chuyện ngay, hài / gay cấn / cảm động, bỏ đoạn rề rà — luôn qua bảng
-  duyệt; `HIGHLIGHT_SEGMENT_NOTE`), mỗi đoạn một video 60–120s; kế hoạch dựng chỉ cắt bỏ chỗ rề rà, giữ thứ tự, tốc độ
+  duyệt; `HIGHLIGHT_SEGMENT_NOTE`), mỗi đoạn một video 60–120s; **cập nhật 11/10: chọn theo TÌNH HUỐNG ngắn 10–20 giây** (một màn cãi nhau,
+  một cú hài, một pha bất ngờ — `situation_s` trong `config/char_dub.yaml`), ghép vài tình huống thành một video
+  (`SegmentVideo.moments`, `check_moments`), không lấy một khúc dài liền; clip của kế hoạch dựng = đúng các tình huống đã
+  duyệt (`situation_clips`); kế hoạch dựng chỉ cắt bỏ chỗ rề rà, giữ thứ tự, tốc độ
   1.0, không cắt giữa câu thoại, không "khác bản gốc" (không lật / filter mạnh) — `CHAR_DUB_RULE`.
 - AI dịch từng câu thoại (khớp thời điểm câu gốc để khớp miệng) và ghi `speaker` = tên nhân vật từng câu (nhận ra qua
   lời thoại + khung hình gần câu đó; `make_char_dub`, prompt `dub_char.md`); không có lời dẫn.

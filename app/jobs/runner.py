@@ -463,7 +463,8 @@ class Runner:
             return
         sp = make_segments(self.director, analysis, u, review=job.options.review, highlight=job.options.char_dub)
         videos = [{"index": i, "start": v.start, "end": v.end, "title_vi": v.title_vi, "summary_vi": v.summary_vi,
-                   "why_vi": v.why_vi} for i, v in enumerate(sorted(sp.videos, key=lambda v: v.start), 1)]
+                   "why_vi": v.why_vi, **({"moments": [m.model_dump() for m in v.moments]} if v.moments else {})}
+                  for i, v in enumerate(sorted(sp.videos, key=lambda v: v.start), 1)]
         data = {"proposal": sp.model_dump(), "videos": videos, "confirmed": False}
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         job.data["videos"] = videos
@@ -494,10 +495,20 @@ class Runner:
             if float(y["start"]) < float(x["end"]) - 0.5:
                 raise ValueError(f"Video {float(x['start']):.1f}–{float(x['end']):.1f}s và "
                                  f"{float(y['start']):.1f}–{float(y['end']):.1f}s chồng nhau.")
-        videos = [{"index": i, "start": float(r["start"]), "end": float(r["end"]), "title_vi": r.get("title_vi", ""),
-                   "summary_vi": r.get("summary_vi", "")} for i, r in enumerate(rows, 1)]
         path = plan_dir / "segments.json"
         data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+        # tình huống ngắn (lồng tiếng nhân vật): giữ các tình huống AI chọn nằm trong điểm cắt mới
+        pool = {(m["start"], m["end"]): m for v in (data.get("proposal") or {}).get("videos", []) + data.get("videos", [])
+                for m in v.get("moments") or []}
+
+        def moments_in(r: dict) -> list[dict]:
+            a, b = float(r["start"]), float(r["end"])
+            src = r["moments"] if r.get("moments") is not None else sorted(pool.values(), key=lambda m: m["start"])
+            return [m for m in src if m["start"] >= a - 0.5 and m["end"] <= b + 0.5]
+
+        videos = [{"index": i, "start": float(r["start"]), "end": float(r["end"]), "title_vi": r.get("title_vi", ""),
+                   "summary_vi": r.get("summary_vi", ""), **({"moments": ms} if (ms := moments_in(r)) else {})}
+                  for i, r in enumerate(rows, 1)]
         changed = data.get("videos") != videos or not data.get("confirmed")
         data.update({"videos": videos, "confirmed": True})
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -579,7 +590,7 @@ class Runner:
             if choice and not chosen:
                 self.log(f"Không thấy bài nhạc đã chọn '{choice}' trong kho — để AI tự chọn.")
             plan = make_plan(self.director, analysis, self._u_for(job, v), self._style(job, style_name), hook=hook,
-                             hook_s=hook_s, video_index=i,
+                             hook_s=hook_s, video_index=i, moments=v.get("moments"),
                              music_items=chosen or music,
                              sfx_items=[m for m in tpl.library if m.kind == "sfx"],
                              decor_items=[m for m in tpl.library if m.kind in ("video_effect", "sticker",

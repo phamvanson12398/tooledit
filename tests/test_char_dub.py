@@ -28,6 +28,13 @@ LINES = [  # 4 câu thoại, 2 nhân vật — nằm trong clip 1–45s của _s
 ]
 
 
+MOMENTS = [{"start": 1.0, "end": 19.0, "note_vi": "cãi nhau"}, {"start": 30.0, "end": 45.0, "note_vi": "cú hài"},
+           {"start": 50.0, "end": 65.0}, {"start": 70.0, "end": 85.0}, {"start": 90.0, "end": 105.0, "note_vi": "bất ngờ"}]
+SEG = {"videos": [{"start": 1.0, "end": 105.0, "title_vi": "a", "summary_vi": "a", "why_vi": "cãi nhau rất hài",
+                   "moments": MOMENTS}],
+       "dropped": [{"start": 150.0, "end": 400.0, "reason_vi": "rề rà"}], "editor_notes": "1 video 5 tình huống"}
+
+
 def _script(index: int = 1, lines=None) -> dict:
     return {"video_index": index, "lines": [dict(x, kind="dub") for x in (lines or LINES)], "editor_notes": "dịch thoại"}
 
@@ -37,14 +44,23 @@ def _u(a, lo=0.0, hi=60.0):
     return u.model_copy(update={"usable_range": u.usable_range.model_copy(update={"start": lo, "end": hi})})
 
 
-def test_highlight_segments_for_tiktok(tmp_path):
+def test_highlight_segments_are_short_situations(tmp_path):
+    """Chủ dự án yêu cầu 11/10: chọn từng TÌNH HUỐNG 10–20 giây rồi ghép thành video, không lấy một khúc 80 giây liền."""
     a = make_analysis(tmp_path, duration=400.0)
-    d = FakeDirector()
-    make_segments(d, a, understand(FakeDirector(), a), highlight=True)
+    u = understand(FakeDirector(), a)
+    u = u.model_copy(update={"usable_range": u.usable_range.model_copy(update={"start": 0.0, "end": 400.0})})
+    one_block = {**SEG, "videos": [dict(SEG["videos"][0], moments=[{"start": 1.0, "end": 85.0}])]}
+    no_moments = {**SEG, "videos": [{k: v for k, v in SEG["videos"][0].items() if k != "moments"}]}
+    off = {**SEG, "videos": [dict(SEG["videos"][0], start=0.0, end=120.0)]}  # start/end lệch → tự sửa theo tình huống
+    d = FakeDirector(responses={"segment": [one_block, no_moments, off]})
+    sp = make_segments(d, a, u, highlight=True)
     prompt = d.calls[0]["prompt"]
-    assert "CHỌN ĐOẠN HAY CHO NGƯỜI XEM TIKTOK" in prompt and "rề rà" in prompt and d.calls[0]["images"]
+    assert "CHỌN TÌNH HUỐNG HAY CHO NGƯỜI XEM TIKTOK" in prompt and "rề rà" in prompt and d.calls[0]["images"]
     cc = config.load("char_dub")
-    assert f"{cc['min_video_s']}–{cc['max_video_s']} giây" in prompt
+    assert f"{cc['min_video_s']}–{cc['max_video_s']} giây" in prompt and "10–20 giây" in prompt
+    assert "dài 84s" in d.calls[1]["prompt"] and "thiếu `moments`" in d.calls[2]["prompt"]
+    v = sp.videos[0]
+    assert (v.start, v.end) == (1.0, 105.0) and len(v.moments) == 5
 
 
 def test_char_dub_script_needs_speaker_per_line(tmp_path):
@@ -62,6 +78,19 @@ def test_char_dub_script_needs_speaker_per_line(tmp_path):
     assert "thiếu `speaker`" in d.calls[1]["prompt"] and "không có lời dẫn" in d.calls[2]["prompt"]
     assert [ln.speaker for ln in s.lines] == ["징징이", "스펀지밥", "징징이", "스펀지밥"]
     assert dub_io.speakers_of(s) == {"징징이": [1, 3], "스펀지밥": [2, 4]}
+
+
+def test_char_plan_clips_are_the_situations(tmp_path):
+    """Kế hoạch dựng ghép ĐÚNG các tình huống đã duyệt (mỗi tình huống một clip, tốc độ 1.0), dù AI viết clip khác."""
+    from tests.test_review import _clips, _plan
+
+    a = make_analysis(tmp_path, duration=400.0)
+    u = _u(a, 1.0, 105.0)
+    d = FakeDirector(responses={"plan": _plan(1, _clips(1.0, 40))})
+    plan = make_plan(d, a, u, {"char_dub": config.load("char_dub")}, moments=MOMENTS)
+    assert [(c.source_start, c.source_end, c.speed) for c in plan.clips] == \
+        [(m["start"], m["end"], 1.0) for m in MOMENTS]
+    assert "CÁC TÌNH HUỐNG ĐÃ DUYỆT" in d.calls[0]["prompt"] and "30.0–45.0s (15s) — cú hài" in d.calls[0]["prompt"]
 
 
 def test_char_plan_keeps_speed_and_length(tmp_path):
@@ -102,6 +131,9 @@ def test_upload_one_file_per_character(tmp_path):
 
 
 def test_char_dub_job_end_to_end(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.web.server import create_app
     from tests.test_review import _clips, _plan
 
     jobs = tmp_path / "jobs"
@@ -114,28 +146,28 @@ def test_char_dub_job_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(type(r), "_bgm", lambda self, job, analysis: bgm_calls.append(job.job_id) or None)
     u = load("understand.json")
     u["usable_range"] = {"start": 0.0, "end": 400.0}
-    seg = {"videos": [{"start": 1.0, "end": 150.0, "title_vi": "a", "summary_vi": "a", "why_vi": "cãi nhau rất hài"}],
-           "dropped": [{"start": 150.0, "end": 400.0, "reason_vi": "rề rà"}], "editor_notes": "1 đoạn hay"}
-    r._director = FakeDirector(responses={"understand": u, "segment": seg, "plan": _plan(1, _clips(1.0, 40)),
+    r._director = FakeDirector(responses={"understand": u, "segment": SEG, "plan": _plan(1, _clips(1.0, 40)),
                                           "dub_char": _script(1, [dict(x, source_start=x["source_start"] - 1.0,
                                                                        source_end=x["source_end"] - 1.5)
                                                                   for x in LINES]),
                                           "captions": load("captions.json")})
     job = r.run(job)
     assert job.step == "review_segments" and job.status == Status.waiting, job.message
-    assert "CHỌN ĐOẠN HAY CHO NGƯỜI XEM TIKTOK" in [c for c in r._director.calls if c["task"] == "segment"][0]["prompt"]
-    r.apply_segments(job, json.loads((jobs / "cd" / "plan" / "segments.json").read_text(encoding="utf-8"))["videos"])
+    assert "CHỌN TÌNH HUỐNG HAY" in [c for c in r._director.calls if c["task"] == "segment"][0]["prompt"]
+    page = TestClient(create_app(jobs, lambda root, log: None)).get("/jobs/cd").text
+    assert "5 tình huống" in page and "30.0–45.0s" in page and "cú hài" in page   # bảng duyệt hiện từng tình huống
+    rows = json.loads((jobs / "cd" / "plan" / "segments.json").read_text(encoding="utf-8"))["videos"]
+    r.apply_segments(job, [{k: v for k, v in rows[0].items() if k != "moments"}])  # form web không gửi tình huống
+    assert len(job.data["videos"][0]["moments"]) == 5                              # → vẫn giữ tình huống AI chọn
     job = r.resume(job)
+    plan = EditPlan.model_validate_json((jobs / "cd" / "plan" / "edit_plan_video01.json").read_text(encoding="utf-8"))
+    assert [(c.source_start, c.source_end) for c in plan.clips] == [(m["start"], m["end"]) for m in MOMENTS]
     assert job.step == "dub_voice" and job.status == Status.waiting, job.message
     assert any(c["task"] == "dub_char" for c in r._director.calls)
     txt = (jobs / "cd" / "dub_scripts.txt").read_text(encoding="utf-8")
     assert "🎭 THU THEO NHÂN VẬT" in txt and "징징이: 2 câu" in txt
     style = r._style(job)
     assert style.get("char_dub") and not style.get("remix") and "mirror" not in style  # hình giữ tự nhiên
-    from fastapi.testclient import TestClient
-
-    from app.web.server import create_app
-
     page = TestClient(create_app(jobs, lambda root, log: None)).get("/jobs/cd").text
     assert "Thu voice theo nhân vật" in page and "Tải giọng 징징이" in page and "Sửa tên người nói" in page
     for n in range(1, 5):

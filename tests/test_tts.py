@@ -16,7 +16,7 @@ from app.director.schemas import DubScript
 from app.jobs.job import Job, JobOptions, Status
 from app.planner import dub_io
 from app.tts import voices as ov
-from tests.test_char_dub import LINES, _script
+from tests.test_char_dub import LINES, SEG, _script
 from tests.test_director import make_analysis
 from tests.test_planner import load
 from tests.test_runner import make_runner
@@ -111,13 +111,11 @@ def _char_job(tmp_path):
     r = make_runner(tmp_path, jobs)
     u = load("understand.json")
     u["usable_range"] = {"start": 0.0, "end": 400.0}
-    seg = {"videos": [{"start": 1.0, "end": 150.0, "title_vi": "a", "summary_vi": "a", "why_vi": "hài"}],
-           "dropped": [], "editor_notes": "1 đoạn"}
     lines = [dict(x, source_start=x["source_start"] - 1.0, source_end=x["source_end"] - 1.5) for x in LINES]
     script = {**_script(1, lines), "cast": [{"speaker": "징징이", "instruct": "male, middle-aged, low pitch",
                                              "note_vi": "cáu kỉnh"},
                                             {"speaker": "스펀지밥", "instruct": "male, young adult, high pitch"}]}
-    r._director = FakeDirector(responses={"understand": u, "segment": seg, "plan": _plan(1, _clips(1.0, 40)),
+    r._director = FakeDirector(responses={"understand": u, "segment": SEG, "plan": _plan(1, _clips(1.0, 40)),
                                           "dub_char": script, "captions": load("captions.json")})
     job = r.run(job)
     r.apply_segments(job, json.loads((jobs / "tv" / "plan" / "segments.json").read_text(encoding="utf-8"))["videos"])
