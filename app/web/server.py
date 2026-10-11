@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from app import config as app_config
 from app.config import ROOT
+from app.director import AI_NAMES
 from app.jobs.job import STEPS, Job, JobOptions, Status
 
 JOBS_ROOT = ROOT / "jobs"
@@ -100,6 +101,18 @@ STEP_VI_MODE = {
 MODE_VI = {"char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
            "voice_only": "🎙️ Chỉ thay tiếng", "dub": "🌐 Đổi ngôn ngữ", "montage": "🎞️ Ghép nhiều video",
            "normal": "✂️ Dựng thường"}
+
+
+def _ai_of(job) -> str:
+    """AI đạo diễn của job: chọn khi tạo job, không chọn thì theo default_ai trong config/director.yaml."""
+    ai = job.options.ai or app_config.load("director").get("default_ai") or "claude"
+    return ai if ai in AI_NAMES else "claude"
+
+
+def _ai_options(selected: str | None = None) -> str:
+    sel = selected or app_config.load("director").get("default_ai") or "claude"
+    return "".join(f"<option value='{k}' {'selected' if k == sel else ''}>{html.escape(v)}</option>"
+                   for k, v in AI_NAMES.items())
 
 
 def job_mode(job) -> str:
@@ -191,6 +204,8 @@ class Worker:
 
             runner = self.runner_factory(self.jobs_root, log)
             job = Job.load(self.jobs_root, job_id)
+            if hasattr(runner, "use_ai"):  # AI đạo diễn đã chọn cho job (Claude / Gemini)
+                runner.use_ai(job)
             if action:
                 action(runner, job)
             if job.status == Status.pending:
@@ -376,6 +391,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             thêm voice thuyết minh + phụ đề + tiêu đề (ngôn ngữ đã chọn ở trên), nhạc nền nhẹ và hiệu ứng. Không có hook,
             không chia video. Đoạn vi phạm chính sách TikTok vẫn bị cắt.</div>
 </div>
+          <div class="field"><label>🤖 AI đạo diễn</label><select name="ai">{_ai_options()}</select>
+            <div class="muted">AI xem video, chọn đoạn, viết lời, lập kế hoạch dựng. Claude: gói Claude Pro qua Claude Code.
+            Gemini Pro: gói Google AI Pro qua Gemini CLI (cài một lần bằng install_gemini.bat). Đổi lại được ở trang job.</div></div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
             <div><label>Khung video</label><select name="ratio">
@@ -520,7 +538,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 split: str | None = Form(None), target_language: str = Form(""), music: str = Form(""),
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
                 keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None),
-                vi_sub: str | None = Form(None), review: str | None = Form(None), char_dub: str | None = Form(None)):
+                vi_sub: str | None = Form(None), review: str | None = Form(None), char_dub: str | None = Form(None),
+                ai: str = Form("")):
         paths = [Path(x.strip().strip('"')) for x in footage.splitlines() if x.strip().strip('"')]
         missing_files = [p for p in paths if not p.is_file()]
         if not paths or missing_files:
@@ -557,7 +576,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             char_dub=bool(char_dub),
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
             script_mode=script_mode if script_mode in ("rewrite", "translate") else "",
-            vi_sub=bool(vi_sub) and len(paths) == 1))
+            vi_sub=bool(vi_sub) and len(paths) == 1, ai=ai if ai in AI_NAMES else ""))
         job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
         if music_file is not None and music_file.filename:
             chosen = _save_user_music(music_file, Path(assets_root))
@@ -591,7 +610,14 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         head = (f"<div class='card'><div style='display:flex;justify-content:space-between;align-items:center'>"
                 f"<div><h2 style='margin:0'>{html.escape(Path(job.footage[0]).name)}</h2>"
                 f"<div class='muted'><b>{MODE_VI[job_mode(job)]}</b> · {job.job_id} · kiểu dựng: {html.escape(style)} · "
-                f"{html.escape(job.footage[0])}</div></div>"
+                f"🤖 AI: <b>{AI_NAMES[_ai_of(job)]}</b> · {html.escape(job.footage[0])}</div>"
+                + ("" if running else
+                   f"<form method='post' action='/jobs/{job_id}/ai' style='margin-top:6px'>"
+                   f"<select name='ai' style='width:auto'>{_ai_options(_ai_of(job))}</select> "
+                   "<button type='submit' class='btn small light'>🔁 Đổi AI cho job này</button> "
+                   "<span class='muted'>(áp dụng từ bước AI tiếp theo — vd Claude hết lượt thì chuyển sang Gemini rồi bấm "
+                   "Chạy tiếp)</span></form>")
+                + "</div>"
                 f"<span class='badge b-{status}'>{'<span class=spinner></span> ' if running else ''}{STATUS_VI[status]}</span>"
                 f"</div><div class='stepper' style='margin-top:14px'>{''.join(chips)}</div>")
         if job.data.get("summary_vi"):
@@ -903,6 +929,15 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         job.data["dub_skip"] = True
         job.save(Path(jobs_root))
         worker.start(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/ai")
+    def set_ai(job_id: str, ai: str = Form(...)):
+        """Đổi AI đạo diễn của job (Claude / Gemini) — áp dụng từ lần hỏi AI tiếp theo."""
+        if ai in AI_NAMES and job_id not in worker.active:
+            job = Job.load(Path(jobs_root), job_id)
+            job.options.ai = ai
+            job.save(Path(jobs_root))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/redo")

@@ -91,6 +91,25 @@ duyệt, rồi gõ `/exit`. Xong mở lại `start.bat`.
 Nếu `claude` vẫn "not recognized" sau khi mở lại PowerShell: file cài nằm ở
 `%USERPROFILE%\.local\bin\claude.exe`; xem https://code.claude.com/docs/en/troubleshoot-install.
 
+## Gemini Pro — AI đạo diễn thứ hai (TÙY CHỌN)
+
+Khi tạo job có ô **🤖 AI đạo diễn**: Claude (mặc định) hoặc **Gemini Pro**. Gemini chạy qua Gemini CLI chính thức của
+Google, đăng nhập bằng tài khoản Google có **gói Google AI Pro** — không cần API key.
+
+**Cách dễ nhất:** nhấp đúp **`install_gemini.bat`** trong thư mục tool. File này:
+1. kiểm tra Node.js (Gemini CLI cần Node.js 20+); chưa có thì cài bằng `winget` — cài xong **đóng cửa sổ, nhấp đúp lại**;
+2. cài Gemini CLI bản 0.63.0 (bản tool đã đối chiếu cờ lệnh): `npm install -g @google/gemini-cli@0.63.0`;
+3. mở Gemini lần đầu: chọn **Sign in with Google**, đăng nhập trên trình duyệt, thấy giao diện chat thì gõ `/quit`.
+
+Kiểm tra bằng PowerShell:
+
+```powershell
+gemini --version      # in ra 0.63.0
+```
+
+**Đăng nhập lại / đổi tài khoản Google:** gõ `gemini`, gõ `/auth`, chọn lại **Sign in with Google**, rồi `/quit`.
+Model mặc định `gemini-2.5-pro` (sửa `gemini_model` trong `config\director.yaml`; để `null` = Gemini CLI tự chọn).
+
 ## OmniVoice — giọng AI đọc thoại (TÙY CHỌN)
 
 Dùng khi muốn tool tự đọc thoại thay vì tự thu (nút **🤖 Cho OmniVoice đọc** trên trang voice). OmniVoice

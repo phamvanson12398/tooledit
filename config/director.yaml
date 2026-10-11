@@ -2,9 +2,15 @@
 # đăng nhập Pro, chỉ nhận API key). Cờ lệnh đã đối chiếu với `claude --help` bản 2.1.282 và
 # https://code.claude.com/docs/en/headless.
 backend: claude_cli          # claude_cli | fake
+default_ai: claude           # AI mặc định khi tạo job: claude | gemini (chọn lại được cho từng job ở trang chủ)
 claude_exe: claude
 model: null                  # null = mặc định của tài khoản; hoặc "sonnet", "opus"...
 effort: null                 # null | low | medium | high
+# Gemini Pro qua Gemini CLI (chủ dự án 11/10): đăng nhập bằng tài khoản Google có gói Google AI Pro, không cần API key.
+# Cờ lệnh đối chiếu mã nguồn @google/gemini-cli bản 0.63.0 (xem app/director/gemini_cli.py).
+gemini_exe: gemini
+gemini_model: gemini-2.5-pro # tên model trong tài liệu Gemini CLI; null = để Gemini CLI tự chọn (Auto);
+                             # có thể thử "gemini-3-pro-preview" nếu tài khoản được dùng
 max_attempts: 3              # số lần gọi lại khi JSON sai khuôn
 timeout_s: 900
 # Thư mục làm việc tạm cho đạo diễn, NẰM NGOÀI repo để Claude Code không nạp CLAUDE.md của dự án.

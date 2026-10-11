@@ -51,6 +51,7 @@ class JobOptions(BaseModel):
     keep_bgm: bool = False            # (cùng voice_only) giữ nhạc nền gốc: tách giọng nói ra, chỉ thay lời thuyết minh
     review: bool = False              # Review phim / hoạt hình (09/10): tìm đoạn hay, mỗi đoạn 1 video 60–90s + lời review
     char_dub: bool = False            # Lồng tiếng nhân vật (11/10): đoạn hay TikTok, thay giọng từng nhân vật, giữ nền gốc
+    ai: str = ""                      # AI đạo diễn của job (11/10): "claude" | "gemini"; "" = default_ai trong config
 
 
 class HistoryEntry(BaseModel):

@@ -110,6 +110,8 @@ class Runner:
         self.jobs_root = Path(jobs_root)
         self.log = log
         self._director = director
+        self._fixed_director = director is not None  # test truyền sẵn đạo diễn → luôn dùng cái đó
+        self._ai: str | None = None
         self._analyze_fn = analyze_fn
         self._probe = probe_duration_fn
         self._drafts_dir = drafts_dir
@@ -122,8 +124,15 @@ class Runner:
         if self._director is None:
             from app.director import get_director
 
-            self._director = get_director(log=self.log)
+            self._director = get_director(ai=self._ai, log=self.log)
         return self._director
+
+    def use_ai(self, job: Job) -> None:
+        """Dùng AI đạo diễn đã chọn cho job này (Claude / Gemini — chủ dự án 11/10)."""
+        ai = job.options.ai or None
+        if ai != self._ai and not self._fixed_director:
+            self._director = None
+        self._ai = ai
 
     def _paths(self, job: Job) -> tuple[Path, Path, Path]:
         d = job.dir(self.jobs_root)
@@ -340,6 +349,7 @@ class Runner:
         from app.jobs import stop
 
         stop.set_current(job.job_id)
+        self.use_ai(job)
         log = self.log
 
         def checked_log(msg: str) -> None:  # mỗi lần báo tiến trình là một điểm kiểm tra Dừng

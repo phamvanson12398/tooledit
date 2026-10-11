@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 77 — 🤖 Chọn AI đạo diễn cho từng job: Claude hoặc Gemini Pro `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Đóng `start.bat`, `git pull`.
+2. Nhấp đúp **`install_gemini.bat`** (xem docs/SETUP_WINDOWS.md mục Gemini): đăng nhập "Sign in with Google" bằng tài
+   khoản có gói Google AI Pro, gõ `/quit`. Kiểm tra: PowerShell gõ `gemini --version` → `0.63.0`.
+3. Mở `start.bat`, Ctrl+F5. Trang chủ có ô **🤖 AI đạo diễn** → chọn **Gemini Pro**, tạo một job ngắn.
+4. Nhật ký job hiện "Đang hỏi đạo diễn AI Gemini (…)"; đầu trang job ghi "🤖 AI: Gemini Pro". Kiểm tra AI có hiểu đúng
+   nội dung video (bước hiểu nội dung gửi kèm khung hình — xem tóm tắt có tả đúng hình không).
+5. Thử đổi AI: ở trang job (khi job đang chờ / lỗi) chọn Claude → **🔁 Đổi AI cho job này** → Chạy tiếp.
+6. Báo lỗi "Gemini CLI chưa đăng nhập" → làm lại bước 2. Báo "hết hạn mức" → đợi, hoặc đổi job sang Claude.
+
 ## Bước 76 — Trang chủ gọn hơn: chỉ "AI tự chọn", thêm khung video, bỏ ô giữ nhạc nền `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.

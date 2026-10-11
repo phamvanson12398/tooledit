@@ -40,3 +40,11 @@ def test_blocks_are_balanced(bat):
 
 def test_scripts_exist():
     assert {"install.bat", "install_omnivoice.bat", "start.bat"} <= {p.name for p in BATS}
+
+
+@pytest.mark.parametrize("bat", BATS, ids=lambda p: p.name)
+def test_cmd_scripts_are_called(bat):
+    """npm / gemini là file .cmd: gọi không có `call` thì cmd chuyển hẳn sang đó và KHÔNG quay lại file .bat."""
+    bad = [f"dòng {i}: {ln.strip()}" for i, ln in enumerate(bat.read_text(encoding="utf-8").splitlines(), 1)
+           if re.match(r"\s*(npm|npx|gemini)\b", ln, re.I)]
+    assert not bad, "thiếu `call` trước lệnh .cmd:\n" + "\n".join(bad)
