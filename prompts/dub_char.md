@@ -10,7 +10,6 @@ phụ đề chính là các câu này.
 - `speaker` = TÊN nhân vật, viết THỐNG NHẤT suốt video (cùng một người luôn cùng một tên, vd luôn "징징이" hoặc luôn
   "Squidward" — chọn tên khán giả {{market}} quen; xem "Tên riêng đúng"). Không biết tên thì đặt theo đặc điểm, ngắn, dễ
   nhớ: "Cậu bé áo đỏ", "Ông chủ", "Người dẫn chuyện".
-- Một câu gốc có 2 người nói xen nhau thì TÁCH thành 2 câu, mỗi câu một `speaker`.
 
 ## 2. Giọng từng nhân vật (`cast`)
 Với MỖI nhân vật có trong `speaker`, thêm một phần tử `cast`: `speaker` (đúng tên), `instruct` = mô tả giọng cho máy đọc
@@ -19,16 +18,17 @@ middle-aged / elderly; very low pitch / low pitch / moderate pitch / high pitch 
 thì thầm) — vd "male, young adult, high pitch"; `note_vi` = chất giọng / tính cách (tiếng Việt, ngắn) để chủ dự án chọn
 giọng khi thu tay.
 
-## 3. Dịch thoại
-- Mỗi phần tử `lines` = một câu thoại gốc: `source_start`–`source_end` là giây GỐC của câu đó (lấy theo lời thoại bên
-  dưới), nằm gọn trong MỘT clip được giữ, theo thứ tự, không chồng nhau — giọng lồng sẽ đặt đúng lúc nhân vật mở miệng.
+## 3. Dịch thoại — MỖI CÂU GỐC ĐÚNG MỘT CÂU DỊCH
+- Bên dưới là {{n_lines}} câu thoại gốc đã đánh số, kèm giây gốc. `lines` phải có ĐÚNG {{n_lines}} phần tử, theo đúng
+  thứ tự số: phần tử thứ k là bản dịch của câu gốc số k. KHÔNG gộp câu, KHÔNG bỏ câu nào, KHÔNG thêm câu — kể cả câu rất
+  ngắn, câu cảm thán, tiếng kêu có chữ ("え？" → "어?", "うわっ！" → "으악!"): chỗ nào nhân vật mở miệng thì phải có giọng lồng.
+- `source_start` / `source_end`: chép đúng giây của câu gốc đó (tool tự đặt lại cho khớp, bạn không cần chọn).
 - Dịch thành văn NÓI tự nhiên của người bản xứ {{market}}, ĐÚNG TÍNH CÁCH từng nhân vật (trẻ con nói kiểu trẻ con, người
   già kiểu người già, cáu thì cáu, đùa thì đùa); xưng hô đúng quan hệ nhân vật. Không dịch từng chữ.
-- Đọc kịp trong thời gian câu gốc: mỗi câu dài {{line_min}}–{{line_max}} giây, tối đa khoảng {{max_cps}} ký tự/giây
-  (không tính dấu cách, dấu câu) — câu gốc dài thì nói gọn ý chính, không bịa thêm. Câu gốc rất ngắn liền nhau của CÙNG
-  một người thì gộp.
-- Tiếng hét / cười / thở / tiếng kêu không thành lời: KHÔNG viết thành câu (giữ âm thanh gốc nếu được).
-- `kind` luôn là "dub" (chế độ này KHÔNG có lời dẫn — chỗ không ai nói để nguyên tiếng nền gốc).
+- Đọc kịp trong thời gian câu gốc (khớp miệng): tối đa khoảng {{max_cps}} ký tự/giây theo độ dài ghi ở mỗi câu (không tính
+  dấu cách, dấu câu) — câu gốc ngắn thì dịch ngắn, nói gọn ý chính, không bịa thêm.
+- Một câu gốc mà 2 người nói xen nhau: vẫn MỘT phần tử, `speaker` = người nói phần chính.
+- `kind` luôn là "dub" (chế độ này KHÔNG có lời dẫn — chỗ không ai nói tool tự giữ âm thanh gốc).
 - `text_vi` = nghĩa tiếng Việt; `action_vi` = nhân vật đang làm gì (ngắn, để chủ dự án nhập vai khi thu); `adapt_vi` =
   chỗ bản địa hóa (đổi cách đùa / đơn vị…), không có thì để trống.
 - Không chửi thề, không nhắc nền tảng khác ngoài TikTok, không nhắc nội dung đã bị cắt vì chính sách.
@@ -44,11 +44,8 @@ giọng khi thu tay.
 ## Tên riêng đúng
 {{name_corrections}}
 
-## Clip được giữ (giây gốc, theo thứ tự trên video)
-{{clips}}
-
 ## Khung hình gần từng câu thoại (mở bằng Read để xem ai đang nói) — giây gốc
 {{frames}}
 
-## Lời thoại gốc ([giây gốc] lời thoại)
-{{transcript}}
+## {{n_lines}} câu thoại gốc cần dịch ([giây gốc, độ dài] lời thoại)
+{{source_lines}}

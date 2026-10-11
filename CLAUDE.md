@@ -141,6 +141,11 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   1.0, không cắt giữa câu thoại, không "khác bản gốc" (không lật / filter mạnh) — `CHAR_DUB_RULE`.
 - AI dịch từng câu thoại (khớp thời điểm câu gốc để khớp miệng) và ghi `speaker` = tên nhân vật từng câu (nhận ra qua
   lời thoại + khung hình gần câu đó; `make_char_dub`, prompt `dub_char.md`); không có lời dẫn.
+  **Cập nhật 11/10 (chủ dự án: "không khớp", "nhân vật đang nói mà không có tiếng", "không cần edit nhiều"):** mốc giờ câu
+  lồng tiếng do CODE lấy từ câu gốc Whisper (`app/planner/char_lines.source_lines`, câu > `max_line_s` tách ở chỗ ngắt),
+  AI phải trả ĐÚNG mỗi câu gốc một câu dịch (`check_char_dub`); giọng gốc Demucs tách ra phát lại ở chỗ không có câu lồng
+  (tiếng cười / hét / câu nghe sót — `keep_unvoiced`, builder `vocals_audio`); kế hoạch dựng tự bỏ zoom / hiệu ứng /
+  sticker / SFX / chữ nhấn / chuyển cảnh / filter, không tự thêm chuyển động hình — chỉ chọn đoạn hay.
 - Chủ dự án thu voice THEO NHÂN VẬT: mỗi nhân vật một file (đọc hết câu của nhân vật đó, nghỉ ~1 giây) — tool cắt đúng vào
   các câu (`dub_io.split_upload_speaker`); sửa tên nhân vật AI đoán nhầm ngay trên trang voice (`set_speakers`).
 - Âm thanh: tiếng nói gốc tách bỏ bằng Demucs, NHẠC + TIẾNG NỀN GỐC GIỮ NGUYÊN (hạ nhỏ dưới giọng lồng), không thêm

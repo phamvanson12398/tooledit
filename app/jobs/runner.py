@@ -166,7 +166,8 @@ class Runner:
         if ratio in ("16:9", "4:3", "1:1"):  # khung người dùng chọn khi tạo job
             style = {**style, "block_ratio": ratio, "crop_ratio": ratio}
         if job.options.char_dub:  # lồng tiếng nhân vật: hình giữ tự nhiên (không "khác bản gốc"), chỉ cắt rề rà
-            style = {**style, "char_dub": config.load("char_dub"), "reorder": False, "cold_open": False, "remix": False}
+            style = {**style, "char_dub": config.load("char_dub"), "reorder": False, "cold_open": False, "remix": False,
+                     "motion": {}}  # không tự thêm chuyển động hình (chủ dự án 11/10: chỉ chọn đoạn hay, không edit)
         elif job.options.target_language and not job.options.voice_only:
             dcfg = config.load("dub")
             style = {**style, **(dcfg.get("style_override") or {})}
@@ -875,6 +876,13 @@ class Runner:
         self.log(f"Dò được {len(boxes)} vùng chữ in sẵn trên footage.")
         return boxes
 
+    def _unvoiced_vocals(self, job: Job, analysis: Path, bgm: Path | None) -> Path | None:
+        """Lồng tiếng nhân vật: giọng gốc Demucs tách ra, phát ở chỗ không có câu lồng tiếng (tiếng cười, hét…)."""
+        if not (job.options.char_dub and bgm and config.load("char_dub").get("keep_unvoiced", True)):
+            return None
+        voc = analysis / "audio" / "vocals_00.wav"
+        return voc.resolve() if voc.is_file() else None
+
     def _bgm(self, job: Job, analysis: Path) -> Path | None:
         """Nhạc nền gốc đã tách giọng nói (lưu analysis/audio/bgm_00.wav, tách một lần). Không tách được → None
         (dùng nhạc AI chọn như thường) và ghi lý do vào nhật ký."""
@@ -1038,7 +1046,7 @@ class Runner:
         res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                     hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
                     video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job),
-                    bgm_audio=bgm)
+                    bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm))
         out = res.writer.save(overwrite=True)
         dur = round(res.duration_us / 1_000_000, 1)
         info = {"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),

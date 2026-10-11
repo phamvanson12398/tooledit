@@ -7,6 +7,10 @@ situation_s: [10, 20]    # chủ dự án yêu cầu 11/10: chọn từng TÌNH 
                          # thành một video (không lấy một khúc 80 giây liền); máy chấp nhận 7–30 giây
 min_raw_s: 60            # khoảng phim gốc từ tình huống đầu tới tình huống cuối của mỗi video
 max_raw_s: 900
+max_line_s: 7.0          # câu thoại gốc dài hơn thì tách ở chỗ ngắt (giọng lồng bám miệng sát hơn)
+keep_unvoiced: true      # giữ GIỌNG GỐC ở chỗ không có câu lồng tiếng (tiếng cười, hét, câu Whisper nghe sót) thay vì
+                         # im lặng; tắt đúng trong các câu lồng tiếng (cần Demucs)
+unvoiced_db: 0           # âm lượng giọng gốc ở các chỗ đó (dB)
 frames: 40               # khung hình gửi AI để nhận ra nhân vật nào đang nói
 # Nhận diện nhân vật: AI đoán người nói từng câu theo lời thoại (tên gọi, xưng hô, ngữ cảnh) + khung hình. Có thể nhầm —
 # sửa tên nhân vật từng câu ngay trên trang voice trước khi thu.

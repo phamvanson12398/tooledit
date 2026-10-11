@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 75 — 🎭 Lồng tiếng nhân vật: khớp miệng, không còn chỗ "đang nói mà không có tiếng", không edit thừa `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. Job MỚI là tốt nhất. Với job cũ: bấm **🎬 Lập lại kế hoạch dựng** — AI dịch lại theo cách mới, số câu có thể khác nên
+   voice đã thu phải thu / cho OmniVoice đọc lại.
+3. Trang voice + `dub_scripts.txt`: số câu = đúng số câu thoại gốc; mỗi câu ghi đúng giây của câu gốc (kể cả câu rất
+   ngắn như "え？" → "어?").
+4. Mở draft CapCut, kiểm tra:
+   - Không có zoom, sticker, chữ nhấn, SFX, chuyển cảnh, filter — hình y như phim gốc, chỉ có các tình huống nối nhau +
+     phụ đề + tiêu đề.
+   - Giọng lồng bắt đầu đúng lúc nhân vật mở miệng.
+   - Có thêm một track âm thanh `vocals_00.wav` (giọng gốc): nó chỉ phát ở chỗ KHÔNG có câu lồng (tiếng cười, hét…),
+     tắt trong các câu lồng. Chỗ nào nghe lẫn tiếng Nhật thì đó là câu Whisper không nhận ra — báo Claude giây thứ mấy.
+     Không muốn giữ giọng gốc: sửa `keep_unvoiced: false` trong `config\char_dub.yaml` rồi bấm 🔁 Dựng lại draft.
+
 ## Bước 74 — Cài OmniVoice bằng một cú nhấp đúp (`install_omnivoice.bat`) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 Dùng khi bấm 🤖 Cho OmniVoice đọc mà báo "chưa cài OmniVoice".

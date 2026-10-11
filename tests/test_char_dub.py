@@ -35,6 +35,14 @@ SEG = {"videos": [{"start": 1.0, "end": 105.0, "title_vi": "a", "summary_vi": "a
        "dropped": [{"start": 150.0, "end": 400.0, "reason_vi": "rề rà"}], "editor_notes": "1 video 5 tình huống"}
 
 
+def _talk(analysis_dir: Path, lines=None, shift=(0.0, 0.0)) -> None:
+    """Lời thoại gốc (Whisper) trùng các câu mẫu — mốc giờ câu lồng tiếng lấy từ đây."""
+    segs = [{"start": x["source_start"] + shift[0], "end": x["source_end"] + shift[1], "text": f"台詞{i}", "words": []}
+            for i, x in enumerate(lines or LINES, 1)]
+    (analysis_dir / "transcript.json").write_text(json.dumps([{"footage": 0, "language": "ja", "segments": segs}]),
+                                                  encoding="utf-8")
+
+
 def _script(index: int = 1, lines=None) -> dict:
     return {"video_index": index, "lines": [dict(x, kind="dub") for x in (lines or LINES)], "editor_notes": "dịch thoại"}
 
@@ -64,20 +72,44 @@ def test_highlight_segments_are_short_situations(tmp_path):
 
 
 def test_char_dub_script_needs_speaker_per_line(tmp_path):
-    """AI dịch thoại + ghi tên nhân vật từng câu; thiếu tên nhân vật hoặc viết lời dẫn → bị yêu cầu sửa."""
+    """Mỗi câu gốc đúng một câu lồng tiếng (không gộp / bỏ câu → không có chỗ nhân vật mở miệng mà im lặng), mốc giờ
+    lấy đúng câu gốc (khớp miệng) dù AI ghi lệch, câu nào cũng có tên nhân vật."""
     from tests.test_planner import _short_plan
 
     a = make_analysis(tmp_path, duration=60.0)
+    _talk(a)
     plan = EditPlan.model_validate(_short_plan())
     bad = _script(lines=[dict(LINES[0], speaker=""), *LINES[1:]])
-    narr = _script()
-    narr["lines"][1]["kind"] = "narration"
-    d = FakeDirector(responses={"dub_char": [bad, narr, _script()]})
+    merged = _script(lines=LINES[:3])                                      # AI gộp / bỏ một câu
+    off = _script(lines=[dict(x, source_start=x["source_start"] + 0.7, source_end=x["source_end"] - 0.4) for x in LINES])
+    off["lines"][1]["kind"] = "narration"
+    d = FakeDirector(responses={"dub_char": [bad, merged, off]})
     s = make_dub(d, a, _u(a), plan, mode="char")
     assert d.calls[0]["task"] == "dub_char" and "NHẬN DIỆN NHÂN VẬT" in d.calls[0]["prompt"].upper()
-    assert "thiếu `speaker`" in d.calls[1]["prompt"] and "không có lời dẫn" in d.calls[2]["prompt"]
+    assert "4 câu thoại gốc cần dịch" in d.calls[0]["prompt"] and "1. [2.00–5.00s, 3.0s] 台詞1" in d.calls[0]["prompt"]
+    assert "thiếu `speaker`" in d.calls[1]["prompt"] and "trả ĐÚNG 4 câu" in d.calls[2]["prompt"]
+    assert [(ln.source_start, ln.source_end) for ln in s.lines] == [(x["source_start"], x["source_end"]) for x in LINES]
+    assert all(ln.kind == "dub" for ln in s.lines)
     assert [ln.speaker for ln in s.lines] == ["징징이", "스펀지밥", "징징이", "스펀지밥"]
     assert dub_io.speakers_of(s) == {"징징이": [1, 3], "스펀지밥": [2, 4]}
+
+
+def test_source_lines_from_transcript():
+    """Câu gốc: theo clip được giữ, câu dài tách ở chỗ ngắt, câu vắt mép clip bị cắt theo clip."""
+    from app.director.schemas import PlanClip
+    from app.planner.char_lines import source_lines
+
+    words = [{"start": 10.0 + k * 0.5, "end": 10.4 + k * 0.5, "word": w} for k, w in enumerate("ああああ、いいいいいい")]
+    words[5]["start"] += 0.8  # khoảng lặng sau dấu phẩy
+    segs = [{"start": 1.0, "end": 3.0, "text": "おい", "words": []},
+            {"start": 10.0, "end": words[-1]["end"], "text": "ああああ、いいいいいい", "words": words},
+            {"start": 29.0, "end": 32.0, "text": "またね", "words": []},
+            {"start": 50.0, "end": 52.0, "text": "（ngoài clip）", "words": []}]
+    clips = [PlanClip(source_start=0.5, source_end=20.0), PlanClip(source_start=30.0, source_end=40.0)]
+    got = source_lines(segs, clips, max_s=4.0)
+    assert got[0] == {"start": 1.0, "end": 3.0, "text": "おい"}
+    assert [x["text"] for x in got[1:3]] == ["ああああ、", "いいいいいい"]          # tách ở dấu phẩy + khoảng lặng
+    assert got[3] == {"start": 30.0, "end": 32.0, "text": "またね"} and len(got) == 4  # cắt theo mép clip
 
 
 def test_char_plan_clips_are_the_situations(tmp_path):
@@ -103,7 +135,7 @@ def test_char_plan_keeps_speed_and_length(tmp_path):
     good = _plan(1, _clips(1.0, 40))                                      # 100 giây, tốc độ 1.0
     d = FakeDirector(responses={"plan": [fast, good]})
     make_plan(d, a, u, style)
-    assert "LỒNG TIẾNG NHÂN VẬT" in d.calls[0]["prompt"] and "rề rà" in d.calls[0]["prompt"]
+    assert "LỒNG TIẾNG NHÂN VẬT" in d.calls[0]["prompt"] and "CHỈ CHỌN ĐOẠN HAY, KHÔNG EDIT" in d.calls[0]["prompt"]
     assert len(d.calls) == 2 and "không dùng replay / tua nhanh" in d.calls[1]["prompt"]
 
 
@@ -140,7 +172,7 @@ def test_char_dub_job_end_to_end(tmp_path, monkeypatch):
     job = Job.create(jobs, [Path("C:/f/anime.mp4")], JobOptions(char_dub=True, target_language="ko", hook=True),
                      job_id="cd")
     assert not job.use_hook and job.applies("review_segments") and job.applies("dub")
-    make_analysis(jobs / "cd", duration=400.0)
+    _talk(make_analysis(jobs / "cd", duration=400.0), shift=(-1.0, -1.5))
     r = make_runner(tmp_path, jobs)
     bgm_calls = []
     monkeypatch.setattr(type(r), "_bgm", lambda self, job, analysis: bgm_calls.append(job.job_id) or None)
@@ -195,3 +227,46 @@ def test_web_char_dub(tmp_path):
     assert job.options.char_dub and job.options.target_language == "ko" and not job.use_hook
     page = client.get(f"/jobs/{job.job_id}").text
     assert "🎭 Lồng tiếng nhân vật" in page and "AI dịch thoại + nhận diện nhân vật" in page
+
+
+def test_char_dub_keeps_original_voice_where_not_dubbed_and_no_edits(tmp_path, monkeypatch):
+    """Chủ dự án 11/10: (1) chỗ nhân vật mở miệng mà không có câu lồng (tiếng cười, hét…) giữ GIỌNG GỐC, tắt đúng trong
+    các câu lồng tiếng; (2) chế độ này chỉ chọn đoạn hay — tool bỏ chữ nhấn / filter / zoom / SFX AI lỡ thêm."""
+    from fastapi.testclient import TestClient  # noqa: F401  (giữ cùng môi trường với test end-to-end)
+
+    from app.planner.voice_split import write_wav
+    from tests.test_review import _clips, _plan
+
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/anime.mp4")], JobOptions(char_dub=True, target_language="ko"), job_id="cv")
+    a = make_analysis(jobs / "cv", duration=400.0)
+    _talk(a, shift=(-1.0, -1.5))
+    audio = a / "audio"
+    audio.mkdir(parents=True)
+    write_wav(audio / "bgm_00.wav", np.zeros(48000, dtype=np.int16))
+    write_wav(audio / "vocals_00.wav", np.zeros(48000, dtype=np.int16))
+    r = make_runner(tmp_path, jobs)
+    monkeypatch.setattr(type(r), "_bgm", lambda self, job, analysis: (analysis / "audio" / "bgm_00.wav").resolve())
+    u = load("understand.json")
+    u["usable_range"] = {"start": 0.0, "end": 400.0}
+    busy = {**_plan(1, _clips(1.0, 40)), "emphasis": [{"source_time": 31.0, "text": "와"}], "filter": "Film"}
+    r._director = FakeDirector(responses={"understand": u, "segment": SEG, "plan": busy,
+                                          "dub_char": _script(1, [dict(x, source_start=x["source_start"] - 1.0,
+                                                                       source_end=x["source_end"] - 1.5)
+                                                                  for x in LINES]),
+                                          "captions": load("captions.json")})
+    job = r.run(job)
+    r.apply_segments(job, json.loads((jobs / "cv" / "plan" / "segments.json").read_text(encoding="utf-8"))["videos"])
+    job = r.resume(job)
+    plan = EditPlan.model_validate_json((jobs / "cv" / "plan" / "edit_plan_video01.json").read_text(encoding="utf-8"))
+    assert not plan.emphasis and plan.filter is None and not plan.zooms and not plan.sfx and not plan.effects
+    for n in range(1, 5):
+        write_wav(jobs / "cv" / "voice" / f"video01_dub{n:02d}.wav", np.zeros(48000 * 2, dtype=np.int16))
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+    content = json.loads((Path(job.data["draft"]) / "draft_content.json").read_text(encoding="utf-8"))
+    voc = {m["id"] for m in content["materials"]["audios"] if m.get("path", "").endswith("vocals_00.wav")}
+    segs = [s for t in content["tracks"] if t["type"] == "audio" for s in t["segments"] if s["material_id"] in voc]
+    assert len(segs) == len(MOMENTS)                                     # mỗi tình huống một đoạn giọng gốc
+    first = segs[0]["common_keyframes"][0]["keyframe_list"]
+    assert min(k["values"][0] for k in first) == 0.0 and max(k["values"][0] for k in first) > 0.9  # tắt trong câu lồng

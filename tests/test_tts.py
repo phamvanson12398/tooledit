@@ -16,7 +16,7 @@ from app.director.schemas import DubScript
 from app.jobs.job import Job, JobOptions, Status
 from app.planner import dub_io
 from app.tts import voices as ov
-from tests.test_char_dub import LINES, SEG, _script
+from tests.test_char_dub import LINES, SEG, _script, _talk
 from tests.test_director import make_analysis
 from tests.test_planner import load
 from tests.test_runner import make_runner
@@ -107,7 +107,7 @@ def _char_job(tmp_path):
 
     jobs = tmp_path / "jobs"
     job = Job.create(jobs, [Path("C:/f/anime.mp4")], JobOptions(char_dub=True, target_language="ko"), job_id="tv")
-    make_analysis(jobs / "tv", duration=400.0)
+    _talk(make_analysis(jobs / "tv", duration=400.0), shift=(-1.0, -1.5))
     r = make_runner(tmp_path, jobs)
     u = load("understand.json")
     u["usable_range"] = {"start": 0.0, "end": 400.0}

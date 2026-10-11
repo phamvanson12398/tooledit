@@ -234,10 +234,12 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
           name: str, style: dict, *, hook: HookOption | None = None, voice: tuple[Path, int] | None = None,
           clean_audio: Path | None = None, video_index: int = 1, beats_fn=None, dub=None,
           dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False,
-          bgm_audio: Path | None = None) -> BuildResult:
+          bgm_audio: Path | None = None, vocals_audio: Path | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
     bgm_audio: nhạc nền gốc đã tách giọng nói (chỉ thay tiếng + giữ nhạc nền) — thay cho nhạc AI chọn.
+    vocals_audio (lồng tiếng nhân vật): phần GIỌNG NÓI gốc Demucs tách ra — phát lại ở chỗ KHÔNG có câu lồng tiếng
+    (tiếng cười / hét / câu Whisper nghe sót) để nhân vật mở miệng không bao giờ bị câm; tắt đúng trong các câu lồng.
     vi_subtitles: thêm phụ đề tiếng Việt (nghĩa từng câu) ngay dưới phụ đề chính để chủ dự án kiểm tra voice / phụ đề
     đã khớp chưa — XÓA / TẮT trước khi xuất video đăng TikTok."""
     safe = config.load("safe_area")
@@ -410,6 +412,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     tmap = TimeMap(plan.clips, offset_us=hook_us)
     # ---------- thuyết minh (Đổi ngôn ngữ): vị trí từng câu trên timeline ----------
     dub_slots: list[tuple[int, int, int, str, tuple[Path, int] | None, float]] = []  # (câu, đầu, cuối, chữ, voice, tốc độ)
+    orig_spans: list[tuple[int, int]] = []  # chỗ câu thoại gốc trên timeline (giọng gốc phải tắt ở đây)
     if dub is not None:
         dcfg = config.load("dub")
         max_speed = float(dcfg.get("max_speed", 1.25))
@@ -426,6 +429,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                 notes.append(f"Câu thuyết minh {i} nằm ngoài các clip được giữ — bỏ qua.")
                 continue
             a, slot_s, _ = win
+            orig_spans.append((a, a + round(slot_s * SEC)))
             v = (dub_voices or {}).get(i)
             speed, start, end = 1.0, a, a + round(slot_s * SEC)
             if v and i in placed:
@@ -519,6 +523,14 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             w.add_local_audio(bgm_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed,
                               keyframes=duck_keyframes(p.out_start, p.out_end, bgm_voiced, b_lo, b_hi, 150_000) or None)
+        if vocals_audio and dub is not None and not clip.replay:  # giọng gốc chỉ ở chỗ không có câu lồng tiếng
+            pad = 150_000
+            mute = [(x - pad, y + pad) for x, y in orig_spans + bgm_voiced]
+            v_on = db_to_gain(float((style.get("char_dub") or {}).get("unvoiced_db", 0)
+                                    if isinstance(style.get("char_dub"), dict) else 0))
+            w.add_local_audio(vocals_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
+                              source_start=round(clip.source_start * SEC), speed=clip.speed,
+                              keyframes=duck_keyframes(p.out_start, p.out_end, mute, 0.0, v_on, 80_000) or None)
         if clean_audio and not clip.replay and not mute_orig:  # replay quay chậm: tắt tiếng gốc, để nhạc/SFX dẫn
             w.add_local_audio(clean_audio, src.duration, target_start=p.out_start, duration=p.out_duration,
                               source_start=round(clip.source_start * SEC), speed=clip.speed,
@@ -699,6 +711,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     # ---------- nhạc nền + ducking ----------
     if bgm_audio:
         notes.append("Giữ nhạc nền của video gốc (đã tách bỏ giọng nói), không thêm nhạc khác.")
+    if vocals_audio and dub is not None:
+        notes.append("Giữ giọng gốc ở chỗ không có câu lồng tiếng (tiếng cười, hét…), tắt đúng trong các câu lồng tiếng.")
     elif music is None:
         missing.append({"kind": "music", "what": plan.music.mood_vi, "energy": plan.music.energy,
                         "video": video_index, "at_s": 0.0,

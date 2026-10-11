@@ -518,6 +518,10 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
         sit_fix = []
         if sits:  # lồng tiếng nhân vật: clip đúng bằng các tình huống đã duyệt (tốc độ 1.0, theo thứ tự)
             p, sit_fix = situation_clips(p, sits)
+        if style.get("char_dub"):  # chủ dự án 11/10: chế độ này KHÔNG edit nhiều — chỉ chọn đoạn hay, giữ hình gốc
+            p = p.model_copy(update={"zooms": [], "effects": [], "stickers": [], "emphasis": [], "sfx": [],
+                                     "transitions": [], "arrows": [], "filter": None,
+                                     "clips": [c.model_copy(update={"ratio": None}) for c in p.clips]})
         p, cut = repair_policy(p, banned, load_cfg().get("min_piece_s", 0.5))
         p, fixes = repair_plan(p, min(duration, u.usable_range.end + 0.5))
         fixes = sit_fix + cut + fixes
@@ -645,13 +649,12 @@ def _char_cfg(style: dict) -> dict:
 
 
 CHAR_DUB_RULE = """LỒNG TIẾNG NHÂN VẬT (chủ dự án yêu cầu 11/10): hình + thoại của nhân vật được GIỮ, chỉ thay giọng nói sang ngôn ngữ
-  khác (chủ dự án tự thu voice từng nhân vật), nhạc + tiếng nền gốc giữ nguyên.
+  khác (chủ dự án tự thu voice từng nhân vật), nhạc + tiếng nền gốc giữ nguyên. Chế độ này CHỈ CHỌN ĐOẠN HAY, KHÔNG EDIT:
   - Tổng thời lượng {min_s:.0f}–{max_s:.0f} giây, theo ĐÚNG thứ tự phim, clip không chồng nhau, tốc độ 1.0 (không tua /
     quay chậm / replay — giọng lồng phải khớp miệng).
-  - Cắt BỎ chỗ rề rà cho người xem TikTok: khoảng lặng dài, đi lại, chờ đợi, câu thoại thừa không ảnh hưởng mạch chuyện.
   - KHÔNG cắt giữa một câu thoại: mỗi clip bắt đầu / kết thúc ở chỗ ngắt giữa các câu.
-  - Không đổi khung theo kiểu "khác bản gốc", không filter màu mạnh; chữ nhấn / sticker / SFX tiết chế, chỉ ở điểm hài /
-    cao trào; tiêu đề nêu tình huống hấp dẫn của đoạn này."""
+  - KHÔNG thêm zoom, hiệu ứng, sticker, SFX, chữ nhấn, chuyển cảnh, filter (để các danh sách đó RỖNG, filter = null; tool
+    cũng tự bỏ) — hình giữ y như phim gốc. Chỉ viết tiêu đề nêu tình huống hấp dẫn của video."""
 
 
 def _review_cfg(style: dict) -> dict:
@@ -1290,51 +1293,75 @@ def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, 
         return draft
 
 
-def check_char_dub(script) -> list[str]:
-    """Lồng tiếng nhân vật: câu nào cũng có tên nhân vật; không có lời dẫn (chỗ không ai nói giữ tiếng nền gốc)."""
-    errors = [f"câu {i}: thiếu `speaker` (tên nhân vật nói câu này)" for i, ln in enumerate(script.lines, 1)
-              if not ln.speaker.strip()]
+def check_char_dub(script, src: list[dict] | None = None, max_cps: float | None = None) -> list[str]:
+    """Lồng tiếng nhân vật: MỖI câu gốc đúng một câu lồng tiếng (đúng thứ tự, mốc giờ do code đặt), câu nào cũng có tên
+    nhân vật và lời dịch; không có lời dẫn; câu dịch đọc kịp trong thời gian câu gốc."""
+    errors = []
+    if src is not None and len(script.lines) != len(src):
+        errors.append(f"có {len(script.lines)} câu nhưng lời gốc có {len(src)} câu — trả ĐÚNG {len(src)} câu, mỗi câu gốc "
+                      "(theo số thứ tự) một câu dịch, không gộp, không bỏ câu nào (kể cả câu rất ngắn / tiếng kêu)")
+    errors += [f"câu {i}: thiếu `speaker` (tên nhân vật nói câu này)" for i, ln in enumerate(script.lines, 1)
+               if not ln.speaker.strip()]
     errors += [f"câu {i}: chế độ lồng tiếng không có lời dẫn — chỉ dịch thoại nhân vật (kind: dub)"
                for i, ln in enumerate(script.lines, 1) if ln.kind == "narration"]
+    errors += [f"câu {i}: thiếu lời dịch" for i, ln in enumerate(script.lines, 1) if not ln.text.strip()]
+    if max_cps:
+        for i, ln in enumerate(script.lines, 1):
+            n = sum(ch.isalnum() for ch in ln.text)
+            room = max(ln.source_end - ln.source_start, 0.6)
+            if n > max_cps * room * 1.3 + 2:
+                errors.append(f"câu {i}: {n} ký tự cho {room:.1f}s — quá dài, nhân vật nói xong mà giọng lồng chưa xong; "
+                              f"viết gọn còn ≤ {int(max_cps * room) + 1} ký tự")
     return errors
 
 
 def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_index: int = 1, footage: int = 0):
-    """LỒNG TIẾNG NHÂN VẬT (chủ dự án yêu cầu 11/10): dịch từng câu thoại sang ngôn ngữ đích, giữ đúng thời điểm câu gốc
-    (khớp miệng), ghi TÊN NHÂN VẬT nói câu đó (AI nhận ra qua lời thoại + khung hình) để chủ dự án thu voice theo nhân vật."""
+    """LỒNG TIẾNG NHÂN VẬT (chủ dự án yêu cầu 11/10): dịch từng câu thoại sang ngôn ngữ đích, ghi TÊN NHÂN VẬT nói câu
+    đó (AI nhận ra qua lời thoại + khung hình) để chủ dự án thu voice theo nhân vật. Mốc giờ từng câu = đúng câu thoại
+    gốc (code đặt, `char_lines.source_lines`) → giọng lồng khớp lúc nhân vật mở miệng, không sót câu nào."""
     from app.director.schemas import DubScript
+    from app.planner.char_lines import source_lines
 
     cfg = config.load("dub")
     ccfg = config.load("char_dub")
     a = load_analysis(analysis_dir, footage)
-    kept_clips = [c for c in plan.clips if not c.replay and not c.repeat]
-    segs = [s for s in a["transcript"].get("segments", [])
-            if any(s["end"] > c.source_start and s["start"] < c.source_end for c in kept_clips)]
+    src = source_lines(a["transcript"].get("segments", []), plan.clips, max_s=float(ccfg.get("max_line_s", 7.0)))
+    if not src:
+        raise DirectorError("Các tình huống đã chọn không có câu thoại nào (Whisper không nghe thấy lời) — không có gì để "
+                            "lồng tiếng. Chọn đoạn khác có thoại.")
     near = []
-    for sg in segs:  # mỗi câu thoại một khung hình gần nhất → AI nhìn ai đang nói
+    for sg in src:  # mỗi câu thoại một khung hình gần nhất → AI nhìn ai đang nói
         if a["frames"]:
             mid = (sg["start"] + sg["end"]) / 2
             near.append(min(a["frames"], key=lambda f, m=mid: abs(f["t"] - m)))
     chosen = sorted({f["file"]: f for f in near}.values(), key=lambda f: f["t"])
     frames = pick_evenly(chosen, int(ccfg.get("frames", 40))) if len(chosen) > int(ccfg.get("frames", 40)) else chosen
-    lo, hi = cfg.get("line_s", [1.5, 9.0])
-    variables = {**_shared_context(u, segs, a.get("events")), "video_index": video_index,
+    max_cps = round(effective_cps(cfg, u.language) * float(cfg.get("write_cps_factor", 0.85)), 1)
+    variables = {**_shared_context(u, src, a.get("events")), "video_index": video_index,
                  "language_name": LANGUAGE_NAMES.get(u.language, u.language),
                  "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
-                 "market": MARKETS.get(u.language, "TikTok"), "line_min": lo, "line_max": hi,
-                 "max_cps": round(effective_cps(cfg, u.language) * float(cfg.get("write_cps_factor", 0.85)), 1),
+                 "market": MARKETS.get(u.language, "TikTok"), "max_cps": max_cps, "n_lines": len(src),
                  "localize_brief": localize_brief(u),
-                 "clips": "\n".join(f"- clip {i}: {c.source_start:.1f}–{c.source_end:.1f}s" for i, c in enumerate(plan.clips)),
+                 "source_lines": "\n".join(
+                     f"{i}. [{x['start']:.2f}–{x['end']:.2f}s, {x['end'] - x['start']:.1f}s] "
+                     f"{apply_name_corrections(x['text'], u.name_corrections)}" for i, x in enumerate(src, 1)),
                  "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)"}
 
+    def repair(r):  # mốc giờ lấy đúng câu gốc (AI chỉ dịch + nhận nhân vật)
+        if len(r.lines) != len(src):
+            return r, []
+        lines = [ln.model_copy(update={"source_start": x["start"], "source_end": x["end"], "kind": "dub"})
+                 for ln, x in zip(r.lines, src)]
+        return r.model_copy(update={"lines": lines}), []
+
     def extra(r) -> list[str]:
-        errors = check_dub(r, plan, u.language, cfg) + check_char_dub(r)
+        errors = check_char_dub(r, src, max_cps)
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors
 
     return director.run("dub_char", variables, DubScript, [analysis_dir / f["file"] for f in frames],
-                        extra_check=extra, repair=lambda r: repair_dub(r, plan, cfg, u.language))
+                        extra_check=extra, repair=repair)
 
 
 def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,
