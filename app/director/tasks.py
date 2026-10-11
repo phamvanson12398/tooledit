@@ -183,7 +183,7 @@ Hoạt hình / phim ít thoại: XEM CÁC KHUNG HÌNH dưới đây (mở bằng
 
 
 def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, review: bool = False,
-                  highlight: bool = False):
+                  highlight: bool = False, restrict: bool = False):
     """Chia footage dài thành nhiều video độc lập 60–150s (mục 4). review=True: tìm đoạn hay trong phim / hoạt hình,
     mỗi đoạn một video review 60–90s (config/review.yaml)."""
     from app.director.schemas import SegmentPlan, check_moments, check_segments
@@ -217,6 +217,10 @@ def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, r
 
     def extra(r) -> list[str]:
         errors = check_segments(r, duration, u.usable_range, min_raw, max_raw)
+        if restrict:  # một phần của video dài: chỉ chọn trong phần này (phần khác do lượt hỏi khác lo)
+            lo, hi = u.usable_range.start, u.usable_range.end
+            errors += [f"video {v.start:.1f}–{v.end:.1f}s nằm ngoài phần được giao ({lo:.1f}–{hi:.1f}s) — chỉ chọn "
+                       "đoạn trong phần này" for v in r.videos if v.start < lo - 1.0 or v.end > hi + 1.0]
         if highlight:  # tình huống ngắn 10–20 giây ghép thành video (chủ dự án yêu cầu 11/10)
             errors += check_moments(r, (sit_lo, sit_hi), float(cfg.get("min_video_s", 60)),
                                     float(cfg.get("max_video_s", 120)), whole_short)
@@ -237,6 +241,61 @@ def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, r
 
     return director.run("segment", variables, SegmentPlan, [analysis_dir / f["file"] for f in frames],
                         extra_check=extra, repair=repair)
+
+
+def long_parts(segments: list[dict], lo: float, hi: float, cfg: dict | None = None) -> list[tuple[float, float]]:
+    """Video dài (chủ dự án 11/10: "dài hơn 10 phút thì chia ra làm rồi gộp"): chia đoạn dùng được thành vài phần
+    ~bằng nhau để AI chọn đoạn SONG SONG. Điểm chia đặt ở khoảng lặng dài nhất gần điểm chia đều (không cắt ngang câu /
+    cuộc nói chuyện). Không dài quá ngưỡng → một phần."""
+    import math
+
+    cfg = cfg if cfg is not None else (config.load("director").get("long_video") or {})
+    over = float(cfg.get("split_over_s", 600))
+    span = hi - lo
+    if over <= 0 or span <= over:
+        return [(lo, hi)]
+    n = max(2, min(int(cfg.get("max_parts", 4)), math.ceil(span / over)))
+    segs = sorted((s for s in segments if s["end"] > lo and s["start"] < hi), key=lambda s: s["start"])
+    gaps = [(a["end"], b["start"]) for a, b in zip(segs, segs[1:]) if b["start"] > a["end"]]
+    cuts = []
+    for k in range(1, n):
+        target = lo + span * k / n
+        win = min(60.0, span / n / 4)
+        near = [g for g in gaps if abs((g[0] + g[1]) / 2 - target) <= win]
+        if near:  # giữa khoảng lặng dài nhất gần điểm chia đều
+            g = max(near, key=lambda g: g[1] - g[0])
+            target = (g[0] + g[1]) / 2
+        cuts.append(round(target, 2))
+    bounds = [lo, *sorted(cuts), hi]
+    return [(a, b) for a, b in zip(bounds, bounds[1:]) if b - a > 1.0]
+
+
+def make_segments_long(director: Director, analysis_dir: Path, u, footage: int = 0, review: bool = False,
+                       highlight: bool = False, log=lambda m: None):
+    """Như make_segments, nhưng video dài thì chia phần (long_parts), hỏi AI từng phần song song rồi GỘP: các video
+    theo thứ tự thời gian, đoạn bị bỏ của mọi phần, ghi chú editor từng phần."""
+    from app.director.schemas import SegmentPlan, TimeRange
+    from app.jobs.parallel import run_parallel
+
+    a = load_analysis(analysis_dir, footage)
+    parts = long_parts(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
+    if len(parts) == 1:
+        return make_segments(director, analysis_dir, u, footage, review=review, highlight=highlight)
+    log(f"Video dài {(u.usable_range.end - u.usable_range.start) / 60:.0f} phút → chia {len(parts)} phần "
+        f"({', '.join(f'{x / 60:.1f}–{y / 60:.1f} phút' for x, y in parts)}) cho AI chọn đoạn song song rồi gộp lại.")
+
+    def one(part):
+        x, y = part
+        up = u.model_copy(update={"usable_range": TimeRange(start=x, end=y),
+                                  "key_moments": [m for m in u.key_moments if m.end > x and m.start < y]})
+        return make_segments(director, analysis_dir, up, footage, review=review, highlight=highlight, restrict=True)
+
+    results = run_parallel(one, parts)
+    return SegmentPlan(
+        videos=sorted((v for r in results for v in r.videos), key=lambda v: v.start),
+        dropped=sorted((d for r in results for d in r.dropped), key=lambda d: d.start),
+        editor_notes=" | ".join(f"Phần {k} ({x / 60:.1f}–{y / 60:.1f} phút): {r.editor_notes}"
+                                for k, ((x, y), r) in enumerate(zip(parts, results), 1)))
 
 
 def make_hooks(director: Director, analysis_dir: Path, u, video_index: int = 1,

@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 79 — Video dài chia phần cho AI làm song song (nhanh hơn, nhất là với Gemini) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. Tạo job với một video **dài hơn 10 phút** có tick chia video / review / lồng tiếng nhân vật (các chế độ có bước "AI
+   chọn đoạn"). Nhật ký phải có dòng "Video dài N phút → chia K phần (…) cho AI chọn đoạn song song rồi gộp lại".
+3. Bảng duyệt chia video: các video của mọi phần nằm chung một bảng theo thứ tự thời gian; ghi chú editor ghi
+   "Phần 1 … | Phần 2 …". Kiểm tra không có đoạn bị cắt ngang câu ở chỗ chia phần.
+4. Job ra nhiều video: bước lập kế hoạch / viết thoại chạy 2 video cùng lúc (nhật ký hiện "Lập kế hoạch dựng video 01…"
+   và "…video 02…" gần như cùng lúc).
+5. So thời gian với trước. Nếu AI báo hết hạn mức / quá tần suất: mở `config\director.yaml`, đổi `parallel_calls: 2`
+   thành `1` (chạy lần lượt như cũ). Muốn chia phần ngắn hơn: giảm `split_over_s` (giây).
+
 ## Bước 78 — 🤖 AI đạo diễn Gemini Pro qua Antigravity CLI (thay Gemini CLI) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Đóng `start.bat`, `git pull`.

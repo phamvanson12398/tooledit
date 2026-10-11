@@ -457,7 +457,7 @@ class Runner:
                  "Sửa plan/understanding.json nếu cần rồi bấm Tiếp tục.")
 
     def step_segment(self, job: Job) -> None:
-        from app.director.tasks import make_segments
+        from app.director.tasks import make_segments_long
 
         _, analysis, plan_dir = self._paths(job)
         u = self._understanding(job)
@@ -474,7 +474,8 @@ class Runner:
         if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
             self.log("Đã có kết quả chia video, dùng lại.")
             return
-        sp = make_segments(self.director, analysis, u, review=job.options.review, highlight=job.options.char_dub)
+        sp = make_segments_long(self.director, analysis, u, review=job.options.review,
+                                highlight=job.options.char_dub, log=self.log)
         videos = [{"index": i, "start": v.start, "end": v.end, "title_vi": v.title_vi, "summary_vi": v.summary_vi,
                    "why_vi": v.why_vi, **({"moments": [m.model_dump() for m in v.moments]} if v.moments else {})}
                   for i, v in enumerate(sorted(sp.videos, key=lambda v: v.start), 1)]
@@ -578,6 +579,7 @@ class Runner:
 
     def step_plan(self, job: Job) -> None:
         from app.director.tasks import make_plan
+        from app.jobs.parallel import run_parallel
         from app.planner import hook_io
 
         d, analysis, plan_dir = self._paths(job)
@@ -585,11 +587,10 @@ class Runner:
         style_name = self._style_name(job)
         job.data["style_used"] = style_name
         self.log(f"Phong cách dựng: {style_name}")
-        for v in self.videos(job):
+
+        def one(v):  # mỗi video một lượt hỏi AI — nhiều video thì hỏi song song (app/jobs/parallel.py)
             i = v["index"]
             out = plan_dir / f"edit_plan_video{i:02d}.json"
-            if out.is_file():
-                continue
             hook, hook_s = None, 0.0
             if job.use_hook:
                 hook = self._hook_for(d, i)
@@ -618,18 +619,22 @@ class Runner:
                 self.log(f"Nhạc nền theo lựa chọn của bạn: {chosen[0].name}")
             out.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
 
+        run_parallel(one, [v for v in self.videos(job)
+                           if not (plan_dir / f"edit_plan_video{v['index']:02d}.json").is_file()])
+
     def step_dub(self, job: Job) -> None:
         """Chế độ Đổi ngôn ngữ: viết câu thuyết minh (ngôn ngữ đích) theo các clip của kế hoạch dựng."""
         from app.director.base import DirectorError
         from app.director.schemas import EditPlan
         from app.director.tasks import make_dub
+        from app.jobs.parallel import run_parallel
         from app.planner import dub_io
 
         if not self._dubbing(job):
             return
         d, analysis, plan_dir = self._paths(job)
-        scripts = {}
-        for v in self.videos(job):
+
+        def one(v):  # mỗi video một lượt hỏi AI — nhiều video thì hỏi song song (app/jobs/parallel.py)
             i = v["index"]
             s = dub_io.load_dub(d, i)
             if s is None:
@@ -654,7 +659,10 @@ class Runner:
                              "(accept_imperfect trong config/dub.yaml).")
                 dub_io.dub_path(d, i).write_text(s.model_dump_json(indent=2), encoding="utf-8")
                 dub_io.pending_path(d, i).unlink(missing_ok=True)
-            scripts[i] = s
+            return s
+
+        vids = self.videos(job)
+        scripts = dict(zip((v["index"] for v in vids), run_parallel(one, vids)))
         path = dub_io.write_dub_scripts(d, scripts, {i: dub_io.windows_for(d, i, s) for i, s in scripts.items()})
         self.log(f"Đã xuất {path} ({sum(len(s.lines) for s in scripts.values())} câu cần thu)")
 

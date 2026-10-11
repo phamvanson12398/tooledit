@@ -236,3 +236,48 @@ def test_new_frame_ratios_build(tmp_path, ratio):
     assert job.status == Status.done, job.message
     content = _json.loads((Path(job.data["draft"]) / "draft_content.json").read_text(encoding="utf-8"))
     assert content["tracks"] and any(t["type"] == "video" and t["segments"] for t in content["tracks"])
+
+
+def test_long_video_split_into_parts_in_parallel(tmp_path):
+    """Chủ dự án 11/10: video dài > 10 phút → chia phần ở chỗ im lặng, AI chọn đoạn từng phần SONG SONG rồi gộp."""
+    import re
+    import threading
+    import time
+
+    from app.director.base import Director
+    from app.director.fake import FakeDirector
+    from app.director.tasks import long_parts, make_segments_long, understand
+
+    segs = [{"start": t, "end": t + 8.0, "text": "x"} for t in range(0, 1500, 10)]
+    segs = [s for s in segs if not 740 <= s["start"] < 770]          # khoảng lặng 30 giây quanh phút 12.5
+    assert long_parts(segs, 0.0, 500.0) == [(0.0, 500.0)]            # ngắn → một phần
+    parts = long_parts(segs, 0.0, 1500.0)
+    assert len(parts) == 3 and abs(parts[0][1] - 500) <= 60 and abs(parts[1][1] - 1000) <= 60  # ~10 phút một phần
+    assert all(not (sg["start"] < c < sg["end"]) for c in (parts[0][1], parts[1][1]) for sg in segs)  # không cắt giữa câu
+    two = long_parts(segs, 0.0, 1500.0, {"split_over_s": 900, "max_parts": 4})
+    assert len(two) == 2 and 738 <= two[0][1] <= 770                 # điểm chia rơi vào giữa khoảng lặng
+
+    a = make_analysis(tmp_path, duration=1500.0)
+    u = understand(FakeDirector(), a)
+    u = u.model_copy(update={"usable_range": u.usable_range.model_copy(update={"start": 0.0, "end": 1500.0})})
+    live, peak, lock = [0], [0], threading.Lock()
+
+    class PartDirector(Director):  # trả một video ở đầu phần được giao, đo số lượt chạy cùng lúc
+        def _complete(self, task, prompt, schema, images):
+            with lock:
+                live[0] += 1
+                peak[0] = max(peak[0], live[0])
+            time.sleep(0.2)
+            with lock:
+                live[0] -= 1
+            lo, hi = map(float, re.search(r"đoạn dùng được ([\d.]+)–([\d.]+)", prompt).groups())
+            return {"videos": [{"start": lo + 5, "end": lo + 100, "title_vi": f"phần {lo:.0f}", "summary_vi": "s",
+                                "why_vi": "w"}], "dropped": [{"start": lo + 100, "end": lo + 120, "reason_vi": "nhạt"}],
+                    "editor_notes": f"chọn ở {lo:.0f}"}
+
+    logs = []
+    sp = make_segments_long(PartDirector(), a, u, log=logs.append)
+    assert len(sp.videos) == 3 and [v.start for v in sp.videos] == sorted(v.start for v in sp.videos)
+    assert len(sp.dropped) == 3 and sp.editor_notes.count("Phần ") == 3
+    assert peak[0] == 2                                              # parallel_calls: 2 lượt cùng lúc
+    assert "chia 3 phần" in logs[0]

@@ -11,6 +11,12 @@ effort: null                 # null | low | medium | high
 agy_exe: agy                 # không có trong PATH thì tool tự tìm %LOCALAPPDATA%\agy\bin\agy.exe
 agy_model: null              # null = mặc định của tài khoản; xem tên model bằng lệnh `agy models`
 agy_effort: null             # null | low | medium | high | xhigh | max
+# Hỏi AI song song trong MỘT job (chủ dự án 11/10: Gemini chậm): lập kế hoạch / viết thoại nhiều video cùng lúc, và
+# video dài được chia phần cho AI chọn đoạn song song rồi gộp. Gói Pro có giới hạn tần suất → 2 là vừa; 1 = lần lượt.
+parallel_calls: 2
+long_video:
+  split_over_s: 600          # đoạn dùng được dài hơn 10 phút → chia phần (mỗi phần ~10 phút, chia ở chỗ im lặng)
+  max_parts: 4
 max_attempts: 3              # số lần gọi lại khi JSON sai khuôn
 timeout_s: 900
 # Thư mục làm việc tạm cho đạo diễn, NẰM NGOÀI repo để Claude Code không nạp CLAUDE.md của dự án.

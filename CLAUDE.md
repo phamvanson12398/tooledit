@@ -344,6 +344,11 @@ Edit plan tối thiểu phải mô tả: danh sách clip (nguồn, in/out, tốc
   đề bài ghi vào `de_bai.md` + khung hình cùng thư mục làm việc tạm, AI tự đọc file / xem ảnh (không cần xin quyền);
   kết quả ở `structured_output`; công cụ cần xin quyền (RunCommand) tự bị từ chối — KHÔNG dùng
   `--dangerously-skip-permissions`; `agy` tự cập nhật ngầm, tìm ở `%LOCALAPPDATA%\agy\bin\agy.exe` nếu không có PATH.
+- **Hỏi AI song song trong một job (chủ dự án 11/10: "Gemini chậm, video > 10 phút chia ra làm rồi gộp"):** bước chọn
+  đoạn của video dài hơn `long_video.split_over_s` (600s) chia thành vài phần ~10 phút, điểm chia ở khoảng lặng dài nhất
+  gần điểm chia đều (`long_parts`), mỗi phần một lượt hỏi (chỉ chọn trong phần của mình — `restrict`), chạy song song
+  rồi gộp (`make_segments_long`); lập kế hoạch / viết thoại nhiều video cũng chạy song song. Số lượt cùng lúc
+  `parallel_calls` (2) trong `config/director.yaml`, `app/jobs/parallel.py` (gắn job cho luồng con để nút Dừng vẫn chạy).
 - Thiết kế lớp `Director` dạng interface để sau này có thể thay backend (ví dụ chế độ copy–paste thủ công hoặc mô hình local) mà không sửa phần còn lại.
 - Để test trong cloud: tạo `FakeDirector` trả JSON mẫu cố định.
 
