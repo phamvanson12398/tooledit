@@ -770,7 +770,7 @@ class Runner:
         from app.planner import dub_io
         from app.tts import voices as ov
 
-        cfg = config.load("tts") or {}
+        cfg = ov.load_cfg()  # config/tts.yaml + python / model chọn trên giao diện
         d, analysis, _ = self._paths(job)
         scripts = self._dub_scripts(job)
         vids = [v for v in self.videos(job) if v["index"] in scripts and (video_index is None or v["index"] == video_index)]

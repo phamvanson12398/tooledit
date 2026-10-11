@@ -199,6 +199,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   giọng mẫu cho từng nhân vật (+ lời đọc trong file, không bắt buộc), lưu `voice/refs/tai_len_<tên>.<đuôi>`, giữ cho các
   lần đọc sau; khi đọc đổi sang WAV mono 24 kHz ≤ `max_ref_s` (dài hơn thì lấy đoạn đầu, bỏ lời đọc — `prepare_sample`)
   rồi clone như giọng gốc. Cũng CHỈ khi tick xác nhận quyền (`clone_ok`).
+  **Cập nhật 11/10 (chủ dự án muốn dùng bản OmniVoice "chuẩn hơn" của Voice Studio):** trang chủ → ⚙️ Cài đặt → 🤖 OmniVoice
+  chọn python + model (tên HF hoặc thư mục) lưu `config/local.yaml → tts_python / tts_model` (`voices.load_cfg` ghép với
+  `config/tts.yaml`), nút 🔎 Kiểm tra (`check_omnivoice`: bản omnivoice, torch, GPU, model là thư mục?); worker bị tắt khi
+  quá `timeout_s` hoặc bấm Dừng (`run_worker`).
 
 ## 5c. Chế độ "Phụ đề tiếng Việt" (chủ dự án yêu cầu 08/10)
 

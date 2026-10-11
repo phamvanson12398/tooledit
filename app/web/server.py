@@ -369,6 +369,27 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                   f"{f', {len(queued_ids)} xếp hàng' if queued_ids else ''}</p>")
         return status + (jobs_html or "<p class='muted'>Chưa có video nào.</p>")
 
+    def tts_setting() -> str:
+        """Chọn bản OmniVoice muốn dùng (chủ dự án 11/10: dùng đúng bản "chuẩn hơn, xịn hơn" — vd bản trong Voice Studio)."""
+        from app.tts.voices import load_cfg, python_exe
+
+        esc = html.escape
+        cfg = load_cfg(settings_path)
+        local = app_settings.load(settings_path)
+        return (f"<details style='margin-top:8px'><summary class='muted'>🤖 OmniVoice (giọng AI) — đang dùng: "
+                f"<code>{esc(python_exe(cfg))}</code> · model <code>{esc(str(cfg.get('model', '')))}</code></summary>"
+                "<form method='post' action='/settings/tts' style='margin-top:8px'>"
+                "<label class='muted'>Python của OmniVoice muốn dùng (vd python.exe trong thư mục cài Voice Studio / "
+                "omnivoice-env). Để trống = tự tìm omnivoice-env trong thư mục tool.</label>"
+                f"<input type='text' name='python' value='{esc(str(local.get('tts_python') or ''))}' "
+                "placeholder='C:\\...\\python.exe'>"
+                "<label class='muted' style='margin-top:6px;display:block'>Model: tên trên HuggingFace hoặc THƯ MỤC model đã "
+                "tải sẵn (vd thư mục model Voice Studio đang dùng). Để trống = k2-fsa/OmniVoice.</label>"
+                f"<input type='text' name='model' value='{esc(str(local.get('tts_model') or ''))}' placeholder='k2-fsa/OmniVoice'>"
+                "<p><button class='btn small' type='submit'>💾 Lưu</button> "
+                "<button class='btn small light' type='submit' formaction='/settings/tts-check'>🔎 Kiểm tra OmniVoice</button>"
+                "</p></form></details>")
+
     @app.get("/api/jobs-panel", response_class=HTMLResponse)
     def jobs_panel_api():
         return HTMLResponse(jobs_panel())
@@ -472,7 +493,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         </form></div>
         <div class="side"><div class="card jobs"><h2>🗂️ Các video <span class="muted" style="font-weight:400">tự cập nhật</span></h2>
         <div id="jobs-panel">{jobs_panel()}</div>
-        <details class="adv"><summary>⚙️ Cài đặt</summary>{threads}{_template_setting()}
+        <details class="adv"><summary>⚙️ Cài đặt</summary>{threads}{_template_setting()}{tts_setting()}
         <p class='muted'>Mỗi video chạy trên một luồng riêng. Bước phân tích dùng GPU nên lần lượt từng video; hỏi đạo diễn
         AI tối đa 2 lượt cùng lúc (chung hạn mức gói Pro).</p></details></div></div></div>
         <script>
@@ -906,6 +927,28 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     def save_freesound(key: str = Form("")):
         app_settings.save({"freesound_api_key": key.strip()}, settings_path)
         return RedirectResponse("/", status_code=303)
+
+    @app.post("/settings/tts")
+    def save_tts(python: str = Form(""), model: str = Form("")):
+        app_settings.save({"tts_python": python.strip().strip('"'), "tts_model": model.strip().strip('"')}, settings_path)
+        return RedirectResponse("/", status_code=303)
+
+    @app.post("/settings/tts-check", response_class=HTMLResponse)
+    def check_tts(python: str = Form(""), model: str = Form("")):
+        from app.tts.voices import check_omnivoice, load_cfg
+
+        app_settings.save({"tts_python": python.strip().strip('"'), "tts_model": model.strip().strip('"')}, settings_path)
+        r = check_omnivoice(load_cfg(settings_path))
+        esc = html.escape
+        ok = "omnivoice" in r and not r.get("error")
+        rows = "".join(f"<tr><td>{esc(k)}</td><td>{esc(str(v))}</td></tr>" for k, v in r.items())
+        verdict = ("✅ Dùng được OmniVoice bản <b>{}</b>{}.".format(
+            esc(r.get("omnivoice", "")), f" trên GPU <b>{esc(r['gpu'])}</b>" if r.get("cuda") else " — ⚠️ CHƯA thấy GPU (sẽ rất chậm)")
+            if ok else "❌ Python này chưa chạy được OmniVoice — kiểm tra lại đường dẫn python.exe.")
+        return _page("Kiểm tra OmniVoice", "<div class='topnav'><a class='btn light small' href='/'>🏠 Về trang chủ</a></div>"
+                     f"<div class='card'><h2>🔎 Kiểm tra OmniVoice</h2><p>{verdict}</p><table>{rows}</table>"
+                     "<p class='muted'>Model ghi tên HuggingFace thì lần đầu đọc sẽ tự tải; ghi THƯ MỤC thì dòng "
+                     "model_is_folder phải là True.</p></div>")
 
     @app.post("/settings/parallel")
     def save_parallel(n: int = Form(3)):

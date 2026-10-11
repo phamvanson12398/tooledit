@@ -148,8 +148,61 @@ def utf8_env() -> dict:
     return {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
 
 
+def load_cfg(settings_path: Path | None = None) -> dict:
+    """config/tts.yaml + cài đặt trên giao diện (config/local.yaml → tts_python / tts_model — chủ dự án 11/10: chọn đúng
+    bản OmniVoice muốn dùng, vd bản đã cài trong Voice Studio, không phải sửa file yaml)."""
+    from app import config
+    from app import settings as app_settings
+
+    cfg = dict(config.load("tts") or {})
+    local = app_settings.load(settings_path) if settings_path else app_settings.load()
+    if str(local.get("tts_python") or "").strip():
+        cfg["python"] = str(local["tts_python"]).strip().strip('"')
+    if str(local.get("tts_model") or "").strip():
+        cfg["model"] = str(local["tts_model"]).strip().strip('"')
+    return cfg
+
+
+CHECK_CODE = r"""
+import importlib.metadata as md, json, os, sys
+out = {"python": sys.executable}
+try:
+    import omnivoice  # noqa
+    out["omnivoice"] = md.version("omnivoice")
+except Exception as e:
+    out["omnivoice_error"] = f"{type(e).__name__}: {e}"
+try:
+    import torch
+    out["torch"] = torch.__version__
+    out["cuda"] = bool(torch.cuda.is_available())
+    if out["cuda"]:
+        out["gpu"] = torch.cuda.get_device_name(0)
+except Exception as e:
+    out["torch_error"] = f"{type(e).__name__}: {e}"
+m = sys.argv[1] if len(sys.argv) > 1 else ""
+out["model"] = m
+out["model_is_folder"] = bool(m) and os.path.isdir(m)
+print("CHECK " + json.dumps(out, ensure_ascii=False))
+"""
+
+
+def check_omnivoice(cfg: dict, run=subprocess.run, timeout_s: float = 180) -> dict:
+    """🔎 Kiểm tra OmniVoice: python đang dùng có omnivoice không, bản nào, GPU nào, model là tên HF hay thư mục."""
+    exe = python_exe(cfg)
+    try:
+        r = run([exe, "-c", CHECK_CODE, str(cfg.get("model", ""))], capture_output=True, text=True, encoding="utf-8",
+                errors="replace", env=utf8_env(), timeout=timeout_s)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"python": exe, "error": f"Không chạy được python này: {exc}"}
+    line = next((ln for ln in (r.stdout or "").splitlines() if ln.startswith("CHECK ")), "")
+    if not line:
+        return {"python": exe, "error": ((r.stderr or r.stdout or "").strip()[-400:] or f"mã thoát {r.returncode}")}
+    return json.loads(line[6:])
+
+
 def run_worker(request: dict, request_path: Path, cfg: dict, on_line=print, run=subprocess.Popen) -> None:
-    """Chạy OmniVoice ở tiến trình riêng; mỗi dòng in ra được chuyển cho on_line (tiến độ). Lỗi → RuntimeError."""
+    """Chạy OmniVoice ở tiến trình riêng; mỗi dòng in ra được chuyển cho on_line (tiến độ). Lỗi → RuntimeError.
+    Tiến trình bị TẮT khi chạy quá `timeout_s` (config/tts.yaml) hoặc khi on_line ném lỗi (bấm ⏹️ Dừng) — không treo máy."""
     request_path.parent.mkdir(parents=True, exist_ok=True)
     request_path.write_text(json.dumps(request, ensure_ascii=False, indent=2), encoding="utf-8")
     exe = python_exe(cfg)
@@ -161,13 +214,38 @@ def run_worker(request: dict, request_path: Path, cfg: dict, on_line=print, run=
                    text=True, encoding="utf-8", errors="replace", env=utf8_env())
     except OSError as exc:
         raise RuntimeError(f"{INSTALL_HINT} ({exc})") from exc
+    import threading
+
+    timed_out = threading.Event()
+
+    def kill_on_timeout():
+        timed_out.set()
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+    timer = threading.Timer(float(cfg.get("timeout_s", 3600)), kill_on_timeout)
+    timer.daemon = True
+    timer.start()
     last_error = ""
-    for line in proc.stdout:
-        line = line.rstrip()
-        if line.startswith("ERROR"):
-            last_error = line[5:].strip()
-        if line:
-            on_line(line)
+    try:
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line.startswith("ERROR"):
+                last_error = line[5:].strip()
+            if line:
+                on_line(line)  # bấm Dừng → on_line ném lỗi → khối finally tắt tiến trình
+    finally:
+        timer.cancel()
+        if proc.poll() is None:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+    if timed_out.is_set():
+        raise RuntimeError(f"OmniVoice chạy quá {float(cfg.get('timeout_s', 3600)) / 60:.0f} phút nên đã bị tắt "
+                           "(timeout_s trong config/tts.yaml).")
     if proc.wait() != 0:
         if "chưa cài omnivoice" in last_error:  # nói rõ python nào đang thiếu để chủ dự án biết sửa chỗ nào
             raise RuntimeError(f"Python đang dùng ({exe}) chưa cài OmniVoice. {INSTALL_HOW}")

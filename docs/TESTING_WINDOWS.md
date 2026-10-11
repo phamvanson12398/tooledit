@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 95 — Chọn đúng bản OmniVoice muốn dùng (vd bản trong Voice Studio) + nút kiểm tra `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Trang chủ → cột phải → **⚙️ Cài đặt** → **🤖 OmniVoice (giọng AI)**: dòng tiêu đề cho biết tool đang dùng python nào,
+   model nào.
+3. Muốn dùng bản OmniVoice của Voice Studio: tìm file `python.exe` trong thư mục cài Voice Studio (thường có thư mục kiểu
+   `venv\Scripts\python.exe` / `python\python.exe`), dán đường dẫn vào ô Python. Nếu Voice Studio có thư mục model
+   OmniVoice riêng (đã tải sẵn) thì dán đường dẫn thư mục đó vào ô Model.
+4. Bấm **🔎 Kiểm tra OmniVoice** → phải thấy "✅ Dùng được OmniVoice bản … trên GPU …". Nếu ❌: chụp màn hình gửi mình,
+   kèm ảnh thư mục cài Voice Studio.
+5. Vào job đang chờ voice → 🤖 Cho OmniVoice đọc → nghe so với Voice Studio.
+6. OmniVoice chạy quá 1 tiếng hoặc bấm ⏹️ Dừng → tool tắt hẳn tiến trình OmniVoice (không còn chạy ngầm chiếm GPU).
+
 ## Bước 94 — Lồng tiếng nhân vật: bớt "lẫn giọng cũ" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

@@ -302,3 +302,47 @@ def test_uploaded_voice_sample(tmp_path, monkeypatch):
     r.save_tts_voices(job, {"징징이": {"mode": "upload", "instruct": "male, old"}}, clone_ok=False)
     r.tts_generate(job, only_missing=False)
     assert sent[2]["voices"]["징징이"]["mode"] == "design" and "ref_audio" not in sent[2]["voices"]["징징이"]
+
+
+def test_choose_omnivoice_install_check_and_kill(tmp_path):
+    """Chủ dự án 11/10: dùng đúng bản OmniVoice muốn (vd trong Voice Studio) — chọn python / model trên giao diện,
+    nút kiểm tra; OmniVoice chạy quá lâu / bấm Dừng thì tiến trình bị tắt."""
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from app.web.server import create_app
+
+    local = tmp_path / "local.yaml"
+    client = TestClient(create_app(tmp_path / "jobs", lambda root, log: None, settings_path=local))
+    assert "🤖 OmniVoice (giọng AI)" in client.get("/").text
+    client.post("/settings/tts", data={"python": f'"{sys.executable}"', "model": "D:/VoiceStudio/models/omnivoice"})
+    cfg = ov.load_cfg(local)
+    assert cfg["python"] == sys.executable and cfg["model"] == "D:/VoiceStudio/models/omnivoice"
+    page = client.post("/settings/tts-check", data={"python": sys.executable, "model": str(tmp_path)}).text
+    assert "Kiểm tra OmniVoice" in page and "model_is_folder" in page and sys.executable in page
+    r = ov.check_omnivoice({"python": sys.executable, "model": str(tmp_path)})
+    assert r["python"] == sys.executable and r["model_is_folder"] is True
+    assert "error" in ov.check_omnivoice({"python": str(tmp_path / "khong_co.exe")})
+
+    slow = tmp_path / "slow.py"   # worker giả chạy mãi → bị tắt sau timeout_s
+    slow.write_text("import time, sys\nprint('INFO bat dau', flush=True)\ntime.sleep(60)\n", encoding="utf-8")
+    t0 = time.monotonic()
+    with pytest.raises(RuntimeError, match="bị tắt"):
+        ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable, "timeout_s": 1}, lambda x: None,
+                      run=lambda cmd, **kw: subprocess.Popen([cmd[0], str(slow)], **kw))
+    assert time.monotonic() - t0 < 20
+
+    class Stop(Exception):
+        pass
+
+    procs = []
+
+    def popen(cmd, **kw):
+        procs.append(subprocess.Popen([cmd[0], str(slow)], **kw))
+        return procs[-1]
+
+    with pytest.raises(Stop):  # bấm Dừng (on_line ném lỗi) → tiến trình OmniVoice bị tắt luôn
+        ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable}, lambda x: (_ for _ in ()).throw(Stop()),
+                      run=popen)
+    assert procs[0].wait(timeout=10) is not None
