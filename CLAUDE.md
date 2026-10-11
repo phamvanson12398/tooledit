@@ -320,6 +320,10 @@ Nguyên liệu đạo diễn tự phối (liều lượng do preset quy định,
 
 ## 9. Giao diện
 
+**Cập nhật 11/10 (chủ dự án): trang chủ làm lại** — bỏ thẻ "Kho tài nguyên" và "So sánh video" (bỏ cả `/compare`; mã
+quét kho vẫn dùng khi dựng); form tạo video theo 3 bước: chọn video → chọn MỘT chế độ bằng thẻ (`mode`: normal / dub /
+voice_only / review / char_dub / vi_sub, server đổi sang các cờ JobOptions cũ) → tùy chọn (ẩn cái không hợp chế độ) +
+"Nâng cao" (AI đạo diễn, nhạc, mã khách); cài đặt luồng / tự xóa / dự án mẫu nằm dưới danh sách video.
 **Cập nhật 11/10 (chủ dự án):** mục "Kiểu dựng" trên trang chủ chỉ còn "✨ AI tự chọn" (các preset vẫn trong `styles/`, AI
 chọn theo nội dung); bỏ ô "Giữ nhạc nền gốc" của chế độ Chỉ thay tiếng (mã `keep_bgm` vẫn còn, Lồng tiếng nhân vật vẫn tách
 giọng bằng Demucs).

@@ -80,8 +80,6 @@ def test_compare_real_files_and_web(tmp_path):
     from app.web.server import create_app
 
     client = TestClient(create_app(tmp_path / "jobs", lambda root, log: None))
-    assert "So sánh video gốc và video đã edit" in client.get("/").text
-    page = client.post("/compare", data={"original": str(tmp_path / "goc.mp4"),
-                                         "edited": str(tmp_path / "edit.mp4")}).text
-    assert "khác bản gốc" in page and "Hình ảnh" in page
-    assert "Không thấy file" in client.post("/compare", data={"original": "x.mp4", "edited": "y.mp4"}).text
+    # chủ dự án 11/10: bỏ "So sánh video" khỏi giao diện (mã phân tích giữ lại)
+    assert "So sánh video gốc" not in client.get("/").text
+    assert client.post("/compare", data={"original": "x.mp4", "edited": "y.mp4"}).status_code in (404, 405)

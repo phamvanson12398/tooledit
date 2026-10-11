@@ -113,10 +113,9 @@ def test_web_resource_scan_settings_upload(tmp_path):
                      scan_fn=scan_fn)
     client = TestClient(app)
     home = client.get("/").text
-    assert "🔍 Quét &amp; làm giàu kho" in home and "chưa có key" in home
+    assert "Kho tài nguyên" not in home and "làm giàu kho" not in home  # chủ dự án 11/10: bỏ khỏi trang chủ
 
     client.post("/settings/freesound", data={"key": " ABC "})
-    assert "đã lưu key" in client.get("/").text
     page = client.post("/resources/scan", data={"download": "on"}).text
     assert calls[-1] == (True, "ABC")
     assert "Kết quả quét" in page and "SFX boom" in page and "đã tải" in page and "còn thiếu" in page
@@ -196,8 +195,7 @@ def test_web_import_folder(tmp_path):
     app = create_app(tmp_path / "jobs", assets_root=tmp_path / "assets", settings_path=tmp_path / "l.yaml",
                      scan_fn=lambda d, k: None)
     client = TestClient(app)
-    home = client.get("/").text
-    assert "Nhập cả thư mục" in home and "Incompetech" in home and "làm giàu kho" in home
+    assert "Nhập cả thư mục" not in client.get("/").text
     page = client.post("/assets/import-folder", data={"folder": str(tmp_path / "tai_ve"), "kind": "auto",
                                                        "source": "pixabay"}).text
     assert "Đã nhập 1 file" in page and "dam_dong" in page
@@ -219,7 +217,7 @@ def test_web_import_capcut_zip(tmp_path):
     app = create_app(tmp_path / "jobs", assets_root=tmp_path / "assets", settings_path=tmp_path / "l.yaml",
                      scan_fn=lambda d, k: None)
     client = TestClient(app)
-    assert "Lấy hiệu ứng / nhạc từ một dự án CapCut" in client.get("/").text
+    assert "Lấy hiệu ứng / nhạc từ một dự án CapCut" not in client.get("/").text
     page = client.post("/assets/import-capcut", data={"mood": "vui"},
                        files={"zipfile": ("duan.zip", buf.getvalue(), "application/zip")}).text
     assert "capcut_template" in page and "cần CapCut tải" in page and "chuyển cảnh" in page
@@ -320,8 +318,40 @@ def test_home_only_auto_style_more_ratios_no_keep_bgm(tmp_path):
     assert "Giải trí / show" not in page and "Trang điểm / làm đẹp" not in page
     assert "name=\"keep_bgm\"" not in page and "Giữ nhạc nền gốc" not in page
     for r in ("16:9", "4:3", "1:1", "4:5", "3:4", "9:10", "9:16"):
-        assert f'<option value="{r}">' in page
+        assert f"name='ratio' value='{r}'" in page
     job = Job.create(tmp_path / "j", [Path("C:/f/a.mp4")], JobOptions(), job_id="x")
     job.data["default_ratio"] = "4:5"
     style = Runner._style(Runner.__new__(Runner), job, "tiktok_retention")
     assert style["block_ratio"] == "4:5" and style["crop_ratio"] == "4:5"
+
+
+def test_home_mode_cards_map_to_options(tmp_path):
+    """Chủ dự án 11/10: trang chủ mới — bỏ Kho tài nguyên + So sánh video, chọn MỘT chế độ bằng thẻ."""
+    from fastapi.testclient import TestClient
+
+    from app.jobs.job import Job
+    from app.web.server import create_app
+
+    f = tmp_path / "v.mp4"
+    f.write_bytes(b"x")
+    app = create_app(tmp_path / "jobs", lambda root, log: None)
+    app.state.worker.start = lambda job_id, action=None: True
+    client = TestClient(app)
+    home = client.get("/").text
+    assert "Kho tài nguyên" not in home and "So sánh video" not in home
+    for m in ("normal", "dub", "voice_only", "review", "char_dub", "vi_sub"):
+        assert f"name='mode' value='{m}'" in home
+
+    def make(**data):
+        r = client.post("/jobs", data={"footage": str(f), **data}, follow_redirects=False)
+        return Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1]).options
+
+    o = make(mode="normal", target_language="ko", review="on", hook="on")
+    assert not o.target_language and not o.review and o.hook
+    o = make(mode="char_dub", target_language="ja", hook="on")
+    assert o.char_dub and o.target_language == "ja" and not o.review
+    o = make(mode="vi_sub", target_language="ko")
+    assert o.vi_sub and not o.target_language
+    o = make(mode="voice_only", target_language="en", hook="on")
+    assert o.voice_only and not o.hook
+    assert "Chưa chọn ngôn ngữ" in client.post("/jobs", data={"footage": str(f), "mode": "dub"}).text

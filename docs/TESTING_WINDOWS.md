@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 83 — Trang chủ mới: 3 bước, chọn chế độ bằng thẻ; bỏ Kho tài nguyên + So sánh video `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm Ctrl+F5 trên trình duyệt.
+2. Trang chủ không còn thẻ "📚 Kho tài nguyên" và "🔍 So sánh video" (trang job cũng bỏ mục so sánh).
+3. Form "Tạo video mới" có 3 bước: **1 Chọn video** → **2 Bạn muốn làm gì?** (6 thẻ: Dựng video TikTok / Đổi ngôn ngữ /
+   Chỉ thay tiếng / Review phim / Lồng tiếng nhân vật / Chỉ phụ đề tiếng Việt) → **3 Tùy chọn** (ô tick dạng nút tròn +
+   ô khung video có hình minh họa). AI đạo diễn, nhạc nền, mã khách nằm trong "⚙️ Nâng cao".
+4. Bấm từng thẻ chế độ: ô ngôn ngữ chỉ hiện khi chế độ cần; các tùy chọn không dùng được với chế độ đó tự ẩn
+   (vd Lồng tiếng nhân vật: ẩn hook, chia video, ⚡).
+5. Tạo thử một job mỗi chế độ (vd Lồng tiếng nhân vật + tiếng Hàn) → mở trang job, dòng chế độ ở đầu trang phải đúng.
+6. Danh sách "Các video" bên phải vẫn tự cập nhật mỗi 3 giây; số luồng / tự xóa job / dự án mẫu CapCut nằm trong
+   "⚙️ Cài đặt" dưới danh sách.
+7. Thử thu nhỏ cửa sổ trình duyệt (hoặc mở trên điện thoại cùng mạng): các thẻ xếp thành một cột, không bị tràn ngang.
+
 ## Bước 82 — AI chọn "đoạn hay" rộng hơn: câu nói hay, hài, gay cấn, bất ngờ, cảm xúc… `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.

@@ -24,51 +24,84 @@ from app.jobs.job import STEPS, Job, JobOptions, Status
 JOBS_ROOT = ROOT / "jobs"
 
 CSS = """
-:root{--bg:#f4f6fb;--card:#fff;--ink:#1d2433;--mute:#6b7385;--line:#e4e8f0;--pri:#5b5bf7;--pri2:#8b5cf6;
+:root{--bg:#f3f4f9;--card:#fff;--ink:#1b2132;--mute:#6b7385;--line:#e3e7f0;--pri:#5b5bf7;--pri2:#a855f7;--soft:#f1f0ff;
 --ok:#16a34a;--warn:#f59e0b;--err:#dc2626;--run:#2563eb}
-*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",system-ui,"Noto Sans JP",sans-serif;background:var(--bg);color:var(--ink)}
-header{background:linear-gradient(120deg,var(--pri),var(--pri2));color:#fff;padding:18px 28px;display:flex;align-items:center;gap:14px}
-header .logo{font-size:26px}header h1{font-size:20px;margin:0}header small{opacity:.85}
-header a{color:#fff;text-decoration:none}
-main{max-width:1180px;margin:24px auto;padding:0 20px}
-.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px}@media(max-width:900px){.grid{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 2px 10px rgba(30,40,80,.05);margin-bottom:22px}
-.card h2{margin:0 0 14px;font-size:17px}
+*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",system-ui,"Noto Sans KR","Noto Sans JP",sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+header{background:linear-gradient(120deg,var(--pri),var(--pri2));color:#fff;padding:14px 28px;display:flex;align-items:center;gap:14px;
+box-shadow:0 4px 20px rgba(91,91,247,.25)}
+header .logo{font-size:26px;background:rgba(255,255,255,.18);width:44px;height:44px;border-radius:12px;display:grid;place-items:center}
+header h1{font-size:19px;margin:0}header small{opacity:.85}header a{color:#fff;text-decoration:none}
+main{max-width:1240px;margin:22px auto;padding:0 16px}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.9fr);gap:22px;align-items:start}
+@media(max-width:960px){.grid{grid-template-columns:1fr}}
+.side{position:sticky;top:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 2px 12px rgba(30,40,80,.05);margin-bottom:22px}
+.card h2{margin:0 0 14px;font-size:18px}
+.hero{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px 22px;margin-bottom:22px;
+background-image:radial-gradient(circle at 100% 0,#efeaff 0,transparent 45%)}
+.hero h2{margin:0 0 4px;font-size:18px}.hero p{margin:0;color:var(--mute);font-size:14px}
 .muted{color:var(--mute);font-size:13px}
-.field{margin:12px 0}.field>label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
-.row{display:flex;gap:8px}.row input{flex:1}
-input[type=text],select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fbfcff}
+.field{margin:12px 0}.field>label,.langbox label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
+.row{display:flex;gap:8px;align-items:flex-start}.row input,.row textarea{flex:1}
+input[type=text],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;
+background:#fbfcff;font-family:inherit;color:inherit}
 input[type=number]{padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-size:14px}
-input[type=text]:focus{outline:2px solid #c7c9ff;border-color:var(--pri)}
+input[type=text]:focus,textarea:focus,select:focus{outline:2px solid #c7c9ff;border-color:var(--pri)}
 .btn{display:inline-block;background:linear-gradient(120deg,var(--pri),var(--pri2));color:#fff;border:0;border-radius:10px;
-padding:10px 20px;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none}
-.btn.light{background:#eef0ff;color:var(--pri)}.btn.big{padding:13px 28px;font-size:16px}
+padding:10px 20px;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap;transition:transform .1s,box-shadow .2s}
+.btn:hover{box-shadow:0 4px 14px rgba(91,91,247,.3)}.btn:active{transform:translateY(1px)}
+.btn.light{background:#eef0ff;color:var(--pri)}.btn.light:hover{box-shadow:none;background:#e3e5ff}
+.btn.big{padding:14px 34px;font-size:17px;border-radius:14px}
+.stepbox{display:flex;gap:14px;padding:16px 0;border-top:1px dashed var(--line)}.stepbox:first-of-type{border-top:0;padding-top:4px}
+.stepbox .num{flex:none;width:30px;height:30px;border-radius:50%;background:linear-gradient(120deg,var(--pri),var(--pri2));color:#fff;
+font-weight:700;display:grid;place-items:center;font-size:14px}
+.stepbox .sb{flex:1;min-width:0}.stepbox h3{margin:3px 0 10px;font-size:16px}
+.modes{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.mode{border:1.5px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;display:block;background:#fbfcff;transition:.15s}
+.mode:hover{border-color:#c7c9ff}.mode input{display:none}.mode .ico{font-size:22px;display:block}
+.mode>b{display:block;font-size:14px;margin:2px 0}.mode span:last-child{font-size:12px;color:var(--mute)}
+.mode:has(input:checked){border-color:var(--pri);background:var(--soft);box-shadow:0 0 0 3px #e3e1ff}
+.langbox{margin-top:12px;background:#fafaff;border:1px solid #e6e4ff;border-radius:12px;padding:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px solid var(--line);border-radius:999px;cursor:pointer;
+font-size:14px;background:#fbfcff;user-select:none}
+.chip input{accent-color:var(--pri);width:16px;height:16px;margin:0}.chip:has(input:checked){border-color:var(--pri);background:var(--soft)}
+.ratios{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.ratio{border:1.5px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;background:#fbfcff}
+.ratio input{display:none}.ratio i{display:block;height:34px;max-width:60px;margin:0 auto 4px;border:2px solid #b9bdd0;border-radius:4px}
+.ratio b{display:block;font-size:13px}.ratio span{font-size:11px;color:var(--mute)}
+.ratio:has(input:checked){border-color:var(--pri);background:var(--soft)}.ratio:has(input:checked) i{border-color:var(--pri);background:#e3e1ff}
+details.adv{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:#fcfcff}
+details.adv summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--mute)}details.adv[open] summary{margin-bottom:6px}
+.go{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-top:16px;border-top:1px dashed var(--line)}
+[hidden]{display:none!important}
 .styles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .style{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;display:block;background:#fbfcff}
 .style input{display:none}.style b{display:block;font-size:14px}.style span{font-size:12px;color:var(--mute)}
-.style:has(input:checked){border-color:var(--pri);background:#f1f0ff;box-shadow:0 0 0 3px #e3e1ff}
+.style:has(input:checked){border-color:var(--pri);background:var(--soft);box-shadow:0 0 0 3px #e3e1ff}
 .toggles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tg{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:14px}
 .tg input{appearance:none;width:38px;height:22px;background:#d6dae4;border-radius:11px;position:relative;transition:.2s;flex:none}
 .tg input:before{content:"";position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.2s}
 .tg input:checked{background:var(--pri)}.tg input:checked:before{left:18px}
-.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:#fff}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:#fff;white-space:nowrap}
 .b-pending,.b-running{background:var(--run)}.b-waiting{background:var(--warn)}.b-error{background:var(--err)}.b-done{background:var(--ok)}.b-stopped{background:#6b7280}
-.jobs a.job{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;
-margin:8px 0;text-decoration:none;color:var(--ink);background:#fbfcff}.jobs a.job:hover{border-color:var(--pri)}
-.jobs .name{font-weight:600}.jobs .sub{font-size:12px;color:var(--mute)}
+.jobs a.job{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;
+margin:8px 0;text-decoration:none;color:var(--ink);background:#fbfcff;transition:.15s}
+.jobs a.job:hover{border-color:var(--pri);transform:translateX(2px)}
+.jobs .name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px}.jobs .sub{font-size:12px;color:var(--mute)}
 .stepper{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 18px}
 .step{padding:6px 12px;border-radius:20px;font-size:12px;background:#eceff5;color:var(--mute)}
 .step.done{background:#dcfce7;color:#166534}.step.cur{background:var(--pri);color:#fff}.step.cur.waiting{background:var(--warn)}
 .step.cur.error{background:var(--err)}
 pre{white-space:pre-wrap;background:#f8f9fc;border:1px solid var(--line);padding:12px;border-radius:10px;font-size:13px;margin:0}
 .hook{border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0;cursor:pointer;display:block;background:#fbfcff}
-.hook:has(input:checked){border-color:var(--pri);background:#f1f0ff}
+.hook:has(input:checked){border-color:var(--pri);background:var(--soft)}
 .hook .line{font-size:17px;font-weight:600;margin:4px 0}.tag{background:#eef0ff;color:var(--pri);padding:2px 8px;border-radius:8px;font-size:12px}
 table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:8px;text-align:left}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid #c7c9ff;border-top-color:var(--pri);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
-.lib{display:flex;gap:10px;flex-wrap:wrap}.lib div{background:#f1f0ff;border-radius:10px;padding:8px 12px;font-size:13px}
+.lib{display:flex;gap:10px;flex-wrap:wrap}.lib div{background:var(--soft);border-radius:10px;padding:8px 12px;font-size:13px}
 .lib b{font-size:18px;color:var(--pri);display:block}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.actions form{margin:0}
 .btn.danger{background:#fee2e2;color:var(--err)}.btn.small{padding:7px 14px;font-size:13px}
@@ -76,6 +109,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px
 .upload{border:2px dashed #c7c9ff;border-radius:12px;padding:16px;background:#f7f7ff;margin-top:12px}
 .upload input[type=file]{font-size:14px;margin:6px 0 10px}
 .note{background:#fff7e6;border:1px solid #fde3a7;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+@media(max-width:600px){header{padding:12px 16px}.card{padding:16px}.stepbox{gap:10px}.row{flex-wrap:wrap}.row textarea{flex-basis:100%}.side{position:static}}
 """
 
 STEP_VI = {
@@ -138,6 +172,9 @@ def esc_mode(job) -> str:
 def step_label(job, st: str) -> str:
     return STEP_VI_MODE.get(job_mode(job), {}).get(st) or STEP_VI.get(st, st)
 
+
+# các chế độ (thẻ) trên trang chủ; mỗi chế độ bật đúng một ô tick cũ (normal / dub: không ô nào)
+MODES = ("normal", "dub", "voice_only", "review", "char_dub", "vi_sub")
 
 STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong",
              "stopped": "đã dừng"}
@@ -244,7 +281,7 @@ def _read(path: Path) -> str:
 
 
 def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root: Path | None = None,
-               settings_path: Path | None = None, scan_fn=None, compare_fn=None) -> FastAPI:
+               settings_path: Path | None = None, scan_fn=None) -> FastAPI:
     from app import settings as app_settings
     from app.assets import ledger
 
@@ -314,10 +351,13 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 return f"<span class='badge b-waiting'>xếp hàng #{queued_ids.index(j.job_id) + 1}</span>"
             return f"<span class='badge b-{j.status.value}'>{STATUS_VI[j.status.value]}</span>"
 
+        def sub(j: Job) -> str:
+            parts = (j.job_id, html.escape(j.data.get("style_used") or ""), esc_mode(j) + step_label(j, j.step))
+            return " · ".join(x for x in parts if x)
+
         jobs_html = "".join(
             f"<a class='job' href='/jobs/{j.job_id}'><div><div class='name'>{html.escape(Path(j.footage[0]).name)}</div>"
-            f"<div class='sub'>{j.job_id} · {html.escape(j.data.get('style_used') or j.data.get('style') or '')} · "
-            f"{esc_mode(j)}{step_label(j, j.step)}</div></div>{badge(j)}</a>" for j in list_jobs())
+            f"<div class='sub'>{sub(j)}</div></div>{badge(j)}</a>" for j in list_jobs())
         status = (f"<p class='muted'>Đang chạy <b>{len(worker.active)}/{max_jobs()}</b> luồng"
                   f"{f', {len(queued_ids)} xếp hàng' if queued_ids else ''}</p>")
         return status + (jobs_html or "<p class='muted'>Chưa có video nào.</p>")
@@ -328,7 +368,6 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
 
     @app.get("/", response_class=HTMLResponse)
     def index():
-        has_key = bool(app_settings.load(settings_path).get("freesound_api_key"))
         n_max = max_jobs()
         opts = "".join(f"<option value='{n}' {'selected' if n == n_max else ''}>{n}</option>" for n in range(1, 7))
         kd = keep_days()
@@ -346,68 +385,84 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         def mmss(sec) -> str:
             return f"{int(sec) // 60}:{int(sec) % 60:02d}"
         review_len = f"{mmss(rcfg.get('min_video_s', 130))}–{mmss(rcfg.get('max_video_s', 150))}"
-        style_cards = ["<label class='style'><input type='radio' name='style' value='auto' checked>"
-                       "<b>✨ AI tự chọn</b><span>Đạo diễn xem nội dung rồi chọn kiểu phù hợp</span></label>"]
         # chủ dự án 11/10: chỉ để "AI tự chọn" (các kiểu dựng vẫn còn trong styles/, AI tự chọn theo nội dung)
-        lib, lib_err = _load_library()
+        # chủ dự án 11/10: bỏ "Kho tài nguyên" + "So sánh video" khỏi trang chủ; làm lại form theo 3 bước dễ dùng
+        lib, _ = _load_library()
+        modes = "".join(
+            f"<label class='mode'><input type='radio' name='mode' value='{k}' {'checked' if k == 'normal' else ''}>"
+            f"<span class='ico'>{ico}</span><b>{title}</b><span>{desc}</span></label>"
+            for k, ico, title, desc in (
+                ("normal", "✂️", "Dựng video TikTok", "AI cắt đoạn hay, thêm phụ đề, zoom, nhạc, hiệu ứng. Nhiều file = "
+                 "<b>Ghép nhiều video</b> thành một câu chuyện ~2 phút"),
+                ("dub", "🌐", "Đổi ngôn ngữ", "Thuyết minh + phụ đề tiếng Hàn / Nhật / Anh, dựng lại khác bản gốc"),
+                ("voice_only", "🎙️", "Chỉ thay tiếng", "Giữ NGUYÊN hình, chỉ thay voice + phụ đề ngôn ngữ mới"),
+                ("review", "🎬", "Review phim / hoạt hình",
+                 f"Tìm đoạn hay, mỗi đoạn một video {review_len} có lời review kể chuyện"),
+                ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn tình huống hay, thay giọng từng nhân vật, giữ nhạc nền gốc"),
+                ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
+            ))
+        ratios = ''.join(
+            f"<label class='ratio'><input type='radio' name='ratio' value='{v}' {'checked' if v == '4:3' else ''}>"
+            f"<i style='aspect-ratio:{v.replace(':', '/') if v != 'auto' else '1/1'}'></i><b>{v if v != 'auto' else 'Tự động'}</b>"
+            f"<span>{d}</span></label>"
+            for v, d in (("4:3", "ngang vừa"), ("16:9", "ngang rộng"), ("1:1", "vuông"), ("4:5", "hơi dọc"),
+                         ("3:4", "dọc"), ("9:10", "gần vuông"), ("9:16", "kín màn hình"), ("auto", "theo bố cục")))
         body = f"""
+        <div class="hero"><div><h2>Xin chào 👋</h2><p>Chọn video → chọn kiểu làm → bấm <b>Bắt đầu</b>.
+        Tool tự làm phần còn lại, chỗ nào cần bạn (duyệt đoạn, thu voice…) sẽ báo trong danh sách bên phải.</p></div></div>
         <div class="grid"><div>
-        <div class="card"><h2>🎞️ Tạo video mới</h2>
-        <form method="post" action="/jobs" enctype="multipart/form-data">
-          <div class="field"><label>File footage</label>
-            <div class="row"><textarea id="footage" name="footage" rows="2" style="flex:1" placeholder="Bấm Chọn file… hoặc dán đường dẫn (nhiều video: mỗi dòng một file)" required></textarea>
+        <form class="card create" method="post" action="/jobs" enctype="multipart/form-data" id="newjob">
+          <h2>🎞️ Tạo video mới</h2>
+          <input type='hidden' name='style' value='auto'>
+          <section class="stepbox"><div class="num">1</div><div class="sb">
+            <h3>Chọn video</h3>
+            <div class="row"><textarea id="footage" name="footage" rows="2" placeholder="Bấm Chọn file… hoặc dán đường dẫn (nhiều video: mỗi dòng một file)" required></textarea>
             <button type="button" class="btn light" onclick="pick()">📂 Chọn file…</button></div>
-            <div class="muted">🎞️ <b>Ghép nhiều video:</b> trong hộp thoại Chọn file giữ <b>Ctrl</b> (hoặc <b>Shift</b>) để chọn
-            nhiều file một lúc, hoặc bấm Chọn file nhiều lần (mỗi file một dòng) — tool chọn cảnh hay
-            từ TẤT CẢ video (mỗi video một chút), ghép thành MỘT câu chuyện ý nghĩa dài khoảng 2 phút (chặng đường, quá trình,
-            tình bạn…), giữ tiếng gốc + thêm nhạc nền, hiệu ứng.</div>
-            <div class="muted" id="pickmsg"></div></div>
-          <div class="field"><label>Kiểu dựng</label><div class="styles">{''.join(style_cards)}</div></div>
-          <div class="field"><label>Tùy chọn</label><div class="toggles">
-            <label class="tg"><input type="checkbox" name="hook" checked> Có hook voice</label>
-            <label class="tg"><input type="checkbox" name="reframe"> Đổi khung theo cảnh</label>
-            <label class="tg"><input type="checkbox" name="business"> Khách doanh nghiệp (nhạc Commercial)</label>
-            <label class="tg"><input type="checkbox" name="confirm"> Xác nhận trước khi dựng</label>
-            <label class="tg"><input type="checkbox" name="split"> Chia video dài thành nhiều video</label>
-            <label class="tg"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục — cảnh gay cấn lên đầu (3–5s/cảnh)</label>
-            <label class="tg"><input type="checkbox" name="review"> 🎬 Review phim / hoạt hình — tìm đoạn hay, mỗi đoạn
-            một video {review_len} có lời review (bạn thu voice)</label>
-            <label class="tg"><input type="checkbox" name="char_dub"> 🎭 Lồng tiếng nhân vật — chọn đoạn hay TikTok, thay giọng
-            từng nhân vật sang ngôn ngữ ở ô 🌐 (giữ nhạc + tiếng nền gốc, cần Demucs)</label>
-            <label class="tg"><input type="checkbox" name="vi_sub"> 🇻🇳 Chỉ phụ đề tiếng Việt — xem hiểu video nước ngoài
-            (không dựng lại; ra file .srt + draft giữ nguyên video)</label></div></div>
-          {_music_select(lib)}
-          <div class="field"><label>🌐 Đổi ngôn ngữ video (thuyết minh + phụ đề, dựng lại khác bản gốc)</label>
-            <select name="target_language"><option value="">Giữ nguyên ngôn ngữ gốc</option>
-              <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
-              <option value="en">Đổi sang tiếng Anh (English)</option></select>
-            <div class="muted">Video gốc tiếng Hàn / Nhật / Anh / Trung. AI dịch và viết câu thuyết minh, bạn thu voice từng câu
-            bằng Voice Studio rồi tải lên; mọi cảnh được đổi khung, zoom, chuyển động, nhạc + tiêu đề mới (giữ thứ tự cảnh).</div>
-            <label style="margin-top:8px">✍️ Cách viết lời thuyết minh</label><select name="script_mode">
-              <option value="rewrite">AI xem video rồi VIẾT MỚI nội dung hợp nước đó (không dịch)</option>
-              <option value="translate">Dịch sát lời gốc (bản địa hóa nhẹ)</option></select>
-            <label class="tg"><input type="checkbox" name="voice_only"> 🎙️ Chỉ thay tiếng — giữ NGUYÊN hình</label>
-            <div class="muted">Không cắt, không đổi khung / zoom / lật: video giữ đúng như gốc từ đầu đến cuối. Chỉ tắt tiếng gốc,
-            thêm voice thuyết minh + phụ đề + tiêu đề (ngôn ngữ đã chọn ở trên), nhạc nền nhẹ và hiệu ứng. Không có hook,
-            không chia video. Đoạn vi phạm chính sách TikTok vẫn bị cắt.</div>
-</div>
-          <div class="field"><label>🤖 AI đạo diễn</label><select name="ai">{_ai_options()}</select>
-            <div class="muted">AI xem video, chọn đoạn, viết lời, lập kế hoạch dựng. Claude: gói Claude Pro qua Claude Code.
-            Gemini Pro: gói Google AI Pro qua Antigravity CLI (cài một lần bằng install_antigravity.bat). Đổi lại được ở trang job.</div></div>
-          <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
-            <div><label>Khung video</label><select name="ratio">
-              <option value="4:3">4:3 (ngang vừa)</option><option value="16:9">16:9 (ngang rộng)</option>
-              <option value="1:1">1:1 (vuông)</option><option value="4:5">4:5 (hơi dọc)</option>
-              <option value="3:4">3:4 (dọc)</option><option value="9:10">9:10 (gần vuông, hơi dọc)</option>
-              <option value="9:16">9:16 (dọc kín màn hình, chữ đè lên hình)</option>
-              <option value="auto">Tự động</option></select></div></div>
-          <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>
-        </form></div>{_compare_card()}</div>
-        <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary(lib, lib_err)}{_resource_tools(has_key)}{_template_setting()}</div>
-        <div class="card jobs"><h2>🗂️ Các video</h2>{threads}<div id="jobs-panel">{jobs_panel()}</div>
-        <p class='muted'>Mỗi video chạy trên một luồng riêng (ví dụ luồng 1 podcast, luồng 2 video hài). Bước phân tích
-        dùng GPU nên lần lượt từng video; hỏi đạo diễn AI tối đa 2 video cùng lúc (chung hạn mức Claude Pro).</p></div></div></div>
+            <div class="muted" id="pickmsg">Mẹo: giữ <b>Ctrl</b> khi chọn để lấy nhiều file → tool ghép thành MỘT video.</div>
+          </div></section>
+          <section class="stepbox"><div class="num">2</div><div class="sb">
+            <h3>Bạn muốn làm gì?</h3>
+            <div class="modes">{modes}</div>
+            <div class="langbox" data-modes="dub voice_only review char_dub">
+              <label>🌐 Ngôn ngữ video mới</label>
+              <select name="target_language" id="lang"><option value="">Giữ nguyên ngôn ngữ gốc</option>
+                <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
+                <option value="en">Đổi sang tiếng Anh (English)</option></select>
+              <div class="muted" id="langhint"></div>
+              <div data-modes="dub voice_only"><label style="margin-top:10px">✍️ Cách viết lời thuyết minh</label>
+                <select name="script_mode">
+                <option value="rewrite">AI xem video rồi VIẾT MỚI nội dung hợp nước đó (không dịch)</option>
+                <option value="translate">Dịch sát lời gốc (bản địa hóa nhẹ)</option></select></div>
+            </div>
+          </section>
+          <section class="stepbox"><div class="num">3</div><div class="sb">
+            <h3>Tùy chọn <span class="muted">(để mặc định cũng được)</span></h3>
+            <div class="chips">
+              <label class="chip" data-modes="normal dub"><input type="checkbox" name="hook" checked> 🪝 Có hook voice</label>
+              <label class="chip" data-modes="normal dub review"><input type="checkbox" name="split"> ✂️ Chia video dài thành nhiều video</label>
+              <label class="chip" data-modes="normal dub"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục</label>
+              <label class="chip" data-modes="normal dub"><input type="checkbox" name="confirm"> ✅ Xác nhận trước khi dựng</label>
+              <label class="chip" data-modes="normal dub review"><input type="checkbox" name="reframe"> 🔲 Đổi khung theo cảnh</label>
+              <label class="chip" data-modes="normal dub voice_only review"><input type="checkbox" name="business"> 💼 Khách doanh nghiệp</label>
+            </div>
+            <div class="field" style="margin-top:14px"><label>🖼️ Khung video</label>
+              <div class="ratios">{ratios}</div></div>
+            <details class="adv"><summary>⚙️ Nâng cao: AI đạo diễn, nhạc nền, mã khách</summary>
+              <div class="field"><label>🤖 AI đạo diễn</label><select name="ai">{_ai_options()}</select>
+                <div class="muted">Claude: gói Claude Pro qua Claude Code. Gemini Pro: gói Google AI Pro qua Antigravity CLI
+                (cài một lần bằng install_antigravity.bat). Đổi lại được ở trang job.</div></div>
+              {_music_select(lib)}
+              <div class="field"><label>👤 Mã khách</label><input type="text" name="client" value="khach"></div>
+            </details>
+          </div></section>
+          <div class="go"><button type="submit" class="btn big">🚀 Bắt đầu dựng</button>
+          <span class="muted" id="modehint"></span></div>
+        </form></div>
+        <div class="side"><div class="card jobs"><h2>🗂️ Các video <span class="muted" style="font-weight:400">tự cập nhật</span></h2>
+        <div id="jobs-panel">{jobs_panel()}</div>
+        <details class="adv"><summary>⚙️ Cài đặt</summary>{threads}{_template_setting()}
+        <p class='muted'>Mỗi video chạy trên một luồng riêng. Bước phân tích dùng GPU nên lần lượt từng video; hỏi đạo diễn
+        AI tối đa 2 lượt cùng lúc (chung hạn mức gói Pro).</p></details></div></div></div>
         <script>
         async function pick(){{
           const m=document.getElementById('pickmsg'); m.textContent='Đang mở hộp thoại chọn file…';
@@ -415,9 +470,26 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             const ps=d.paths||(d.path?[d.path]:[]);
             if(ps.length){{const f=document.getElementById('footage');const nl=String.fromCharCode(10);
               f.value=(f.value.trim()?f.value.trim()+nl:'')+ps.join(nl);
-              m.textContent=ps.length>1?('Đã thêm '+ps.length+' video — tool sẽ ghép thành một video.'):'';}}
+              const n=f.value.trim().split(nl).length;
+              m.textContent=n>1?('Đã có '+n+' video — tool sẽ ghép thành một video.'):'Đã chọn 1 video.';}}
             else m.textContent=d.error||'Chưa chọn file.';}}catch(e){{m.textContent='Không mở được hộp thoại: '+e;}}
         }}
+        const HINT={{normal:'', dub:'Bạn sẽ thu voice từng câu bằng Voice Studio (hoặc cho OmniVoice đọc).',
+          voice_only:'Không cắt, không đổi khung — chỉ thay tiếng. Cần chọn ngôn ngữ mới.',
+          review:'Không chọn ngôn ngữ = lời review bằng tiếng gốc của phim.',
+          char_dub:'Cần chọn ngôn ngữ mới (vd phim Nhật → tiếng Hàn). Nên cài Demucs để giữ nhạc nền gốc.',
+          vi_sub:'Không dựng lại — chỉ dịch phụ đề tiếng Việt.'}};
+        function syncMode(){{
+          const m=(document.querySelector('input[name=mode]:checked')||{{}}).value||'normal';
+          document.querySelectorAll('#newjob [data-modes]').forEach(el=>{{
+            const on=el.dataset.modes.split(' ').includes(m); el.hidden=!on;
+            el.querySelectorAll('input,select').forEach(i=>i.disabled=!on);}});
+          const lang=document.getElementById('lang'); lang.options[0].hidden=(m!=='review');
+          if(m!=='review'&&!lang.value&&['dub','voice_only','char_dub'].includes(m)) lang.value='ko';
+          document.getElementById('langhint').textContent=HINT[m]||'';
+          document.getElementById('modehint').textContent=m==='normal'?'':'Chế độ: '+document.querySelector('input[name=mode]:checked').parentElement.querySelector('b').textContent;
+        }}
+        document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change',syncMode)); syncMode();
         </script>"""
         body += """<script>
         // Chỉ cập nhật danh sách video mỗi 3 giây (KHÔNG tải lại cả trang → không mất file / lựa chọn đang nhập)
@@ -428,26 +500,6 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         }, 3000);
         </script>"""
         return _page("Tool dựng video", body)
-
-    @app.post("/compare", response_class=HTMLResponse)
-    def compare(original: str = Form(...), edited: str = Form(...), back: str = Form("/")):
-        esc = html.escape
-        o, e = Path(original.strip().strip('"')), Path(edited.strip().strip('"'))
-        missing = [str(x) for x in (o, e) if not x.is_file()]
-        back = back if back.startswith("/") else "/"
-        if missing:
-            return _page("So sánh", f"<div class='card'><h2>Không thấy file</h2><p>{esc(', '.join(missing))}</p>"
-                         f"<p><a class='btn light' href='{esc(back)}'>Quay lại</a></p></div>")
-        if compare_fn is None:
-            from app.analysis.compare import compare_videos as fn
-        else:
-            fn = compare_fn
-        try:
-            r = fn(o, e)
-        except Exception as exc:
-            return _page("So sánh", f"<div class='card'><h2>⚠️ Không so sánh được</h2><pre>{esc(str(exc))}</pre>"
-                         f"<p><a class='btn light' href='{esc(back)}'>Quay lại</a></p></div>")
-        return _page("So sánh", _compare_result_html(r, o, e, back))
 
     @app.get("/api/pick-file")
     def pick_file(multiple: int = 0):
@@ -539,7 +591,15 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
                 keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None),
                 vi_sub: str | None = Form(None), review: str | None = Form(None), char_dub: str | None = Form(None),
-                ai: str = Form("")):
+                ai: str = Form(""), mode: str = Form("")):
+        if mode in MODES:  # trang chủ mới: chọn MỘT chế độ (thẻ) thay cho các ô tick riêng
+            review, char_dub, vi_sub, voice_only = (("on" if mode == m else None)
+                                                    for m in ("review", "char_dub", "vi_sub", "voice_only"))
+            if mode in ("normal", "vi_sub"):
+                target_language = ""
+            if mode == "dub" and target_language not in ("ko", "ja", "en"):
+                return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Đổi ngôn ngữ</b> cần chọn "
+                             "ngôn ngữ mới (Hàn / Nhật / Anh).</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
         paths = [Path(x.strip().strip('"')) for x in footage.splitlines() if x.strip().strip('"')]
         missing_files = [p for p in paths if not p.is_file()]
         if not paths or missing_files:
@@ -992,143 +1052,6 @@ def _continue_button(job: Job, label: str = "Tiếp tục") -> str:
             f"<button type='submit' class='btn'>{label}</button></form>")
 
 
-def _resource_tools(has_key: bool) -> str:
-    """Nút quét / làm giàu kho + cài đặt Freesound + thêm file / cả thư mục âm thanh của mình vào kho."""
-    from app.assets.scan import ENERGY_VI
-
-    esc = html.escape
-    cfg = app_config.load("assets")
-    tags = "".join(f"<option value='{k}'>SFX · {k}</option>" for k in (cfg.get("sfx_queries") or {}))
-    tags += "".join(f"<option value='{k}'>SFX · {esc(g.get('vi', k))}</option>" for k, g in (cfg.get("sfx_groups") or {}).items())
-    tags += "".join(f"<option value='{k}'>Nhạc · {ENERGY_VI.get(k, k)} ({k})</option>"
-                    for k in (cfg.get("music_queries") or {}))
-    tags += "".join(f"<option value='{k}'>Nhạc · {esc(g.get('vi', k))}</option>"
-                    for k, g in (cfg.get("music_groups") or {}).items())
-    sources = "".join(f"<option value='{k}'>{esc(v.get('vi', k))}{' — phải ghi nguồn' if v.get('credit') else ''}</option>"
-                      for k, v in (cfg.get("manual_sources") or {}).items())
-    key_state = "✅ đã lưu key" if has_key else "chưa có key — vẫn tải được từ Openverse"
-    try:
-        from app.jobs.runner import drafts_root, list_drafts
-
-        drafts = "".join(f"<option value='{esc(str(d))}'>{esc(n)}</option>" for d, n in list_drafts(drafts_root()))
-    except Exception:
-        drafts = ""
-    return f"""
-    <form method="post" action="/resources/scan" onsubmit="this.querySelector('button').innerHTML='<span class=spinner></span> Đang quét / tải… (có thể vài phút)'">
-      <label class="tg" style="margin-top:12px"><input type="checkbox" name="download" checked>
-        Tự tải thêm cái còn thiếu (Freesound + Openverse, chỉ CC0 / Public Domain)</label>
-      <p><button type="submit" class="btn">🔍 Quét &amp; làm giàu kho</button></p>
-      <p class="muted">Kho gồm {len(cfg.get('sfx_groups') or {})} nhóm SFX và {len(cfg.get('music_groups') or {})} nhóm nhạc
-      (chuyển cảnh, va chạm, căng thẳng, đám đông, thiên nhiên… / hành động, tài liệu, cảm động, Nhật, Hàn, trap…).
-      Nhóm nào chưa đủ file thì tool tự tìm và tải.</p></form>
-    <details><summary class="muted">⚙️ Cài đặt Freesound ({key_state})</summary>
-      <form method="post" action="/settings/freesound" style="margin-top:8px">
-        <p class="muted">Lấy key miễn phí: đăng ký tài khoản ở freesound.org rồi vào
-        <a href="https://freesound.org/apiv2/apply" target="_blank">freesound.org/apiv2/apply</a>, copy "Client secret/Api key".</p>
-        <div class="row"><input type="text" name="key" placeholder="{'Đã lưu — dán key mới để thay' if has_key else 'Dán API key'}">
-        <button class="btn small" type="submit">Lưu</button></div></form></details>
-    <details><summary class="muted">📁 Nhập cả thư mục (Pixabay, Mixkit, YouTube Audio Library, Incompetech…)</summary>
-      <form class="upload" method="post" action="/assets/import-folder"
-            onsubmit="this.querySelector('button[type=submit]').innerHTML='<span class=spinner></span> Đang nhập…'">
-        <p class="muted">Các trang này không có API nên tải tay về máy (có thể chia thư mục như SFX/ChuyenCanh,
-        Nhac/CamDong…), rồi chọn thư mục ở đây. Tool tự xếp nhóm theo tên thư mục, ghi sổ nguồn và CREDITS.csv.</p>
-        <div class="row"><input type="text" id="folder" name="folder" placeholder="Bấm Chọn thư mục… hoặc dán đường dẫn" required>
-        <button type="button" class="btn light small" onclick="pickFolder()">📂 Chọn thư mục…</button></div>
-        <div class="row" style="margin-top:8px"><select name="kind"><option value="auto">Tự nhận SFX / nhạc</option>
-          <option value="sfx">Tất cả là SFX</option><option value="music">Tất cả là nhạc nền</option></select>
-          <select name="source">{sources}</select></div>
-        <div class="row" style="margin-top:8px"><input type="text" name="license" placeholder="Giấy phép (để trống = theo nguồn)">
-          <input type="text" name="author" placeholder="Tác giả (nếu có)"></div>
-        <p><button type="submit" class="btn small">Nhập vào kho</button></p>
-        <p class="muted">Không nhập file giấy phép NonCommercial (NC) hoặc NoDerivatives (ND). Không lấy file từ CapCut/TikTok ra.</p>
-      </form></details>
-    <details><summary class="muted">📦 Lấy hiệu ứng / nhạc từ một dự án CapCut</summary>
-      <form class="upload" method="post" action="/assets/import-capcut" enctype="multipart/form-data"
-            onsubmit="this.querySelector('button[type=submit]').innerHTML='<span class=spinner></span> Đang đọc dự án…'">
-        <p class="muted">Dự án đang có trong CapCut trên máy đã được tự quét. Dùng ô này để <b>giữ lại</b> tài nguyên của một
-        dự án (kể cả khi sau này xóa nó), gắn nhãn tâm trạng cho nhạc, hoặc lấy từ <b>dự án ở máy khác</b> (nén .zip gửi sang).
-        Chọn MỘT trong ba cách:</p>
-        <label>1) Dự án trong CapCut trên máy này</label><select name="draft"><option value="">— không chọn —</option>{drafts}</select>
-        <label style="margin-top:8px;display:block">2) Hoặc tải lên file .zip của thư mục dự án</label>
-        <input type="file" name="zipfile" accept=".zip">
-        <label style="margin-top:8px;display:block">3) Hoặc chọn thư mục dự án</label>
-        <div class="row"><input type="text" id="cc_folder" name="folder" placeholder="Thư mục dự án CapCut">
-        <button type="button" class="btn light small" onclick="pickFolder('cc_folder')">📂 Chọn…</button></div>
-        <div class="row" style="margin-top:8px"><input type="text" name="mood" placeholder="Nhãn tâm trạng cho nhạc (vd: vui, căng, buồn) — không bắt buộc"></div>
-        <label class="tg" style="margin-top:8px"><input type="checkbox" name="copy_to_capcut" checked>
-          Chép dự án (zip / thư mục ngoài) vào CapCut để mở 1 lần cho CapCut tải tài nguyên</label>
-        <p><button type="submit" class="btn small">Lấy tài nguyên</button></p></form></details>
-    <details><summary class="muted">➕ Thêm một file âm thanh</summary>
-      <form class="upload" method="post" action="/assets/upload" enctype="multipart/form-data">
-        <div class="row"><select name="kind"><option value="sfx">SFX</option><option value="music">Nhạc nền</option></select>
-        <select name="tag">{tags}</select></div>
-        <input type="file" name="file" accept="audio/*" required><br>
-        <button class="btn small" type="submit">Thêm vào kho</button>
-        <p class="muted">Chỉ thêm file bạn có quyền dùng. Nguồn được ghi vào sổ assets/ledger.json.</p></form></details>
-    <script>
-    async function pickFolder(id){{
-      try{{const r=await fetch('/api/pick-folder');const d=await r.json();
-        if(d.path) document.getElementById(id||'folder').value=d.path; else if(d.error) alert(d.error);}}
-      catch(e){{alert('Không mở được hộp thoại: '+e);}}
-    }}
-    </script>"""
-
-
-def _compare_card(original: str = "", back: str = "/") -> str:
-    """Ô so sánh video gốc với video đã edit (đã xuất từ CapCut)."""
-    esc = html.escape
-    return f"""<div class="card"><h2>🔍 So sánh video gốc và video đã edit</h2>
-    <p class="muted">Xuất video từ CapCut xong, chọn file gốc và file đã edit — tool ước lượng khác nhau bao nhiêu % về
-    hình, tiếng và thời lượng (chạy trên máy, có thể mất 1–2 phút với video dài).</p>
-    <form method="post" action="/compare">
-      <input type="hidden" name="back" value="{esc(back)}">
-      <div class="field"><label>Video gốc</label><div class="row">
-        <input type="text" id="cmp_original" name="original" value="{esc(original)}" placeholder="Bấm Chọn file…" required>
-        <button type="button" class="btn light" onclick="pickTo('cmp_original')">📂 Chọn file…</button></div></div>
-      <div class="field"><label>Video đã edit (file xuất từ CapCut)</label><div class="row">
-        <input type="text" id="cmp_edited" name="edited" placeholder="Bấm Chọn file…" required>
-        <button type="button" class="btn light" onclick="pickTo('cmp_edited')">📂 Chọn file…</button></div></div>
-      <button type="submit" class="btn">🔍 So sánh</button>
-    </form>
-    <script>
-    async function pickTo(id){{
-      try{{const r=await fetch('/api/pick-file');const d=await r.json();
-        if(d.path) document.getElementById(id).value=d.path; else if(d.error) alert(d.error);}}
-      catch(e){{alert('Không mở được hộp thoại: '+e);}}
-    }}
-    </script></div>"""
-
-
-def _compare_result_html(r, original: Path, edited: Path, back: str) -> str:
-    esc = html.escape
-
-    def bar(pct: float) -> str:
-        color = "#16a34a" if pct >= 60 else ("#d97706" if pct >= 35 else "#dc2626")
-        return (f"<div style='background:#e5e7eb;border-radius:6px;height:12px;width:100%'><div style='width:{pct:.0f}%;"
-                f"height:12px;border-radius:6px;background:{color}'></div></div>")
-
-    rows = [("🖼️ Hình ảnh", r.visual_diff, f"{r.visual_matched:.0f}% khung hình của bản edit gần như trùng một khung gốc"
-             + (f" (trong đó {r.mirrored_share:.0f}% là cảnh lật ngang)" if r.mirrored_share else "")),
-            ("🔊 Âm thanh", r.audio_diff, "đường âm lượng so theo từng đoạn 3 giây" if r.audio_diff is not None
-             else "không đo được"),
-            ("⏱️ Thời lượng", r.duration_diff, f"gốc {r.original_s:.0f}s → edit {r.edited_s:.0f}s")]
-    body = "".join(f"<tr><td><b>{name}</b></td><td style='width:45%'>{bar(v) if v is not None else '—'}</td>"
-                   f"<td><b>{'' if v is None else f'{v:.0f}%'}</b></td><td class='muted'>{esc(note)}</td></tr>"
-                   for name, v, note in rows)
-    verdict = ("Khác rất nhiều so với bản gốc." if r.overall >= 70 else "Khác khá nhiều so với bản gốc." if r.overall >= 50
-               else "Còn khá giống bản gốc — có thể dựng lại mạnh tay hơn (đổi khung, zoom, nhạc, thứ tự lời dẫn…).")
-    notes = "".join(f"<p class='muted'>{esc(n)}</p>" for n in r.notes)
-    return (f"<div class='topnav'><a class='btn light small' href='{esc(back)}'>← Quay lại</a></div>"
-            f"<div class='card'><h2>🔍 Kết quả so sánh</h2>"
-            f"<p class='muted'>Gốc: {esc(str(original))}<br>Edit: {esc(str(edited))}</p>"
-            f"<div style='font-size:42px;font-weight:800'>{r.overall:.0f}% <span style='font-size:18px;font-weight:600'>"
-            f"khác bản gốc</span></div><p>{verdict}</p>{bar(r.overall)}"
-            f"<table style='margin-top:14px'><tr><th>Phần</th><th></th><th>Khác</th><th>Chi tiết</th></tr>{body}</table>"
-            f"{notes}<div class='note'>Đây là ước lượng mức khác biệt về hình và tiếng để bạn tự đánh giá bản edit (tổng = 60% "
-            "hình + 30% tiếng + 10% thời lượng). Đây KHÔNG phải cách TikTok chấm điểm và không bảo đảm gì về phân phối "
-            "video.</div></div>")
-
-
 def _template_setting() -> str:
     """Chọn dự án CapCut làm khuôn (dự án mẫu) ngay trên giao diện."""
     from app.jobs.runner import BUILTIN, drafts_root, list_drafts, resolve_template, template_name
@@ -1246,21 +1169,6 @@ def _music_select(tpl) -> str:
             "<div class='row' style='margin-top:6px'><input type='file' name='music_file' accept='.mp3,.wav,.m4a,audio/*'>"
             "</div><div class='muted'>Hoặc tải lên file nhạc của bạn (tự thêm vào kho, dùng cho video này). "
             "Để trống cả hai = AI tự chọn.</div></div>")
-
-
-def _library_summary(tpl=None, err: str | None = None) -> str:
-    """Số nhạc / SFX / hiệu ứng đạo diễn có thể dùng (tự quét mọi dự án CapCut trên máy)."""
-    if tpl is None and err is None:
-        tpl, err = _load_library()
-    if tpl is None:
-        return f"<p class='muted'>Chưa đọc được dự án mẫu CapCut: {html.escape(str(err))}</p>"
-    count = lambda k: sum(1 for i in tpl.library if i.kind == k)  # noqa: E731
-    boxes = "".join(f"<div><b>{count(k)}</b>{label}</div>" for k, label in
-                    (("music", "nhạc nền"), ("sfx", "SFX"), ("video_effect", "hiệu ứng"), ("transition", "chuyển cảnh"),
-                     ("sticker", "sticker")))
-    return (f"<div class='lib'>{boxes}</div><p class='muted'>Tool tự quét <b>mọi dự án CapCut</b> trên máy: nhạc, SFX, "
-            "hiệu ứng, sticker, chuyển cảnh bạn từng dùng (và CapCut đã tải về) đều vào kho. Muốn kho nhiều hơn: mở CapCut, "
-            "thêm vài bài nhạc / hiệu ứng vào một dự án bất kỳ rồi lưu — lần dựng sau tool tự thấy.</p>")
 
 
 def pick_folder_dialog() -> dict:
@@ -1680,8 +1588,6 @@ def _step_panel(job: Job, d: Path) -> str:
                      f"{_music_select(lib)}<p class='muted'>Chọn bài khác → tool chỉ dựng lại draft (không hỏi lại AI). "
                      "Chọn 'AI tự chọn' → AI lập lại kế hoạch dựng.</p>"
                      "<button type='submit' class='btn small'>🎵 Đổi nhạc và dựng lại</button></form></details>")
-        parts.append("<details><summary><b>🔍 So sánh với video gốc (sau khi xuất từ CapCut)</b></summary>"
-                     + _compare_card(job.footage[0], f"/jobs/{job.job_id}") + "</details>")
         if list((d / "plan").glob("dub_video*.json")):
             vi_on = bool(job.data.get("vi_subs", (app_config.load("dub").get("vi_subtitles") or {}).get("enabled", True)))
             parts.append(
