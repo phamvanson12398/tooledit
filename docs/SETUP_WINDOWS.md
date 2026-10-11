@@ -91,24 +91,29 @@ duyệt, rồi gõ `/exit`. Xong mở lại `start.bat`.
 Nếu `claude` vẫn "not recognized" sau khi mở lại PowerShell: file cài nằm ở
 `%USERPROFILE%\.local\bin\claude.exe`; xem https://code.claude.com/docs/en/troubleshoot-install.
 
-## Gemini Pro — AI đạo diễn thứ hai (TÙY CHỌN)
+## Gemini Pro (Antigravity CLI) — AI đạo diễn thứ hai (TÙY CHỌN)
 
-Khi tạo job có ô **🤖 AI đạo diễn**: Claude (mặc định) hoặc **Gemini Pro**. Gemini chạy qua Gemini CLI chính thức của
-Google, đăng nhập bằng tài khoản Google có **gói Google AI Pro** — không cần API key.
+Khi tạo job có ô **🤖 AI đạo diễn**: Claude (mặc định) hoặc **Gemini Pro**. Gemini chạy qua **Antigravity CLI** (`agy`)
+của Google, đăng nhập bằng tài khoản Google có **gói Google AI Pro** — không cần API key.
+(Gemini CLI cũ không dùng được nữa: từ 18/06/2026 Google ngừng cho tài khoản AI Pro đăng nhập Gemini CLI, báo lỗi
+"This client is no longer supported…" và chuyển sang Antigravity.)
 
-**Cách dễ nhất:** nhấp đúp **`install_gemini.bat`** trong thư mục tool. File này:
-1. kiểm tra Node.js (Gemini CLI cần Node.js 20+); chưa có thì cài bằng `winget` — cài xong **đóng cửa sổ, nhấp đúp lại**;
-2. cài Gemini CLI bản 0.63.0 (bản tool đã đối chiếu cờ lệnh): `npm install -g @google/gemini-cli@0.63.0`;
-3. mở Gemini lần đầu: chọn **Sign in with Google**, đăng nhập trên trình duyệt, thấy giao diện chat thì gõ `/quit`.
-
-Kiểm tra bằng PowerShell:
+**Cách dễ nhất:** nhấp đúp **`install_antigravity.bat`**: chưa có `agy` thì cài bằng lệnh chính thức của Google, rồi mở
+`agy` để đăng nhập lần đầu (đăng nhập xong gõ `/quit`). Hoặc tự cài trong PowerShell:
 
 ```powershell
-gemini --version      # in ra 0.63.0
+irm https://antigravity.google/cli/install.ps1 | iex
 ```
 
-**Đăng nhập lại / đổi tài khoản Google:** gõ `gemini`, gõ `/auth`, chọn lại **Sign in with Google**, rồi `/quit`.
-Model mặc định `gemini-2.5-pro` (sửa `gemini_model` trong `config\director.yaml`; để `null` = Gemini CLI tự chọn).
+File cài nằm ở `%LOCALAPPDATA%\agy\bin\agy.exe` — tool TỰ TÌM ở đó, không cần thêm vào PATH. `agy` tự cập nhật ngầm.
+Muốn gõ `agy` trong PowerShell thì thêm vào PATH một lần rồi mở lại PowerShell:
+
+```powershell
+[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";$env:LOCALAPPDATA\agy\bin", "User")
+agy --version
+```
+
+Đổi model: `agy models` xem tên, rồi sửa `agy_model` trong `config\director.yaml` (để `null` = mặc định của tài khoản).
 
 ## OmniVoice — giọng AI đọc thoại (TÙY CHỌN)
 

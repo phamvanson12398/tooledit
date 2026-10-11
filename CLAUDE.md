@@ -21,8 +21,9 @@ File này là bản thiết kế đã được chủ dự án chốt. Đọc to�
 - Dựng **trong CapCut Desktop 9.5.0 bản quốc tế trên Windows** (đã tắt tự động cập nhật). Tool **ghi thẳng file dự án CapCut** (draft), KHÔNG điều khiển chuột/bàn phím.
 - "Đạo diễn" AI lúc chạy tool là **Claude Code chạy local trên máy chủ dự án** (gói Claude Pro, không có API key của bất kỳ AI nào).
   **Cập nhật 11/10 (chủ dự án chốt):** thêm **Gemini Pro** làm AI đạo diễn thứ hai, **chọn cho từng job** (ô "🤖 AI đạo
-  diễn", `JobOptions.ai`, đổi được ở trang job) — chạy qua Gemini CLI chính thức, đăng nhập tài khoản Google gói Google AI
-  Pro, vẫn KHÔNG dùng API key (`app/director/gemini_cli.py`, `install_gemini.bat`, `config/director.yaml → gemini_*`).
+  diễn", `JobOptions.ai`, đổi được ở trang job) — chạy qua **Antigravity CLI** (`agy`) vì từ 18/06/2026 Google ngừng cho
+  tài khoản AI Pro đăng nhập Gemini CLI; đăng nhập tài khoản Google gói Google AI Pro, vẫn KHÔNG dùng API key
+  (`app/director/antigravity_cli.py`, `install_antigravity.bat`, `config/director.yaml → agy_*`).
 - Voice cho hook: chủ dự án **tự thu tay** bằng Voice Studio (OmniVoice) rồi thả file vào. Tool KHÔNG tích hợp TTS.
   **Cập nhật 11/10 (chủ dự án yêu cầu):** TÙY CHỌN cho OmniVoice đọc thoại thuyết minh / lồng tiếng (mục 5d) — thu tay vẫn là
   mặc định; clone giọng chỉ khi chủ dự án tick xác nhận có quyền dùng giọng đó.
@@ -338,9 +339,11 @@ Edit plan tối thiểu phải mô tả: danh sách clip (nguồn, in/out, tốc
 - Tool gọi Claude Code ở chế độ không tương tác (headless) trên máy chủ dự án, đăng nhập bằng gói Pro. **Kiểm tra cờ lệnh thực tế** (`claude --help`, tài liệu chính thức) trước khi viết code; không đoán tên cờ.
 - Prompt đặt trong `prompts/` dạng template, tách riêng từng việc: hiểu nội dung, chia video, hook, edit plan, sửa theo yêu cầu, caption/hashtag, tạo hồ sơ khách.
 - Chỉ gửi văn bản (transcript, dữ liệu phân tích) và khung hình JPEG nhỏ; **không gửi video**. Giữ prompt gọn để tiết kiệm hạn mức Pro (khung 5 tiếng, dùng chung với chat).
-- Backend Gemini (11/10): `gemini -p … -o json --skip-trust [-m model]`, prompt qua stdin, JSON Schema ghi trong prompt
-  (Gemini CLI không có cờ ép schema), ảnh gửi bằng `@tên_file` (mọi `@` khác trong nội dung đổi thành `＠`), công cụ cần
-  hỏi quyền tự bị chặn ở chế độ headless — đối chiếu mã nguồn @google/gemini-cli 0.63.0, bản ghim trong install_gemini.bat.
+- Backend Gemini = Antigravity CLI (11/10, đối chiếu `agy --help` + chạy thử thật bản 1.3.3 trên máy chủ dự án):
+  `agy -p "<đọc de_bai.md…>" --output-format json --json-schema schema.json [--model] [--effort]`; `-p` KHÔNG đọc stdin →
+  đề bài ghi vào `de_bai.md` + khung hình cùng thư mục làm việc tạm, AI tự đọc file / xem ảnh (không cần xin quyền);
+  kết quả ở `structured_output`; công cụ cần xin quyền (RunCommand) tự bị từ chối — KHÔNG dùng
+  `--dangerously-skip-permissions`; `agy` tự cập nhật ngầm, tìm ở `%LOCALAPPDATA%\agy\bin\agy.exe` nếu không có PATH.
 - Thiết kế lớp `Director` dạng interface để sau này có thể thay backend (ví dụ chế độ copy–paste thủ công hoặc mô hình local) mà không sửa phần còn lại.
 - Để test trong cloud: tạo `FakeDirector` trả JSON mẫu cố định.
 

@@ -393,7 +393,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
 </div>
           <div class="field"><label>🤖 AI đạo diễn</label><select name="ai">{_ai_options()}</select>
             <div class="muted">AI xem video, chọn đoạn, viết lời, lập kế hoạch dựng. Claude: gói Claude Pro qua Claude Code.
-            Gemini Pro: gói Google AI Pro qua Gemini CLI (cài một lần bằng install_gemini.bat). Đổi lại được ở trang job.</div></div>
+            Gemini Pro: gói Google AI Pro qua Antigravity CLI (cài một lần bằng install_antigravity.bat). Đổi lại được ở trang job.</div></div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
             <div><label>Khung video</label><select name="ratio">

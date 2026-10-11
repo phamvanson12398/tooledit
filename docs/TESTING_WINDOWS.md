@@ -1,6 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
-## Bước 77 — 🤖 Chọn AI đạo diễn cho từng job: Claude hoặc Gemini Pro `[CẦN KIỂM TRA TRÊN MÁY]`
+## Bước 78 — 🤖 AI đạo diễn Gemini Pro qua Antigravity CLI (thay Gemini CLI) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Đóng `start.bat`, `git pull`.
+2. Nhấp đúp **`install_antigravity.bat`** — máy đã có `agy` thì nó bỏ qua bước cài, mở `agy` để kiểm tra đăng nhập
+   (đã đăng nhập thì `/quit` luôn).
+3. Mở `start.bat`, Ctrl+F5. Ô **🤖 AI đạo diễn** ghi "Gemini Pro (Antigravity CLI)" → chọn, tạo một job ngắn.
+4. Nhật ký job hiện "Đang hỏi đạo diễn AI Gemini qua Antigravity (…)". Xem tóm tắt nội dung có tả đúng hình trong
+   video không (Gemini xem khung hình bằng cách đọc file ảnh — đã thử được với ảnh mẫu "CON MEO 58").
+5. Lỗi "định dùng công cụ bị chặn (RunCommand)" lặp lại → chụp nhật ký gửi Claude. Lỗi "chưa đăng nhập" → gõ `agy`
+   trong PowerShell để đăng nhập lại. Job cũ đang để Gemini (Gemini CLI) tự chạy bằng Antigravity, không cần đổi.
+
+## Bước 77 — (ĐÃ THAY bằng Bước 78: Gemini CLI không đăng nhập được gói AI Pro nữa) 🤖 Chọn AI đạo diễn cho từng job: Claude hoặc Gemini Pro `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Đóng `start.bat`, `git pull`.
 2. Nhấp đúp **`install_gemini.bat`** (xem docs/SETUP_WINDOWS.md mục Gemini): đăng nhập "Sign in with Google" bằng tài

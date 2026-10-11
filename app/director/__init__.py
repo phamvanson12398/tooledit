@@ -6,7 +6,8 @@ from app import config
 from app.director.base import Director, DirectorError
 
 
-AI_NAMES = {"claude": "Claude (Claude Code)", "gemini": "Gemini Pro (Gemini CLI)"}
+# "gemini" chạy qua Antigravity CLI (agy) — Google đóng đường đăng nhập AI Pro của Gemini CLI từ 18/06/2026
+AI_NAMES = {"claude": "Claude (Claude Code)", "gemini": "Gemini Pro (Antigravity CLI)"}
 
 
 def get_director(cfg: dict | None = None, ai: str | None = None, **kwargs) -> Director:
@@ -17,9 +18,9 @@ def get_director(cfg: dict | None = None, ai: str | None = None, **kwargs) -> Di
 
         return FakeDirector(**kwargs)
     if (ai or cfg.get("default_ai") or "claude") == "gemini":
-        from app.director.gemini_cli import GeminiCliDirector
+        from app.director.antigravity_cli import AntigravityDirector
 
-        return GeminiCliDirector(cfg, **kwargs)
+        return AntigravityDirector(cfg, **kwargs)
     from app.director.claude_cli import ClaudeCodeDirector
 
     return ClaudeCodeDirector(cfg, **kwargs)
