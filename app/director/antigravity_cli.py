@@ -45,6 +45,30 @@ Các khung hình là file ảnh nằm ngay trong thư mục hiện tại (đúng
 Chỗ nào đề bài nói "mở bằng Read" nghĩa là dùng công cụ đọc file của bạn để XEM ảnh đó. Không chạy lệnh nào.
 """
 
+# Luôn ghép vào cuối đề bài: ở chế độ chạy ngầm, công cụ cần xin quyền (chạy lệnh, đọc URL / web…) tự bị từ chối và AI
+# không trả gì (chủ dự án gặp 11/10: Gemini định "ReadUrlContent" để tra thông tin phim → lỗi ở bước viết thoại).
+TOOLS_NOTE = """
+
+## Công cụ được dùng
+CHỈ đọc các file trong thư mục hiện tại (đề bài + ảnh). KHÔNG mở web / URL, KHÔNG tìm kiếm internet, KHÔNG chạy lệnh —
+các công cụ đó bị chặn và bạn sẽ không trả lời được. Mọi thông tin cần thiết đã có trong đề bài và khung hình; cái gì
+không có thì đừng đoán, viết theo những gì thấy được.
+"""
+RETRY_NOTE = """
+
+## LẦN TRƯỚC BẠN ĐỊNH DÙNG CÔNG CỤ BỊ CHẶN ({tools}) NÊN KHÔNG TRẢ LỜI ĐƯỢC
+Lần này TUYỆT ĐỐI không dùng công cụ đó (không web, không URL, không chạy lệnh). Chỉ đọc file trong thư mục rồi trả JSON.
+"""
+DENIED_RETRIES = 2  # công cụ bị chặn → tự hỏi lại tối đa 2 lần (kèm lời nhắc) rồi mới báo lỗi
+
+
+class ToolDenied(DirectorError):
+    """AI định dùng công cụ cần xin quyền (bị từ chối ở chế độ chạy ngầm) nên không trả kết quả."""
+
+    def __init__(self, message: str, tools: str = ""):
+        super().__init__(message)
+        self.tools = tools
+
 
 def find_exe(name: str | None = None) -> str:
     """`agy` trong PATH, không có thì chỗ trình cài đặt chính thức để file (%LOCALAPPDATA%\\agy\\bin\\agy.exe)."""
@@ -103,6 +127,8 @@ def parse_output(stdout: str, stderr: str = "", returncode: int = 0) -> dict:
         data = json.loads((stdout or "").strip())
     except json.JSONDecodeError:
         msg = (stderr or stdout or "").strip() or f"mã thoát {returncode}"
+        if "auto-denied" in msg:
+            raise ToolDenied(f"Gemini (Antigravity) định dùng công cụ bị chặn. Chi tiết: {msg[:300]}") from None
         raise DirectorError(_friendly(msg)) from None
     if not isinstance(data, dict):
         raise DirectorError(f"Antigravity CLI trả kết quả lạ: {str(stdout)[:300]}")
@@ -118,8 +144,10 @@ def parse_output(stdout: str, stderr: str = "", returncode: int = 0) -> dict:
     denied = ", ".join(str(d.get("display_name") or d.get("action")) for d in data.get("denied_actions") or []
                        if isinstance(d, dict))
     if denied:
-        raise DirectorError(f"Gemini (Antigravity) không trả lời vì định dùng công cụ bị chặn ({denied}) — tool sẽ hỏi lại."
-                            + (f" Chi tiết: {stderr.strip()[:300]}" if stderr.strip() else ""))
+        raise ToolDenied(f"Gemini (Antigravity) không trả lời vì định dùng công cụ bị chặn ({denied}) — tool sẽ hỏi lại."
+                            + (f" Chi tiết: {stderr.strip()[:300]}" if stderr.strip() else ""), denied)
+    if "auto-denied" in (stderr or ""):
+        raise ToolDenied(f"Gemini (Antigravity) định dùng công cụ bị chặn. Chi tiết: {stderr.strip()[:300]}")
     raise DirectorError(_friendly(stderr.strip() or "không có kết quả (response trống)"))
 
 
@@ -132,9 +160,22 @@ class AntigravityDirector(ClaudeCodeDirector):
         self.exe = find_exe(cfg.get("agy_exe"))
 
     def _complete(self, task: str, prompt: str, schema: dict, images: list[Path]) -> dict:
+        extra = ""
+        for attempt in range(DENIED_RETRIES + 1):
+            try:
+                return self._complete_once(task, prompt + extra, schema, images)
+            except ToolDenied as exc:
+                if attempt == DENIED_RETRIES:
+                    raise ToolDenied(f"{exc} — đã hỏi lại {DENIED_RETRIES} lần vẫn vậy. Bấm Chạy tiếp để thử lại, hoặc "
+                                     "đổi job này sang Claude ở trang job.", exc.tools) from exc
+                self.log(f"Gemini định dùng công cụ bị chặn ({exc.tools}) — hỏi lại kèm lời nhắc chỉ đọc file…")
+                extra = RETRY_NOTE.format(tools=exc.tools or "?")
+        raise AssertionError("unreachable")
+
+    def _complete_once(self, task: str, prompt: str, schema: dict, images: list[Path]) -> dict:
         workdir = self._prepare_workdir(task, images)
         names, note = self._packed_info()  # nhiều khung hình → đã ghép ảnh lưới
-        write_task_files(workdir, prompt + note, schema, names)
+        write_task_files(workdir, prompt + note + TOOLS_NOTE, schema, names)
         cmd = build_command(self.exe, self.cfg.get("agy_model"), self.cfg.get("agy_effort"))
         self.log(f"Đang hỏi đạo diễn AI Gemini qua Antigravity ({task})...")
         timeout = self.cfg.get("timeout_s", 900)

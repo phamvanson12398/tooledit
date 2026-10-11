@@ -41,7 +41,10 @@ FAKE_AGY = textwrap.dedent('''
         "files": sorted(os.listdir(".")), "prompt": Path("de_bai.md").read_text(encoding="utf-8"),
         "schema": json.loads(Path("schema.json").read_text(encoding="utf-8")), "cwd": os.getcwd()},
         ensure_ascii=False), encoding="utf-8")
-    if os.environ.get("AGY_MODE") == "denied":
+    once = os.environ.get("AGY_MODE") == "denied_once" and not Path(os.environ["AGY_LOG"] + ".once").exists()
+    if once:
+        Path(os.environ["AGY_LOG"] + ".once").write_text("1")
+    if os.environ.get("AGY_MODE") == "denied" or once:
         sys.stderr.write(os.environ["AGY_DENIED_ERR"])
         print(os.environ["AGY_DENIED"])
         sys.exit(0)
@@ -111,8 +114,12 @@ def test_director_writes_task_file_and_images(tmp_path, monkeypatch):
     assert "# Nhiệm vụ: hiểu nội dung" in got["prompt"] and imgs[0].name in got["prompt"].rsplit("## Khung hình", 1)[1]
     assert got["schema"] == Understanding.model_json_schema()
     assert not Path(got["cwd"]).exists()                               # dọn thư mục tạm
-    monkeypatch.setenv("AGY_MODE", "denied")                           # AI định chạy lệnh → bị chặn → hỏi lại, rồi báo lỗi
-    with pytest.raises(DirectorError):
+    assert "KHÔNG mở web / URL" in got["prompt"]                       # dặn không lên web (Gemini từng định đọc URL)
+    monkeypatch.setenv("AGY_MODE", "denied_once")                      # lần 1 bị chặn → tự hỏi lại kèm lời nhắc → được
+    assert isinstance(d.run("understand", UNDERSTAND_VARS, Understanding, imgs), Understanding)
+    assert "LẦN TRƯỚC BẠN ĐỊNH DÙNG CÔNG CỤ BỊ CHẶN (RunCommand)" in json.loads(log.read_text(encoding="utf-8"))["prompt"]
+    monkeypatch.setenv("AGY_MODE", "denied")                           # lần nào cũng bị chặn → hỏi lại 2 lần rồi báo lỗi
+    with pytest.raises(DirectorError, match="đã hỏi lại 2 lần"):
         d.run("understand", UNDERSTAND_VARS, Understanding, imgs)
 
 

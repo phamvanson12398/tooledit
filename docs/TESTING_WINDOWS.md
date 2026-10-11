@@ -1,5 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 90 — Gemini lỡ định mở web (ReadUrlContent) → tool dặn trước + tự hỏi lại `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Mở job đang lỗi "Gemini (Antigravity) không trả lời vì định dùng công cụ bị chặn (ReadUrlContent)" → bấm **Chạy tiếp**.
+3. Nếu Gemini lại định mở web, nhật ký ghi "Gemini định dùng công cụ bị chặn (…) — hỏi lại kèm lời nhắc chỉ đọc file…"
+   rồi tự chạy tiếp; chỉ khi hỏi lại 2 lần vẫn vậy mới báo lỗi (khi đó đổi job sang Claude ở trang job rồi Chạy tiếp).
+
 ## Bước 89 — Sửa install_gpu_torch.bat báo "No module named 'torchaudio'" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`.
