@@ -25,10 +25,15 @@ tiếp mâu thuẫn mới; cả bài là chuỗi những nhịp như vậy nối
    follow / subscribe, không nhắc nền tảng khác. KHÔNG thuật lại "ai đang làm gì"; không mở câu bằng "Bây giờ…", "Cảnh này…".
 4. GIỌNG KỂ thì QUÁ KHỨ, đều, cuốn — tiếng Hàn "~습니다 / ~었죠 / ~였는데요"; tiếng Nhật "〜でした / 〜んです";
    tiếng Anh thì quá khứ, câu ngắn có nhịp.
-5. ĐÚNG SỰ THẬT: tên nhân vật đúng như trong phim (xem "Tên riêng đúng"); không rõ tên thì gọi theo đặc điểm. Không bịa
+5. LUÔN KỂ Ở NGÔI THỨ 3 (chủ dự án chốt 11/10): người review là người NGOÀI kể chuyện về nhân vật — gọi bằng tên nhân
+   vật / anh ta / cô ấy / cậu bé… Người kể KHÔNG xưng "tôi / mình / chúng ta" (한국어 không 저는·제가·저희·내가·우리는;
+   日本語 không 私·僕·俺; English không I / me / my / we / us), không kể như mình là nhân vật, không nói chuyện với người
+   xem ("các bạn có biết…"). Câu bình luận cũng ở ngôi 3: "Ai mà ngờ được…" chứ không "Tôi không ngờ…". `text_vi` cũng
+   vậy. Tool tự kiểm tra và bắt viết lại câu sai.
+6. ĐÚNG SỰ THẬT: tên nhân vật đúng như trong phim (xem "Tên riêng đúng"); không rõ tên thì gọi theo đặc điểm. Không bịa
    tình tiết, kết cục ngoài đoạn này.
 
-6. TỰ NHIÊN NHƯ NÓI (rất quan trọng — chủ dự án chê "chưa hay, chưa tự nhiên"): viết văn NÓI của người bản xứ, không
+7. TỰ NHIÊN NHƯ NÓI (rất quan trọng — chủ dự án chê "chưa hay, chưa tự nhiên"): viết văn NÓI của người bản xứ, không
    văn viết, không dịch máy; câu dài ngắn xen kẽ, câu ngắn bật ra ở chỗ bất ngờ; KHÔNG lặp cùng một từ nối ở nhiều câu
    liền (그런데 / でも / but…); không giải thích điều hình đã cho thấy; chêm chút hài / cảm xúc của người kể đúng chỗ.
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from app import config
@@ -1173,6 +1174,41 @@ def check_rewrite(script, plan, cfg: dict, rcfg: dict | None = None) -> list[str
 DESCRIBE_MARKERS = (" đang ", "Đang ")  # nghĩa tiếng Việt kiểu "anh ấy đang chạy" = tả cảnh, không phải kể chuyện
 
 
+# Review phim LUÔN kể ở NGÔI THỨ 3 (chủ dự án 11/10): người kể không xưng "tôi / mình / chúng ta", không kể như mình là
+# nhân vật. Lời nhân vật trong ngoặc kép / 「」 không tính.
+FIRST_PERSON = [
+    re.compile(r"(?<![가-힣])(저는|제가|저도|저를|저한테|저희|내가|우리는|우리가|우리도)(?![가-힣])"),
+    re.compile(r"(私|僕|俺|わたし|ぼく|あたし)"),
+    re.compile(r"\b(I|I'm|I've|I'd|I'll|me|my|mine|myself|we|we're|we've|us|our|ours)\b", re.IGNORECASE),
+]
+FIRST_PERSON_VI = re.compile(r"(?<![\wÀ-ỹ])(tôi|chúng tôi|chúng ta|tớ|mình thấy|mình nghĩ)(?![\wÀ-ỹ])", re.IGNORECASE)
+QUOTED = re.compile(r"「[^」]*」|『[^』]*』|\"[^\"]*\"|“[^”]*”")
+
+
+def first_person(text: str, vi: bool = False) -> list[str]:
+    """Các từ xưng ngôi thứ nhất (bỏ qua phần trong ngoặc kép — lời nhân vật)."""
+    plain = QUOTED.sub(" ", text or "")
+    if vi:
+        return [m.group(0) for m in FIRST_PERSON_VI.finditer(plain)]
+    found = []
+    for rx in FIRST_PERSON:
+        found += [m.group(0) for m in rx.finditer(plain)]
+    return found
+
+
+def check_third_person(script) -> list[str]:
+    bad = []
+    for i, ln in enumerate(script.lines, 1):
+        words = first_person(ln.text) + first_person(ln.text_vi, vi=True)
+        if words:
+            bad.append(f"câu {i} ({', '.join(dict.fromkeys(words))})")
+    if not bad:
+        return []
+    return [f"review phải kể ở NGÔI THỨ 3, người kể không xưng tôi / mình / chúng ta: {'; '.join(bad[:8])} — viết lại "
+            "như người ngoài kể chuyện về nhân vật (gọi tên nhân vật / anh ta / cô ấy / cậu bé…); bình luận cũng ở ngôi 3 "
+            "(vd 'Ai mà ngờ được…' thay vì 'Tôi không ngờ…')"]
+
+
 def check_story(script, rcfg: dict) -> list[str]:
     """Review phim phải là MỘT CÂU CHUYỆN (chủ dự án yêu cầu 09/10), không phải tả "người này đang làm gì"."""
     errors = []
@@ -1187,7 +1223,7 @@ def check_story(script, rcfg: dict) -> list[str]:
             errors.append(f"{len(desc)}/{len(lines)} câu đang TẢ CẢNH (\"… đang …\": câu {', '.join(map(str, desc[:8]))}) — "
                           "đừng thuật lại ai đang làm gì; KỂ THÀNH CÂU CHUYỆN: vì sao, rồi chuyện gì xảy ra, nhân vật "
                           "muốn gì / cảm thấy gì, nối các câu bằng nhân – quả (nhưng, thế là, không ngờ, cuối cùng…)")
-    return errors
+    return errors + check_third_person(script)
 
 
 def _rewrite_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,

@@ -411,3 +411,25 @@ def test_review_voice_continuous_no_gaps(tmp_path, monkeypatch):
     starts = [placed[i]["start"] for i in (1, 2, 3)]
     assert starts == [0, 2_050_000, 4_100_000]                        # nối sát, không trôi chậm dần
     assert all(placed[i]["delay_s"] == 0 for i in (1, 2, 3))
+
+
+def test_review_always_third_person(tmp_path):
+    """Chủ dự án 11/10: review phim LUÔN kể ở ngôi thứ 3 — người kể không xưng tôi / mình / chúng ta."""
+    from app.director.tasks import check_story, first_person
+
+    assert first_person("스펀지밥은 제가 본 장면 중 최고였습니다.") == ["제가"]
+    assert first_person("그는 냄새가 나는 빵을 집었습니다.") == []          # 나는 (động từ) không phải "tôi"
+    assert first_person("僕はそう思いました。") == ["僕"] and first_person("彼は「僕がやる」と言いました。") == []
+    assert first_person("I couldn't believe it.") == ["I"] and first_person('He said "I will win".') == []
+    assert first_person("Tôi không ngờ", vi=True) == ["Tôi"] and first_person("Cậu bé thấy mình bị lừa", vi=True) == []
+    rcfg = config.load("review")
+    data = _script(1, 1.0)
+    data["lines"][2]["text_vi"] = "Tôi không ngờ cậu ấy lại làm vậy."
+    errs = check_story(DubScript.model_validate(data), rcfg)
+    assert any("NGÔI THỨ 3" in e and "câu 3" in e for e in errs)
+    assert "NGÔI THỨ 3" in (config.ROOT / "prompts" / "dub_review.md").read_text(encoding="utf-8")
+    assert "NGÔI THỨ 3" in (config.ROOT / "prompts" / "review_polish.md").read_text(encoding="utf-8")
+    a = make_analysis(tmp_path, duration=200.0)
+    d = FakeDirector(responses={"dub_review": [data, _script(1, 1.0)], "review_polish": _script(1, 1.0)})
+    make_dub(d, a, _u(a), plan=None, mode="review")
+    assert "NGÔI THỨ 3" in d.calls[1]["prompt"]  # AI được báo lỗi rồi viết lại

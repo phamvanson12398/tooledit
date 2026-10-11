@@ -8,12 +8,14 @@ dung, đúng đoạn phim). Hãy ĐỌC THÀNH TIẾNG trong đầu từng câu 
 2. **Có nhịp** — câu dài ngắn xen kẽ; câu ngắn bật ra ở chỗ bất ngờ / cao trào; không câu nào cùng một khuôn.
 3. **Từ nối đa dạng** — không lặp cùng một từ nối (그런데, でも, but…) ở nhiều câu liền; nhiều chỗ nối bằng chính ý câu
    trước, không cần từ nối.
-4. **Cuốn & có cảm xúc của người kể** — câu đầu phải kéo người xem ở lại; thêm chút hài / bình luận đúng chỗ (không lố);
+4. **Cuốn & có cảm xúc của người kể** — câu đầu phải kéo người xem ở lại; thêm chút hài / bình luận đúng chỗ (không lố, vẫn ngôi 3);
    câu cuối có dư âm.
 5. **Giữ đúng sự thật, đúng giọng kể chuyện thì quá khứ** (tiếng Hàn ~습니다 / ~었죠 / ~였는데요; tiếng Nhật 〜でした /
    〜んです; tiếng Anh quá khứ), không tả "ai đang làm gì".
 
 ## Luật cứng
+- LUÔN NGÔI THỨ 3: người kể là người ngoài kể về nhân vật, KHÔNG xưng tôi / mình / chúng ta (저는·제가·저희·내가·우리는 /
+  私·僕·俺 / I·me·my·we·us), không nói chuyện với người xem; bình luận cũng ở ngôi 3. Câu nào bản nháp lỡ xưng ngôi 1 thì sửa.
 - GIỮ ĐÚNG {{n}} câu, đúng thứ tự, mỗi câu vẫn kể đúng đoạn phim của nó (giữ nguyên `source_start` / `source_end`).
 - Độ dài mỗi câu giữ gần như cũ (±15% số chữ) — tốc độ giọng chủ dự án ~{{cps}} chữ/giây.
 - Cập nhật `text_vi` (nghĩa tiếng Việt) theo câu mới; giữ / sửa `story_vi`.

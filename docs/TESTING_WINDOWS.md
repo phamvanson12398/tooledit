@@ -1,5 +1,13 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 86 — Review phim luôn kể ở ngôi thứ 3 `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Tạo job Review phim (hoặc bấm "✍️ Viết lại theo góp ý" ở job review cũ).
+3. Đọc bài lời đọc trên trang voice: người kể gọi nhân vật bằng tên / anh ta / cô ấy…, KHÔNG xưng "tôi / mình / chúng
+   ta" (tiếng Hàn không 저는·제가·저희·우리는; tiếng Nhật không 私·僕·俺), không nói chuyện với người xem.
+4. Nếu AI lỡ viết ngôi 1, tool tự bắt viết lại (nhật ký có thể ghi lỗi "phải kể ở NGÔI THỨ 3" rồi thử lại).
+
 ## Bước 85 — Tách riêng: "chọn đoạn hay" (Lồng tiếng nhân vật) khác Review phim `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

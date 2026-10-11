@@ -303,6 +303,9 @@ zoom. Câu chưa có voice tạm tính theo số chữ để dựng thử.
 Giao diện (09/10): thanh tiến trình đặt tên bước riêng theo chế độ (`STEP_VI_MODE`, `job_mode` trong
 `app/web/server.py`) + ghi rõ chế độ ở đầu trang job; review phim KHÔNG có hook riêng (`Job.use_hook`, kể cả job cũ đã
 tick) vì câu mở đầu bài lời đọc là hook.
+**Review LUÔN ở NGÔI THỨ 3 (chủ dự án 11/10):** người kể là người ngoài, không xưng tôi / mình / chúng ta (저는·제가·저희·
+내가·우리는 / 私·僕·俺 / I·me·we·us), không nói chuyện với người xem; lời nhân vật trong ngoặc kép không tính — luật trong
+`dub_review.md` + `review_polish.md`, code chặn bằng `check_third_person` (gọi trong `check_story`).
 **Review nói LIÊN TỤC (chủ dự án 11/10):** khi dựng, mỗi câu voice được cắt sạch lặng đầu / cuối (bản ở
 `voice/_lien_mach/`, `voice_trim_keep_s` 0.03), 2 câu nghỉ `voice_gap_s` 0.05s (bộ xếp voice dùng đúng khoảng này cho review).
 **Lời review hay & tự nhiên (chủ dự án 09/10: "viết thoại chưa hay, chưa tự nhiên"):** (1) lượt 2 biên tập —
