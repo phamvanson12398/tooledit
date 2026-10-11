@@ -48,6 +48,11 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
    - Nhận dạng thoại: `faster-whisper`, model `large-v3`, timestamp theo từ, tự nhận ngôn ngữ (ko/ja/en). Có fallback CPU và model nhỏ hơn, cấu hình được (chưa biết máy có GPU NVIDIA không).
    - Dò cảnh (PySceneDetect), trích khung hình rải đều + khung đầu mỗi cảnh, lưu JPEG nhỏ.
    - Dò chủ thể/khuôn mặt cho crop thông minh (MediaPipe hoặc OpenCV).
+   - **Cập nhật 11/10 (chủ dự án: "phân tích footage lâu"):** nhận dạng thoại (GPU) chạy SONG SONG với dò cảnh + trích
+     khung + dò mặt (CPU) và 2 bản làm sạch âm thanh; khung hình trích nhiều cái một lúc (`parallel.frame_workers` trong
+     `config/analysis.yaml`); Whisper trên GPU chạy theo lô (`BatchedInferencePipeline`, `batched` / `batch_size` trong
+     `config/whisper.yaml`, `without_timestamps: false` để vẫn chia câu; lỗi thì tự chạy lại cách thường); nhật ký ghi
+     thời gian từng phần (`app/analysis/pipeline.py`).
 3. **AI hiểu nội dung**: đạo diễn đọc transcript + khung hình, xác định thể loại, không khí, số người, chủ thể chính. Trả về tóm tắt một dòng (tiếng Việt) + phong cách đề xuất. Nếu bật "Xác nhận trước khi dựng", job dừng chờ người dùng duyệt/sửa.
 4. **Chia video** (nếu tick, mục 4) → bảng duyệt, job dừng chờ duyệt.
 5. **Hook** (nếu tick, mục 5) → bảng chọn hook, job dừng chờ chọn và chờ file voice.

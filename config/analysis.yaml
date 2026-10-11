@@ -33,5 +33,9 @@ subjects:
   smooth_window: 5
   max_pan_per_s: 0.25     # tốc độ lia tối đa, tính theo bề rộng khung / giây
 
+# Chạy song song (chủ dự án 11/10 "phân tích lâu"): nhận dạng thoại chạy cùng lúc với dò cảnh / khung / mặt
+parallel:
+  frame_workers: 4        # số khung hình trích cùng lúc
+
 ffmpeg: ffmpeg            # đường dẫn ffmpeg (để trống = tìm trong PATH)
 ffprobe: ffprobe

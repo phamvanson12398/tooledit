@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 84 — Phân tích footage nhanh hơn: chạy song song + nhận dạng thoại theo lô trên GPU `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Tạo job mới với một video dài khoảng 10 phút. Mở nhật ký job (trang job), xem các dòng mới:
+   - "Nhận dạng thoại xong sau m:ss (… câu, cuda)"
+   - "Dò cảnh xong sau m:ss", "Dò khuôn mặt xong sau m:ss"
+   - "Phân tích xong <tên video> sau m:ss (video dài … phút)"
+   Gửi lại cho mình các dòng này nếu vẫn thấy lâu, để biết phần nào chậm nhất.
+3. Nhận dạng thoại và dò cảnh / mặt giờ chạy CÙNG LÚC, nên các dòng nhật ký xen kẽ nhau là bình thường.
+4. Nếu thấy dòng "Nhận dạng theo lô lỗi (… out of memory …) — chạy lại cách thường" thì mở `config/whisper.yaml`,
+   đổi `batch_size: 8` thành `batch_size: 4` (hoặc `batched: false` để tắt hẳn).
+5. Kiểm tra phụ đề / câu thoại của job vẫn chia câu hợp lý (không gộp thành câu dài 30 giây).
+
 ## Bước 83 — Trang chủ mới: 3 bước, chọn chế độ bằng thẻ; bỏ Kho tài nguyên + So sánh video `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm Ctrl+F5 trên trình duyệt.

@@ -139,7 +139,10 @@ def test_pipeline_end_to_end(tmp_path: Path, monkeypatch):
     fake = lambda wav, log=None: Transcript(language="en", language_probability=1, duration=6, model="fake", device="cpu",
                                   segments=[Segment(start=0, end=1, text="hello")])
     job = Job.create(tmp_path / "jobs", [video], job_id="j1")
-    result = pipeline.run_analysis(job, tmp_path / "jobs", transcribe_fn=fake)
+    logs = []
+    result = pipeline.run_analysis(job, tmp_path / "jobs", transcribe_fn=fake, progress=logs.append)
+    assert any("Phân tích xong" in m and "sau" in m for m in logs)  # ghi thời gian từng phần
+    assert any("Nhận dạng thoại xong sau" in m for m in logs) and any("Dò cảnh xong sau" in m for m in logs)
     out = tmp_path / "jobs" / "j1" / "analysis"
     for name in ("transcript.json", "scenes.json", "subjects.json", "frames.json"):
         assert (out / name).is_file()
@@ -206,3 +209,54 @@ def test_detect_scenes_chunked_with_progress(tmp_path):
     logs.clear()
     scan_video(v, progress=logs.append)
     assert logs and all(m.startswith("Dò khuôn mặt…") for m in logs)
+
+
+def test_transcribe_batched_on_gpu_then_falls_back(monkeypatch):
+    """Chủ dự án 11/10: GPU chạy theo lô (BatchedInferencePipeline); lô lỗi thì tự chạy lại cách thường."""
+    import sys
+    import types
+
+    from app.analysis import transcribe as tr_mod
+
+    calls = []
+
+    class Model:
+        feature_extractor = object()  # giống WhisperModel thật
+
+        def __init__(self, *a, **k):
+            pass
+
+        def transcribe(self, audio, **kw):
+            calls.append(("plain", kw))
+            return iter([FakeSeg(0, 1, " hi", [FakeWord(0, 1, "hi")])]), FakeInfo("en")
+
+    class Batched:
+        fail = False
+
+        def __init__(self, model):
+            self.model = model
+
+        def transcribe(self, audio, **kw):
+            calls.append(("batched", kw))
+            if Batched.fail:
+                raise RuntimeError("CUDA out of memory")
+            return iter([FakeSeg(0, 1, " hi", [FakeWord(0, 1, "hi")])]), FakeInfo("en")
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(BatchedInferencePipeline=Batched))
+    cfg = {"model": "large-v3", "device": "cuda", "languages": ["en"], "batch_size": 4}
+    tr = tr_mod.transcribe(Path("a.wav"), cfg, Model)
+    assert tr.segments[0].text == "hi" and calls[-1][0] == "batched"
+    assert calls[-1][1]["batch_size"] == 4 and calls[-1][1]["without_timestamps"] is False
+
+    calls.clear()
+    Batched.fail = True
+    logs = []
+    tr_mod.transcribe(Path("a.wav"), cfg, Model, log=logs.append)
+    assert [c[0] for c in calls] == ["batched", "plain"] and "batch_size" not in calls[-1][1]
+    assert any("theo lô" in m for m in logs)
+
+    calls.clear()
+    tr_mod.transcribe(Path("a.wav"), {**cfg, "device": "cpu"}, Model)  # CPU: không dùng lô
+    assert [c[0] for c in calls] == ["plain"]
+    tr_mod.transcribe(Path("a.wav"), {**cfg, "batched": False}, Model)
+    assert [c[0] for c in calls] == ["plain", "plain"]

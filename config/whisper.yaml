@@ -6,6 +6,10 @@ model: large-v3
 device: cuda            # cuda | cpu | auto
 compute_type: int8_float32
 beam_size: 5
+# Chạy theo lô trên GPU (BatchedInferencePipeline của faster-whisper 1.2.1) — nhanh hơn chạy thường vài lần.
+# Lỗi (vd hết VRAM) thì tool tự chạy lại cách thường. Hết VRAM thường xuyên → giảm batch_size xuống 4.
+batched: true
+batch_size: 8
 word_timestamps: true
 languages: [ko, ja, en, zh] # tự nhận; zh (tiếng Trung) chỉ dùng làm tiếng gốc ở chế độ Đổi ngôn ngữ
 

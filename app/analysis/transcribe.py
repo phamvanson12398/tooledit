@@ -69,7 +69,7 @@ def transcribe(audio: Path, cfg: dict | None = None, factory: Callable | None = 
     for attempt in attempts(cfg):
         try:
             model = load_model(attempt, factory)
-            return _run(model, attempt, audio, cfg, options, language)
+            return _run(model, attempt, audio, cfg, options, language, log)
         except Exception as exc:  # thiếu CUDA/cuDNN, GPU không hỗ trợ, hết VRAM, chưa tải được model...
             errors.append(f"{attempt}: {exc}")
             log(f"Không chạy được với {attempt.get('device')}/{attempt.get('model')}: {exc}. Thử cách khác...")
@@ -77,16 +77,43 @@ def transcribe(audio: Path, cfg: dict | None = None, factory: Callable | None = 
 
 
 def _run(model, used: dict, audio: Path, cfg: dict, options: dict | None = None,
-         language: str | None = None) -> Transcript:
+         language: str | None = None, log: Callable[[str], None] = lambda msg: None) -> Transcript:
     allowed = cfg.get("languages", ["ko", "ja", "en"])
     kwargs = dict(beam_size=cfg.get("beam_size", 5), word_timestamps=cfg.get("word_timestamps", True),
                   vad_filter=True, **(options or {}))
     if language:
         kwargs["language"] = language
-    segments, info = model.transcribe(str(audio), **kwargs)
+    runner = model
+    if use_batched(cfg, used) and hasattr(model, "feature_extractor"):  # chỉ WhisperModel thật (không phải model giả khi test)  # chủ dự án 11/10 "phân tích lâu": chạy theo lô trên GPU, nhanh hơn nhiều lần
+        try:
+            from faster_whisper import BatchedInferencePipeline
+
+            runner = BatchedInferencePipeline(model)
+            # without_timestamps=False: vẫn chia câu theo mốc thời gian (mặc định của chế độ lô gộp cả đoạn ~30s)
+            kwargs.update(batch_size=int(cfg.get("batch_size", 8)), without_timestamps=False)
+        except ImportError:
+            runner = model
+    try:
+        return _decode(runner, used, audio, kwargs, allowed, language)
+    except Exception as exc:
+        if runner is model:
+            raise
+        log(f"Nhận dạng theo lô lỗi ({exc}) — chạy lại cách thường (chậm hơn).")
+        for k in ("batch_size", "without_timestamps"):
+            kwargs.pop(k, None)
+        return _decode(model, used, audio, kwargs, allowed, language)
+
+
+def use_batched(cfg: dict, used: dict) -> bool:
+    """Chế độ lô (BatchedInferencePipeline, faster-whisper ≥ 1.1) chỉ đáng dùng trên GPU."""
+    return bool(cfg.get("batched", True)) and used.get("device", "auto") in ("cuda", "auto")
+
+
+def _decode(runner, used: dict, audio: Path, kwargs: dict, allowed: list, language: str | None) -> Transcript:
+    segments, info = runner.transcribe(str(audio), **kwargs)
     forced = None if language else pick_language(info.language, getattr(info, "all_language_probs", None), allowed)
     if forced:
-        segments, info = model.transcribe(str(audio), language=forced, **kwargs)
+        segments, info = runner.transcribe(str(audio), **{**kwargs, "language": forced})
     out = [
         Segment(
             start=s.start, end=s.end, text=s.text.strip(),

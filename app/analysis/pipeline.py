@@ -13,6 +13,8 @@ Kết quả trong jobs/<job_id>/analysis/:
 from __future__ import annotations
 
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable
 
@@ -30,13 +32,38 @@ def _write(path: Path, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _elapsed(t0: float) -> str:
+    sec = int(time.monotonic() - t0)
+    return f"{sec // 60}:{sec % 60:02d}"
+
+
+def _in_thread(pool: ThreadPoolExecutor, fn, *args):
+    """Chạy fn ở luồng phụ, gắn đúng job cho luồng đó (nút ⏹️ Dừng vẫn có tác dụng khi luồng ghi nhật ký)."""
+    from app.jobs import stop
+
+    job_id = stop.current()
+
+    def call():
+        stop.set_current(job_id)
+        try:
+            return fn(*args)
+        finally:
+            stop.set_current(None)
+
+    return pool.submit(call)
+
+
 def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcribe,
                  progress: Callable[[str], None] = lambda msg: None) -> dict:
+    """Chủ dự án 11/10 "phân tích footage lâu": các phần độc lập chạy SONG SONG — nhận dạng thoại (GPU) chạy cùng lúc
+    với dò cảnh + trích khung + dò mặt (CPU) và với 2 bản làm sạch âm thanh; khung hình trích nhiều cái một lúc.
+    Mỗi phần ghi thời gian chạy vào nhật ký để biết chỗ nào chậm."""
     cfg = config.load("analysis")
     out = job.dir(jobs_root) / "analysis"
     (out / "audio").mkdir(parents=True, exist_ok=True)
     (out / "frames").mkdir(parents=True, exist_ok=True)
     transcripts, scenes_all, subjects_all, frames_all, events_all = [], [], [], [], []
+    workers = max(1, int((cfg.get("parallel") or {}).get("frame_workers", 4)))
 
     for i, src in enumerate(job.footage):
         src = Path(src)
@@ -44,70 +71,33 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
         progress(f"Đọc thông tin video {src.name}")
         info = probe_video(src, cfg.get("ffprobe") or None)
         duration = info.duration / 1_000_000
-
-        if info.has_audio:
-            progress("Làm sạch âm thanh (lọc ồn, chuẩn hóa độ to)")
-            ffmpeg.run(ffmpeg.clean_audio_args(src, out / "audio" / f"clean_{tag}.wav", cfg))
-            ffmpeg.run(ffmpeg.clean_audio_args(src, out / "audio" / f"light_{tag}.wav", cfg, light=True))
-            whisper_wav = out / "audio" / f"whisper_{tag}.wav"
-            ffmpeg.run(ffmpeg.whisper_audio_args(src, whisper_wav))
-            from app.jobs.limits import group_slot
-
-            def gpu_busy(what: str) -> None:
-                progress(f"Đang đợi lượt {what} — video khác đang dùng GPU…")
-
-            with group_slot("gpu", on_wait=gpu_busy):  # chỉ 1 video dùng GPU một lúc
-                progress("Nhận dạng thoại (có thể mất vài phút)")
-                if getattr(job.options, "vi_sub", False):  # phụ đề tiếng Việt: nhận MỌI ngôn ngữ, không ép ko/ja/en
-                    from app import config as _cfg
-
-                    tr = transcribe_fn(whisper_wav, cfg={**_cfg.load("whisper"), "languages": []}, log=progress)
-                else:
-                    tr = transcribe_fn(whisper_wav, log=progress)
-            transcripts.append({"footage": i, **tr.model_dump()})
-            progress("Dò tiếng cười / hò reo / cao trào trong âm thanh")
-            try:
-                from app.analysis.audio_events import analyze_audio_events
-
-                segs = tr.model_dump()["segments"]
-                events_all.append({"footage": i, "events": analyze_audio_events(
-                    whisper_wav, segs, cfg.get("audio_events") or None)})
-            except Exception as exc:  # không để lỗi phụ làm hỏng cả bước phân tích
-                progress(f"Bỏ qua dò sự kiện âm thanh: {exc}")
+        t_all = time.monotonic()
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            cleaning = []
+            if info.has_audio:
+                whisper_wav = out / "audio" / f"whisper_{tag}.wav"
+                wav_job = _in_thread(pool, ffmpeg.run, ffmpeg.whisper_audio_args(src, whisper_wav))
+                progress("Làm sạch âm thanh (lọc ồn, chuẩn hóa độ to) — chạy nền")
+                cleaning = [_in_thread(pool, ffmpeg.run, ffmpeg.clean_audio_args(src, out / "audio" / f"clean_{tag}.wav", cfg)),
+                            _in_thread(pool, ffmpeg.run, ffmpeg.clean_audio_args(src, out / "audio" / f"light_{tag}.wav",
+                                                                               cfg, light=True))]
+            video_job = _in_thread(pool, _video_part, src, i, tag, duration, info, out, cfg, workers, progress)
+            if info.has_audio:
+                wav_job.result()
+                tr, events = _audio_part(job, whisper_wav, transcribe_fn, cfg, progress)
+                transcripts.append({"footage": i, **tr.model_dump()})
+                events_all.append({"footage": i, "events": events})
+                whisper_wav.unlink(missing_ok=True)
+            else:
+                transcripts.append({"footage": i, "language": None, "segments": []})
                 events_all.append({"footage": i, "events": []})
-            whisper_wav.unlink(missing_ok=True)
-        else:
-            transcripts.append({"footage": i, "language": None, "segments": []})
-            events_all.append({"footage": i, "events": []})
-
-        progress("Dò cảnh")
-        sc = cfg.get("scenes", {})
-        scenes = detect_scenes(src, sc.get("threshold", 27.0), sc.get("min_scene_len_s", 0.6), duration,
-                               frame_skip=int(sc.get("frame_skip", 1)), progress=progress)
-        scenes_all.append({"footage": i, "path": src.as_posix(), "duration": duration, "width": info.width,
-                           "height": info.height, "scenes": [s.model_dump() for s in scenes]})
-
-        progress("Trích khung hình")
-        fr = cfg.get("frames", {})
-        skipped = []
-        for t in frame_times(duration, scenes, fr.get("every_s", 4.0), fr.get("max_frames", 40)):
-            dst = out / "frames" / f"{tag}_{t:08.2f}.jpg"
-            if not ffmpeg.extract_frame(src, t, dst, fr.get("width", 480), fr.get("jpeg_quality", 5)):
-                skipped.append(t)
-                continue
-            frames_all.append({"footage": i, "t": t, "file": dst.relative_to(out).as_posix()})
-        if skipped:
-            progress(f"Bỏ qua {len(skipped)} khung hình không trích được (giây {', '.join(f'{x:.1f}' for x in skipped[:5])}"
-                     f"{'…' if len(skipped) > 5 else ''}) — thường do phần cuối file chỉ có tiếng, không có hình.")
-        if not any(f["footage"] == i for f in frames_all):
-            raise RuntimeError(f"Không trích được khung hình nào từ {src.name}. File video có thể bị hỏng hoặc "
-                               "dùng định dạng lạ — thử xuất lại file bằng CapCut / HandBrake (H.264 MP4) rồi chạy lại.")
-
-        progress("Dò khuôn mặt / chủ thể")
-        sj = cfg.get("subjects", {})
-        faces = scan_video(src, sj.get("sample_every_s", 0.5), sj.get("min_face_frac", 0.06), progress=progress)
-        track = main_subject_track(faces, sj.get("smooth_window", 5), sj.get("max_pan_per_s", 0.25))
-        subjects_all.append({"footage": i, **track.model_dump(), "faces": faces_compact(faces)})
+            scenes, frames, subjects = video_job.result()
+            for c in cleaning:
+                c.result()
+        scenes_all.append(scenes)
+        frames_all.extend(frames)
+        subjects_all.append(subjects)
+        progress(f"Phân tích xong {src.name} sau {_elapsed(t_all)} (video dài {duration / 60:.1f} phút)")
 
     _write(out / "transcript.json", transcripts)
     _write(out / "scenes.json", scenes_all)
@@ -115,3 +105,68 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
     _write(out / "frames.json", frames_all)
     _write(out / "audio_events.json", events_all)
     return {"transcripts": transcripts, "scenes": scenes_all, "subjects": subjects_all, "frames": frames_all}
+
+
+def _audio_part(job: Job, whisper_wav: Path, transcribe_fn: Callable, cfg: dict, progress):
+    from app.jobs.limits import group_slot
+
+    def gpu_busy(what: str) -> None:
+        progress(f"Đang đợi lượt {what} — video khác đang dùng GPU…")
+
+    with group_slot("gpu", on_wait=gpu_busy):  # chỉ 1 video dùng GPU một lúc
+        t0 = time.monotonic()
+        progress("Nhận dạng thoại (có thể mất vài phút)")
+        if getattr(job.options, "vi_sub", False):  # phụ đề tiếng Việt: nhận MỌI ngôn ngữ, không ép ko/ja/en
+            tr = transcribe_fn(whisper_wav, cfg={**config.load("whisper"), "languages": []}, log=progress)
+        else:
+            tr = transcribe_fn(whisper_wav, log=progress)
+        progress(f"Nhận dạng thoại xong sau {_elapsed(t0)} ({len(tr.segments)} câu, {tr.device or '?'})")
+    progress("Dò tiếng cười / hò reo / cao trào trong âm thanh")
+    try:
+        from app.analysis.audio_events import analyze_audio_events
+
+        events = analyze_audio_events(whisper_wav, tr.model_dump()["segments"], cfg.get("audio_events") or None)
+    except Exception as exc:  # không để lỗi phụ làm hỏng cả bước phân tích
+        progress(f"Bỏ qua dò sự kiện âm thanh: {exc}")
+        events = []
+    return tr, events
+
+
+def _video_part(src: Path, i: int, tag: str, duration: float, info, out: Path, cfg: dict, workers: int, progress):
+    """Dò cảnh → trích khung (nhiều khung một lúc) → dò mặt. Chạy song song với nhận dạng thoại."""
+    t0 = time.monotonic()
+    progress("Dò cảnh")
+    sc = cfg.get("scenes", {})
+    scenes = detect_scenes(src, sc.get("threshold", 27.0), sc.get("min_scene_len_s", 0.6), duration,
+                           frame_skip=int(sc.get("frame_skip", 1)), progress=progress)
+    progress(f"Dò cảnh xong sau {_elapsed(t0)} ({len(scenes)} cảnh)")
+    scenes_rec = {"footage": i, "path": src.as_posix(), "duration": duration, "width": info.width,
+                  "height": info.height, "scenes": [s.model_dump() for s in scenes]}
+
+    progress("Trích khung hình")
+    fr = cfg.get("frames", {})
+    times = frame_times(duration, scenes, fr.get("every_s", 4.0), fr.get("max_frames", 40))
+
+    def grab(t: float):
+        dst = out / "frames" / f"{tag}_{t:08.2f}.jpg"
+        ok = ffmpeg.extract_frame(src, t, dst, fr.get("width", 480), fr.get("jpeg_quality", 5))
+        return t, dst, ok
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(grab, times))
+    frames = [{"footage": i, "t": t, "file": dst.relative_to(out).as_posix()} for t, dst, ok in results if ok]
+    skipped = [t for t, _, ok in results if not ok]
+    if skipped:
+        progress(f"Bỏ qua {len(skipped)} khung hình không trích được (giây {', '.join(f'{x:.1f}' for x in skipped[:5])}"
+                 f"{'…' if len(skipped) > 5 else ''}) — thường do phần cuối file chỉ có tiếng, không có hình.")
+    if not frames:
+        raise RuntimeError(f"Không trích được khung hình nào từ {src.name}. File video có thể bị hỏng hoặc "
+                           "dùng định dạng lạ — thử xuất lại file bằng CapCut / HandBrake (H.264 MP4) rồi chạy lại.")
+
+    t1 = time.monotonic()
+    progress("Dò khuôn mặt / chủ thể")
+    sj = cfg.get("subjects", {})
+    faces = scan_video(src, sj.get("sample_every_s", 0.5), sj.get("min_face_frac", 0.06), progress=progress)
+    track = main_subject_track(faces, sj.get("smooth_window", 5), sj.get("max_pan_per_s", 0.25))
+    progress(f"Dò khuôn mặt xong sau {_elapsed(t1)}")
+    return scenes_rec, frames, {"footage": i, **track.model_dump(), "faces": faces_compact(faces)}
