@@ -222,3 +222,17 @@ def test_template_without_video_borrows_builtin(tmp_path):
     assert any("mượn khuôn" in m for m in logs)
     job = r.run(job)
     assert job.status == Status.done, job.message
+
+
+@pytest.mark.parametrize("ratio", ["4:5", "3:4", "9:10", "9:16"])
+def test_new_frame_ratios_build(tmp_path, ratio):
+    """Khung video mới (chủ dự án 11/10): job dựng xong, khối video đúng tỉ lệ đã chọn."""
+    import json as _json
+
+    jobs, job = prepare(tmp_path, JobOptions())
+    job.data["default_ratio"] = ratio
+    r = make_runner(tmp_path, jobs)
+    job = r.run(job)
+    assert job.status == Status.done, job.message
+    content = _json.loads((Path(job.data["draft"]) / "draft_content.json").read_text(encoding="utf-8"))
+    assert content["tracks"] and any(t["type"] == "video" and t["segments"] for t in content["tracks"])

@@ -1,5 +1,13 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 76 — Trang chủ gọn hơn: chỉ "AI tự chọn", thêm khung video, bỏ ô giữ nhạc nền `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. Mục **Kiểu dựng** chỉ còn ô "✨ AI tự chọn".
+3. Ô **Khung video** có: 4:3, 16:9, 1:1, 4:5, 3:4, 9:10, 9:16 (dọc kín màn hình), Tự động. Thử tạo job với 4:5 và 9:16,
+   mở draft CapCut: khối video đúng tỉ lệ; 9:16 thì hình kín màn hình, tiêu đề + phụ đề đè lên hình.
+4. Không còn ô "🎵 Giữ nhạc nền gốc" dưới "Chỉ thay tiếng".
+
 ## Bước 75 — 🎭 Lồng tiếng nhân vật: khớp miệng, không còn chỗ "đang nói mà không có tiếng", không edit thừa `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.

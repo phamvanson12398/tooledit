@@ -163,7 +163,9 @@ class Runner:
 
         style = load_style(name or job.data.get("style_used") or self._style_name(job))
         ratio = job.data.get("default_ratio")
-        if ratio in ("16:9", "4:3", "1:1"):  # khung người dùng chọn khi tạo job
+        from app.capcut_writer.layout import RATIOS
+
+        if ratio in RATIOS:  # khung người dùng chọn khi tạo job (16:9 / 4:3 / 1:1 / 4:5 / 3:4 / 9:10 / 9:16)
             style = {**style, "block_ratio": ratio, "crop_ratio": ratio}
         if job.options.char_dub:  # lồng tiếng nhân vật: hình giữ tự nhiên (không "khác bản gốc"), chỉ cắt rề rà
             style = {**style, "char_dub": config.load("char_dub"), "reorder": False, "cold_open": False, "remix": False,

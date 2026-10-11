@@ -305,3 +305,23 @@ def test_pick_file_dialog_multiple(monkeypatch):
     fd.askopenfilenames = lambda **kw: ""  # bấm Hủy
     assert pick_file_dialog(multiple=True) == {"path": "", "paths": []}
     assert pick_file_dialog()["paths"] == [pick_file_dialog()["path"]]  # nút chọn 1 file (so sánh video) vẫn như cũ
+
+
+def test_home_only_auto_style_more_ratios_no_keep_bgm(tmp_path):
+    """Chủ dự án 11/10: kiểu dựng chỉ còn "AI tự chọn", thêm nhiều khung video, bỏ ô "Giữ nhạc nền gốc"."""
+    from fastapi.testclient import TestClient
+
+    from app.jobs.job import Job, JobOptions
+    from app.jobs.runner import Runner
+    from app.web.server import create_app
+
+    page = TestClient(create_app(tmp_path / "jobs", lambda root, log: None)).get("/").text
+    assert "AI tự chọn" in page and page.count("name='style'") == 1
+    assert "Giải trí / show" not in page and "Trang điểm / làm đẹp" not in page
+    assert "name=\"keep_bgm\"" not in page and "Giữ nhạc nền gốc" not in page
+    for r in ("16:9", "4:3", "1:1", "4:5", "3:4", "9:10", "9:16"):
+        assert f'<option value="{r}">' in page
+    job = Job.create(tmp_path / "j", [Path("C:/f/a.mp4")], JobOptions(), job_id="x")
+    job.data["default_ratio"] = "4:5"
+    style = Runner._style(Runner.__new__(Runner), job, "tiktok_retention")
+    assert style["block_ratio"] == "4:5" and style["crop_ratio"] == "4:5"

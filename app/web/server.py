@@ -313,8 +313,6 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
 
     @app.get("/", response_class=HTMLResponse)
     def index():
-        from app.styles import available_styles
-
         has_key = bool(app_settings.load(settings_path).get("freesound_api_key"))
         n_max = max_jobs()
         opts = "".join(f"<option value='{n}' {'selected' if n == n_max else ''}>{n}</option>" for n in range(1, 7))
@@ -335,9 +333,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         review_len = f"{mmss(rcfg.get('min_video_s', 130))}–{mmss(rcfg.get('max_video_s', 150))}"
         style_cards = ["<label class='style'><input type='radio' name='style' value='auto' checked>"
                        "<b>✨ AI tự chọn</b><span>Đạo diễn xem nội dung rồi chọn kiểu phù hợp</span></label>"]
-        for key, st in available_styles().items():
-            style_cards.append(f"<label class='style'><input type='radio' name='style' value='{key}'>"
-                               f"<b>{html.escape(st['name_vi'] or key)}</b><span>{html.escape(st['fits_vi'])}</span></label>")
+        # chủ dự án 11/10: chỉ để "AI tự chọn" (các kiểu dựng vẫn còn trong styles/, AI tự chọn theo nội dung)
         lib, lib_err = _load_library()
         body = f"""
         <div class="grid"><div>
@@ -379,15 +375,15 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <div class="muted">Không cắt, không đổi khung / zoom / lật: video giữ đúng như gốc từ đầu đến cuối. Chỉ tắt tiếng gốc,
             thêm voice thuyết minh + phụ đề + tiêu đề (ngôn ngữ đã chọn ở trên), nhạc nền nhẹ và hiệu ứng. Không có hook,
             không chia video. Đoạn vi phạm chính sách TikTok vẫn bị cắt.</div>
-            <label class="tg"><input type="checkbox" name="keep_bgm"> 🎵 Giữ nhạc nền gốc (chỉ tách bỏ giọng nói)</label>
-            <div class="muted">Dùng cùng "Chỉ thay tiếng": tool tách giọng nói khỏi âm thanh gốc, giữ nguyên nhạc nền + tiếng
-            hiện trường, chỉ thay lời bằng voice thuyết minh (không thêm nhạc khác). Cần cài Demucs một lần
-            (docs/SETUP_WINDOWS.md); chưa cài thì tool dùng nhạc AI chọn như thường.</div></div>
+</div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Mã khách</label><input type="text" name="client" value="khach"></div>
             <div><label>Khung video</label><select name="ratio">
-              <option value="4:3">4:3</option><option value="1:1">1:1 (vuông)</option>
-              <option value="16:9">16:9</option><option value="auto">Tự động</option></select></div></div>
+              <option value="4:3">4:3 (ngang vừa)</option><option value="16:9">16:9 (ngang rộng)</option>
+              <option value="1:1">1:1 (vuông)</option><option value="4:5">4:5 (hơi dọc)</option>
+              <option value="3:4">3:4 (dọc)</option><option value="9:10">9:10 (gần vuông, hơi dọc)</option>
+              <option value="9:16">9:16 (dọc kín màn hình, chữ đè lên hình)</option>
+              <option value="auto">Tự động</option></select></div></div>
           <p><button type="submit" class="btn big">🚀 Bắt đầu dựng</button></p>
         </form></div>{_compare_card()}</div>
         <div><div class="card"><h2>📚 Kho tài nguyên</h2>{_library_summary(lib, lib_err)}{_resource_tools(has_key)}{_template_setting()}</div>
