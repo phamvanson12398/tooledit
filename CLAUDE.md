@@ -303,6 +303,12 @@ zoom. Câu chưa có voice tạm tính theo số chữ để dựng thử.
 Giao diện (09/10): thanh tiến trình đặt tên bước riêng theo chế độ (`STEP_VI_MODE`, `job_mode` trong
 `app/web/server.py`) + ghi rõ chế độ ở đầu trang job; review phim KHÔNG có hook riêng (`Job.use_hook`, kể cả job cũ đã
 tick) vì câu mở đầu bài lời đọc là hook.
+**CHỐT 11/10 (thay mọi mục "chia nhiều video / đoạn hay / 2:30" ở trên): review = MỘT video TÓM GỌN CẢ PHIM, CHỈ Ý
+CHÍNH, thời lượng CHỦ DỰ ÁN CHỌN khi tạo job** (ô "⏱️ Thời lượng video review", `JobOptions.review_s`, lựa chọn
+`durations` / mặc định `default_s` trong `config/review.yaml`). Không bước chia đoạn / bảng duyệt (`Job.picks_segments`
+= split hoặc char_dub); `review_target` đặt độ dài bài đọc 95–100% thời lượng chọn (kế hoạch AI nới 85%); bài phải kể tới
+KẾT (`min_reach` 0.85 trong `check_review_script`); lời thoại gửi AI rải đều cả phim (`format_transcript_spread`), phân
+tích lấy `max_frames_review` 80 khung; prompt `dub_review.md` mục "MỘT video tóm gọn CẢ phim — CHỈ Ý CHÍNH".
 **Review LUÔN ở NGÔI THỨ 3 (chủ dự án 11/10):** người kể là người ngoài, không xưng tôi / mình / chúng ta (저는·제가·저희·
 내가·우리는 / 私·僕·俺 / I·me·we·us), không nói chuyện với người xem; lời nhân vật trong ngoặc kép không tính — luật trong
 `dub_review.md` + `review_polish.md`, code chặn bằng `check_third_person` (gọi trong `check_story`).

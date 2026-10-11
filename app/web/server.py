@@ -122,8 +122,7 @@ STEP_VI = {
 }
 # Tên bước riêng theo chế độ (chủ dự án 09/10: "sao các quy trình chả khác gì nhau") — job.applies đã ẩn bước không chạy
 STEP_VI_MODE = {
-    "review": {"segment": "AI chọn đoạn phim để kể", "review_segments": "Chờ duyệt đoạn phim",
-               "plan": "AI chọn tiêu đề · nhạc", "dub": "AI viết bài lời đọc", "dub_voice": "Chờ bạn đọc cả bài",
+    "review": {               "plan": "AI chọn tiêu đề · nhạc", "dub": "AI viết bài lời đọc", "dub_voice": "Chờ bạn đọc cả bài",
                "write": "Dựng cảnh theo voice → CapCut"},
     "char_dub": {"segment": "AI chọn đoạn hay (TikTok)", "review_segments": "Chờ duyệt đoạn hay",
                  "plan": "AI cắt bỏ đoạn rề rà", "dub": "AI dịch thoại + nhận diện nhân vật",
@@ -162,6 +161,14 @@ def job_mode(job) -> str:
     if len(job.footage) > 1:
         return "montage"
     return "dub" if o.target_language else "normal"
+
+
+def review_len(job) -> str:
+    """Review phim: thời lượng chủ dự án chọn (hiện cạnh tên chế độ ở đầu trang job)."""
+    if not job.options.review:
+        return ""
+    sec = int(job.options.review_s or app_config.load("review").get("default_s", 150))
+    return f" · {sec // 60}:{sec % 60:02d}"
 
 
 def esc_mode(job) -> str:
@@ -384,7 +391,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
 
         def mmss(sec) -> str:
             return f"{int(sec) // 60}:{int(sec) % 60:02d}"
-        review_len = f"{mmss(rcfg.get('min_video_s', 130))}–{mmss(rcfg.get('max_video_s', 150))}"
+        default_s = int(rcfg.get("default_s", 150))
+        review_opts = "".join(f"<option value='{v}' {'selected' if int(v) == default_s else ''}>{mmss(v)}</option>"
+                              for v in rcfg.get("durations") or [60, 90, 120, 150, 180, 240, 300])
         # chủ dự án 11/10: chỉ để "AI tự chọn" (các kiểu dựng vẫn còn trong styles/, AI tự chọn theo nội dung)
         # chủ dự án 11/10: bỏ "Kho tài nguyên" + "So sánh video" khỏi trang chủ; làm lại form theo 3 bước dễ dùng
         lib, _ = _load_library()
@@ -397,7 +406,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ("dub", "🌐", "Đổi ngôn ngữ", "Thuyết minh + phụ đề tiếng Hàn / Nhật / Anh, dựng lại khác bản gốc"),
                 ("voice_only", "🎙️", "Chỉ thay tiếng", "Giữ NGUYÊN hình, chỉ thay voice + phụ đề ngôn ngữ mới"),
                 ("review", "🎬", "Review phim / hoạt hình",
-                 f"AI chọn đoạn phim rồi viết lời review KỂ CHUYỆN, mỗi đoạn một video {review_len}"),
+                 "Tóm gọn CẢ phim thành MỘT video, chỉ kể ý chính — bạn chọn thời lượng"),
                 ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn đoạn hay (câu nói hay, hài, gay cấn…), thay giọng từng nhân vật, giữ nhạc nền gốc"),
                 ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
             ))
@@ -429,6 +438,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
                 <option value="en">Đổi sang tiếng Anh (English)</option></select>
               <div class="muted" id="langhint"></div>
+              <div data-modes="review"><label style="margin-top:10px">⏱️ Thời lượng video review</label>
+                <select name="review_s">{review_opts}</select>
+                <div class="muted">AI tóm gọn cả phim thành MỘT video dài đúng chừng này, chỉ kể ý chính, kể tới kết.</div></div>
               <div data-modes="dub voice_only"><label style="margin-top:10px">✍️ Cách viết lời thuyết minh</label>
                 <select name="script_mode">
                 <option value="rewrite">AI xem video rồi VIẾT MỚI nội dung hợp nước đó (không dịch)</option>
@@ -439,7 +451,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             <h3>Tùy chọn <span class="muted">(để mặc định cũng được)</span></h3>
             <div class="chips">
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="hook" checked> 🪝 Có hook voice</label>
-              <label class="chip" data-modes="normal dub review"><input type="checkbox" name="split"> ✂️ Chia video dài thành nhiều video</label>
+              <label class="chip" data-modes="normal dub"><input type="checkbox" name="split"> ✂️ Chia video dài thành nhiều video</label>
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục</label>
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="confirm"> ✅ Xác nhận trước khi dựng</label>
               <label class="chip" data-modes="normal dub review"><input type="checkbox" name="reframe"> 🔲 Đổi khung theo cảnh</label>
@@ -591,7 +603,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
                 keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None),
                 vi_sub: str | None = Form(None), review: str | None = Form(None), char_dub: str | None = Form(None),
-                ai: str = Form(""), mode: str = Form("")):
+                ai: str = Form(""), mode: str = Form(""), review_s: int = Form(0)):
         if mode in MODES:  # trang chủ mới: chọn MỘT chế độ (thẻ) thay cho các ô tick riêng
             review, char_dub, vi_sub, voice_only = (("on" if mode == m else None)
                                                     for m in ("review", "char_dub", "vi_sub", "voice_only"))
@@ -631,8 +643,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         job = Job.create(Path(jobs_root), [p.resolve() for p in paths], JobOptions(
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only and not review,
             reframe_per_scene=bool(reframe) and not voice_only,
-            confirm_before_build=bool(confirm), split=bool(split) and not voice_only and len(paths) == 1,
+            confirm_before_build=bool(confirm), split=bool(split) and not voice_only and not review and len(paths) == 1,
             hype=bool(hype) and not voice_only and not review and not char_dub, review=bool(review),
+            review_s=max(0, min(int(review_s or 0), 600)) if review else 0,
             char_dub=bool(char_dub),
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
             script_mode=script_mode if script_mode in ("rewrite", "translate") else "",
@@ -662,14 +675,14 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         cur = STEPS.index(job.step)
         chips = []
         for i, st in enumerate(STEPS):
-            if not job.applies(st) or st == "assets" or (st == "segment" and not (job.options.split or job.options.review or job.options.char_dub)):
+            if not job.applies(st) or st == "assets" or (st == "segment" and not job.picks_segments):
                 continue
             cls = "done" if i < cur or job.status == Status.done else ("cur " + status if i == cur else "")
             chips.append(f"<span class='step {cls}'>{step_label(job, st)}</span>")
         style = job.data.get("style_used") or job.data.get("style") or "auto"
         head = (f"<div class='card'><div style='display:flex;justify-content:space-between;align-items:center'>"
                 f"<div><h2 style='margin:0'>{html.escape(Path(job.footage[0]).name)}</h2>"
-                f"<div class='muted'><b>{MODE_VI[job_mode(job)]}</b> · {job.job_id} · kiểu dựng: {html.escape(style)} · "
+                f"<div class='muted'><b>{MODE_VI[job_mode(job)]}{review_len(job)}</b> · {job.job_id} · kiểu dựng: {html.escape(style)} · "
                 f"🤖 AI: <b>{AI_NAMES[_ai_of(job)]}</b> · {html.escape(job.footage[0])}</div>"
                 + ("" if running else
                    f"<form method='post' action='/jobs/{job_id}/ai' style='margin-top:6px'>"
@@ -1026,7 +1039,7 @@ def _manage_panel(job: Job) -> str:
                 f"<button type='submit' class='btn light small'>{label}</button></form>")
 
     buttons = []
-    if (job.options.split or job.options.review or job.options.char_dub) and STEPS.index(job.step) > STEPS.index("review_segments"):
+    if job.picks_segments and STEPS.index(job.step) > STEPS.index("review_segments"):
         buttons.append(redo("segment", "✂️ Chia lại video",
                             "AI sẽ chia lại video; hook, kế hoạch và voice cũ sẽ phải làm lại. Tiếp tục?"))
     have_plan = STEPS.index(job.step) > STEPS.index("plan") or job.status == Status.done

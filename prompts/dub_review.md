@@ -1,10 +1,22 @@
-# Nhiệm vụ: VIẾT TRƯỚC bài lời đọc REVIEW (kể chuyện) cho đoạn phim / hoạt hình số {{video_index}} — {{language_name}}, {{market}}
+# Nhiệm vụ: VIẾT TRƯỚC bài lời đọc REVIEW — TÓM GỌN CẢ PHIM / HOẠT HÌNH thành MỘT video — {{language_name}}, {{market}} (video số {{video_index}})
 
 Cách làm việc của chủ dự án (chốt 09/10): bạn viết TRƯỚC một bài lời đọc liền mạch → chủ dự án đọc CẢ BÀI vào một file
 voice → tool dựa vào voice để CHỌN CẢNH và DỰNG (câu nào kể đoạn phim nào thì hình đoạn đó chạy dưới câu đó, cắt cảnh
 nhanh 1–3 giây, dài đúng bằng câu đọc). Tiếng phim TẮT HẲN — phim chỉ lấy HÌNH; toàn bộ âm thanh là giọng kể (+ nhạc nền
 nhẹ). Phim gốc nói {{source_name}} — lời thoại gốc chỉ để bạn HIỂU chuyện, không dịch lại; điều quan trọng nhân vật nói
 thì KỂ lại bằng lời của người review.
+
+## MỘT video tóm gọn CẢ phim — CHỈ Ý CHÍNH (chủ dự án chốt 11/10)
+Đây là video review DUY NHẤT cho cả phim (giây gốc {{range}}, khoảng {{film_s}} phút), dài đúng **{{target_s}} giây** như
+chủ dự án đã chọn. Không kể hết được — chỉ giữ CÁC Ý CHÍNH của cốt truyện:
+- nhân vật chính là ai, họ muốn gì / hoàn cảnh ra sao;
+- biến cố mở màn câu chuyện;
+- các bước ngoặt lớn (mỗi bước ngoặt vài câu);
+- cao trào;
+- KẾT (phải kể tới kết — đừng dồn hết thời lượng vào nửa đầu phim).
+BỎ tình tiết phụ, nhân vật phụ không ảnh hưởng mạch chính, đoạn rề rà, chi tiết lặp. Mỗi câu gánh một ý; 2 câu liền nhau
+được nhảy qua cả đoạn dài không quan trọng của phim, nhưng vẫn theo ĐÚNG thứ tự phim. Phân bổ thời lượng theo độ quan
+trọng của từng ý, không chia đều theo phút phim.
 
 ## Đây là KỂ CHUYỆN, không phải thuyết minh hình ảnh
 SAI (tả cảnh): "Cậu bé đang chạy trên đường. Con mèo đang nhìn cậu. Bây giờ cậu ấy đang mở cửa."
@@ -17,7 +29,7 @@ Công thức: nhân vật + điều họ khao khát / hoàn cảnh → "nhưng /
 tiếp mâu thuẫn mới; cả bài là chuỗi những nhịp như vậy nối nhau tới cao trào và kết.
 
 ## Cách viết
-1. XEM HẾT CÁC KHUNG HÌNH bên dưới (mở từng file bằng Read) + đọc lời thoại để hiểu trọn diễn biến của đoạn phim.
+1. XEM HẾT CÁC KHUNG HÌNH bên dưới (mở từng file bằng Read) + đọc lời thoại để hiểu trọn diễn biến của cả phim.
 2. Viết `story_vi` (tiếng Việt) TRƯỚC: dàn ý mở đầu (nhân vật, hoàn cảnh, muốn gì) → mâu thuẫn → cao trào → kết.
 3. Viết bài lời đọc theo dàn ý: câu đầu kéo người xem ở lại ngay; các câu NỐI nhau bằng nhân – quả, thời gian (vì thế,
    nhưng, ngay lúc đó, không ngờ, thế là, cuối cùng…); kể động cơ, cảm xúc nhân vật (chỉ khi phim cho thấy rõ); thỉnh
@@ -31,7 +43,7 @@ tiếp mâu thuẫn mới; cả bài là chuỗi những nhịp như vậy nối
    xem ("các bạn có biết…"). Câu bình luận cũng ở ngôi 3: "Ai mà ngờ được…" chứ không "Tôi không ngờ…". `text_vi` cũng
    vậy. Tool tự kiểm tra và bắt viết lại câu sai.
 6. ĐÚNG SỰ THẬT: tên nhân vật đúng như trong phim (xem "Tên riêng đúng"); không rõ tên thì gọi theo đặc điểm. Không bịa
-   tình tiết, kết cục ngoài đoạn này.
+   tình tiết, kết cục ngoài những gì phim cho thấy.
 
 7. TỰ NHIÊN NHƯ NÓI (rất quan trọng — chủ dự án chê "chưa hay, chưa tự nhiên"): viết văn NÓI của người bản xứ, không
    văn viết, không dịch máy; câu dài ngắn xen kẽ, câu ngắn bật ra ở chỗ bất ngờ; KHÔNG lặp cùng một từ nối ở nhiều câu
@@ -59,7 +71,7 @@ tiếp mâu thuẫn mới; cả bài là chuỗi những nhịp như vậy nối
 ## Điều cấm
 {{sensitive_notes}}
 
-## Tóm tắt nội dung đoạn này (giây gốc {{range}})
+## Tóm tắt nội dung phim (giây gốc {{range}})
 {{summary}}
 
 ## Tên riêng đúng
@@ -68,7 +80,7 @@ tiếp mâu thuẫn mới; cả bài là chuỗi những nhịp như vậy nối
 ## Hook đã dùng (đứng trước, không lặp lại)
 {{hook}}
 
-## Các cảnh trong đoạn phim (giây gốc)
+## Các cảnh trong phim (giây gốc)
 {{scenes}}
 
 ## Khung hình (mở bằng Read để xem) — giây gốc

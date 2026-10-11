@@ -49,7 +49,8 @@ class JobOptions(BaseModel):
     hype: bool = False                # Chuyển cảnh liên tục: cảnh gay cấn lên đầu (3–5s/cảnh), còn lại về sau (07/10)
     script_mode: str = ""             # Đổi ngôn ngữ: "rewrite" = AI xem video viết mới / "translate" = dịch; "" = theo config
     keep_bgm: bool = False            # (cùng voice_only) giữ nhạc nền gốc: tách giọng nói ra, chỉ thay lời thuyết minh
-    review: bool = False              # Review phim / hoạt hình (09/10): tìm đoạn hay, mỗi đoạn 1 video 60–90s + lời review
+    review: bool = False              # Review phim / hoạt hình: 11/10 tóm gọn CẢ phim thành MỘT video, chỉ kể ý chính
+    review_s: int = 0                 # Review (11/10): thời lượng video chủ dự án chọn (giây); 0 = default_s trong review.yaml
     char_dub: bool = False            # Lồng tiếng nhân vật (11/10): đoạn hay TikTok, thay giọng từng nhân vật, giữ nền gốc
     ai: str = ""                      # AI đạo diễn của job (11/10): "claude" | "gemini"; "" = default_ai trong config
 
@@ -139,6 +140,12 @@ class Job(BaseModel):
         """Có hook voice riêng. Review phim thì KHÔNG (câu mở đầu của bài lời đọc là hook; hook riêng làm đứt mạch kể)."""
         return self.options.hook and not self.options.review and not self.options.char_dub
 
+    @property
+    def picks_segments(self) -> bool:
+        """Job có bước AI chọn / chia đoạn + bảng duyệt. Review phim KHÔNG (chủ dự án 11/10: tóm gọn cả phim thành MỘT
+        video, không chia nhiều video)."""
+        return self.options.split or self.options.char_dub
+
     def applies(self, step: str) -> bool:
         if self.options.vi_sub:  # chỉ phân tích (nhận dạng lời) rồi dịch + ghi phụ đề ở bước write
             return step in ("analyze", "write", "done")
@@ -147,7 +154,7 @@ class Job(BaseModel):
         if step in ("hooks", "choose_hook", "voice"):
             return self.use_hook
         if step == "review_segments":
-            return self.options.split or self.options.review or self.options.char_dub
+            return self.picks_segments
         if step in ("dub", "dub_voice"):
             return bool(self.options.target_language) or self.options.review
         return True

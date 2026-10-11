@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 87 — Review phim: MỘT video tóm gọn cả phim, chỉ ý chính, chọn thời lượng trước `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm Ctrl+F5.
+2. Trang chủ → bấm thẻ **🎬 Review phim / hoạt hình** → xuất hiện ô **⏱️ Thời lượng video review** (1:00 … 5:00,
+   mặc định 2:30). Ô "Chia video dài" không còn hiện ở chế độ này.
+3. Chọn ví dụ 1:30, tạo job với một tập phim / hoạt hình. Đầu trang job ghi "🎬 Review phim / hoạt hình · 1:30".
+4. Job KHÔNG dừng ở bảng duyệt chia đoạn nữa — đi thẳng tới trang voice với MỘT bài lời đọc.
+5. Đọc bài: chỉ kể các ý chính (nhân vật, biến cố, bước ngoặt, cao trào) và kể tới KẾT phim; độ dài khoảng 1:25–1:30
+   khi đọc (trang voice báo tổng thời lượng).
+6. Phim rất dài (trên 1 tiếng): AI đọc lời thoại rải đều cả phim + 80 khung hình — nếu bài kể thiếu ý quan trọng, dùng
+   nút "✍️ Viết lại theo góp ý" để nói ý nào cần thêm.
+
 ## Bước 86 — Review phim luôn kể ở ngôi thứ 3 `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

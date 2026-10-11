@@ -186,7 +186,9 @@ class Runner:
                 style["camera"] = dcfg["camera_default"]
         parts = job.data.get("montage_parts")
         if job.options.review:  # review phim: đoạn hay theo đúng thứ tự truyện, lời review phủ gần kín, tiếng phim hạ nhỏ
-            rcfg = config.load("review")
+            from app.director.tasks import review_target
+
+            rcfg = review_target(config.load("review"), job.options.review_s)  # thời lượng chủ dự án chọn (11/10)
             style = {**style, "review": rcfg, "reorder": False, "cold_open": False,
                      "original_audio": rcfg.get("original_audio") or {}}
             if rcfg.get("layout"):  # bố cục như video mẫu: khối phim 9:10 cắt thẳng từ footage, bám nhân vật
@@ -278,7 +280,7 @@ class Runner:
         from app.planner import hook_io
 
         if step not in self.REDO_STEPS or (step != "segment" and not job.applies(step)) or \
-                (step == "segment" and not (job.options.split or job.options.review or job.options.char_dub)):
+                (step == "segment" and not job.picks_segments):
             raise ValueError(f"Không làm lại được bước {step!r}")
         d, _, plan_dir = self._paths(job)
         if step == "segment":
@@ -462,7 +464,7 @@ class Runner:
         _, analysis, plan_dir = self._paths(job)
         u = self._understanding(job)
         path = plan_dir / "segments.json"
-        if not job.options.split and not job.options.review and not job.options.char_dub:
+        if not job.picks_segments:  # review phim (11/10): MỘT video tóm gọn cả phim
             start, end = u.usable_range.start, u.usable_range.end
             if job.options.voice_only or job.data.get("montage_parts"):  # giữ trọn footage từ giây 0 tới hết
                 start, end = 0.0, self._footage_size(job)[2] or end
@@ -648,7 +650,7 @@ class Runner:
                 try:
                     s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i,
                                  mode="review" if job.options.review else "char" if job.options.char_dub
-                                 else self.script_mode(job))
+                                 else self.script_mode(job), review_s=job.options.review_s)
                 except DirectorError as exc:
                     if exc.last is None:
                         raise
@@ -819,7 +821,7 @@ class Runner:
         u = self._u_for(job, v)
         self.log(f"Video {video_index:02d}: AI viết lại bài lời đọc theo góp ý của bạn…")
         script = make_review_script(self.director, analysis, u, video_index=video_index, feedback=feedback,
-                                    previous=scripts.get(video_index))
+                                    previous=scripts.get(video_index), review_s=job.options.review_s)
         dub_io.dub_path(d, video_index).write_text(script.model_dump_json(indent=2), encoding="utf-8")
         scripts[video_index] = script
         for old in (d / "voice").glob(f"video{video_index:02d}_dub*.*"):

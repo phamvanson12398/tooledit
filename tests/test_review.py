@@ -72,7 +72,7 @@ def test_review_job_same_language_still_writes_review(tmp_path):
     job = Job.create(jobs, [Path("C:/f/anime.mp4")], JobOptions(review=True), job_id="rs")
     r = make_runner(tmp_path, jobs)
     job.data["dub_same"] = True
-    assert r._dubbing(job) and job.applies("dub") and job.applies("review_segments")
+    assert r._dubbing(job) and job.applies("dub") and not job.applies("review_segments")  # 11/10: một video, không duyệt chia
     assert not Job.create(jobs, [Path("a.mp4")], JobOptions(), job_id="x").applies("review_segments")
 
 
@@ -87,11 +87,14 @@ def test_web_form_review(tmp_path):
     app.state.worker.start = lambda job_id, action=None: True
     client = TestClient(app)
     home = client.get("/").text
-    assert "Review phim / hoạt hình" in home and "một video 2:10–2:30" in home and "1:00–1:30" not in home
-    r = client.post("/jobs", data={"footage": str(f), "review": "on", "hype": "on", "target_language": "en"},
-                    follow_redirects=False)
+    assert "Review phim / hoạt hình" in home and "MỘT video" in home and "name=\"review_s\"" in home
+    assert "<option value='150' selected>2:30</option>" in home and "<option value='60' >1:00</option>" in home
+    r = client.post("/jobs", data={"footage": str(f), "review": "on", "hype": "on", "split": "on",
+                                   "target_language": "en", "review_s": "90"}, follow_redirects=False)
     job = Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1])
     assert job.options.review and not job.options.hype and job.options.target_language == "en"
+    assert job.options.review_s == 90 and not job.options.split and not job.picks_segments  # MỘT video, không chia
+    assert "Review phim / hoạt hình · 1:30" in client.get(f"/jobs/{job.job_id}").text
     bad = client.post("/jobs", data={"footage": str(f), "review": "on", "vi_sub": "on"})
     assert "Chọn một chế độ thôi" in bad.text
 
@@ -99,9 +102,9 @@ def test_web_form_review(tmp_path):
 SENT = "이 장면 진짜 웃겨요. " + "그런데 그때 소년은 아무것도 몰랐습니다. " * 5  # 93 chữ ≈ 9.3 giây ở 10 chữ/giây
 
 
-def _script(index: int, start: float, n: int = 15) -> dict:
+def _script(index: int, start: float, n: int = 15, step: float = 12.5) -> dict:
     """Bài lời đọc viết TRƯỚC: 15 câu ~9.3 giây (≈ 140 giây), mỗi câu gắn 1 đoạn phim 10 giây, theo thứ tự."""
-    lines = [{"source_start": round(start + k * 10.5, 2), "source_end": round(start + k * 10.5 + 10.0, 2),
+    lines = [{"source_start": round(start + k * step, 2), "source_end": round(start + k * step + 10.0, 2),
               "text": SENT.strip(), "text_vi": "Cảnh này hài thật. Nhưng lúc đó cậu bé chẳng hay biết gì.",
               "action_vi": "cảnh trong phim", "kind": "narration"} for k in range(n)]
     return {"video_index": index, "lines": lines, "editor_notes": "kể lại + bình luận",
@@ -161,7 +164,7 @@ def test_build_from_voice_cuts_scenes_to_voice():
     from app.planner.timeline import TimeMap
 
     plan = EditPlan.model_validate(_plan(1, _clips(1.0, 56)))   # kế hoạch AI (tiêu đề, nhạc…) — cảnh sẽ do tool cắt lại
-    script = DubScript.model_validate(_script(1, 1.0))
+    script = DubScript.model_validate(_script(1, 1.0, step=10.5))
     voice = {i: 2.0 for i in range(1, 16)}
     voice[3] = 7.0
     p2, s2, notes = build_from_voice(plan, script, voice, scene_starts=[23.5, 24.0], cps=10.0, gap_s=0.1, cut_s=2.0)
@@ -183,33 +186,31 @@ def test_build_from_voice_cuts_scenes_to_voice():
 
 
 def test_review_job_end_to_end(tmp_path):
+    """Chủ dự án 11/10: review = MỘT video tóm gọn cả phim, đúng thời lượng chọn — không chia, không bảng duyệt đoạn."""
     jobs = tmp_path / "jobs"
-    job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, target_language="ko"), job_id="rv")
-    make_analysis(jobs / "rv", duration=400.0)
+    job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, target_language="ko", review_s=150),
+                     job_id="rv")
+    make_analysis(jobs / "rv", duration=200.0)
     r = make_runner(tmp_path, jobs)
     u = load("understand.json")
-    u["usable_range"] = {"start": 0.0, "end": 400.0}
-    c1, c2 = _clips(1.0, 56), _clips(201.0, 56)
-    seg = {"videos": [{"start": 1.0, "end": 190.0, "title_vi": "a", "summary_vi": "a", "why_vi": "a"},
-                      {"start": 200.0, "end": 390.0, "title_vi": "b", "summary_vi": "b", "why_vi": "b"}],
-           "dropped": [], "editor_notes": "2 đoạn hay"}
-    r._director = FakeDirector(responses={"understand": u, "segment": seg, "plan": [_plan(1, c1), _plan(2, c2)],
-                                          "dub_review": [_script(1, 1.0), _script(2, 201.0)],
-                                          "review_polish": [_script(1, 1.0), _script(2, 201.0)],
-                                          "captions": [load("captions.json"), {**load("captions.json"), "video_index": 2}]})
+    u["usable_range"] = {"start": 0.0, "end": 200.0}
+    r._director = FakeDirector(responses={"understand": u, "plan": _plan(1, _clips(1.0, 56)),
+                                          "dub_review": _script(1, 1.0), "review_polish": _script(1, 1.0),
+                                          "captions": load("captions.json")})
     job = r.run(job)
-    assert job.step == "review_segments" and job.status == Status.waiting, job.message  # duyệt các đoạn hay
-    r.apply_segments(job, json.loads((jobs / "rv" / "plan" / "segments.json").read_text(encoding="utf-8"))["videos"])
-    job = r.resume(job)
-    assert job.step == "dub_voice" and job.status == Status.waiting, job.message
+    assert job.step == "dub_voice" and job.status == Status.waiting, job.message  # thẳng tới bài lời đọc
+    assert not any(c["task"] == "segment" for c in r._director.calls)            # không hỏi AI chia đoạn
+    assert len(r.videos(job)) == 1 and r.videos(job)[0]["end"] == 200.0          # một video, cả phim
+    prompt = next(c for c in r._director.calls if c["task"] == "dub_review")["prompt"]
+    assert "TÓM GỌN CẢ PHIM" in prompt and "CHỈ Ý CHÍNH" in prompt and "142–150 giây" in prompt
     txt = (jobs / "rv" / "dub_scripts.txt").read_text(encoding="utf-8")
     assert "📖 Câu chuyện: Mở đầu" in txt and "📜 BÀI LỜI ĐỌC" in txt
     style = r._style(job)
     assert style["review"] and style["original_audio"]["mute"] is True and "hype" not in style  # tiếng phim tắt hẳn
     assert style["layout"] == "review_story" and style["block_ratio"] == "9:10"
-    for v in (1, 2):  # thu đủ voice: mỗi câu 3 giây (máy đo giả 3s) → cảnh cắt đúng 3 giây mỗi câu
-        for n in range(1, 16):
-            (jobs / "rv" / "voice" / f"video{v:02d}_dub{n:02d}.wav").write_bytes(b"RIFF")
+    assert style["review"]["max_video_s"] == 150
+    for n in range(1, 16):  # thu đủ voice: mỗi câu 3 giây (máy đo giả 3s) → cảnh cắt đúng 3 giây mỗi câu
+        (jobs / "rv" / "voice" / f"video01_dub{n:02d}.wav").write_bytes(b"RIFF")
     job = r.resume(job)
     assert job.status == Status.done, job.message
     gap = config.load("review")["voice_gap_s"]
@@ -217,7 +218,27 @@ def test_review_job_end_to_end(tmp_path):
     assert abs(job.data["drafts"][0]["duration_s"] - 15 * (3.0 + gap)) < 0.5  # video dài đúng bằng tổng giọng
     content = (Path(job.data["drafts"][0]["draft"]) / "draft_content.json").read_text(encoding="utf-8")
     assert "이 장면 진짜" in content and "이 장면 진짜 웃겨요." not in content  # phụ đề cụm ngắn như video mẫu
-    assert len(job.data["drafts"]) == 2
+    assert len(job.data["drafts"]) == 1
+
+
+def test_review_target_length_and_reach_the_end(tmp_path):
+    """Thời lượng chọn khi tạo job quyết định độ dài bài đọc; bài phải kể tới KẾT phim (chỉ ý chính)."""
+    from app.director.tasks import check_review_script, format_transcript_spread, review_dub_cfg, review_target
+
+    a = make_analysis(tmp_path, duration=200.0)
+    u = _u(a)
+    cfg = review_dub_cfg(config.load("dub"))
+    r60 = review_target(config.load("review"), 60)
+    assert r60["max_video_s"] == 60 and r60["min_video_s"] == 57
+    assert review_target(config.load("review"), 0)["max_video_s"] == config.load("review")["default_s"]
+    full = DubScript.model_validate(_script(1, 1.0))                   # ~140 giây
+    assert any("rút gọn" in e for e in check_review_script(full, u, cfg, r60))
+    assert check_review_script(full, u, cfg, review_target(config.load("review"), 150)) == []
+    early = DubScript.model_validate(_script(1, 1.0, step=10.5))       # chỉ kể tới ~80% phim
+    assert any("tóm gọn CẢ phim" in e for e in check_review_script(early, u, cfg, review_target(config.load("review"), 150)))
+    segs = [{"start": float(i), "end": i + 0.5, "text": f"câu số {i:04d} " + "x" * 30} for i in range(2000)]
+    txt = format_transcript_spread(segs, 20000)
+    assert len(txt) <= 21000 and "câu số 0000" in txt and "câu số 19" in txt.splitlines()[-1]  # rải tới cuối phim
 
 
 def test_review_must_be_a_story_not_scene_description(tmp_path):
@@ -302,17 +323,13 @@ def test_rewrite_review_with_feedback(tmp_path):
 
     jobs = tmp_path / "jobs"
     job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, target_language="ko"), job_id="fb")
-    make_analysis(jobs / "fb", duration=400.0)
+    make_analysis(jobs / "fb", duration=200.0)
     r = make_runner(tmp_path, jobs)
     u = load("understand.json")
-    u["usable_range"] = {"start": 0.0, "end": 400.0}
-    seg = {"videos": [{"start": 1.0, "end": 190.0, "title_vi": "a", "summary_vi": "a", "why_vi": "a"}],
-           "dropped": [], "editor_notes": "1 đoạn"}
-    r._director = FakeDirector(responses={"understand": u, "segment": seg, "plan": _plan(1, _clips(1.0, 56)),
+    u["usable_range"] = {"start": 0.0, "end": 200.0}
+    r._director = FakeDirector(responses={"understand": u, "plan": _plan(1, _clips(1.0, 56)),
                                           "dub_review": _script(1, 1.0), "review_polish": _script(1, 1.0)})
     job = r.run(job)
-    r.apply_segments(job, json.loads((jobs / "fb" / "plan" / "segments.json").read_text(encoding="utf-8"))["videos"])
-    job = r.resume(job)
     assert job.step == "dub_voice"
     (jobs / "fb" / "voice" / "video01_dub01.wav").write_bytes(b"RIFF")
     r.rewrite_review(job, 1, "câu cứng quá, nói tự nhiên như kể với bạn bè")
@@ -336,7 +353,8 @@ def test_write_draft_as_soon_as_one_video_has_voice(tmp_path):
     from app.web.server import create_app
 
     jobs = tmp_path / "jobs"
-    job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, target_language="ko"), job_id="rw")
+    # job ra nhiều video (vd job review cũ trước 11/10 — giả lập bằng split để còn bước chia đoạn)
+    job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, split=True, target_language="ko"), job_id="rw")
     make_analysis(jobs / "rw", duration=400.0)
     r = make_runner(tmp_path, jobs)
     u = load("understand.json")
@@ -352,7 +370,7 @@ def test_write_draft_as_soon_as_one_video_has_voice(tmp_path):
     job = r.run(job)
     r.apply_segments(job, json.loads((jobs / "rw" / "plan" / "segments.json").read_text(encoding="utf-8"))["videos"])
     job = r.resume(job)
-    assert job.step == "dub_voice" and job.status == Status.waiting
+    assert job.step == "dub_voice" and job.status == Status.waiting, job.message
     drafts = tmp_path / "drafts"
     assert not (drafts / "khach_rw_video01").exists()
     vdir = jobs / "rw" / "voice"

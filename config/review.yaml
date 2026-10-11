@@ -1,8 +1,13 @@
-# Chế độ "REVIEW PHIM / HOẠT HÌNH" (chủ dự án yêu cầu 09/10): AI tìm các ĐOẠN HAY trong phim / hoạt hình, mỗi đoạn
-# thành MỘT video review riêng dài 1 phút – 1 phút 30. Trên mỗi video là LỜI REVIEW (kể lại + bình luận) do AI viết,
-# chủ dự án tự thu voice bằng Voice Studio; tiếng gốc của phim được HẠ NHỎ bên dưới (không tắt hẳn).
-# Ngôn ngữ lời review = ngôn ngữ chọn ở ô "🌐 Đổi ngôn ngữ"; để "Giữ nguyên" thì dùng tiếng gốc (phải là Hàn / Nhật / Anh).
-# Chủ dự án chốt 09/10: mỗi video review dài 2:30 (cho phép 2:10–2:30)
+# Chế độ "REVIEW PHIM / HOẠT HÌNH".
+# Chủ dự án chốt 11/10: TÓM GỌN CẢ PHIM thành MỘT video (không chia nhiều video), chỉ kể Ý CHÍNH; chủ dự án CHỌN thời
+# lượng khi tạo job (ô "⏱️ Thời lượng video review") và bài lời đọc viết đúng độ dài đó (95–100%).
+# Lời review do AI viết, chủ dự án tự thu voice (hoặc OmniVoice đọc); tiếng phim tắt hẳn (original_audio.mute).
+# Ngôn ngữ lời review = ngôn ngữ chọn ở trang chủ; để "Giữ nguyên" thì dùng tiếng gốc (phải là Hàn / Nhật / Anh).
+default_s: 150                              # thời lượng mặc định (giây) nếu không chọn
+durations: [60, 90, 120, 150, 180, 240, 300]  # các lựa chọn trên trang chủ (giây)
+min_reach: 0.85          # câu cuối phải kể đoạn phim nằm trong 15% cuối phim (kể tới KẾT)
+transcript_max_chars: 30000  # lời thoại gửi AI (phim dài thì lấy rải đều cả phim)
+# (2 dòng dưới chỉ còn dùng cho job review cũ / khi không có thời lượng chọn — review_target ghi đè theo thời lượng chọn)
 min_video_s: 130
 max_video_s: 150
 # Độ dài đoạn phim GỐC cho mỗi video (trước khi cắt gọn) — AI chọn đoạn liền trong khoảng này

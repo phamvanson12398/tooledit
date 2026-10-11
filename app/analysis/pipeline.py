@@ -81,7 +81,11 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
                 cleaning = [_in_thread(pool, ffmpeg.run, ffmpeg.clean_audio_args(src, out / "audio" / f"clean_{tag}.wav", cfg)),
                             _in_thread(pool, ffmpeg.run, ffmpeg.clean_audio_args(src, out / "audio" / f"light_{tag}.wav",
                                                                                cfg, light=True))]
-            video_job = _in_thread(pool, _video_part, src, i, tag, duration, info, out, cfg, workers, progress)
+            fr = cfg.get("frames", {})
+            max_frames = int(fr.get("max_frames_review", 80) if getattr(job.options, "review", False)
+                             else fr.get("max_frames", 40))
+            video_job = _in_thread(pool, _video_part, src, i, tag, duration, info, out, cfg, workers, progress,
+                                   max_frames)
             if info.has_audio:
                 wav_job.result()
                 tr, events = _audio_part(job, whisper_wav, transcribe_fn, cfg, progress)
@@ -132,7 +136,8 @@ def _audio_part(job: Job, whisper_wav: Path, transcribe_fn: Callable, cfg: dict,
     return tr, events
 
 
-def _video_part(src: Path, i: int, tag: str, duration: float, info, out: Path, cfg: dict, workers: int, progress):
+def _video_part(src: Path, i: int, tag: str, duration: float, info, out: Path, cfg: dict, workers: int, progress,
+                max_frames: int = 40):
     """Dò cảnh → trích khung (nhiều khung một lúc) → dò mặt. Chạy song song với nhận dạng thoại."""
     t0 = time.monotonic()
     progress("Dò cảnh")
@@ -145,7 +150,7 @@ def _video_part(src: Path, i: int, tag: str, duration: float, info, out: Path, c
 
     progress("Trích khung hình")
     fr = cfg.get("frames", {})
-    times = frame_times(duration, scenes, fr.get("every_s", 4.0), fr.get("max_frames", 40))
+    times = frame_times(duration, scenes, fr.get("every_s", 4.0), max_frames)
 
     def grab(t: float):
         dst = out / "frames" / f"{tag}_{t:08.2f}.jpg"

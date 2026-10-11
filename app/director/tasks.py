@@ -32,6 +32,16 @@ def format_transcript(segments: list[dict], max_chars: int = 12000) -> str:
     return text if len(text) <= max_chars else text[:max_chars] + "\n...(cắt bớt)"
 
 
+def format_transcript_spread(segments: list[dict], max_chars: int = 30000) -> str:
+    """Như format_transcript nhưng phim dài thì bỏ bớt câu RẢI ĐỀU cả phim (vẫn thấy tới đoạn kết), không cắt cụt đuôi."""
+    lines = [f"[{s['start']:.1f}-{s['end']:.1f}] {s['text']}" for s in segments]
+    total = sum(len(x) + 1 for x in lines)
+    if total <= max_chars:
+        return "\n".join(lines)
+    keep = max(1, int(len(lines) * max_chars / total))
+    return "(phim dài — lời thoại lấy rải đều, bỏ bớt một số câu)\n" + "\n".join(pick_evenly(lines, keep))
+
+
 def pick_evenly(items: list, n: int) -> list:
     if len(items) <= n:
         return list(items)
@@ -734,7 +744,8 @@ CHAR_DUB_RULE = """LỒNG TIẾNG NHÂN VẬT (chủ dự án yêu cầu 11/10):
 
 def _review_cfg(style: dict) -> dict:
     r = style.get("review") if isinstance(style.get("review"), dict) else {}
-    return {"min_s": float(r.get("min_video_s", 60)), "max_s": float(r.get("max_video_s", 90)),
+    # kế hoạch AI của review chỉ dùng cho tiêu đề / nhạc (cảnh dựng lại từ voice) → nới cận dưới (plan_min_s)
+    return {"min_s": float(r.get("plan_min_s", r.get("min_video_s", 60))), "max_s": float(r.get("max_video_s", 90)),
             "max_clip_s": float(r.get("max_clip_s", 6)), "avg_clip_s": float(r.get("avg_clip_s", 3.0))}
 
 
@@ -1304,6 +1315,12 @@ def check_review_script(script, u, cfg: dict, rcfg: dict, hook_s: float = 0.0) -
         odd = localize_violations(ln.text, u.language)
         if odd:
             errors.append(f"câu {i}: '{', '.join(odd)}' không quen với khán giả này")
+    if rcfg.get("target_s") and script.lines and hi > lo:  # MỘT video tóm cả phim (11/10): phải kể tới KẾT
+        reach = (max(ln.source_end for ln in script.lines) - lo) / (hi - lo)
+        need = float(rcfg.get("min_reach", 0.85))
+        if reach < need:
+            errors.append(f"bài mới kể tới {reach:.0%} phim — đây là MỘT video tóm gọn CẢ phim: chỉ giữ ý chính, nhảy qua "
+                          f"tình tiết phụ để kể tới cao trào và KẾT (câu cuối phải kể đoạn phim ở {need:.0%} cuối)")
     mn = float(rcfg.get("min_video_s", 130)) - hook_s
     mx = float(rcfg.get("max_video_s", 150)) - hook_s
     if total < mn * 0.92 or total > mx * 1.03:
@@ -1355,15 +1372,24 @@ def polish_review_script(director: Director, script, u, cfg: dict, rcfg: dict, h
     return director.run("review_polish", variables, DubScript, extra_check=extra, repair=repair)
 
 
+def review_target(rcfg: dict, review_s: int | float = 0) -> dict:
+    """Chủ dự án 11/10: review là MỘT video tóm gọn cả phim, dài đúng thời lượng chủ dự án chọn khi tạo job
+    (review_s giây; 0 = default_s). Bài lời đọc phải dài khoảng 95–100% thời lượng đó."""
+    target = float(review_s or rcfg.get("default_s") or rcfg.get("max_video_s", 150))
+    return {**rcfg, "target_s": target, "min_video_s": round(target * 0.95, 1), "max_video_s": target,
+            "plan_min_s": round(target * 0.85, 1)}
+
+
 def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, hook_s: float = 0.0,
-                       video_index: int = 1, footage: int = 0, feedback: str = "", previous=None):
+                       video_index: int = 1, footage: int = 0, feedback: str = "", previous=None,
+                       review_s: int | float = 0):
     """REVIEW PHIM — viết bài lời đọc TRƯỚC (chủ dự án yêu cầu 09/10): AI xem khung hình cả đoạn phim, viết một bài kể
     chuyện liền mạch; mỗi câu ghi đoạn phim nó kể. Chủ dự án đọc cả bài một file, tool dựa vào voice để chọn cảnh và
     dựng (app/planner/review_sync.build_from_voice)."""
     from app.director.schemas import DubScript
 
     cfg = review_dub_cfg(config.load("dub"))
-    rcfg = config.load("review")
+    rcfg = review_target(config.load("review"), review_s)
     a = load_analysis(analysis_dir, footage)
     lo, hi = u.usable_range.start, u.usable_range.end
     segs = _segments_in(a["transcript"].get("segments", []), lo, hi)
@@ -1383,6 +1409,11 @@ def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, 
                                      if x["end"] > lo and x["start"] < hi) or "(không có)",
                  "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)",
                  "style_examples": review_style_examples(),
+                 # cả phim: lời thoại rải đều từ đầu tới KẾT (không cắt cụt phần cuối như format_transcript)
+                 "transcript": format_transcript_spread(
+                     [{**x, "text": apply_name_corrections(x["text"], u.name_corrections)} for x in segs],
+                     int(rcfg.get("transcript_max_chars", 30000))) or "(không có thoại)",
+                 "film_s": f"{(hi - lo) / 60:.0f}",
                  "feedback": (f"GÓP Ý CỦA CHỦ DỰ ÁN cho bản trước (sửa ĐÚNG theo góp ý này, giữ cái hay của bản trước):\n"
                               f"{feedback.strip()}\n\nBản trước:\n{_script_lines(previous)}" if feedback.strip() and previous
                               else f"GÓP Ý CỦA CHỦ DỰ ÁN: {feedback.strip()}" if feedback.strip() else "(không có)")}
@@ -1475,7 +1506,7 @@ def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_inde
 
 
 def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,
-             mode: str = "translate"):
+             mode: str = "translate", review_s: int = 0):
     """Kịch bản thuyết minh theo các clip của kế hoạch dựng (giây gốc), bằng ngôn ngữ đích u.language.
     mode="translate": dịch sát lời gốc (+ lời dẫn chỗ im lặng); mode="rewrite": AI xem hình rồi VIẾT MỚI nội dung
     hợp khán giả nước đích (chủ dự án yêu cầu 07/10); mode="review": lời REVIEW phim / hoạt hình (09/10)."""
@@ -1485,7 +1516,8 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
     if mode == "char":  # lồng tiếng nhân vật: dịch thoại từng nhân vật, khớp miệng
         return make_char_dub(director, analysis_dir, u, plan, video_index=video_index, footage=footage)
     if mode == "review":  # bài lời đọc viết trước, không phụ thuộc cảnh của kế hoạch dựng
-        return make_review_script(director, analysis_dir, u, hook=hook, video_index=video_index, footage=footage)
+        return make_review_script(director, analysis_dir, u, hook=hook, video_index=video_index, footage=footage,
+                                  review_s=review_s)
     if mode == "rewrite":
         return _rewrite_dub(director, analysis_dir, u, plan, hook=hook, video_index=video_index, footage=footage)
     a = load_analysis(analysis_dir, footage)

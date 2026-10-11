@@ -23,6 +23,7 @@ scenes:
 frames:
   every_s: 4.0            # rải đều mỗi 4 giây
   max_frames: 40
+  max_frames_review: 80   # review phim tóm gọn CẢ phim (11/10): nhiều khung hơn để AI hiểu trọn truyện
   width: 480
   jpeg_quality: 5         # 2 (đẹp) .. 31 (xấu) theo thang -q:v của FFmpeg
 
