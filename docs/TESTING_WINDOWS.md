@@ -3,6 +3,8 @@
 ## Bước 74 — Cài OmniVoice bằng một cú nhấp đúp (`install_omnivoice.bat`) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 Dùng khi bấm 🤖 Cho OmniVoice đọc mà báo "chưa cài OmniVoice".
+(Sửa 11/10: bản đầu của file này tự tắt sau bước 2 do lỗi cú pháp — `git pull` để lấy bản đã sửa rồi nhấp đúp lại;
+môi trường `omnivoice-env` đã tạo dở được dùng tiếp, không cần xóa.)
 
 1. Đóng cửa sổ `start.bat`. Mở PowerShell trong thư mục tool, chạy `git pull`.
 2. Mở `config\tts.yaml`: dòng `python:` phải là `python: ""` (để trống — tool tự tìm). Nếu bạn đã điền gì đó mà không

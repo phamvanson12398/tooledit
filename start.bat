@@ -7,7 +7,7 @@ if not exist .venv\Scripts\python.exe (
   exit /b 1
 )
 echo === Tool dung video TikTok ===
-echo Dang mo giao dien tai http://127.0.0.1:8765  (dong cua so nay de tat tool)
+echo Dang mo giao dien tai http://127.0.0.1:8765 - dong cua so nay de tat tool
 start "" http://127.0.0.1:8765
 .venv\Scripts\python -m uvicorn app.web.server:app --host 127.0.0.1 --port 8765
 pause
