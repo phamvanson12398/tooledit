@@ -703,6 +703,12 @@ class Runner:
         tts["clone_ok"] = bool(clone_ok)
         job.save(self.jobs_root)
 
+    @staticmethod
+    def _tts_fit(job: Job, cfg: dict) -> bool:
+        """Đọc vừa khít thời lượng câu gốc? Review phim: KHÔNG — hình được dựng theo giọng đọc (build_from_voice), giọng
+        phải nói tốc độ tự nhiên (chủ dự án 09/10: "đọc 2 giây mà ghi 4 giây")."""
+        return bool(cfg.get("fit_duration", True)) and not job.options.review
+
     def tts_generate(self, job: Job, video_index: int | None = None, only_missing: bool = True) -> int:
         """🤖 Cho OmniVoice đọc thoại: tạo voice/videoNN_dubMM.wav cho các câu (mặc định câu còn thiếu voice), mỗi nhân
         vật một giọng, đọc vừa thời lượng câu gốc. Trả số câu đã tạo; xong thì job chạy tiếp như khi tự thu đủ voice."""
@@ -722,7 +728,7 @@ class Runner:
                     if only_missing else None)
             lang = self._u_for(job, v).language
             got = ov.build_items(script, i, d / "voice", lang, dub_io.windows_for(d, i, script),
-                                 bool(cfg.get("fit_duration", True)), only)
+                                 self._tts_fit(job, cfg), only)
             items += got
             used |= {it["voice"] for it in got}
         if not items:

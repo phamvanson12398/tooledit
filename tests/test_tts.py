@@ -227,3 +227,13 @@ def test_missing_omnivoice_names_the_python_and_install_bat(tmp_path):
                       run=lambda cmd, **kw: subprocess.Popen(cmd, **{**kw, "env": {**kw.get("env", {}), **env}}))
     assert sys.executable in str(e.value) and "install_omnivoice.bat" in str(e.value)
     assert (Path(ov.ROOT) / "install_omnivoice.bat").is_file()
+
+
+def test_review_voice_is_natural_length(tmp_path):
+    """Review phim: hình chạy theo giọng → OmniVoice đọc tốc độ tự nhiên, không ép vào thời lượng cố định."""
+    from app.jobs.runner import Runner
+
+    rev = Job.create(tmp_path, [Path("C:/f/a.mp4")], JobOptions(review=True, target_language="ko"), job_id="r1")
+    ch = Job.create(tmp_path, [Path("C:/f/a.mp4")], JobOptions(char_dub=True, target_language="ko"), job_id="c1")
+    assert Runner._tts_fit(rev, {"fit_duration": True}) is False
+    assert Runner._tts_fit(ch, {"fit_duration": True}) is True and Runner._tts_fit(ch, {"fit_duration": False}) is False
