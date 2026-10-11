@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 70 — Chế độ "🎭 Lồng tiếng nhân vật" (Nhật → Hàn, giữ nền gốc) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+0. Cần Demucs để giữ nhạc + tiếng nền gốc (đã cài khi làm "Giữ nhạc nền gốc" — xem docs/SETUP_WINDOWS.md mục Demucs).
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. Trang chủ: chọn MỘT video tiếng Nhật, tick **🎭 Lồng tiếng nhân vật**, ô 🌐 chọn **tiếng Hàn** → Bắt đầu.
+   Đầu trang job ghi "🎭 Lồng tiếng nhân vật"; các bước: AI tìm đoạn hay (TikTok) → Chờ duyệt đoạn hay → AI cắt bỏ đoạn
+   rề rà → AI dịch thoại + nhận diện nhân vật → Chờ voice từng nhân vật → Ghép giọng mới + nền gốc → CapCut.
+3. Bảng duyệt: các đoạn AI chọn phải là đoạn "dính" (hài / gay cấn / cảm động); đoạn rề rà nằm ở "Đoạn bị bỏ" kèm lý do.
+4. Trang voice: mục **🎭 Thu voice theo nhân vật** — mỗi nhân vật một ô tải. Mở "✏️ Sửa tên người nói" nếu AI đoán nhầm,
+   sửa rồi bấm Lưu. Thu mỗi nhân vật một file (đọc hết câu của nhân vật đó theo thứ tự trong `dub_scripts.txt`, nghỉ
+   ~1 giây giữa các câu) → tải vào ô của nhân vật đó.
+5. Mở draft trong CapCut: không còn giọng Nhật; nhạc + tiếng động gốc vẫn nghe (nhỏ hơn lúc có giọng lồng); giọng Hàn
+   đúng lúc nhân vật mở miệng, đúng giọng từng nhân vật; phụ đề tiếng Hàn.
+
 ## Bước 69 — Voice đến đâu ghi CapCut đến đấy `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.

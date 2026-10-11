@@ -127,6 +127,22 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - Video **mở đầu im lặng** (vd chỉ show món ăn / sản phẩm): BẮT BUỘC có lời dẫn mở đầu ngay từ cảnh đầu, giọng như
   video nấu ăn — gần gũi, gợi thèm, gợi tò mò cách làm (`narration.opening` trong `config/dub.yaml`).
 
+## 5d. Chế độ "Lồng tiếng nhân vật" (chủ dự án yêu cầu 11/10)
+
+- Ô tick "🎭 Lồng tiếng nhân vật" (`JobOptions.char_dub`, `config/char_dub.yaml`), một video, cần chọn ngôn ngữ đích
+  (vd phim tiếng Nhật → Hàn). Không hook riêng, không review, không ⚡.
+- AI chọn các ĐOẠN HAY hợp người xem TikTok (vào chuyện ngay, hài / gay cấn / cảm động, bỏ đoạn rề rà — luôn qua bảng
+  duyệt; `HIGHLIGHT_SEGMENT_NOTE`), mỗi đoạn một video 60–120s; kế hoạch dựng chỉ cắt bỏ chỗ rề rà, giữ thứ tự, tốc độ
+  1.0, không cắt giữa câu thoại, không "khác bản gốc" (không lật / filter mạnh) — `CHAR_DUB_RULE`.
+- AI dịch từng câu thoại (khớp thời điểm câu gốc để khớp miệng) và ghi `speaker` = tên nhân vật từng câu (nhận ra qua
+  lời thoại + khung hình gần câu đó; `make_char_dub`, prompt `dub_char.md`); không có lời dẫn.
+- Chủ dự án thu voice THEO NHÂN VẬT: mỗi nhân vật một file (đọc hết câu của nhân vật đó, nghỉ ~1 giây) — tool cắt đúng vào
+  các câu (`dub_io.split_upload_speaker`); sửa tên nhân vật AI đoán nhầm ngay trên trang voice (`set_speakers`).
+- Âm thanh: tiếng nói gốc tách bỏ bằng Demucs, NHẠC + TIẾNG NỀN GỐC GIỮ NGUYÊN (hạ nhỏ dưới giọng lồng), không thêm
+  nhạc AI; chưa cài Demucs thì dùng nhạc AI và ghi lý do vào nhật ký. Voice đến đâu ghi CapCut đến đấy như các chế độ khác.
+- Nhận diện nhân vật hiện do AI đoán theo ngữ cảnh, CHƯA dùng nhận diện giọng bằng âm thanh (pyannote / speechbrain cần
+  tải model — để sau nếu cần).
+
 ## 5c. Chế độ "Phụ đề tiếng Việt" (chủ dự án yêu cầu 08/10)
 
 - Mục đích: chủ dự án XEM HIỂU video nước ngoài, không đăng. Ô tick "🇻🇳 Chỉ phụ đề tiếng Việt" (`JobOptions.vi_sub`).

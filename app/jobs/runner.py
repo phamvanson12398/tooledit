@@ -165,7 +165,9 @@ class Runner:
         ratio = job.data.get("default_ratio")
         if ratio in ("16:9", "4:3", "1:1"):  # khung người dùng chọn khi tạo job
             style = {**style, "block_ratio": ratio, "crop_ratio": ratio}
-        if job.options.target_language and not job.options.voice_only:
+        if job.options.char_dub:  # lồng tiếng nhân vật: hình giữ tự nhiên (không "khác bản gốc"), chỉ cắt rề rà
+            style = {**style, "char_dub": config.load("char_dub"), "reorder": False, "cold_open": False, "remix": False}
+        elif job.options.target_language and not job.options.voice_only:
             dcfg = config.load("dub")
             style = {**style, **(dcfg.get("style_override") or {})}
             if not style.get("camera") and dcfg.get("camera_default"):
@@ -177,7 +179,7 @@ class Runner:
                      "original_audio": rcfg.get("original_audio") or {}}
             if rcfg.get("layout"):  # bố cục như video mẫu: khối phim 9:10 cắt thẳng từ footage, bám nhân vật
                 style.update({"layout": rcfg["layout"], "block_ratio": "9:10", "crop_ratio": None})
-        elif (job.options.hype or parts) and not job.options.voice_only:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
+        elif (job.options.hype or parts) and not job.options.voice_only and not job.options.char_dub:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
             hcfg = config.load("hype")
             style = {**style, "hype": {"min_clip_s": hcfg.get("min_clip_s", 3.0), "max_clip_s": hcfg.get("max_clip_s", 5.0)},
                      "reorder": False, "cold_open": bool(hcfg.get("cold_open", False))}
@@ -264,7 +266,7 @@ class Runner:
         from app.planner import hook_io
 
         if step not in self.REDO_STEPS or (step != "segment" and not job.applies(step)) or \
-                (step == "segment" and not (job.options.split or job.options.review)):
+                (step == "segment" and not (job.options.split or job.options.review or job.options.char_dub)):
             raise ValueError(f"Không làm lại được bước {step!r}")
         d, _, plan_dir = self._paths(job)
         if step == "segment":
@@ -317,7 +319,7 @@ class Runner:
         from app.director.tasks import for_video
 
         u = self._understanding(job)
-        if job.options.split or job.options.review:
+        if job.options.split or job.options.review or job.options.char_dub:
             return for_video(u, video)
         if job.options.voice_only or job.data.get("montage_parts"):  # chỉ thay tiếng / ghép nhiều video: toàn bộ footage
             return for_video(u, {**video, "summary_vi": video.get("summary_vi") or u.summary_vi})
@@ -447,7 +449,7 @@ class Runner:
         _, analysis, plan_dir = self._paths(job)
         u = self._understanding(job)
         path = plan_dir / "segments.json"
-        if not job.options.split and not job.options.review:
+        if not job.options.split and not job.options.review and not job.options.char_dub:
             start, end = u.usable_range.start, u.usable_range.end
             if job.options.voice_only or job.data.get("montage_parts"):  # giữ trọn footage từ giây 0 tới hết
                 start, end = 0.0, self._footage_size(job)[2] or end
@@ -459,7 +461,7 @@ class Runner:
         if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
             self.log("Đã có kết quả chia video, dùng lại.")
             return
-        sp = make_segments(self.director, analysis, u, review=job.options.review)
+        sp = make_segments(self.director, analysis, u, review=job.options.review, highlight=job.options.char_dub)
         videos = [{"index": i, "start": v.start, "end": v.end, "title_vi": v.title_vi, "summary_vi": v.summary_vi,
                    "why_vi": v.why_vi} for i, v in enumerate(sorted(sp.videos, key=lambda v: v.start), 1)]
         data = {"proposal": sp.model_dump(), "videos": videos, "confirmed": False}
@@ -612,7 +614,8 @@ class Runner:
                 hook = self._hook_for(d, i) if job.use_hook else None
                 try:
                     s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i,
-                                 mode="review" if job.options.review else self.script_mode(job))
+                                 mode="review" if job.options.review else "char" if job.options.char_dub
+                                 else self.script_mode(job))
                 except DirectorError as exc:
                     if exc.last is None:
                         raise
@@ -931,7 +934,8 @@ class Runner:
                 min_cut_s=float(rcfg.get("min_cut_s", 1.0)))
             for n in sync_notes:
                 self.log(f"[video {i:02d}] {n}")
-        bgm = self._bgm(job, analysis) if job.options.voice_only and job.options.keep_bgm else None
+        bgm = self._bgm(job, analysis) if (job.options.voice_only and job.options.keep_bgm) or job.options.char_dub \
+            else None
         res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                     hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
                     video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job),

@@ -550,6 +550,7 @@ class DubLine(BaseModel):
     text_vi: str = Field(description="nghĩa tiếng Việt")
     action_vi: str = Field(default="", description="với lời dẫn: cảnh / hành động đáng nói đang diễn ra (tiếng Việt)")
     adapt_vi: str = Field(default="", description="nếu câu được BẢN ĐỊA HÓA (đổi ví dụ, đơn vị, cách đùa…): đổi gì, vì sao")
+    speaker: str = Field(default="", description="(lồng tiếng nhân vật) TÊN nhân vật nói câu này — viết thống nhất")
 
 
 class ShortLine(BaseModel):

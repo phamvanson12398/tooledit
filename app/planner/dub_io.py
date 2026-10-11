@@ -90,6 +90,60 @@ def voice_seconds(path: Path) -> float | None:
         return None
 
 
+def speakers_of(script) -> dict[str, list[int]]:
+    """Lồng tiếng nhân vật: {tên nhân vật: [số câu (1-based)]} theo thứ tự xuất hiện."""
+    out: dict[str, list[int]] = {}
+    for i, ln in enumerate(script.lines, 1):
+        if ln.speaker.strip():
+            out.setdefault(ln.speaker.strip(), []).append(i)
+    return out
+
+
+def set_speakers(job_dir: Path, video_index: int, names: dict[int, str]) -> int:
+    """Chủ dự án sửa tên nhân vật từng câu (AI đoán nhầm). Trả số câu đã đổi."""
+    script = load_dub(job_dir, video_index)
+    if script is None:
+        return 0
+    n, lines = 0, []
+    for i, ln in enumerate(script.lines, 1):
+        new = (names.get(i) or "").strip()
+        if new and new != ln.speaker:
+            ln = ln.model_copy(update={"speaker": new})
+            n += 1
+        lines.append(ln)
+    if n:
+        dub_path(job_dir, video_index).write_text(script.model_copy(update={"lines": lines}).model_dump_json(indent=2),
+                                                  encoding="utf-8")
+    return n
+
+
+def split_upload_speaker(job_dir: Path, video_index: int, speaker: str, src: Path, *, exe: str | None = None) -> list[float]:
+    """Một file voice của MỘT NHÂN VẬT (đọc hết các câu của nhân vật đó theo thứ tự, nghỉ ~1 giây giữa các câu) → tool
+    cắt ra đúng các file videoNN_dubMM của nhân vật đó (theo chỗ trống từng câu). Trả độ dài từng đoạn."""
+    from app.planner.voice_split import split_voice
+
+    script = load_dub(job_dir, video_index)
+    if script is None:
+        raise ValueError("Video này chưa có kịch bản lồng tiếng.")
+    idx = speakers_of(script).get(speaker.strip())
+    if not idx:
+        raise ValueError(f"Không có nhân vật '{speaker}' trong kịch bản video {video_index:02d}.")
+    win = windows_for(job_dir, video_index, script)
+    expected = [(win[i - 1][1] if win and win[i - 1] else max(0.5, script.lines[i - 1].source_end
+                                                                 - script.lines[i - 1].source_start)) for i in idx]
+    vdir = Path(job_dir) / "voice"
+    vdir.mkdir(parents=True, exist_ok=True)
+    outs = [vdir / f"{line_name(video_index, i)}.wav" for i in idx]
+    tmp = [o.with_suffix(".part.wav") for o in outs]
+    lengths = split_voice(src, expected, tmp, exe=exe)
+    for i, t, o in zip(idx, tmp, outs):
+        for old in vdir.glob(f"{line_name(video_index, i)}.*"):
+            if old != t:
+                old.unlink()
+        t.replace(o)
+    return lengths
+
+
 def split_upload(job_dir: Path, video_index: int, src: Path, *, exe: str | None = None) -> list[float]:
     """Một file voice cả bài → videoNN_dub01.wav, dub02.wav... theo chỗ trống từng câu. Trả độ dài từng đoạn."""
     from app.planner.voice_split import split_voice
@@ -206,6 +260,15 @@ def write_dub_scripts(job_dir: Path, scripts: dict[int, DubScript], windows: dic
              "ra từng câu và báo câu nào dài quá cần thu lại.", ""]
     for v, s in sorted(scripts.items()):
         lines.append(f"=== VIDEO {v:02d} ===")
+        spk = speakers_of(s)
+        if spk:  # lồng tiếng nhân vật: gom câu theo từng nhân vật để thu một lượt mỗi giọng
+            lines.append("🎭 THU THEO NHÂN VẬT — mỗi nhân vật một giọng; có thể đọc hết câu của MỘT nhân vật vào một file "
+                         "(theo thứ tự dưới đây, nghỉ ~1 giây giữa các câu) rồi tải ở ô của nhân vật đó:")
+            for name, idx in spk.items():
+                lines.append(f"  • {name}: {len(idx)} câu → " + ", ".join(line_name(v, i) for i in idx))
+                for i in idx:
+                    lines.append(f"      {line_name(v, i)}: {s.lines[i - 1].text}   ({s.lines[i - 1].text_vi})")
+            lines.append("")
         if s.story_vi:  # review phim: bài lời đọc viết trước — đọc liền một mạch vào MỘT file
             lines += [f"📖 Câu chuyện: {s.story_vi}", "",
                       "📜 BÀI LỜI ĐỌC (đọc liền một mạch, nghỉ ~1 giây giữa các câu, tải lên ô 'Một file cả bài'):",
@@ -213,7 +276,8 @@ def write_dub_scripts(job_dir: Path, scripts: dict[int, DubScript], windows: dic
                       "🇻🇳 " + " ".join(ln.text_vi.strip() for ln in s.lines), "",
                       "— Từng câu (tool tự cắt từ file cả bài; thu riêng từng câu cũng được) —", ""]
         for i, ln in enumerate(s.lines, 1):
-            tag = f"  [LỜI DẪN — {ln.action_vi or 'chỗ không có giọng nói'}]" if ln.kind == "narration" else ""
+            tag = (f"  [LỜI DẪN — {ln.action_vi or 'chỗ không có giọng nói'}]" if ln.kind == "narration"
+                   else f"  [🎭 {ln.speaker}]" if ln.speaker else "")
             w = (windows or {}).get(v, [])
             win = w[i - 1] if i - 1 < len(w) else None
             when = (f"(chỗ trống {win[1]:.1f}s, tối đa {win[2]:.1f}s)" if win

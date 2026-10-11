@@ -50,6 +50,7 @@ class JobOptions(BaseModel):
     script_mode: str = ""             # Đổi ngôn ngữ: "rewrite" = AI xem video viết mới / "translate" = dịch; "" = theo config
     keep_bgm: bool = False            # (cùng voice_only) giữ nhạc nền gốc: tách giọng nói ra, chỉ thay lời thuyết minh
     review: bool = False              # Review phim / hoạt hình (09/10): tìm đoạn hay, mỗi đoạn 1 video 60–90s + lời review
+    char_dub: bool = False            # Lồng tiếng nhân vật (11/10): đoạn hay TikTok, thay giọng từng nhân vật, giữ nền gốc
 
 
 class HistoryEntry(BaseModel):
@@ -135,7 +136,7 @@ class Job(BaseModel):
     @property
     def use_hook(self) -> bool:
         """Có hook voice riêng. Review phim thì KHÔNG (câu mở đầu của bài lời đọc là hook; hook riêng làm đứt mạch kể)."""
-        return self.options.hook and not self.options.review
+        return self.options.hook and not self.options.review and not self.options.char_dub
 
     def applies(self, step: str) -> bool:
         if self.options.vi_sub:  # chỉ phân tích (nhận dạng lời) rồi dịch + ghi phụ đề ở bước write
@@ -145,7 +146,7 @@ class Job(BaseModel):
         if step in ("hooks", "choose_hook", "voice"):
             return self.use_hook
         if step == "review_segments":
-            return self.options.split or self.options.review
+            return self.options.split or self.options.review or self.options.char_dub
         if step in ("dub", "dub_voice"):
             return bool(self.options.target_language) or self.options.review
         return True

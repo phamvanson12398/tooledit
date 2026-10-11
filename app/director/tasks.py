@@ -164,31 +164,44 @@ Hoạt hình thường ít thoại: XEM CÁC KHUNG HÌNH dưới đây (mở b�
 """
 
 
-def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, review: bool = False):
+HIGHLIGHT_SEGMENT_NOTE = """
+## CHẾ ĐỘ LỒNG TIẾNG NHÂN VẬT — CHỌN ĐOẠN HAY CHO NGƯỜI XEM TIKTOK
+Mỗi video giữ nguyên hình + thoại của nhân vật (sẽ lồng tiếng sang ngôn ngữ khác), nên chọn những đoạn mà người xem
+TikTok xem là DÍNH: vào chuyện ngay, có tình huống hài / gay cấn / cảm động / cãi nhau / bất ngờ, thoại sắc, kết có điểm
+nhấn — xem {min_video_s}–{max_video_s} giây không chán. BỎ đoạn rề rà: chào hỏi lê thê, đi lại, giới thiệu, chờ đợi,
+đoạn thoại giải thích dài không có hành động. Mỗi đoạn tự hiểu được không cần xem phần khác. `why_vi` nói rõ vì sao
+người xem TikTok sẽ xem hết đoạn này.
+Hoạt hình / phim ít thoại: XEM CÁC KHUNG HÌNH dưới đây (mở bằng Read).
+{frames}
+"""
+
+
+def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, review: bool = False,
+                  highlight: bool = False):
     """Chia footage dài thành nhiều video độc lập 60–150s (mục 4). review=True: tìm đoạn hay trong phim / hoạt hình,
     mỗi đoạn một video review 60–90s (config/review.yaml)."""
     from app.director.schemas import SegmentPlan, check_segments
 
     cfg = config.load("split")
-    if review:
-        cfg = {**cfg, **{k: v for k, v in config.load("review").items()
+    if review or highlight:
+        cfg = {**cfg, **{k: v for k, v in config.load("review" if review else "char_dub").items()
                          if k in ("min_video_s", "max_video_s", "min_raw_s", "max_raw_s")}}
     a = load_analysis(analysis_dir, footage)
     duration = a["scenes"]["duration"]
     segs = _segments_in(a["transcript"].get("segments", []), u.usable_range.start, u.usable_range.end)
     min_raw, max_raw = cfg.get("min_raw_s", 55), cfg.get("max_raw_s", 300)
     frames = []
-    if review:  # hoạt hình ít thoại: cho AI xem khung hình rải đều để tìm đoạn hay bằng mắt
+    if review or highlight:  # hoạt hình ít thoại: cho AI xem khung hình rải đều để tìm đoạn hay bằng mắt
         lo, hi = u.usable_range.start, u.usable_range.end
         pool = [f for f in a["frames"] if lo <= f["t"] <= hi] or a["frames"]
         frames = pick_evenly(sorted(pool, key=lambda f: f["t"]), int(config.load("review").get("segment_frames", 24)))
     variables = {**_shared_context(u, segs, a.get("events")), "duration": f"{duration:.1f}",
                  "min_video_s": cfg.get("min_video_s", 60), "max_video_s": cfg.get("max_video_s", 150),
                  "min_raw_s": min_raw, "max_raw_s": max_raw,
-                 "review_note": REVIEW_SEGMENT_NOTE.format(
+                 "review_note": (REVIEW_SEGMENT_NOTE if review else HIGHLIGHT_SEGMENT_NOTE).format(
                      min_video_s=cfg.get("min_video_s", 60), max_video_s=cfg.get("max_video_s", 90),
                      frames="\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)")
-                 if review else "",
+                 if review or highlight else "",
                  "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in a["scenes"]["scenes"]) or "(không có)",
                  "transcript": format_transcript(
                      [{**s, "text": apply_name_corrections(s["text"], u.name_corrections)} for s in segs],
@@ -335,6 +348,7 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
                                        if fixed else "- `title_top`: tiêu đề cố định dải trên (có thể rỗng).")),
         "arrow_brief": arrow_brief,
         "order_rule": REVIEW_RULE.format(**_review_cfg(style)) if style.get("review") else
+                      CHAR_DUB_RULE.format(**_char_cfg(style)) if style.get("char_dub") else
                       (REMIX_RULE if style.get("remix") and not style.get("hype") and not style.get("montage_parts")
                        else "") + (
                        (HYPE_RULE.format(**_hype_cfg(style)) if style.get("hype") else "")
@@ -382,6 +396,15 @@ def make_plan(director: Director, analysis_dir: Path, u, style: dict, *, hook=No
     def extra(plan) -> list[str]:
         if keep:  # không giới hạn 60–150 giây: giữ đúng độ dài video gốc
             errors = check_plan(plan, duration + 0.5, hook_s, min_s=0, max_s=1e9)
+        elif style.get("char_dub"):  # lồng tiếng nhân vật: đoạn hay TikTok, giữ trọn câu thoại để lồng tiếng khớp miệng
+            cc = _char_cfg(style)
+            errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s, min_s=cc["min_s"],
+                                max_s=cc["max_s"], available=available)
+            errors += [f"clip {c.source_start}-{c.source_end} nằm ngoài đoạn của video này "
+                       f"({u.usable_range.start:.1f}–{u.usable_range.end:.1f}s)"
+                       for c in plan.clips if c.source_end > u.usable_range.end + 0.5]
+            errors += [f"clip {c.source_start}-{c.source_end}: không dùng replay / tua nhanh / quay chậm (lồng tiếng giữ "
+                       "đúng tốc độ thoại)" for c in plan.clips if c.replay or c.repeat or abs(c.speed - 1.0) > 1e-6]
         elif style.get("review"):  # review phim: mỗi video 60–90 giây (chủ dự án yêu cầu 09/10)
             rc = _review_cfg(style)
             errors = check_plan(plan, min(duration, u.usable_range.end + 0.5), hook_s, min_s=rc["min_s"],
@@ -549,6 +572,21 @@ FOUR_TITLES_BRIEF = """- Bố cục CỐ ĐỊNH của mọi video (theo video m
 BOTTOM_ON = ('- `titles_bottom` (2 dòng): nhân vật / kết luận về người trong video. '
              'Ví dụ: ["全くぶれない男だった", "亜細亜大のキャプテン"].')
 BOTTOM_OFF = "- `titles_bottom`: để RỖNG [] (bố cục chỉ có 2 dòng tiêu đề phía trên)."
+
+
+def _char_cfg(style: dict) -> dict:
+    r = style.get("char_dub") if isinstance(style.get("char_dub"), dict) else {}
+    return {"min_s": float(r.get("min_video_s", 60)), "max_s": float(r.get("max_video_s", 120))}
+
+
+CHAR_DUB_RULE = """LỒNG TIẾNG NHÂN VẬT (chủ dự án yêu cầu 11/10): hình + thoại của nhân vật được GIỮ, chỉ thay giọng nói sang ngôn ngữ
+  khác (chủ dự án tự thu voice từng nhân vật), nhạc + tiếng nền gốc giữ nguyên.
+  - Tổng thời lượng {min_s:.0f}–{max_s:.0f} giây, theo ĐÚNG thứ tự phim, clip không chồng nhau, tốc độ 1.0 (không tua /
+    quay chậm / replay — giọng lồng phải khớp miệng).
+  - Cắt BỎ chỗ rề rà cho người xem TikTok: khoảng lặng dài, đi lại, chờ đợi, câu thoại thừa không ảnh hưởng mạch chuyện.
+  - KHÔNG cắt giữa một câu thoại: mỗi clip bắt đầu / kết thúc ở chỗ ngắt giữa các câu.
+  - Không đổi khung theo kiểu "khác bản gốc", không filter màu mạnh; chữ nhấn / sticker / SFX tiết chế, chỉ ở điểm hài /
+    cao trào; tiêu đề nêu tình huống hấp dẫn của đoạn này."""
 
 
 def _review_cfg(style: dict) -> dict:
@@ -1187,6 +1225,53 @@ def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, 
         return draft
 
 
+def check_char_dub(script) -> list[str]:
+    """Lồng tiếng nhân vật: câu nào cũng có tên nhân vật; không có lời dẫn (chỗ không ai nói giữ tiếng nền gốc)."""
+    errors = [f"câu {i}: thiếu `speaker` (tên nhân vật nói câu này)" for i, ln in enumerate(script.lines, 1)
+              if not ln.speaker.strip()]
+    errors += [f"câu {i}: chế độ lồng tiếng không có lời dẫn — chỉ dịch thoại nhân vật (kind: dub)"
+               for i, ln in enumerate(script.lines, 1) if ln.kind == "narration"]
+    return errors
+
+
+def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_index: int = 1, footage: int = 0):
+    """LỒNG TIẾNG NHÂN VẬT (chủ dự án yêu cầu 11/10): dịch từng câu thoại sang ngôn ngữ đích, giữ đúng thời điểm câu gốc
+    (khớp miệng), ghi TÊN NHÂN VẬT nói câu đó (AI nhận ra qua lời thoại + khung hình) để chủ dự án thu voice theo nhân vật."""
+    from app.director.schemas import DubScript
+
+    cfg = config.load("dub")
+    ccfg = config.load("char_dub")
+    a = load_analysis(analysis_dir, footage)
+    kept_clips = [c for c in plan.clips if not c.replay and not c.repeat]
+    segs = [s for s in a["transcript"].get("segments", [])
+            if any(s["end"] > c.source_start and s["start"] < c.source_end for c in kept_clips)]
+    near = []
+    for sg in segs:  # mỗi câu thoại một khung hình gần nhất → AI nhìn ai đang nói
+        if a["frames"]:
+            mid = (sg["start"] + sg["end"]) / 2
+            near.append(min(a["frames"], key=lambda f, m=mid: abs(f["t"] - m)))
+    chosen = sorted({f["file"]: f for f in near}.values(), key=lambda f: f["t"])
+    frames = pick_evenly(chosen, int(ccfg.get("frames", 40))) if len(chosen) > int(ccfg.get("frames", 40)) else chosen
+    lo, hi = cfg.get("line_s", [1.5, 9.0])
+    variables = {**_shared_context(u, segs, a.get("events")), "video_index": video_index,
+                 "language_name": LANGUAGE_NAMES.get(u.language, u.language),
+                 "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
+                 "market": MARKETS.get(u.language, "TikTok"), "line_min": lo, "line_max": hi,
+                 "max_cps": round(effective_cps(cfg, u.language) * float(cfg.get("write_cps_factor", 0.85)), 1),
+                 "localize_brief": localize_brief(u),
+                 "clips": "\n".join(f"- clip {i}: {c.source_start:.1f}–{c.source_end:.1f}s" for i, c in enumerate(plan.clips)),
+                 "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)"}
+
+    def extra(r) -> list[str]:
+        errors = check_dub(r, plan, u.language, cfg) + check_char_dub(r)
+        if r.video_index != video_index:
+            errors.append(f"video_index phải là {video_index}")
+        return errors
+
+    return director.run("dub_char", variables, DubScript, [analysis_dir / f["file"] for f in frames],
+                        extra_check=extra, repair=lambda r: repair_dub(r, plan, cfg, u.language))
+
+
 def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,
              mode: str = "translate"):
     """Kịch bản thuyết minh theo các clip của kế hoạch dựng (giây gốc), bằng ngôn ngữ đích u.language.
@@ -1195,6 +1280,8 @@ def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, vide
     from app.director.schemas import DubScript
 
     cfg = config.load("dub")
+    if mode == "char":  # lồng tiếng nhân vật: dịch thoại từng nhân vật, khớp miệng
+        return make_char_dub(director, analysis_dir, u, plan, video_index=video_index, footage=footage)
     if mode == "review":  # bài lời đọc viết trước, không phụ thuộc cảnh của kế hoạch dựng
         return make_review_script(director, analysis_dir, u, hook=hook, video_index=video_index, footage=footage)
     if mode == "rewrite":
