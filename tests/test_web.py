@@ -29,7 +29,7 @@ def test_web_full_flow(tmp_path):
     app = create_app(jobs, factory)
     client = TestClient(app)
     home = client.get("/").text
-    assert "Tạo video mới" in home and "Chọn file" in home and "value='sports_analysis'" in home
+    assert "Tạo video mới" in home and "Chọn file" in home and "value='sports_analysis'" not in home
 
     # file không tồn tại → báo lỗi
     assert "Không thấy file" in client.post("/jobs", data={"footage": str(tmp_path / "khong.mp4")}).text
