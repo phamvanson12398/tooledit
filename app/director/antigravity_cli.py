@@ -133,7 +133,8 @@ class AntigravityDirector(ClaudeCodeDirector):
 
     def _complete(self, task: str, prompt: str, schema: dict, images: list[Path]) -> dict:
         workdir = self._prepare_workdir(task, images)
-        write_task_files(workdir, prompt, schema, [Path(i).name for i in images])
+        names, note = self._packed_info()  # nhiều khung hình → đã ghép ảnh lưới
+        write_task_files(workdir, prompt + note, schema, names)
         cmd = build_command(self.exe, self.cfg.get("agy_model"), self.cfg.get("agy_effort"))
         self.log(f"Đang hỏi đạo diễn AI Gemini qua Antigravity ({task})...")
         timeout = self.cfg.get("timeout_s", 900)

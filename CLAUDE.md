@@ -382,6 +382,10 @@ Edit plan tối thiểu phải mô tả: danh sách clip (nguồn, in/out, tốc
   gần điểm chia đều (`long_parts`), mỗi phần một lượt hỏi (chỉ chọn trong phần của mình — `restrict`), chạy song song
   rồi gộp (`make_segments_long`); lập kế hoạch / viết thoại nhiều video cũng chạy song song. Số lượt cùng lúc
   `parallel_calls` (2) trong `config/director.yaml`, `app/jobs/parallel.py` (gắn job cho luồng con để nút Dừng vẫn chạy).
+- **Nhanh hơn (chủ dự án 11/10: "chậm quá"):** ≥ 6 khung hình thì ghép thành ẢNH LƯỚI 3×3 có nhãn tên file trước khi gửi
+  AI (`app/director/contact_sheet.py`, `contact_sheet` trong `config/director.yaml`) — AI đọc 9 file thay vì 80; dùng cho cả
+  Claude lẫn Antigravity. Phân tích bỏ phần chế độ không dùng (Phụ đề tiếng Việt: không dò cảnh / mặt; Chỉ thay tiếng: không
+  dò mặt). Mỗi bước job ghi thời gian (`job.data.step_times`, hiện ở đầu trang job).
 - Thiết kế lớp `Director` dạng interface để sau này có thể thay backend (ví dụ chế độ copy–paste thủ công hoặc mô hình local) mà không sửa phần còn lại.
 - Để test trong cloud: tạo `FakeDirector` trả JSON mẫu cố định.
 

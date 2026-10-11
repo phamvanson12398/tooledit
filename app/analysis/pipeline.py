@@ -84,8 +84,11 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
             fr = cfg.get("frames", {})
             max_frames = int(fr.get("max_frames_review", 80) if getattr(job.options, "review", False)
                              else fr.get("max_frames", 40))
+            o = job.options  # bỏ phần không cần cho chế độ này (chủ dự án 11/10: "chậm quá")
+            need_scenes = not getattr(o, "vi_sub", False)             # phụ đề tiếng Việt: chỉ cần lời thoại
+            need_faces = not (getattr(o, "vi_sub", False) or getattr(o, "voice_only", False))  # giữ nguyên khung gốc
             video_job = _in_thread(pool, _video_part, src, i, tag, duration, info, out, cfg, workers, progress,
-                                   max_frames)
+                                   max_frames if need_scenes else 6, need_scenes, need_faces)
             if info.has_audio:
                 wav_job.result()
                 tr, events = _audio_part(job, whisper_wav, transcribe_fn, cfg, progress)
@@ -137,14 +140,20 @@ def _audio_part(job: Job, whisper_wav: Path, transcribe_fn: Callable, cfg: dict,
 
 
 def _video_part(src: Path, i: int, tag: str, duration: float, info, out: Path, cfg: dict, workers: int, progress,
-                max_frames: int = 40):
-    """Dò cảnh → trích khung (nhiều khung một lúc) → dò mặt. Chạy song song với nhận dạng thoại."""
+                max_frames: int = 40, need_scenes: bool = True, need_faces: bool = True):
+    """Dò cảnh → trích khung (nhiều khung một lúc) → dò mặt. Chạy song song với nhận dạng thoại.
+    need_scenes / need_faces = False: bỏ qua phần chế độ này không dùng (cả video là một cảnh / không dò mặt)."""
+    from app.analysis.scenes import Scene
+
     t0 = time.monotonic()
-    progress("Dò cảnh")
-    sc = cfg.get("scenes", {})
-    scenes = detect_scenes(src, sc.get("threshold", 27.0), sc.get("min_scene_len_s", 0.6), duration,
-                           frame_skip=int(sc.get("frame_skip", 1)), progress=progress)
-    progress(f"Dò cảnh xong sau {_elapsed(t0)} ({len(scenes)} cảnh)")
+    if need_scenes:
+        progress("Dò cảnh")
+        sc = cfg.get("scenes", {})
+        scenes = detect_scenes(src, sc.get("threshold", 27.0), sc.get("min_scene_len_s", 0.6), duration,
+                               frame_skip=int(sc.get("frame_skip", 1)), progress=progress)
+        progress(f"Dò cảnh xong sau {_elapsed(t0)} ({len(scenes)} cảnh)")
+    else:
+        scenes = [Scene(index=0, start=0.0, end=duration)]
     scenes_rec = {"footage": i, "path": src.as_posix(), "duration": duration, "width": info.width,
                   "height": info.height, "scenes": [s.model_dump() for s in scenes]}
 
@@ -168,6 +177,8 @@ def _video_part(src: Path, i: int, tag: str, duration: float, info, out: Path, c
         raise RuntimeError(f"Không trích được khung hình nào từ {src.name}. File video có thể bị hỏng hoặc "
                            "dùng định dạng lạ — thử xuất lại file bằng CapCut / HandBrake (H.264 MP4) rồi chạy lại.")
 
+    if not need_faces:
+        return scenes_rec, frames, {"footage": i, "points": [], "face_count_max": 0, "faces": []}
     t1 = time.monotonic()
     progress("Dò khuôn mặt / chủ thể")
     sj = cfg.get("subjects", {})

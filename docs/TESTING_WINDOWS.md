@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 88 — Nhanh hơn: AI xem khung hình dạng ảnh lưới, bỏ phân tích thừa, ghi thời gian từng bước `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Tạo job (vd Review phim). Nhật ký có dòng "Ghép 80 khung hình thành 9 ảnh lưới cho AI xem nhanh hơn" ở các bước AI.
+3. So thời gian các bước AI với trước (nhất là "AI viết bài lời đọc" của review): phải nhanh hơn rõ.
+4. Đầu trang job có dòng ⏱️ thời gian từng bước (Phân tích …, AI hiểu nội dung …). Nếu vẫn chậm, chụp dòng này gửi lại.
+5. Kiểm tra AI vẫn kể khớp hình (câu nào kể đoạn phim nào vẫn đúng). Nếu thấy AI xem ảnh lưới kém chính xác hơn, mở
+   `config/director.yaml` đổi `contact_sheet: {enabled: false, …}` để quay lại cách cũ.
+6. Chế độ 🇻🇳 Phụ đề tiếng Việt: bước phân tích nhanh hơn hẳn (không dò cảnh, không dò mặt). 🎙️ Chỉ thay tiếng: không dò mặt.
+
 ## Bước 87 — Review phim: MỘT video tóm gọn cả phim, chỉ ý chính, chọn thời lượng trước `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm Ctrl+F5.

@@ -260,3 +260,25 @@ def test_transcribe_batched_on_gpu_then_falls_back(monkeypatch):
     assert [c[0] for c in calls] == ["plain"]
     tr_mod.transcribe(Path("a.wav"), {**cfg, "batched": False}, Model)
     assert [c[0] for c in calls] == ["plain", "plain"]
+
+
+def test_pipeline_skips_unneeded_parts_for_vi_sub(tmp_path: Path, monkeypatch):
+    """Chủ dự án 11/10 "chậm quá": Phụ đề tiếng Việt chỉ cần lời thoại → không dò cảnh, không dò mặt."""
+    from app.analysis import pipeline
+    from app.analysis.transcribe import Segment, Transcript
+    from app.capcut_writer.writer import VideoSource
+    from app.jobs.job import Job, JobOptions
+
+    video = tmp_path / "v.mp4"
+    subprocess.run([FFMPEG, "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=s=320x240:d=6:r=25",
+                    "-f", "lavfi", "-i", "sine=d=6", "-shortest", "-pix_fmt", "yuv420p", str(video)], check=True)
+    monkeypatch.setattr(pipeline, "probe_video", lambda p, exe=None: VideoSource(p, 320, 240, 6_000_000, True))
+    monkeypatch.setattr(ffmpeg, "ffmpeg_exe", lambda: FFMPEG)
+    monkeypatch.setattr(pipeline, "detect_scenes", lambda *a, **k: (_ for _ in ()).throw(AssertionError("dò cảnh")))
+    monkeypatch.setattr(pipeline, "scan_video", lambda *a, **k: (_ for _ in ()).throw(AssertionError("dò mặt")))
+    fake = lambda wav, log=None, cfg=None: Transcript(language="en", language_probability=1, duration=6, model="f",
+                                                       device="cpu", segments=[Segment(start=0, end=1, text="hi")])
+    job = Job.create(tmp_path / "jobs", [video], JobOptions(vi_sub=True), job_id="vs")
+    result = pipeline.run_analysis(job, tmp_path / "jobs", transcribe_fn=fake)
+    assert result["scenes"][0]["scenes"][0]["end"] == 6.0 and result["subjects"][0]["points"] == []
+    assert 1 <= len(result["frames"]) <= 6

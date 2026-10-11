@@ -150,3 +150,60 @@ def test_web_ai_select_and_switch(tmp_path):
     assert "AI: <b>Gemini Pro" in client.get(f"/jobs/{jid}").text
     client.post(f"/jobs/{jid}/ai", data={"ai": "claude"})
     assert Job.load(tmp_path / "jobs", jid).options.ai == "claude"
+
+
+def test_frames_packed_into_contact_sheets(tmp_path):
+    """Chủ dự án 11/10 "chậm quá": nhiều khung hình → ghép ảnh lưới 3×3 có nhãn tên file, AI đọc ít file hơn."""
+    import cv2
+    import numpy as np
+
+    from app.director.contact_sheet import pack
+
+    imgs = []
+    for k in range(20):
+        p = tmp_path / f"00_{k * 4.0:08.2f}.jpg"
+        cv2.imwrite(str(p), np.full((270, 480, 3), k * 10, dtype=np.uint8))
+        imgs.append(p)
+    work = tmp_path / "w"
+    work.mkdir()
+    names, note = pack(imgs, work, {"min_images": 6, "per_sheet": 9, "cols": 3, "tile_width": 360})
+    assert names == ["sheet_01.jpg", "sheet_02.jpg", "sheet_03.jpg"] and "ẢNH LƯỚI" in note
+    sheet = cv2.imread(str(work / "sheet_01.jpg"))
+    assert sheet.shape[1] == 3 * 360 + 2 * 4 and sheet.shape[0] > 3 * 202
+    few = tmp_path / "few"
+    few.mkdir()
+    names, note = pack(imgs[:3], few, {"min_images": 6})                 # ít ảnh: gửi từng ảnh như cũ
+    assert names == [p.name for p in imgs[:3]] and note == "" and (few / imgs[0].name).is_file()
+    off = tmp_path / "off"
+    off.mkdir()
+    assert pack(imgs, off, {"enabled": False})[1] == ""
+
+
+def test_agy_task_files_use_contact_sheets(tmp_path, monkeypatch):
+    import cv2
+    import numpy as np
+
+    from app.director import antigravity_cli as ag
+
+    imgs = []
+    for k in range(7):
+        p = tmp_path / f"f{k}.jpg"
+        cv2.imwrite(str(p), np.zeros((90, 160, 3), dtype=np.uint8))
+        imgs.append(p)
+    d = ag.AntigravityDirector({"workspace": str(tmp_path / "ws"), "agy_exe": "agy"})
+    seen = {}
+
+    def fake_run(cmd, stdin, workdir, timeout):
+        seen["prompt"] = (Path(workdir) / ag.PROMPT_FILE).read_text(encoding="utf-8")
+        seen["files"] = sorted(x.name for x in Path(workdir).iterdir())
+
+        class P:
+            stdout = '{"status": "SUCCESS", "structured_output": {"ok": 1}}'
+            stderr = ""
+            returncode = 0
+        return P()
+
+    monkeypatch.setattr(ag, "_run_stoppable", fake_run)
+    assert d._complete("understand", "Đề bài", {"type": "object"}, imgs) == {"ok": 1}
+    assert "sheet_01.jpg" in seen["files"] and "f0.jpg" not in seen["files"]
+    assert "ẢNH LƯỚI" in seen["prompt"] and "sheet_01.jpg" in seen["prompt"]

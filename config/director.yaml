@@ -22,6 +22,9 @@ timeout_s: 900
 # Thư mục làm việc tạm cho đạo diễn, NẰM NGOÀI repo để Claude Code không nạp CLAUDE.md của dự án.
 # Để trống = %LOCALAPPDATA%\tooledit\director (Windows) hoặc ~/.cache/tooledit/director.
 workspace: null
+# Ghép khung hình thành ẢNH LƯỚI trước khi gửi AI (chủ dự án 11/10: "chậm quá") — AI xem ảnh bằng cách đọc từng file,
+# 80 khung = 80 lượt đọc rất lâu; ghép 9 khung / ảnh (mỗi ô có nhãn tên file) chỉ còn 9 lượt. enabled: false = như cũ.
+contact_sheet: {enabled: true, min_images: 6, per_sheet: 9, cols: 3, tile_width: 360}
 frames:
   understand: 12             # số khung hình gửi cho bước hiểu nội dung (tiết kiệm hạn mức Pro)
   plan: 10                   # khung hình gửi khi lập kế hoạch cho kiểu dựng có mũi tên (thể thao)

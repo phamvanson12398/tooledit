@@ -100,17 +100,31 @@ class ClaudeCodeDirector(Director):
         self.workspace = Path(cfg.get("workspace") or default_workspace())
 
     def _prepare_workdir(self, task: str, images: list[Path]) -> Path:
-        # thư mục riêng cho MỖI lần gọi: nhiều job chạy song song không ghi đè ảnh của nhau
+        """Thư mục riêng cho MỖI lần gọi (nhiều job chạy song song không ghi đè ảnh của nhau). Nhiều khung hình thì
+        ghép thành ảnh lưới (app/director/contact_sheet.py) — AI đọc ít file hơn, trả lời nhanh hơn nhiều.
+        Tên ảnh AI cần xem + ghi chú thêm vào đề bài lưu ở self._image_names / self._image_note (theo luồng gọi)."""
+        import threading
         import uuid
+
+        from app.director.contact_sheet import pack
 
         workdir = self.workspace / f"{task}_{uuid.uuid4().hex[:8]}"
         workdir.mkdir(parents=True)
-        for img in images:
-            shutil.copy2(img, workdir / Path(img).name)
+        names, note = pack(images, workdir, self.cfg.get("contact_sheet"))
+        if not hasattr(self, "_packed"):
+            self._packed = threading.local()
+        self._packed.names, self._packed.note = names, note
+        if note:
+            self.log(f"Ghép {len(images)} khung hình thành {len(names)} ảnh lưới cho AI xem nhanh hơn")
         return workdir
+
+    def _packed_info(self) -> tuple[list[str], str]:
+        p = getattr(self, "_packed", None)
+        return (getattr(p, "names", []), getattr(p, "note", "")) if p is not None else ([], "")
 
     def _complete(self, task: str, prompt: str, schema: dict, images: list[Path]) -> dict:
         workdir = self._prepare_workdir(task, images)
+        prompt = prompt + self._packed_info()[1]
         cmd = build_command(self.exe, schema, self.cfg.get("model"), self.cfg.get("effort"), bool(images))
         self.log(f"Đang hỏi đạo diễn AI ({task})...")
         try:

@@ -6,6 +6,7 @@ Giai đoạn 1: một video, phong cách tiktok_retention.
 from __future__ import annotations
 
 import json
+import time
 import os
 import sys
 from pathlib import Path
@@ -386,8 +387,13 @@ class Runner:
             with slot(step, on_wait=waiting):
                 job.start()
                 job.save(self.jobs_root)
+                t0 = time.monotonic()
                 try:
                     getattr(self, f"step_{step}")(job)
+                    took = time.monotonic() - t0
+                    if took >= 5:  # ghi thời gian từng bước (chủ dự án 11/10 "chậm quá" — biết bước nào lâu)
+                        job.data.setdefault("step_times", {})[step] = round(took, 1)
+                        self.log(f"⏱️ Bước {step} mất {int(took) // 60}:{int(took) % 60:02d}")
                 except stop.JobStopped:
                     raise
                 except Exception as exc:  # báo lỗi tiếng Việt, giữ nguyên bước để chạy lại

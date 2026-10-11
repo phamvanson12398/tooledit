@@ -693,6 +693,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 + "</div>"
                 f"<span class='badge b-{status}'>{'<span class=spinner></span> ' if running else ''}{STATUS_VI[status]}</span>"
                 f"</div><div class='stepper' style='margin-top:14px'>{''.join(chips)}</div>")
+        times = job.data.get("step_times") or {}
+        if times:  # chủ dự án 11/10 "chậm quá": thời gian từng bước để biết chỗ nào lâu
+            head += ("<p class='muted'>⏱️ " + " · ".join(
+                f"{html.escape(step_label(job, st))} <b>{int(t) // 60}:{int(t) % 60:02d}</b>"
+                for st, t in times.items()) + "</p>")
         if job.data.get("summary_vi"):
             head += f"<p><b>Nội dung:</b> {html.escape(job.data['summary_vi'])}</p>"
         parts = ["<div class='topnav'><a class='btn light small' href='/'>🏠 Về trang chủ</a>"
