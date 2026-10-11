@@ -43,8 +43,10 @@ def separate_bgm(src: Path, dst: Path, *, model: str = "htdemucs", device: str =
         tmp = Path(tmp)
         raw = tmp / "goc.wav"  # âm thanh gốc chưa lọc ồn / chuẩn hóa (giữ nguyên chất nhạc)
         ffmpeg.run(["-i", str(src), "-vn", "-ac", "2", "-ar", "44100", str(raw)], exe=ffmpeg_exe)
+        from app.tts.voices import utf8_env
+
         r = run(demucs_cmd(raw, tmp / "out", model, device), capture_output=True, text=True, encoding="utf-8",
-                errors="replace")
+                errors="replace", env=utf8_env())
         out = tmp / "out" / model / "no_vocals.wav"
         if getattr(r, "returncode", 1) != 0 or not out.is_file():
             raise RuntimeError(f"Demucs không tách được nhạc nền: {(getattr(r, 'stderr', '') or '')[-400:]}")

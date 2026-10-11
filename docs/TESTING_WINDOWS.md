@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 73 — Sửa lỗi "UnicodeEncodeError: 'charmap' codec can't encode character" khi bấm 🤖 Cho OmniVoice đọc `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. Mở lại job đang chờ voice, bấm **🤖 Cho OmniVoice đọc**.
+3. Không còn lỗi `'charmap'`. Nếu giờ hiện "chưa cài omnivoice ở môi trường python này" → đó là lỗi THẬT trước đây bị
+   che: OmniVoice chưa cài, hoặc `python:` trong `config\tts.yaml` trỏ sai. Kiểm tra bằng PowerShell:
+   `C:\omnivoice-env\Scripts\python -c "import omnivoice; print('ok')"` (đổi đường dẫn theo máy bạn) — in `ok` là
+   đúng; báo lỗi thì cài theo docs/SETUP_WINDOWS.md mục "OmniVoice".
+
 ## Bước 72 — 🎭 Lồng tiếng nhân vật: chọn TÌNH HUỐNG 10–20 giây thay vì một khúc dài `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.

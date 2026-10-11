@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -96,13 +97,19 @@ def python_exe(cfg: dict) -> str:
     return str(cfg.get("python") or "").strip() or sys.executable
 
 
+def utf8_env() -> dict:
+    """Windows: tiến trình con in ra ống (pipe) bằng bảng mã cũ (cp1252) → chữ Việt / Hàn / Nhật gây UnicodeEncodeError.
+    Ép python con dùng UTF-8."""
+    return {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+
+
 def run_worker(request: dict, request_path: Path, cfg: dict, on_line=print, run=subprocess.Popen) -> None:
     """Chạy OmniVoice ở tiến trình riêng; mỗi dòng in ra được chuyển cho on_line (tiến độ). Lỗi → RuntimeError."""
     request_path.parent.mkdir(parents=True, exist_ok=True)
     request_path.write_text(json.dumps(request, ensure_ascii=False, indent=2), encoding="utf-8")
     try:
         proc = run([python_exe(cfg), str(WORKER), str(request_path)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                   text=True, encoding="utf-8", errors="replace")
+                   text=True, encoding="utf-8", errors="replace", env=utf8_env())
     except OSError as exc:
         raise RuntimeError(f"{INSTALL_HINT} ({exc})") from exc
     last_error = ""

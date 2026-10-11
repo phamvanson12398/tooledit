@@ -46,6 +46,15 @@ def _device(name: str):
     return "cpu", torch.float32
 
 
+def _utf8_stdout() -> None:
+    """Windows in ra ống bằng cp1252 → lỗi 'charmap' với chữ Việt / Hàn / Nhật. Ép UTF-8."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv: list[str]) -> int:
     req = json.loads(Path(argv[1]).read_text(encoding="utf-8"))
     here = Path(__file__).resolve().parent  # không để thư mục của tool che mất thư viện omnivoice thật
@@ -82,6 +91,7 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    _utf8_stdout()
     try:
         sys.exit(main(sys.argv))
     except Exception as exc:  # báo lỗi gọn cho tool hiện bằng tiếng Việt

@@ -84,7 +84,7 @@ def test_worker_runs_omnivoice_in_separate_process(tmp_path):
     lines = []
 
     def run(cmd, **kw):
-        return subprocess.Popen(cmd, env=env, cwd=tmp_path, **kw)
+        return subprocess.Popen(cmd, **{**kw, "env": {**kw.get("env", {}), **env}, "cwd": tmp_path})
 
     ov.run_worker(req, tmp_path / "req.json", {"python": sys.executable}, lines.append, run=run)
     assert any(x.startswith("PROGRESS 3/3") for x in lines)
@@ -99,7 +99,7 @@ def test_worker_reports_missing_omnivoice(tmp_path):
     env = {**os.environ, "PYTHONPATH": str(tmp_path / "trong")}  # không có omnivoice
     with pytest.raises(RuntimeError, match="chưa cài omnivoice"):
         ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable}, lambda x: None,
-                      run=lambda cmd, **kw: subprocess.Popen(cmd, env=env, **kw))
+                      run=lambda cmd, **kw: subprocess.Popen(cmd, **{**kw, "env": {**kw.get("env", {}), **env}}))
 
 
 def _char_job(tmp_path):
@@ -184,3 +184,24 @@ def test_web_tts_card_and_post(tmp_path, monkeypatch):
     actions[-1](r, job)
     assert called == [(1, True)] and job.data["tts"]["voices"]["징징이"]["instruct"] == "male, elderly"
     assert job.data["tts"]["clone_ok"] is False
+
+
+def test_worker_vietnamese_output_on_windows_codepage(tmp_path):
+    """Lỗi chủ dự án gặp 11/10: Windows in ra ống bằng cp1252 → "UnicodeEncodeError: 'charmap'" khi worker báo lỗi
+    tiếng Việt ("chưa cài omnivoice"). Giả lập bảng mã cp1252: vẫn nhận đúng câu báo lỗi tiếng Việt."""
+    base = {**os.environ, "PYTHONPATH": str(tmp_path / "trong")}
+
+    def run(cmd, **kw):  # tool truyền env ép UTF-8; python con mặc định cp1252 như Windows
+        env = {**base, **{k: v for k, v in kw.pop("env", {}).items() if k.startswith("PYTHONIO") or k == "PYTHONUTF8"}}
+        env.setdefault("PYTHONIOENCODING", "cp1252")
+        return subprocess.Popen(cmd, env=env, **kw)
+
+    with pytest.raises(RuntimeError, match="chưa cài omnivoice"):
+        ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable}, lambda x: None, run=run)
+    assert ov.utf8_env()["PYTHONIOENCODING"] == "utf-8"
+    # kể cả khi env bị ép cp1252 (không có utf8_env), worker tự chuyển stdout sang UTF-8
+    lines = []
+    with pytest.raises(RuntimeError, match="chưa cài omnivoice"):
+        ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable}, lines.append,
+                      run=lambda cmd, **kw: subprocess.Popen(cmd, **{**kw, "env": {**base,
+                                                                                     "PYTHONIOENCODING": "cp1252"}}))
