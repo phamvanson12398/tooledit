@@ -48,3 +48,6 @@ assets/**/*.beats.json
 assets/CREDITS.csv
 assets/capcut_library.json
 assets/.imports/
+
+# Môi trường OmniVoice do install_omnivoice.bat tạo (vài GB)
+/omnivoice-env/

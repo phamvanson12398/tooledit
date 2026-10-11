@@ -95,19 +95,26 @@ Nếu `claude` vẫn "not recognized" sau khi mở lại PowerShell: file cài n
 
 Dùng khi muốn tool tự đọc thoại thay vì tự thu (nút **🤖 Cho OmniVoice đọc** trên trang voice). OmniVoice
 (https://github.com/k2-fsa/OmniVoice, Apache-2.0) chạy trên máy bạn; có GPU NVIDIA thì nhanh, không có vẫn chạy bằng CPU
-nhưng rất chậm. Cài vào môi trường RIÊNG cho khỏi ảnh hưởng tool:
+nhưng rất chậm.
+
+**Cách dễ nhất:** tắt tool (đóng cửa sổ `start.bat`), nhấp đúp **`install_omnivoice.bat`** trong thư mục tool. File này
+tự tạo môi trường riêng `omnivoice-env` trong thư mục tool, tự nhận GPU NVIDIA (có thì cài PyTorch bản GPU, không thì bản
+CPU), cài OmniVoice rồi kiểm tra — cuối cùng hiện `OmniVoice OK - dung GPU: True/False`. Mất 10–30 phút, tải 3–5 GB.
+Tool TỰ TÌM môi trường này, không cần sửa `config\tts.yaml` (để `python: ""`).
+
+Cách tự cài bằng tay (khi muốn dùng môi trường OmniVoice có sẵn, vd của Voice Studio):
 
 ```powershell
 cd C:\
 py -3.11 -m venv omnivoice-env
 C:\omnivoice-env\Scripts\python -m pip install --upgrade pip
-# Có GPU NVIDIA (kiểm tra CUDA bằng lệnh nvidia-smi); không có GPU thì bỏ phần --extra-index-url:
+# Có GPU NVIDIA (kiểm tra CUDA bằng lệnh nvidia-smi); không có GPU thì bỏ phần +cu128 và --extra-index-url:
 C:\omnivoice-env\Scripts\python -m pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128
 C:\omnivoice-env\Scripts\python -m pip install -r <thư mục tool>\requirements-tts.txt
 ```
 
-Rồi mở `config\tts.yaml` sửa dòng `python:` thành `C:\omnivoice-env\Scripts\python.exe`. Nếu Voice Studio của bạn đã có
-sẵn môi trường OmniVoice thì trỏ `python:` tới python của môi trường đó cũng được. Lần đầu chạy, OmniVoice tự tải model
+Rồi mở `config\tts.yaml` sửa dòng `python:` thành `C:\omnivoice-env\Scripts\python.exe` (hoặc python của môi trường
+Voice Studio). Lần đầu chạy, OmniVoice tự tải model
 (vài GB) từ HuggingFace — mạng chậm thì đặt biến `HF_ENDPOINT=https://hf-mirror.com` trước khi mở `start.bat`.
 
 ## 6. Dùng hằng ngày

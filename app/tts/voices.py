@@ -13,14 +13,18 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 WORKER = Path(__file__).with_name("omnivoice_worker.py")
+ROOT = Path(__file__).resolve().parents[2]
+ENV_DIR = ROOT / "omnivoice-env"  # install_omnivoice.bat cài OmniVoice vào đây; tool tự tìm, không cần sửa config
 NARRATOR = "Người dẫn"
-INSTALL_HINT = ("Chưa chạy được OmniVoice. Cài theo docs/SETUP_WINDOWS.md mục \"OmniVoice\" rồi điền đường dẫn python "
-                "vào config\\tts.yaml (python: ...).")
+INSTALL_HOW = ("Cách dễ nhất: tắt tool, nhấp đúp file install_omnivoice.bat trong thư mục tool (tự cài, 10–30 phút), "
+               "rồi mở lại start.bat. Chi tiết: docs/SETUP_WINDOWS.md mục \"OmniVoice\".")
+INSTALL_HINT = "Chưa chạy được OmniVoice. " + INSTALL_HOW
 
 
 def voice_key(line) -> str:
@@ -93,8 +97,21 @@ def build_items(script, video_index: int, voice_dir: Path, language: str, window
     return items
 
 
-def python_exe(cfg: dict) -> str:
-    return str(cfg.get("python") or "").strip() or sys.executable
+def env_python(env_dir: Path = ENV_DIR) -> Path | None:
+    """python của môi trường install_omnivoice.bat đã tạo (Windows: Scripts\\python.exe; Linux/Mac: bin/python)."""
+    for p in (env_dir / "Scripts" / "python.exe", env_dir / "bin" / "python"):
+        if p.is_file():
+            return p
+    return None
+
+
+def python_exe(cfg: dict, env_dir: Path = ENV_DIR) -> str:
+    """Ưu tiên: `python:` trong config/tts.yaml → môi trường omnivoice-env trong thư mục tool → python của tool."""
+    configured = str(cfg.get("python") or "").strip().strip('"')
+    if configured:
+        return configured
+    found = env_python(env_dir)
+    return str(found) if found else sys.executable
 
 
 def utf8_env() -> dict:
@@ -107,8 +124,12 @@ def run_worker(request: dict, request_path: Path, cfg: dict, on_line=print, run=
     """Chạy OmniVoice ở tiến trình riêng; mỗi dòng in ra được chuyển cho on_line (tiến độ). Lỗi → RuntimeError."""
     request_path.parent.mkdir(parents=True, exist_ok=True)
     request_path.write_text(json.dumps(request, ensure_ascii=False, indent=2), encoding="utf-8")
+    exe = python_exe(cfg)
+    if str(cfg.get("python") or "").strip() and not Path(exe).is_file() and not shutil.which(exe):
+        raise RuntimeError(f"Không thấy python ở '{exe}' (dòng python: trong config\\tts.yaml) — sửa lại đường dẫn, hoặc "
+                           "để trống python: \"\" và chạy install_omnivoice.bat.")
     try:
-        proc = run([python_exe(cfg), str(WORKER), str(request_path)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        proc = run([exe, str(WORKER), str(request_path)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                    text=True, encoding="utf-8", errors="replace", env=utf8_env())
     except OSError as exc:
         raise RuntimeError(f"{INSTALL_HINT} ({exc})") from exc
@@ -120,4 +141,6 @@ def run_worker(request: dict, request_path: Path, cfg: dict, on_line=print, run=
         if line:
             on_line(line)
     if proc.wait() != 0:
+        if "chưa cài omnivoice" in last_error:  # nói rõ python nào đang thiếu để chủ dự án biết sửa chỗ nào
+            raise RuntimeError(f"Python đang dùng ({exe}) chưa cài OmniVoice. {INSTALL_HOW}")
         raise RuntimeError(last_error or INSTALL_HINT)

@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 74 — Cài OmniVoice bằng một cú nhấp đúp (`install_omnivoice.bat`) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Dùng khi bấm 🤖 Cho OmniVoice đọc mà báo "chưa cài OmniVoice".
+
+1. Đóng cửa sổ `start.bat`. Mở PowerShell trong thư mục tool, chạy `git pull`.
+2. Mở `config\tts.yaml`: dòng `python:` phải là `python: ""` (để trống — tool tự tìm). Nếu bạn đã điền gì đó mà không
+   chắc đúng, xóa đi cho về `""`.
+3. Nhấp đúp **`install_omnivoice.bat`**. Chờ 10–30 phút (không bấm chuột vào cửa sổ). Cuối cùng phải thấy
+   `OmniVoice OK - dung GPU: True` (có GPU NVIDIA) hoặc `False` (chạy CPU, chậm). Có chữ LỖI → chụp màn hình gửi Claude.
+4. Mở lại `start.bat`, Ctrl+F5, vào job đang chờ voice, bấm **🤖 Cho OmniVoice đọc**. Lần đầu OmniVoice tải model vài GB
+   (nhật ký hiện "OmniVoice: tải model…") — chờ xong, mỗi câu sẽ có voice.
+5. Vẫn báo lỗi thì câu lỗi giờ ghi rõ python nào đang được dùng — chụp gửi Claude.
+
 ## Bước 73 — Sửa lỗi "UnicodeEncodeError: 'charmap' codec can't encode character" khi bấm 🤖 Cho OmniVoice đọc `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.

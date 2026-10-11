@@ -97,7 +97,7 @@ def test_worker_runs_omnivoice_in_separate_process(tmp_path):
 
 def test_worker_reports_missing_omnivoice(tmp_path):
     env = {**os.environ, "PYTHONPATH": str(tmp_path / "trong")}  # không có omnivoice
-    with pytest.raises(RuntimeError, match="chưa cài omnivoice"):
+    with pytest.raises(RuntimeError, match="chưa cài OmniVoice"):
         ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable}, lambda x: None,
                       run=lambda cmd, **kw: subprocess.Popen(cmd, **{**kw, "env": {**kw.get("env", {}), **env}}))
 
@@ -196,12 +196,34 @@ def test_worker_vietnamese_output_on_windows_codepage(tmp_path):
         env.setdefault("PYTHONIOENCODING", "cp1252")
         return subprocess.Popen(cmd, env=env, **kw)
 
-    with pytest.raises(RuntimeError, match="chưa cài omnivoice"):
+    with pytest.raises(RuntimeError, match="chưa cài OmniVoice"):
         ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable}, lambda x: None, run=run)
     assert ov.utf8_env()["PYTHONIOENCODING"] == "utf-8"
     # kể cả khi env bị ép cp1252 (không có utf8_env), worker tự chuyển stdout sang UTF-8
     lines = []
-    with pytest.raises(RuntimeError, match="chưa cài omnivoice"):
+    with pytest.raises(RuntimeError, match="chưa cài OmniVoice"):
         ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable}, lines.append,
                       run=lambda cmd, **kw: subprocess.Popen(cmd, **{**kw, "env": {**base,
                                                                                      "PYTHONIOENCODING": "cp1252"}}))
+
+
+def test_python_exe_finds_install_bat_env(tmp_path):
+    """install_omnivoice.bat cài vào <tool>/omnivoice-env → tool tự dùng, không cần sửa config/tts.yaml."""
+    assert ov.python_exe({}, tmp_path / "omnivoice-env") == sys.executable          # chưa cài → python của tool
+    exe = tmp_path / "omnivoice-env" / "Scripts" / "python.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"")
+    assert ov.python_exe({"python": ""}, tmp_path / "omnivoice-env") == str(exe)    # đã cài → tự tìm thấy
+    assert ov.python_exe({"python": "C:/khac/python.exe"}, tmp_path / "omnivoice-env") == "C:/khac/python.exe"
+    with pytest.raises(RuntimeError, match="Không thấy python ở"):                  # đường dẫn trong config sai
+        ov.run_worker({"items": []}, tmp_path / "r.json", {"python": str(tmp_path / "khong_co" / "python.exe")},
+                      lambda x: None)
+
+
+def test_missing_omnivoice_names_the_python_and_install_bat(tmp_path):
+    env = {**os.environ, "PYTHONPATH": str(tmp_path / "trong")}
+    with pytest.raises(RuntimeError) as e:
+        ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable}, lambda x: None,
+                      run=lambda cmd, **kw: subprocess.Popen(cmd, **{**kw, "env": {**kw.get("env", {}), **env}}))
+    assert sys.executable in str(e.value) and "install_omnivoice.bat" in str(e.value)
+    assert (Path(ov.ROOT) / "install_omnivoice.bat").is_file()
