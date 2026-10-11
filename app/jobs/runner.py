@@ -741,9 +741,19 @@ class Runner:
 
     def save_tts_voices(self, job: Job, voices: dict[str, dict], clone_ok: bool) -> None:
         tts = job.data.setdefault("tts", {})
-        tts["voices"] = {k: {"mode": v.get("mode", "auto") if v.get("mode") in ("auto", "design", "clone") else "auto",
-                             "instruct": (v.get("instruct") or "").strip(), "note_vi": v.get("note_vi", "")}
-                         for k, v in voices.items()}
+        old = tts.get("voices") or {}
+        out = {}
+        for k, v in voices.items():
+            mode = v.get("mode") if v.get("mode") in ("auto", "design", "clone", "upload") else "auto"
+            item = {"mode": mode, "instruct": (v.get("instruct") or "").strip(), "note_vi": v.get("note_vi", "")}
+            # giọng mẫu tải lên: file mới (nếu có) hoặc giữ file đã tải lần trước — khỏi phải tải lại
+            sample = v.get("sample") or (old.get(k) or {}).get("sample")
+            if sample:
+                item["sample"] = sample
+                item["ref_text"] = (v.get("ref_text") if v.get("sample") else
+                                    v.get("ref_text") or (old.get(k) or {}).get("ref_text") or "").strip()
+            out[k] = item
+        tts["voices"] = out
         tts["clone_ok"] = bool(clone_ok)
         job.save(self.jobs_root)
 
@@ -782,7 +792,22 @@ class Runner:
         audio_src = None
         for name in sorted(used):
             v = dict(voices.get(name) or {"mode": "auto"})
-            if v.get("mode") == "clone":
+            if v.get("mode") == "upload":  # giọng mẫu chủ dự án tải lên (11/10)
+                sample = Path(v.get("sample") or "")
+                if not clone_ok:
+                    self.log(f"🎤 {name}: chưa tick xác nhận quyền dùng giọng — không dùng giọng mẫu, dùng giọng mô tả / tự chọn.")
+                    v["mode"] = "design" if v.get("instruct") else "auto"
+                elif not sample.is_file():
+                    self.log(f"🎤 {name}: chưa có file giọng mẫu — dùng giọng mô tả / tự chọn.")
+                    v["mode"] = "design" if v.get("instruct") else "auto"
+                else:
+                    ref, cut = ov.prepare_sample(sample, d / "voice" / "refs" / f"mau_{ov.safe_name(name)}.wav",
+                                                 float(cfg.get("max_ref_s", 10.0)))
+                    v.update({"mode": "clone", "ref_audio": str(ref),
+                              "ref_text": "" if cut else (v.get("ref_text") or "")})
+                    self.log(f"🎤 {name}: clone từ giọng mẫu bạn tải lên ({sample.name})"
+                             + (f" — file dài, lấy {float(cfg.get('max_ref_s', 10.0)):.0f} giây đầu." if cut else "."))
+            if v.get("mode") == "clone" and not v.get("ref_audio"):
                 if not clone_ok:
                     self.log(f"🎭 {name}: chưa tick xác nhận quyền dùng giọng — không clone, dùng giọng mô tả / tự chọn.")
                     v["mode"] = "design" if v.get("instruct") else "auto"
@@ -797,8 +822,7 @@ class Runner:
                         self.log(f"🎭 {name}: không tìm được đoạn giọng gốc để clone — dùng giọng mô tả / tự chọn.")
                         v["mode"] = "design" if v.get("instruct") else "auto"
                     else:
-                        safe = "".join(ch for ch in name if ch.isalnum())[:20] or "nv"
-                        ref = ov.cut_reference(audio_src, span[0], span[1], d / "voice" / "refs" / f"{safe}.wav")
+                        ref = ov.cut_reference(audio_src, span[0], span[1], d / "voice" / "refs" / f"{ov.safe_name(name)}.wav")
                         from app.director.tasks import load_analysis
 
                         segs = load_analysis(analysis)["transcript"].get("segments", [])

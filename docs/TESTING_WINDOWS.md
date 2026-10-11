@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 92 — OmniVoice: tải lên giọng mẫu để clone `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Mở job đang chờ voice (Lồng tiếng nhân vật / Đổi ngôn ngữ / Review) → khung **🤖 Hoặc để OmniVoice đọc thay**.
+3. Ở nhân vật muốn dùng giọng mẫu: chọn **🎤 Giọng mẫu tải lên (cần quyền)**, bấm chọn file (3–10 giây, một người nói rõ,
+   không nhạc nền; .wav / .mp3 / .m4a), gõ lời đọc trong file nếu biết (không bắt buộc).
+4. Tick ô **Tôi xác nhận CÓ QUYỀN dùng giọng để clone** → bấm **🤖 Cho OmniVoice đọc**.
+5. Nhật ký có dòng "🎤 <tên nhân vật>: clone từ giọng mẫu bạn tải lên (…)". Nghe thử voice: giọng giống file mẫu.
+6. Mở lại trang job: dưới ô chọn file có "✅ đã có: tai_len_…" — lần đọc sau không cần tải lại.
+7. Không tick ô xác nhận → tool KHÔNG dùng giọng mẫu (nhật ký báo), đọc bằng giọng mô tả / tự chọn.
+
 ## Bước 91 — Dựng video TikTok: chọn được ngôn ngữ (video gốc tiếng Trung / Việt…) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm Ctrl+F5.

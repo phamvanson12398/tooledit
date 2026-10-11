@@ -183,6 +183,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   OmniVoice (k2-fsa, Apache-2.0, API đối chiếu mã nguồn 0.2.1) chạy ở tiến trình riêng `app/tts/omnivoice_worker.py` bằng
   python của môi trường đã cài (`config/tts.yaml → python`, `requirements-tts.txt`); logic phía tool ở `app/tts/voices.py`.
   Clone khác ngôn ngữ (giọng Nhật → đọc Hàn) sẽ có chút âm sắc tiếng gốc (theo tài liệu OmniVoice).
+  **Cập nhật 11/10 (chủ dự án yêu cầu): "🎤 Giọng mẫu tải lên"** — cách tạo giọng thứ 4 (`mode: upload`): chủ dự án tải file
+  giọng mẫu cho từng nhân vật (+ lời đọc trong file, không bắt buộc), lưu `voice/refs/tai_len_<tên>.<đuôi>`, giữ cho các
+  lần đọc sau; khi đọc đổi sang WAV mono 24 kHz ≤ `max_ref_s` (dài hơn thì lấy đoạn đầu, bỏ lời đọc — `prepare_sample`)
+  rồi clone như giọng gốc. Cũng CHỈ khi tick xác nhận quyền (`clone_ok`).
 
 ## 5c. Chế độ "Phụ đề tiếng Việt" (chủ dự án yêu cầu 08/10)
 

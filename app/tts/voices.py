@@ -2,8 +2,9 @@
 
 - Mỗi nhân vật (DubLine.speaker; không có thì "Người dẫn") một giọng:
   "design" = mô tả giọng (gender / age / pitch… — AI đề xuất trong `cast`), "auto" = OmniVoice tự chọn,
-  "clone" = clone từ chính giọng nhân vật trong video gốc (3–10 giây, cắt từ phần giọng nói đã tách bằng Demucs) —
-  CHỈ khi chủ dự án xác nhận có quyền dùng giọng đó.
+  "clone" = clone từ chính giọng nhân vật trong video gốc (3–10 giây, cắt từ phần giọng nói đã tách bằng Demucs),
+  "upload" = clone từ GIỌNG MẪU chủ dự án tải lên (file của họ, kèm lời đọc trong file nếu có — 11/10) —
+  hai cách clone CHỈ khi chủ dự án xác nhận có quyền dùng giọng đó.
 - Mỗi câu đọc vừa khít thời lượng câu thoại gốc (`duration`) để khớp miệng; ghi thẳng voice/videoNN_dubMM.wav nên phần
   dựng phía sau chạy như voice tự thu.
 - OmniVoice chạy ở tiến trình riêng (app/tts/omnivoice_worker.py) bằng python của môi trường đã cài omnivoice.
@@ -81,6 +82,33 @@ def cut_reference(audio: Path, a: float, b: float, dst: Path, exe: str | None = 
     ffmpeg.run(["-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", str(audio), "-vn", "-ac", "1", "-ar", "24000", str(dst)],
                exe=exe)
     return dst
+
+
+SAMPLE_EXTS = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".webm", ".mp4"}
+
+
+def safe_name(name: str) -> str:
+    return "".join(ch for ch in name if ch.isalnum())[:20] or "nv"
+
+
+def prepare_sample(src: Path, dst: Path, max_s: float = 10.0, exe: str | None = None) -> tuple[Path, bool]:
+    """Giọng mẫu tải lên → WAV mono 24 kHz, tối đa max_s giây (OmniVoice khuyên 3–10 giây). Trả (file, đã_cắt_bớt):
+    file dài hơn thì lấy max_s giây đầu — khi đó lời đọc chủ dự án gõ (cho cả file) không còn khớp, nên bỏ."""
+    import wave
+
+    from app.analysis import ffmpeg
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    full = dst.with_name(dst.stem + "_full.wav")
+    ffmpeg.run(["-i", str(src), "-vn", "-ac", "1", "-ar", "24000", str(full)], exe=exe)
+    with wave.open(str(full), "rb") as w:
+        secs = w.getnframes() / float(w.getframerate() or 1)
+    if secs <= max_s + 0.5:
+        full.replace(dst)
+        return dst, False
+    ffmpeg.run(["-i", str(full), "-t", f"{max_s:.3f}", "-c", "copy", str(dst)], exe=exe)
+    full.unlink(missing_ok=True)
+    return dst, True
 
 
 def build_items(script, video_index: int, voice_dir: Path, language: str, windows: list | None,

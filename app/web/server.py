@@ -793,11 +793,22 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     @app.post("/jobs/{job_id}/tts")
     async def tts_generate(job_id: str, request: Request):
         """Lưu giọng từng nhân vật rồi cho OmniVoice đọc (chạy ở worker, xong tự dựng tiếp)."""
+        from app.tts.voices import SAMPLE_EXTS, safe_name
+
         form = await request.form()
         voices = {}
+        refs = Job.dir_for(Path(jobs_root), job_id) / "voice" / "refs"
         for k in [x[5:] for x in form.keys() if x.startswith("name_")]:
-            voices[str(form.get(f"name_{k}"))] = {"mode": str(form.get(f"mode_{k}", "auto")),
-                                                  "instruct": str(form.get(f"instruct_{k}", ""))}
+            name = str(form.get(f"name_{k}"))
+            voices[name] = {"mode": str(form.get(f"mode_{k}", "auto")), "instruct": str(form.get(f"instruct_{k}", "")),
+                            "ref_text": str(form.get(f"reftext_{k}", ""))}
+            up = form.get(f"sample_{k}")  # 🎤 giọng mẫu tải lên (chủ dự án 11/10)
+            ext = Path(getattr(up, "filename", "") or "").suffix.lower()
+            if up is not None and getattr(up, "filename", "") and ext in SAMPLE_EXTS:
+                refs.mkdir(parents=True, exist_ok=True)
+                dst = refs / f"tai_len_{safe_name(name)}{ext}"
+                dst.write_bytes(await up.read())
+                voices[name]["sample"] = str(dst)
         clone_ok = bool(form.get("clone_ok"))
         vid = str(form.get("video", "all"))
         video = int(vid) if vid.isdigit() else None
@@ -1351,12 +1362,18 @@ def _tts_card(job: Job, d: Path) -> str:
     for k, (name, v) in enumerate(voices.items()):
         sel = "".join(f"<option value='{m}'{' selected' if v.get('mode') == m else ''}>{lbl}</option>"
                       for m, lbl in (("design", "Mô tả giọng"), ("auto", "OmniVoice tự chọn"),
-                                     ("clone", "Clone từ giọng gốc (cần quyền)")))
+                                     ("clone", "Clone từ giọng gốc (cần quyền)"),
+                                     ("upload", "🎤 Giọng mẫu tải lên (cần quyền)")))
+        have = Path(v["sample"]).name if v.get("sample") and Path(v["sample"]).is_file() else ""
         rows.append(f"<tr><td><b>🎭 {esc(name)}</b><input type='hidden' name='name_{k}' value='{esc(name)}'>"
                     f"<br><span class='muted'>{esc(v.get('note_vi', ''))}</span></td>"
                     f"<td><select name='mode_{k}'>{sel}</select></td>"
                     f"<td><input type='text' name='instruct_{k}' value='{esc(v.get('instruct', ''))}' style='width:16em' "
-                    f"placeholder='vd male, young adult, high pitch'></td></tr>")
+                    f"placeholder='vd male, young adult, high pitch'></td>"
+                    f"<td><input type='file' name='sample_{k}' accept='audio/*,.wav,.mp3,.m4a'>"
+                    + (f"<br><span class='muted'>✅ đã có: {esc(have)}</span>" if have else "")
+                    + f"<br><input type='text' name='reftext_{k}' value='{esc(v.get('ref_text', ''))}' style='width:16em' "
+                    f"placeholder='lời đọc trong file mẫu (không bắt buộc)'></td></tr>")
     vid_opts = "<option value='all'>Tất cả video</option>" + "".join(
         f"<option value='{v}'>Video {v:02d}</option>" for v in scripts)
     last = tts.get("last")
@@ -1364,11 +1381,15 @@ def _tts_card(job: Job, d: Path) -> str:
             f"<p class='muted'>Tool cho OmniVoice (chạy trên máy bạn) đọc từng câu, mỗi nhân vật một giọng, đọc vừa khít thời "
             f"lượng câu thoại gốc. Cần cài OmniVoice một lần (docs/SETUP_WINDOWS.md mục OmniVoice). Không ưng câu nào thì "
             f"thu tay đè lên câu đó như thường.</p>"
-            f"<form method='post' action='/jobs/{job.job_id}/tts'>"
-            f"<table><tr><th>Nhân vật</th><th>Cách tạo giọng</th><th>Mô tả giọng (tiếng Anh)</th></tr>{''.join(rows)}</table>"
+            f"<form method='post' action='/jobs/{job.job_id}/tts' enctype='multipart/form-data'>"
+            f"<table><tr><th>Nhân vật</th><th>Cách tạo giọng</th><th>Mô tả giọng (tiếng Anh)</th>"
+            f"<th>🎤 Giọng mẫu (chọn \"Giọng mẫu tải lên\")</th></tr>{''.join(rows)}</table>"
+            f"<p class='muted'>🎤 Giọng mẫu: file 3–10 giây một người nói rõ, không nhạc nền (dài hơn thì tool lấy 10 giây đầu). "
+            f"Gõ đúng lời đọc trong file thì giọng clone giống hơn; để trống OmniVoice tự nghe. File được giữ cho các lần đọc "
+            f"sau của job này.</p>"
             f"<label class='tg'><input type='checkbox' name='clone_ok'{' checked' if tts.get('clone_ok') else ''}> Tôi xác "
-            f"nhận CÓ QUYỀN dùng giọng gốc để clone (giọng diễn viên lồng tiếng là của họ — chỉ clone khi khách / chủ sở "
-            f"hữu cho phép)</label>"
+            f"nhận CÓ QUYỀN dùng giọng để clone — giọng gốc trong video hoặc giọng mẫu tải lên (giọng của ai là của người "
+            f"đó — chỉ clone khi chính họ / chủ sở hữu cho phép)</label>"
             f"<p>Đọc cho: <select name='video'>{vid_opts}</select> "
             f"<label><input type='checkbox' name='overwrite'> Đọc lại cả câu đã có voice</label></p>"
             f"<button type='submit' class='btn small'>🤖 Cho OmniVoice đọc</button>"

@@ -237,3 +237,68 @@ def test_review_voice_is_natural_length(tmp_path):
     ch = Job.create(tmp_path, [Path("C:/f/a.mp4")], JobOptions(char_dub=True, target_language="ko"), job_id="c1")
     assert Runner._tts_fit(rev, {"fit_duration": True}) is False
     assert Runner._tts_fit(ch, {"fit_duration": True}) is True and Runner._tts_fit(ch, {"fit_duration": False}) is False
+
+
+def test_uploaded_voice_sample(tmp_path, monkeypatch):
+    """Chủ dự án 11/10: OmniVoice clone từ GIỌNG MẪU tải lên — cần tick quyền; file dài thì lấy 10 giây đầu, bỏ lời đọc."""
+    import io
+    import wave
+
+    from fastapi.testclient import TestClient
+
+    from app.analysis import ffmpeg as ffm
+    from app.planner.voice_split import write_wav
+    from app.web.server import create_app
+
+    ff = pytest.importorskip("imageio_ffmpeg").get_ffmpeg_exe()
+    monkeypatch.setattr(ffm, "ffmpeg_exe", lambda *a, **k: ff)
+    jobs, job, r = _char_job(tmp_path)
+    monkeypatch.setattr(type(r), "_bgm", lambda self, job, analysis: None)
+
+    def wav_bytes(secs):
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(16000)
+            w.writeframes((np.sin(np.arange(int(16000 * secs)) / 9) * 6000).astype(np.int16).tobytes())
+        return buf.getvalue()
+
+    app = create_app(jobs, lambda root, log: None)
+    actions = []
+    app.state.worker.start = lambda job_id, action=None: actions.append(action) or True
+    client = TestClient(app)
+    page = client.get("/jobs/tv").text
+    assert "Giọng mẫu tải lên" in page and "name='sample_0'" in page and "multipart/form-data" in page
+    client.post("/jobs/tv/tts", data={"name_0": "징징이", "mode_0": "upload", "instruct_0": "", "reftext_0": "안녕하세요",
+                                      "name_1": "스펀지밥", "mode_1": "auto", "video": "1", "clone_ok": "on"},
+                files={"sample_0": ("giong mau.wav", wav_bytes(5.0), "audio/wav")})
+    sent = []
+
+    def fake_run(request, path, cfg, on_line):
+        sent.append(request)
+        for it in request["items"]:
+            write_wav(Path(it["out"]), np.zeros(int((it["duration"] or 1.0) * 48000), dtype=np.int16))
+
+    r._tts_run = fake_run
+    actions[-1](r, job)
+    v = sent[0]["voices"]["징징이"]
+    assert v["mode"] == "clone" and Path(v["ref_audio"]).is_file() and v["ref_text"] == "안녕하세요"
+    saved = job.data["tts"]["voices"]["징징이"]
+    assert saved["mode"] == "upload" and Path(saved["sample"]).is_file()
+    from app.web.server import _tts_card
+
+    assert "✅ đã có: tai_len_" in _tts_card(job, jobs / "tv")                   # lần sau khỏi tải lại
+
+    # file dài 25 giây → chỉ lấy 10 giây đầu, bỏ lời đọc (không còn khớp)
+    Path(saved["sample"]).write_bytes(wav_bytes(25.0))
+    r.save_tts_voices(job, {"징징이": {"mode": "upload", "instruct": "", "ref_text": "안녕하세요"}}, clone_ok=True)
+    r.tts_generate(job, only_missing=False)
+    v = sent[1]["voices"]["징징이"]
+    with wave.open(v["ref_audio"], "rb") as w:
+        assert w.getnframes() / w.getframerate() <= 10.1
+    assert v["ref_text"] == ""
+    # chưa tick quyền → không dùng giọng mẫu
+    r.save_tts_voices(job, {"징징이": {"mode": "upload", "instruct": "male, old"}}, clone_ok=False)
+    r.tts_generate(job, only_missing=False)
+    assert sent[2]["voices"]["징징이"]["mode"] == "design" and "ref_audio" not in sent[2]["voices"]["징징이"]
