@@ -152,11 +152,26 @@ def for_video(u, video: dict):
                                 u.key_moments[:1], "summary_vi": summary})
 
 
+# "Đoạn hay" là gì (chủ dự án 11/10: "câu nói hay, đoạn hay, hài hước, gay cấn — nói chung cái gì cảm thấy hấp dẫn")
+HOOKY_KINDS = """Đoạn hay = BẤT CỨ thứ gì khiến người xem TikTok DỪNG LƯỚT và xem hết, ví dụ:
+  · CÂU NÓI HAY / thoại đắt: câu chốt thâm thúy, câu triết lý, câu thoại đáng nhớ người ta muốn chép lại / chia sẻ, câu
+    đáp trả sắc bén, câu tỏ tình / an ủi chạm lòng;
+  · HÀI HƯỚC: câu đùa có cú chốt, phản ứng buồn cười, tình huống trớ trêu, biểu cảm lố, cãi nhau mà hài;
+  · GAY CẤN / kịch tính: đối đầu, rượt đuổi, đánh nhau, căng thẳng chờ kết quả, quyết định sống còn;
+  · BẤT NGỜ: cú twist, lật kèo, bí mật bị lộ, hành động không ai ngờ;
+  · CẢM XÚC: cảm động, ngọt ngào / lãng mạn, đáng yêu, xót xa, tình bạn / gia đình;
+  · ẤN TƯỢNG: màn thể hiện tài năng, cảnh đẹp / hoành tráng, khoảnh khắc "ngầu".
+  Cứ thấy HẤP DẪN là chọn, không cần đúng một loại nào. `note_vi` / `why_vi` ghi rõ loại (vd "câu nói hay: …",
+  "hài: …") để chủ dự án duyệt nhanh."""
+
+
 REVIEW_SEGMENT_NOTE = """
 ## CHẾ ĐỘ REVIEW PHIM / HOẠT HÌNH
 Đây là phim / hoạt hình. Mỗi video sẽ là một clip REVIEW kể chuyện: người review KỂ LẠI đoạn đó thành MỘT CÂU CHUYỆN
-(mở đầu – mâu thuẫn – cao trào – kết), hình phim minh họa cho lời kể. Hãy tìm các ĐOẠN HAY NHẤT — tình huống hài, cảm động, gay cấn, cú twist, màn thể hiện của nhân vật — mỗi đoạn là
-một câu chuyện nhỏ trọn vẹn (mở – diễn biến – kết) để kể lại được trong {min_video_s}–{max_video_s} giây. Đoạn nhạt,
+(mở đầu – mâu thuẫn – cao trào – kết), hình phim minh họa cho lời kể. Hãy tìm các ĐOẠN HAY NHẤT — mỗi đoạn là
+một câu chuyện nhỏ trọn vẹn (mở – diễn biến – kết) để kể lại được trong {min_video_s}–{max_video_s} giây.
+""" + HOOKY_KINDS + """
+ Đoạn nhạt,
 đoạn chuyển cảnh, giới thiệu / credit, quảng cáo thì bỏ (ghi vào `dropped`). `why_vi` nói rõ đoạn này hay ở chỗ nào.
 Phim dài có nhiều đoạn hay thì tách thành NHIỀU video (không giới hạn số video), mỗi video một đoạn liền, không chồng nhau.
 Hoạt hình thường ít thoại: XEM CÁC KHUNG HÌNH dưới đây (mở bằng Read) để thấy đoạn nào hành động / biểu cảm hay.
@@ -168,9 +183,10 @@ HIGHLIGHT_SEGMENT_NOTE = """
 ## CHẾ ĐỘ LỒNG TIẾNG NHÂN VẬT — CHỌN TÌNH HUỐNG HAY CHO NGƯỜI XEM TIKTOK
 (Chế độ này THAY luật "mỗi video là một đoạn footage liền" ở trên.)
 Mỗi video giữ nguyên hình + thoại của nhân vật (sẽ lồng tiếng sang ngôn ngữ khác). KHÔNG lấy một khúc phim dài liền:
-hãy chọn từng TÌNH HUỐNG ngắn {sit_lo:.0f}–{sit_hi:.0f} giây mà người xem TikTok thấy DÍNH — một màn cãi nhau, một câu
-đùa có cú chốt, một pha bất ngờ / gay cấn, một khoảnh khắc cảm động, một phản ứng buồn cười. Mỗi tình huống có đầu có đuôi
-(bắt đầu ngay trước câu mở màn, kết sau cú chốt / phản ứng), không cắt giữa câu thoại. BỎ hết chỗ rề rà giữa các tình
+hãy chọn từng TÌNH HUỐNG ngắn {sit_lo:.0f}–{sit_hi:.0f} giây mà người xem TikTok thấy DÍNH.
+""" + HOOKY_KINDS + """
+Mỗi tình huống có đầu có đuôi (bắt đầu ngay trước câu mở màn, kết sau cú chốt / phản ứng), không cắt giữa câu thoại;
+một CÂU NÓI HAY thì lấy kèm vài giây bối cảnh trước đó để người xem hiểu vì sao câu đó đắt. BỎ hết chỗ rề rà giữa các tình
 huống: chào hỏi lê thê, đi lại, giới thiệu, chờ đợi, thoại giải thích dài không có hành động.
 - Ghép vài tình huống (thường 4–8) thành MỘT video {min_video_s}–{max_video_s} giây (tổng các tình huống), theo đúng thứ tự
   phim, cùng một mạch / cùng nhân vật để người xem hiểu được mà không cần xem phần khác.
@@ -208,7 +224,7 @@ def make_segments(director: Director, analysis_dir: Path, u, footage: int = 0, r
                  "review_note": (REVIEW_SEGMENT_NOTE if review else HIGHLIGHT_SEGMENT_NOTE).format(
                      min_video_s=cfg.get("min_video_s", 60), max_video_s=cfg.get("max_video_s", 90),
                      sit_lo=sit_lo, sit_hi=sit_hi, frames="\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)")
-                 if review or highlight else "",
+                 if review or highlight else "\n" + HOOKY_KINDS + "\n",  # chia video thường: cũng chọn đoạn hấp dẫn
                  "scenes": "\n".join(f"- {s['start']:.1f}–{s['end']:.1f}" for s in a["scenes"]["scenes"]) or "(không có)",
                  "transcript": format_transcript(
                      [{**s, "text": apply_name_corrections(s["text"], u.name_corrections)} for s in segs],

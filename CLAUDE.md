@@ -159,6 +159,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   huống thì tách lại — `job.data.bgm_ranges`), nhận dạng lại thoại chạy SAU bước duyệt trên `vocals_concat.wav` rồi đổi
   giây về gốc (`to_source_time`); nhật ký báo Demucs chạy GPU hay CPU; `install_gpu_torch.bat` đổi PyTorch của .venv sang
   bản CUDA 12.6 (bản cu128 của PyTorch 2.8 bỏ hỗ trợ GTX 10xx / Pascal — install_omnivoice.bat cũng dùng cu126).
+  **Cập nhật 11/10 ("câu nói hay, hài, gay cấn — cái gì hấp dẫn"):** "đoạn hay" định nghĩa chung `HOOKY_KINDS`
+  (câu nói hay / thoại đắt, hài, gay cấn, bất ngờ, cảm xúc, ấn tượng — cứ hấp dẫn là chọn, ghi loại trong ghi chú) dùng
+  cho mọi bước chọn đoạn: lồng tiếng nhân vật, review phim, chia video dài.
 - Chủ dự án thu voice THEO NHÂN VẬT: mỗi nhân vật một file (đọc hết câu của nhân vật đó, nghỉ ~1 giây) — tool cắt đúng vào
   các câu (`dub_io.split_upload_speaker`); sửa tên nhân vật AI đoán nhầm ngay trên trang voice (`set_speakers`).
 - Âm thanh: tiếng nói gốc tách bỏ bằng Demucs, NHẠC + TIẾNG NỀN GỐC GIỮ NGUYÊN (hạ nhỏ dưới giọng lồng), không thêm

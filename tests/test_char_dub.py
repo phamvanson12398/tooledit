@@ -372,3 +372,20 @@ def test_separate_only_selected_ranges(tmp_path, monkeypatch):
     assert np.array_equal(bgm[int(6 * rate):int(7 * rate)], whole[int(6 * rate):int(7 * rate)])  # không lệch giây
     assert separate.to_source_time(layout[1]["offset"] + 0.5, layout) == 20.5
     assert separate.to_source_time(layout[0]["offset"] + 4.3, layout) is None  # phần đệm / khoảng lặng giữa đoạn
+
+
+@pytest.mark.parametrize("mode", ["highlight", "review", "split"])
+def test_hooky_kinds_in_every_segment_prompt(tmp_path, mode):
+    """Chủ dự án 11/10: "đoạn hay" gồm câu nói hay, hài, gay cấn… — nói chung cái gì hấp dẫn; áp dụng mọi chế độ chọn đoạn."""
+    a = make_analysis(tmp_path, duration=400.0)
+    u = understand(FakeDirector(), a)
+    d = FakeDirector()
+    from app.director.base import DirectorError
+
+    try:
+        make_segments(d, a, u, highlight=mode == "highlight", review=mode == "review")
+    except DirectorError:
+        pass                                   # dữ liệu mẫu có thể sai khuôn — chỉ cần xem đề bài gửi AI
+    prompt = d.calls[0]["prompt"]
+    assert "CÂU NÓI HAY" in prompt and "HÀI HƯỚC" in prompt and "GAY CẤN" in prompt and "DỪNG LƯỚT" in prompt
+    assert "Cứ thấy HẤP DẪN là chọn" in prompt

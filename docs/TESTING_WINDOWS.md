@@ -1,5 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 82 — AI chọn "đoạn hay" rộng hơn: câu nói hay, hài, gay cấn, bất ngờ, cảm xúc… `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.
+2. Tạo job mới (Lồng tiếng nhân vật / Review / Chia video dài). Ở bảng duyệt, ghi chú từng đoạn / tình huống giờ ghi
+   rõ loại: "câu nói hay: …", "hài: …", "gay cấn: …", "bất ngờ: …", "cảm xúc: …".
+3. Kiểm tra có những đoạn chỉ hay vì CÂU THOẠI (không có hành động) — trước đây AI hay bỏ qua loại này.
+
 ## Bước 81 — Tách nhạc nền nhanh hơn: chỉ tách các tình huống đã duyệt + Demucs chạy GPU `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Đóng `start.bat`, `git pull`.
