@@ -21,6 +21,8 @@ File này là bản thiết kế đã được chủ dự án chốt. Đọc to�
 - Dựng **trong CapCut Desktop 9.5.0 bản quốc tế trên Windows** (đã tắt tự động cập nhật). Tool **ghi thẳng file dự án CapCut** (draft), KHÔNG điều khiển chuột/bàn phím.
 - "Đạo diễn" AI lúc chạy tool là **Claude Code chạy local trên máy chủ dự án** (gói Claude Pro, không có API key của bất kỳ AI nào).
 - Voice cho hook: chủ dự án **tự thu tay** bằng Voice Studio (OmniVoice) rồi thả file vào. Tool KHÔNG tích hợp TTS.
+  **Cập nhật 11/10 (chủ dự án yêu cầu):** TÙY CHỌN cho OmniVoice đọc thoại thuyết minh / lồng tiếng (mục 5d) — thu tay vẫn là
+  mặc định; clone giọng chỉ khi chủ dự án tick xác nhận có quyền dùng giọng đó.
 
 ## 2. Nhiệm vụ đầu tiên (bắt buộc làm trước mọi thứ khác)
 
@@ -142,6 +144,15 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   nhạc AI; chưa cài Demucs thì dùng nhạc AI và ghi lý do vào nhật ký. Voice đến đâu ghi CapCut đến đấy như các chế độ khác.
 - Nhận diện nhân vật hiện do AI đoán theo ngữ cảnh, CHƯA dùng nhận diện giọng bằng âm thanh (pyannote / speechbrain cần
   tải model — để sau nếu cần).
+- **Giọng AI bằng OmniVoice (chủ dự án yêu cầu 11/10, tùy chọn — áp dụng cho mọi chế độ có voice thuyết minh):** nút
+  "🤖 Cho OmniVoice đọc" trên trang voice; mỗi nhân vật (`speaker`, không có thì "Người dẫn") một giọng: "Mô tả giọng"
+  (`instruct` — AI đề xuất trong `DubScript.cast`), "OmniVoice tự chọn", hoặc "Clone từ giọng gốc" (3–10 giây cắt từ phần
+  giọng nói Demucs tách ra `analysis/audio/vocals_00.wav`, kèm lời thoại gốc làm `ref_text`) — CHỈ khi tick xác nhận có
+  quyền (`job.data.tts.clone_ok`), không tick thì tự đổi sang mô tả giọng. Mỗi câu đọc vừa khít thời lượng câu gốc
+  (`duration`, `fit_duration` trong `config/tts.yaml`), ghi thẳng `voice/videoNN_dubMM.wav` rồi dựng như voice thu tay.
+  OmniVoice (k2-fsa, Apache-2.0, API đối chiếu mã nguồn 0.2.1) chạy ở tiến trình riêng `app/tts/omnivoice_worker.py` bằng
+  python của môi trường đã cài (`config/tts.yaml → python`, `requirements-tts.txt`); logic phía tool ở `app/tts/voices.py`.
+  Clone khác ngôn ngữ (giọng Nhật → đọc Hàn) sẽ có chút âm sắc tiếng gốc (theo tài liệu OmniVoice).
 
 ## 5c. Chế độ "Phụ đề tiếng Việt" (chủ dự án yêu cầu 08/10)
 

@@ -91,6 +91,25 @@ duyệt, rồi gõ `/exit`. Xong mở lại `start.bat`.
 Nếu `claude` vẫn "not recognized" sau khi mở lại PowerShell: file cài nằm ở
 `%USERPROFILE%\.local\bin\claude.exe`; xem https://code.claude.com/docs/en/troubleshoot-install.
 
+## OmniVoice — giọng AI đọc thoại (TÙY CHỌN)
+
+Dùng khi muốn tool tự đọc thoại thay vì tự thu (nút **🤖 Cho OmniVoice đọc** trên trang voice). OmniVoice
+(https://github.com/k2-fsa/OmniVoice, Apache-2.0) chạy trên máy bạn; có GPU NVIDIA thì nhanh, không có vẫn chạy bằng CPU
+nhưng rất chậm. Cài vào môi trường RIÊNG cho khỏi ảnh hưởng tool:
+
+```powershell
+cd C:\
+py -3.11 -m venv omnivoice-env
+C:\omnivoice-env\Scripts\python -m pip install --upgrade pip
+# Có GPU NVIDIA (kiểm tra CUDA bằng lệnh nvidia-smi); không có GPU thì bỏ phần --extra-index-url:
+C:\omnivoice-env\Scripts\python -m pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128
+C:\omnivoice-env\Scripts\python -m pip install -r <thư mục tool>\requirements-tts.txt
+```
+
+Rồi mở `config\tts.yaml` sửa dòng `python:` thành `C:\omnivoice-env\Scripts\python.exe`. Nếu Voice Studio của bạn đã có
+sẵn môi trường OmniVoice thì trỏ `python:` tới python của môi trường đó cũng được. Lần đầu chạy, OmniVoice tự tải model
+(vài GB) từ HuggingFace — mạng chậm thì đặt biến `HF_ENDPOINT=https://hf-mirror.com` trước khi mở `start.bat`.
+
 ## 6. Dùng hằng ngày
 
 Nhấp đúp **`start.bat`** trong thư mục repo → trình duyệt mở giao diện http://127.0.0.1:8765.

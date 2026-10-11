@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 71 — 🤖 OmniVoice đọc thoại thay bạn (giọng AI, clone giọng nhân vật) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Cài OmniVoice theo docs/SETUP_WINDOWS.md mục "OmniVoice", sửa `python:` trong `config\tts.yaml`.
+   Kiểm tra nhanh: `C:\omnivoice-env\Scripts\python -c "import omnivoice, torch; print(torch.cuda.is_available())"`
+   (True = có GPU, đọc nhanh).
+2. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5. Mở một job đang chờ voice (lồng tiếng nhân vật / đổi ngôn
+   ngữ / review).
+3. Khung **🤖 Hoặc để OmniVoice đọc thay**: mỗi nhân vật đã có sẵn mô tả giọng do AI đề xuất (vd "male, young adult, high
+   pitch") — sửa nếu muốn. Chọn **Clone từ giọng gốc** cho nhân vật nào muốn giống giọng gốc → tick ô xác nhận CÓ QUYỀN.
+4. Bấm **🤖 Cho OmniVoice đọc** (chọn một video hoặc tất cả). Nhật ký hiện "OmniVoice: tải model…", "OmniVoice: 3/40 …";
+   lần đầu tải model mất vài phút.
+5. Xong: mỗi câu đã có voice, tool tự dựng tiếp (video nào đủ voice thì ghi CapCut luôn). Mở draft nghe: mỗi nhân vật một
+   giọng, đọc khớp thời lượng câu gốc. Câu nào không ưng → thu tay đè lên đúng câu đó rồi dựng lại.
+6. Nếu báo "Chưa chạy được OmniVoice": kiểm tra lại đường dẫn `python:` trong `config\tts.yaml` và bước 1.
+
 ## Bước 70 — Chế độ "🎭 Lồng tiếng nhân vật" (Nhật → Hàn, giữ nền gốc) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 0. Cần Demucs để giữ nhạc + tiếng nền gốc (đã cài khi làm "Giữ nhạc nền gốc" — xem docs/SETUP_WINDOWS.md mục Demucs).

@@ -1,0 +1,12 @@
+# GIỌNG AI BẰNG OMNIVOICE (chủ dự án yêu cầu 11/10) — tùy chọn: thay vì tự thu, tool cho OmniVoice đọc thoại.
+# OmniVoice (k2-fsa, giấy phép Apache-2.0, chạy trên máy): https://github.com/k2-fsa/OmniVoice — API đối chiếu mã nguồn
+# bản 0.2.1: OmniVoice.from_pretrained(...).generate(text, language, ref_audio/ref_text | voice_clone_prompt | instruct,
+# duration) → âm thanh 24 kHz. Cài đặt: docs/SETUP_WINDOWS.md mục "OmniVoice".
+python: ""               # python của môi trường đã cài omnivoice (vd C:\omnivoice-env\Scripts\python.exe); "" = python của tool
+model: k2-fsa/OmniVoice  # tên model trên HuggingFace hoặc thư mục đã tải sẵn
+device: auto             # auto = GPU NVIDIA nếu có (cuda:0), không thì CPU (chậm); hoặc ghi cuda:0 / cpu
+num_step: 32             # số bước sinh (16 = nhanh hơn, kém mượt hơn chút)
+fit_duration: true       # đọc vừa khít thời lượng câu thoại gốc (khớp miệng nhân vật)
+min_ref_s: 3.0           # giọng mẫu để clone: 3–10 giây (khuyến nghị của OmniVoice)
+max_ref_s: 10.0
+# Clone giọng: CHỈ dùng khi bạn có quyền với giọng đó (giọng diễn viên lồng tiếng là của họ). Tool bắt tick xác nhận.

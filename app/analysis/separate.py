@@ -32,8 +32,9 @@ def demucs_cmd(audio: Path, out_dir: Path, model: str = "htdemucs", device: str 
 
 
 def separate_bgm(src: Path, dst: Path, *, model: str = "htdemucs", device: str = "auto", ffmpeg_exe: str | None = None,
-                 run=subprocess.run) -> Path:
-    """Ghi nhạc nền (đã bỏ giọng nói) của video src ra dst (.wav). Lỗi → RuntimeError có lời nhắn tiếng Việt."""
+                 run=subprocess.run, vocals_dst: Path | None = None) -> Path:
+    """Ghi nhạc nền (đã bỏ giọng nói) của video src ra dst (.wav). vocals_dst: giữ luôn phần GIỌNG NÓI sạch (làm giọng
+    mẫu cho OmniVoice clone). Lỗi → RuntimeError có lời nhắn tiếng Việt."""
     if not available():
         raise RuntimeError(INSTALL_HINT)
     from app.analysis import ffmpeg
@@ -49,4 +50,7 @@ def separate_bgm(src: Path, dst: Path, *, model: str = "htdemucs", device: str =
             raise RuntimeError(f"Demucs không tách được nhạc nền: {(getattr(r, 'stderr', '') or '')[-400:]}")
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(out), str(dst))
+        voc = tmp / "out" / model / "vocals.wav"
+        if vocals_dst is not None and voc.is_file():
+            shutil.move(str(voc), str(vocals_dst))
     return dst

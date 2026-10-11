@@ -675,6 +675,94 @@ class Runner:
                     out.setdefault(v, []).append((i, max(3, int(rate * (win[2] + delay) * max_speed * 0.95))))
         return out
 
+    # ---------- giọng AI bằng OmniVoice (tùy chọn, chủ dự án yêu cầu 11/10) ----------
+
+    def tts_voices(self, job: Job) -> dict[str, dict]:
+        """Giọng từng nhân vật: đã lưu trong job.data.tts.voices, chưa có thì theo đề xuất `cast` của AI."""
+        from app.tts.voices import default_voices
+
+        return default_voices(self._dub_scripts(job), (job.data.get("tts") or {}).get("voices"))
+
+    def save_tts_voices(self, job: Job, voices: dict[str, dict], clone_ok: bool) -> None:
+        tts = job.data.setdefault("tts", {})
+        tts["voices"] = {k: {"mode": v.get("mode", "auto") if v.get("mode") in ("auto", "design", "clone") else "auto",
+                             "instruct": (v.get("instruct") or "").strip(), "note_vi": v.get("note_vi", "")}
+                         for k, v in voices.items()}
+        tts["clone_ok"] = bool(clone_ok)
+        job.save(self.jobs_root)
+
+    def tts_generate(self, job: Job, video_index: int | None = None, only_missing: bool = True) -> int:
+        """🤖 Cho OmniVoice đọc thoại: tạo voice/videoNN_dubMM.wav cho các câu (mặc định câu còn thiếu voice), mỗi nhân
+        vật một giọng, đọc vừa thời lượng câu gốc. Trả số câu đã tạo; xong thì job chạy tiếp như khi tự thu đủ voice."""
+        from app.planner import dub_io
+        from app.tts import voices as ov
+
+        cfg = config.load("tts") or {}
+        d, analysis, _ = self._paths(job)
+        scripts = self._dub_scripts(job)
+        vids = [v for v in self.videos(job) if v["index"] in scripts and (video_index is None or v["index"] == video_index)]
+        voices = self.tts_voices(job)
+        clone_ok = bool((job.data.get("tts") or {}).get("clone_ok"))
+        items, used = [], set()
+        for v in vids:
+            i, script = v["index"], scripts[v["index"]]
+            only = ({n for n in range(1, len(script.lines) + 1) if not dub_io.find_line_voice(d, i, n)}
+                    if only_missing else None)
+            lang = self._u_for(job, v).language
+            got = ov.build_items(script, i, d / "voice", lang, dub_io.windows_for(d, i, script),
+                                 bool(cfg.get("fit_duration", True)), only)
+            items += got
+            used |= {it["voice"] for it in got}
+        if not items:
+            self.log("OmniVoice: không còn câu nào thiếu voice.")
+            return 0
+        req_voices = {}
+        audio_src = None
+        for name in sorted(used):
+            v = dict(voices.get(name) or {"mode": "auto"})
+            if v.get("mode") == "clone":
+                if not clone_ok:
+                    self.log(f"🎭 {name}: chưa tick xác nhận quyền dùng giọng — không clone, dùng giọng mô tả / tự chọn.")
+                    v["mode"] = "design" if v.get("instruct") else "auto"
+                else:
+                    if audio_src is None:  # giọng nói sạch (Demucs) làm mẫu; chưa tách được thì dùng âm thanh đã lọc ồn
+                        self._bgm(job, analysis)
+                        voc = analysis / "audio" / "vocals_00.wav"
+                        audio_src = voc if voc.is_file() else analysis / "audio" / "clean_00.wav"
+                    lines = [ln for s in scripts.values() for ln in s.lines]
+                    span = ov.pick_reference(lines, name, float(cfg.get("min_ref_s", 3.0)), float(cfg.get("max_ref_s", 10.0)))
+                    if span is None or not audio_src.is_file():
+                        self.log(f"🎭 {name}: không tìm được đoạn giọng gốc để clone — dùng giọng mô tả / tự chọn.")
+                        v["mode"] = "design" if v.get("instruct") else "auto"
+                    else:
+                        safe = "".join(ch for ch in name if ch.isalnum())[:20] or "nv"
+                        ref = ov.cut_reference(audio_src, span[0], span[1], d / "voice" / "refs" / f"{safe}.wav")
+                        from app.director.tasks import load_analysis
+
+                        segs = load_analysis(analysis)["transcript"].get("segments", [])
+                        v.update({"ref_audio": str(ref), "ref_text": ov.ref_text(segs, *span)})
+                        self.log(f"🎭 {name}: clone từ giọng gốc {span[0]:.1f}–{span[1]:.1f}s.")
+            req_voices[name] = v
+        request = {"model": cfg.get("model", "k2-fsa/OmniVoice"), "device": str(cfg.get("device", "auto")),
+                   "num_step": int(cfg.get("num_step", 32)), "voices": req_voices, "items": items}
+        self.log(f"🤖 OmniVoice đọc {len(items)} câu ({len(used)} giọng)… lần đầu tải model có thể lâu.")
+        run = getattr(self, "_tts_run", None) or ov.run_worker
+        from app.jobs.limits import group_slot
+
+        def on_line(line: str) -> None:
+            if line.startswith(("PROGRESS", "INFO", "ERROR")):
+                self.log(f"OmniVoice: {line.split(' ', 1)[-1]}")
+
+        with group_slot("gpu", on_wait=lambda what: self.log(f"Đang đợi lượt {what} để chạy OmniVoice…")):
+            run(request, d / "voice" / "tts_request.json", cfg, on_line)
+        job.data.setdefault("tts", {})["last"] = {"items": len(items), "video": video_index}
+        job.data.pop("dub_skip", None)
+        if job.step == "dub_voice":
+            job.status = Status.pending
+        job.save(self.jobs_root)
+        self.log(f"✅ OmniVoice đã đọc xong {len(items)} câu — tool dựng tiếp.")
+        return len(items)
+
     def rewrite_review(self, job: Job, video_index: int, feedback: str) -> None:
         """Review phim — nút "✍️ Viết lại theo góp ý": AI viết lại bài lời đọc của một video theo đúng góp ý của chủ dự
         án (kèm bản trước), voice cũ của video đó cất thành *_cu, job quay về chờ đọc lại cả bài."""
@@ -790,7 +878,7 @@ class Runner:
             with group_slot("gpu", on_wait=lambda what: self.log(f"Đang đợi lượt {what} để tách nhạc nền…")):
                 self.log("Tách nhạc nền khỏi giọng nói của video gốc (Demucs, có thể mất vài phút)…")
                 separate_bgm(Path(job.footage[0]), out, model=bcfg.get("model", "htdemucs"),
-                             device=str(bcfg.get("device", "auto")))
+                             device=str(bcfg.get("device", "auto")), vocals_dst=analysis / "audio" / "vocals_00.wav")
         except Exception as exc:
             self.log(f"Không giữ được nhạc nền gốc — dùng nhạc AI chọn thay thế. Lý do: {exc}")
             return None

@@ -12,7 +12,14 @@ phụ đề chính là các câu này.
   nhớ: "Cậu bé áo đỏ", "Ông chủ", "Người dẫn chuyện".
 - Một câu gốc có 2 người nói xen nhau thì TÁCH thành 2 câu, mỗi câu một `speaker`.
 
-## 2. Dịch thoại
+## 2. Giọng từng nhân vật (`cast`)
+Với MỖI nhân vật có trong `speaker`, thêm một phần tử `cast`: `speaker` (đúng tên), `instruct` = mô tả giọng cho máy đọc
+OmniVoice bằng thuộc tính TIẾNG ANH cách nhau dấu phẩy, chỉ chọn trong: male / female; child / teenager / young adult /
+middle-aged / elderly; very low pitch / low pitch / moderate pitch / high pitch / very high pitch; whisper (khi nhân vật
+thì thầm) — vd "male, young adult, high pitch"; `note_vi` = chất giọng / tính cách (tiếng Việt, ngắn) để chủ dự án chọn
+giọng khi thu tay.
+
+## 3. Dịch thoại
 - Mỗi phần tử `lines` = một câu thoại gốc: `source_start`–`source_end` là giây GỐC của câu đó (lấy theo lời thoại bên
   dưới), nằm gọn trong MỘT clip được giữ, theo thứ tự, không chồng nhau — giọng lồng sẽ đặt đúng lúc nhân vật mở miệng.
 - Dịch thành văn NÓI tự nhiên của người bản xứ {{market}}, ĐÚNG TÍNH CÁCH từng nhân vật (trẻ con nói kiểu trẻ con, người

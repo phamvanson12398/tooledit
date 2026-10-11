@@ -563,12 +563,21 @@ class DubShorten(BaseModel):
     lines: list[ShortLine] = Field(min_length=1)
 
 
+class CastVoice(BaseModel):
+    speaker: str = Field(description="tên nhân vật, đúng như trong `speaker` của các câu")
+    instruct: str = Field(description="mô tả giọng cho OmniVoice bằng thuộc tính tiếng Anh, cách nhau dấu phẩy: "
+                                      "male/female, child/teenager/young adult/middle-aged/elderly, "
+                                      "very low pitch/low pitch/moderate pitch/high pitch/very high pitch, whisper")
+    note_vi: str = Field(default="", description="tính cách / chất giọng nhân vật (tiếng Việt, ngắn)")
+
+
 class DubScript(BaseModel):
     video_index: int = Field(ge=1)
     lines: list[DubLine] = Field(min_length=1)
     editor_notes: str
     story_vi: str = Field(default="", description="(review phim) dàn ý CÂU CHUYỆN bằng tiếng Việt: mở đầu – mâu thuẫn – "
                                                   "cao trào – kết, viết TRƯỚC rồi mới viết lời")
+    cast: list[CastVoice] = Field(default_factory=list, description="(lồng tiếng nhân vật) giọng đề xuất cho mỗi nhân vật")
 
 
 # ---------------- Phụ đề tiếng Việt (chế độ "xem hiểu video nước ngoài") ----------------

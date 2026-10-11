@@ -1,0 +1,4 @@
+# Giọng AI bằng OmniVoice (TÙY CHỌN — chủ dự án yêu cầu 11/10). Nên cài vào MÔI TRƯỜNG RIÊNG (xem docs/SETUP_WINDOWS.md
+# mục "OmniVoice"): cài PyTorch hợp với GPU trước, rồi:  pip install -r requirements-tts.txt
+# OmniVoice: https://github.com/k2-fsa/OmniVoice — giấy phép Apache-2.0. API đã đối chiếu mã nguồn bản 0.2.1.
+omnivoice==0.2.1

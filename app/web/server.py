@@ -688,6 +688,26 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         dub_io.write_dub_scripts(d, scripts, {i: dub_io.windows_for(d, i, s) for i, s in scripts.items()})
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/tts")
+    async def tts_generate(job_id: str, request: Request):
+        """Lưu giọng từng nhân vật rồi cho OmniVoice đọc (chạy ở worker, xong tự dựng tiếp)."""
+        form = await request.form()
+        voices = {}
+        for k in [x[5:] for x in form.keys() if x.startswith("name_")]:
+            voices[str(form.get(f"name_{k}"))] = {"mode": str(form.get(f"mode_{k}", "auto")),
+                                                  "instruct": str(form.get(f"instruct_{k}", ""))}
+        clone_ok = bool(form.get("clone_ok"))
+        vid = str(form.get("video", "all"))
+        video = int(vid) if vid.isdigit() else None
+        only_missing = not form.get("overwrite")
+
+        def action(runner, job):
+            runner.save_tts_voices(job, voices, clone_ok)
+            runner.tts_generate(job, video, only_missing)
+
+        worker.start(job_id, action=action)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/review-feedback")
     def review_feedback(job_id: str, video: int = Form(...), feedback: str = Form("")):
         worker.start(job_id, action=lambda runner, job: runner.rewrite_review(job, video, feedback))
@@ -1329,6 +1349,51 @@ def _segments_panel(job: Job, d: Path) -> str:
             + "<p><button type='submit' class='btn'>✅ Xác nhận và dựng tiếp</button></p></form></div>")
 
 
+def _tts_card(job: Job, d: Path) -> str:
+    """🤖 Giọng AI bằng OmniVoice (tùy chọn, chủ dự án yêu cầu 11/10): chọn giọng từng nhân vật rồi cho OmniVoice đọc."""
+    from app.planner import dub_io
+    from app.tts.voices import default_voices
+
+    esc = html.escape
+    scripts = {}
+    for p in sorted((d / "plan").glob("dub_video*.json")):
+        v = int(p.stem.replace("dub_video", ""))
+        s = dub_io.load_dub(d, v)
+        if s is not None:
+            scripts[v] = s
+    if not scripts:
+        return ""
+    tts = job.data.get("tts") or {}
+    voices = default_voices(scripts, tts.get("voices"))
+    rows = []
+    for k, (name, v) in enumerate(voices.items()):
+        sel = "".join(f"<option value='{m}'{' selected' if v.get('mode') == m else ''}>{lbl}</option>"
+                      for m, lbl in (("design", "Mô tả giọng"), ("auto", "OmniVoice tự chọn"),
+                                     ("clone", "Clone từ giọng gốc (cần quyền)")))
+        rows.append(f"<tr><td><b>🎭 {esc(name)}</b><input type='hidden' name='name_{k}' value='{esc(name)}'>"
+                    f"<br><span class='muted'>{esc(v.get('note_vi', ''))}</span></td>"
+                    f"<td><select name='mode_{k}'>{sel}</select></td>"
+                    f"<td><input type='text' name='instruct_{k}' value='{esc(v.get('instruct', ''))}' style='width:16em' "
+                    f"placeholder='vd male, young adult, high pitch'></td></tr>")
+    vid_opts = "<option value='all'>Tất cả video</option>" + "".join(
+        f"<option value='{v}'>Video {v:02d}</option>" for v in scripts)
+    last = tts.get("last")
+    return (f"<div class='card' style='background:#f3fbf6'><h2>🤖 Hoặc để OmniVoice đọc thay (giọng AI)</h2>"
+            f"<p class='muted'>Tool cho OmniVoice (chạy trên máy bạn) đọc từng câu, mỗi nhân vật một giọng, đọc vừa khít thời "
+            f"lượng câu thoại gốc. Cần cài OmniVoice một lần (docs/SETUP_WINDOWS.md mục OmniVoice). Không ưng câu nào thì "
+            f"thu tay đè lên câu đó như thường.</p>"
+            f"<form method='post' action='/jobs/{job.job_id}/tts'>"
+            f"<table><tr><th>Nhân vật</th><th>Cách tạo giọng</th><th>Mô tả giọng (tiếng Anh)</th></tr>{''.join(rows)}</table>"
+            f"<label class='tg'><input type='checkbox' name='clone_ok'{' checked' if tts.get('clone_ok') else ''}> Tôi xác "
+            f"nhận CÓ QUYỀN dùng giọng gốc để clone (giọng diễn viên lồng tiếng là của họ — chỉ clone khi khách / chủ sở "
+            f"hữu cho phép)</label>"
+            f"<p>Đọc cho: <select name='video'>{vid_opts}</select> "
+            f"<label><input type='checkbox' name='overwrite'> Đọc lại cả câu đã có voice</label></p>"
+            f"<button type='submit' class='btn small'>🤖 Cho OmniVoice đọc</button>"
+            + (f" <span class='muted'>Lần trước đã đọc {last.get('items', 0)} câu.</span>" if last else "")
+            + "</form></div>")
+
+
 def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
     """Chờ voice thuyết minh: kịch bản từng câu + ô tải nhiều file cho từng video + nút bỏ qua."""
     from app.planner import dub_io
@@ -1441,6 +1506,7 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
             f"tool tự cắt ra {len(script.lines)} câu)</span><br>"
             f"<input type='file' name='file' accept='.wav,.mp3,.m4a,audio/*' required>"
             f"<br><button type='submit' class='btn small'>✂️ Tải lên và tự cắt</button></form>")
+    forms.append(_tts_card(job, d))
     return (f"<div class='card'><h2>🎙️ Thu voice thuyết minh</h2><p>Thu từng câu bằng Voice Studio, đặt tên file đúng như "
             "cột File (vd <b>video01_dub01.wav</b>) rồi chọn tất cả tải lên một lượt. Nếu file đặt tên kiểu 1.wav, 2.wav… "
             "tool tự xếp theo thứ tự vào các câu còn thiếu. Đủ file là tool tự dựng tiếp.</p>"
