@@ -297,21 +297,78 @@ def test_retranscribe_on_separated_vocals(tmp_path, monkeypatch):
     jobs = tmp_path / "jobs"
     job = Job.create(jobs, [Path("C:/f/anime.mp4")], JobOptions(char_dub=True, target_language="ko"), job_id="rv")
     a = make_analysis(jobs / "rv", duration=400.0)
-    (a / "audio").mkdir()
-    write_wav(a / "audio" / "vocals_00.wav", np.zeros(4800, dtype=np.int16))
+    _talk(a)                                   # lời thoại cũ: 4 câu trong 2–19s (nằm trong tình huống 1–19s)
+    job.data["videos"] = [{"index": 1, "start": 1.0, "end": 45.0,
+                           "moments": [{"start": 1.0, "end": 19.0}, {"start": 30.0, "end": 45.0}]}]
     r = make_runner(tmp_path, jobs)
     logs = []
     r.log = logs.append
-    monkeypatch.setattr(type(r), "_bgm", lambda self, job, analysis: analysis / "audio" / "bgm_00.wav")
+
+    def fake_bgm(self, job, analysis):         # như separate_ranges: file giọng nối liền + bố cục
+        (analysis / "audio").mkdir(exist_ok=True)
+        write_wav(analysis / "audio" / "vocals_concat.wav", np.zeros(4800, dtype=np.int16))
+        job.data["bgm_layout"] = [{"start": 1.0, "end": 19.0, "offset": 1.0},
+                                  {"start": 30.0, "end": 45.0, "offset": 21.6}]
+        return analysis / "audio" / "bgm_00.wav"
+
+    monkeypatch.setattr(type(r), "_bgm", fake_bgm)
     got = []
+    concat_segs = [(1.5, 2.0, "え？"), (3.0, 5.0, "台詞A"), (8.0, 9.0, "うわっ"), (12.0, 14.0, "台詞B"),
+                   (19.9, 20.4, "đệm"), (22.0, 24.0, "台詞C")]   # 19.9–20.4 = khoảng lặng giữa 2 đoạn → bỏ
     monkeypatch.setattr(type(r), "_transcribe", lambda self, audio, options, language: got.append((audio, language))
-                        or Transcript(language="ja", language_probability=1.0, duration=400.0, model="m",
-                                      device="cpu", segments=[Segment(start=float(k), end=k + 1.0, text=f"台詞{k}")
-                                                              for k in range(1, 6)]))
+                        or Transcript(language="ja", language_probability=1.0, duration=40.0, model="m",
+                                      device="cpu", segments=[Segment(start=x, end=y, text=t)
+                                                              for x, y, t in concat_segs]))
     r._vocals_transcript(job, a, "ja")
-    data = json.loads((a / "transcript.json").read_text(encoding="utf-8"))
-    assert len(data[0]["segments"]) == 5 and got[0][0].name == "vocals_00.wav" and got[0][1] == "ja"
-    assert len(json.loads((a / "transcript_mix.json").read_text(encoding="utf-8"))[0]["segments"]) == 1  # bản cũ
-    assert any("1 → 5 câu" in m for m in logs) and job.data["vocals_transcript"] == "done"
+    segs = json.loads((a / "transcript.json").read_text(encoding="utf-8"))[0]["segments"]
+    assert got[0][0].name == "vocals_concat.wav" and got[0][1] == "ja"
+    assert [(sg["start"], sg["end"], sg["text"]) for sg in segs] == [
+        (1.5, 2.0, "え？"), (3.0, 5.0, "台詞A"), (8.0, 9.0, "うわっ"), (12.0, 14.0, "台詞B"), (30.4, 32.4, "台詞C")]
+    assert len(json.loads((a / "transcript_mix.json").read_text(encoding="utf-8"))[0]["segments"]) == 4  # bản cũ
+    assert any("4 → 5 câu" in m for m in logs)
     r._vocals_transcript(job, a, "ja")
-    assert len(got) == 1                                                       # làm một lần thôi
+    assert len(got) == 1                                                       # cùng tình huống → làm một lần thôi
+    job.data["videos"][0]["moments"].append({"start": 60.0, "end": 70.0})
+    r._vocals_transcript(job, a, "ja")
+    assert len(got) == 2                                                       # đổi tình huống → làm lại
+
+
+def test_separate_only_selected_ranges(tmp_path, monkeypatch):
+    """Chủ dự án 11/10: tách nhạc cả phim "lâu cực" → chỉ tách các tình huống đã duyệt, đặt lại đúng giây gốc."""
+    import shutil
+    import wave
+
+    from app.analysis import separate
+
+    ff = pytest.importorskip("imageio_ffmpeg").get_ffmpeg_exe()
+    rate = separate.RATE
+    t = np.arange(rate * 30) / rate
+    src_pcm = (np.sin(2 * np.pi * 440 * t) * 8000).astype(np.int16)
+    src = tmp_path / "phim.wav"
+    separate._write_stereo(src, np.stack([src_pcm, src_pcm], axis=1))
+    monkeypatch.setattr(separate, "available", lambda: True)
+    seen = []
+
+    def fake_demucs(cmd, **kw):  # "Demucs" giả: chép nguyên vào cả 2 phần
+        joined, out = Path(cmd[-1]), Path(cmd[cmd.index("-o") + 1]) / "htdemucs"
+        out.mkdir(parents=True)
+        with wave.open(str(joined)) as w:
+            seen.append(w.getnframes() / rate)
+        shutil.copyfile(joined, out / "no_vocals.wav")
+        shutil.copyfile(joined, out / "vocals.wav")
+        return type("R", (), {"returncode": 0, "stderr": ""})()
+
+    layout = separate.separate_ranges(src, [(5.0, 8.0), (20.0, 22.0), (8.5, 9.0)], tmp_path / "bgm.wav",
+                                      tmp_path / "voc.wav", concat_vocals_dst=tmp_path / "concat.wav", total_s=30.0,
+                                      ffmpeg_exe=ff, run=fake_demucs, pad_s=1.0, gap_s=0.5)
+    assert [(x["start"], x["end"]) for x in layout] == [(5.0, 9.0), (20.0, 22.0)]  # đoạn sát nhau được gộp
+    assert seen[0] < 12.0                                                    # chỉ ~10 giây được tách, không phải 30
+    bgm = separate._read_stereo(tmp_path / "bgm.wav")
+    assert abs(len(bgm) / rate - 30.0) < 0.01                                # dài bằng video
+    loud = lambda a, b: float(np.abs(bgm[int(a * rate):int(b * rate)]).mean())  # noqa: E731
+    assert loud(5.2, 8.8) > 2000 and loud(20.2, 21.8) > 2000                 # đúng giây gốc có tiếng
+    assert loud(0, 4.9) == 0 and loud(9.1, 19.9) == 0 and loud(22.1, 30) == 0  # ngoài tình huống: im lặng
+    whole = np.stack([src_pcm, src_pcm], 1)
+    assert np.array_equal(bgm[int(6 * rate):int(7 * rate)], whole[int(6 * rate):int(7 * rate)])  # không lệch giây
+    assert separate.to_source_time(layout[1]["offset"] + 0.5, layout) == 20.5
+    assert separate.to_source_time(layout[0]["offset"] + 4.3, layout) is None  # phần đệm / khoảng lặng giữa đoạn

@@ -154,6 +154,11 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   nhận dạng LẠI lời thoại trên `vocals_00.wav` với bộ lọc giọng nói nhạy hơn (`whisper_options` trong
   `config/char_dub.yaml`: VAD threshold 0.3, lặng 500 ms, không bám câu trước — đối chiếu faster-whisper 1.2.1;
   `Runner._vocals_transcript`, bản cũ ở `transcript_mix.json`).
+  **Cập nhật 11/10 ("tách nhạc nền lâu cực"):** Demucs CHỈ tách các tình huống đã duyệt (`separate_ranges`: nối các đoạn
+  ± 1s đệm thành một file, tách một lần, đặt lại đúng giây gốc vào `bgm_00.wav` / `vocals_00.wav` dài bằng video; đổi tình
+  huống thì tách lại — `job.data.bgm_ranges`), nhận dạng lại thoại chạy SAU bước duyệt trên `vocals_concat.wav` rồi đổi
+  giây về gốc (`to_source_time`); nhật ký báo Demucs chạy GPU hay CPU; `install_gpu_torch.bat` đổi PyTorch của .venv sang
+  bản CUDA 12.6 (bản cu128 của PyTorch 2.8 bỏ hỗ trợ GTX 10xx / Pascal — install_omnivoice.bat cũng dùng cu126).
 - Chủ dự án thu voice THEO NHÂN VẬT: mỗi nhân vật một file (đọc hết câu của nhân vật đó, nghỉ ~1 giây) — tool cắt đúng vào
   các câu (`dub_io.split_upload_speaker`); sửa tên nhân vật AI đoán nhầm ngay trên trang voice (`set_speakers`).
 - Âm thanh: tiếng nói gốc tách bỏ bằng Demucs, NHẠC + TIẾNG NỀN GỐC GIỮ NGUYÊN (hạ nhỏ dưới giọng lồng), không thêm

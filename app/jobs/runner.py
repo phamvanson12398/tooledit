@@ -474,8 +474,6 @@ class Runner:
         if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
             self.log("Đã có kết quả chia video, dùng lại.")
             return
-        if job.options.char_dub:  # bắt lời thoại gốc đầy đủ hơn trước khi chọn tình huống / dịch
-            self._vocals_transcript(job, analysis, u.source_language)
         sp = make_segments_long(self.director, analysis, u, review=job.options.review,
                                 highlight=job.options.char_dub, log=self.log)
         videos = [{"index": i, "start": v.start, "end": v.end, "title_vi": v.title_vi, "summary_vi": v.summary_vi,
@@ -635,6 +633,10 @@ class Runner:
         if not self._dubbing(job):
             return
         d, analysis, plan_dir = self._paths(job)
+
+        if job.options.char_dub and any(dub_io.load_dub(d, v["index"]) is None for v in self.videos(job)):
+            # bắt lời thoại gốc đầy đủ hơn trước khi dịch — chỉ trên các tình huống đã duyệt (nhanh)
+            self._vocals_transcript(job, analysis, self._understanding(job).source_language)
 
         def one(v):  # mỗi video một lượt hỏi AI — nhiều video thì hỏi song song (app/jobs/parallel.py)
             i = v["index"]
@@ -906,16 +908,20 @@ class Runner:
 
     def _vocals_transcript(self, job: Job, analysis: Path, language: str | None) -> None:
         """Lồng tiếng nhân vật (chủ dự án 11/10: "nhiều khi không bắt được tiếng gốc"): nhận dạng LẠI lời thoại trên phần
-        giọng nói Demucs đã tách khỏi nhạc, bộ lọc giọng nói nhạy hơn (config/char_dub.yaml → whisper_options). Lời thoại
+        giọng nói Demucs đã tách khỏi nhạc, bộ lọc giọng nói nhạy hơn (config/char_dub.yaml → whisper_options) — CHỈ trên
+        các tình huống đã duyệt (file giọng nói nối liền, ngắn → nhanh). Câu mới thay câu cũ trong các đoạn đó; lời thoại
         cũ cất ở analysis/transcript_mix.json. Không tách được giọng / lỗi → giữ lời thoại cũ, ghi lý do."""
+        from app.analysis.separate import to_source_time
+
         ccfg = config.load("char_dub")
-        if job.data.get("vocals_transcript") or not ccfg.get("vocals_transcribe", True):
+        sig = json.dumps(self._bgm_ranges(job))
+        if job.data.get("vocals_transcript") == sig or not ccfg.get("vocals_transcribe", True):
             return
-        job.data["vocals_transcript"] = "skipped"
         if self._bgm(job, analysis) is None:
             return
-        voc = analysis / "audio" / "vocals_00.wav"
-        if not voc.is_file():
+        concat = analysis / "audio" / "vocals_concat.wav"
+        layout = job.data.get("bgm_layout") or []
+        if not concat.is_file() or not layout:
             self.log("Chưa có phần giọng nói tách riêng — giữ lời thoại đã nhận dạng.")
             return
         from app.jobs.limits import group_slot
@@ -923,22 +929,38 @@ class Runner:
         try:
             with group_slot("gpu", on_wait=lambda what: self.log(f"Đang đợi lượt {what} để nhận dạng lại thoại…")):
                 self.log("Nhận dạng lại lời thoại trên giọng nói đã tách nhạc (bắt câu ngắn / câu nói chen nhạc)…")
-                tr = self._transcribe(voc, ccfg.get("whisper_options") or {}, language)
+                tr = self._transcribe(concat, ccfg.get("whisper_options") or {}, language)
         except Exception as exc:
             self.log(f"Không nhận dạng lại được lời thoại — giữ bản cũ. Lý do: {exc}")
             return
+        new_segs = []
+        for sg in tr.segments:  # giây trong file nối → giây gốc của video
+            a, b = to_source_time(sg.start, layout), to_source_time(sg.end, layout)
+            if a is None and b is None:
+                continue
+            a = b - (sg.end - sg.start) if a is None else a
+            b = a + (sg.end - sg.start) if b is None else b
+            words = [w.model_copy(update={"start": ws, "end": we}) for w in sg.words
+                     if (ws := to_source_time(w.start, layout)) is not None and (we := to_source_time(w.end, layout))
+                     is not None]
+            new_segs.append({**sg.model_dump(), "start": a, "end": b, "words": [w.model_dump() for w in words]})
         path = analysis / "transcript.json"
         data = json.loads(path.read_text(encoding="utf-8"))
         backup = analysis / "transcript_mix.json"
         if not backup.is_file():
             backup.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-        old = next((t for t in data if t.get("footage", 0) == 0), None)
-        before = len((old or {}).get("segments") or [])
-        new = {"footage": 0, **tr.model_dump()}
-        data = [new if t is old else t for t in data] if old is not None else [new, *data]
+        entry = next((t for t in data if t.get("footage", 0) == 0), None)
+        if entry is None:
+            entry = {"footage": 0, "language": tr.language, "segments": []}
+            data.insert(0, entry)
+        inside = lambda sg: any(x["start"] <= (sg["start"] + sg["end"]) / 2 <= x["end"] for x in layout)  # noqa: E731
+        old = [sg for sg in entry.get("segments") or [] if inside(sg)]
+        entry["segments"] = sorted([sg for sg in entry.get("segments") or [] if not inside(sg)] + new_segs,
+                                   key=lambda sg: sg["start"])
         path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-        job.data["vocals_transcript"] = "done"
-        self.log(f"Lời thoại gốc: {before} → {len(tr.segments)} câu sau khi nhận dạng lại trên giọng đã tách nhạc.")
+        job.data["vocals_transcript"] = sig
+        self.log(f"Lời thoại gốc trong các tình huống: {len(old)} → {len(new_segs)} câu sau khi nhận dạng lại trên giọng "
+                 "đã tách nhạc.")
 
     def _transcribe(self, audio: Path, options: dict, language: str | None):
         from app.analysis.transcribe import transcribe
@@ -952,24 +974,52 @@ class Runner:
         voc = analysis / "audio" / "vocals_00.wav"
         return voc.resolve() if voc.is_file() else None
 
+    def _bgm_ranges(self, job: Job) -> list[list[float]]:
+        """Lồng tiếng nhân vật: các đoạn cần tách nhạc = các tình huống đã duyệt (hoặc cả đoạn của video). Rỗng = cả video."""
+        if not job.options.char_dub:
+            return []
+        out = []
+        for v in job.data.get("videos") or []:
+            ms = v.get("moments") or [{"start": v["start"], "end": v["end"]}]
+            out += [[round(float(m["start"]), 2), round(float(m["end"]), 2)] for m in ms]
+        return sorted(out)
+
     def _bgm(self, job: Job, analysis: Path) -> Path | None:
-        """Nhạc nền gốc đã tách giọng nói (lưu analysis/audio/bgm_00.wav, tách một lần). Không tách được → None
-        (dùng nhạc AI chọn như thường) và ghi lý do vào nhật ký."""
+        """Nhạc nền gốc đã tách giọng nói (analysis/audio/bgm_00.wav, tách một lần; giọng nói ở vocals_00.wav).
+        Lồng tiếng nhân vật: CHỈ tách ở các tình huống đã duyệt (chủ dự án 11/10: tách cả phim "lâu cực") — đổi tình
+        huống thì tách lại. Không tách được → None (dùng nhạc AI chọn như thường) và ghi lý do vào nhật ký."""
         out = analysis / "audio" / "bgm_00.wav"
-        if out.is_file():
+        ranges = self._bgm_ranges(job)
+        if out.is_file() and job.data.get("bgm_ranges", []) == ranges:
             return out.resolve()
-        from app.analysis.separate import separate_bgm
+        from app.analysis.separate import separate_bgm, separate_ranges, torch_device
         from app.jobs.limits import group_slot
 
         bcfg = (config.load("dub").get("voice_only") or {}).get("keep_bgm") or {}
+        dev = torch_device()
+        where = ("GPU" if dev == "cuda" else
+                 "CPU — CHẬM: nhấp đúp install_gpu_torch.bat để dùng GPU" if dev == "cpu" else "?")
         try:
             with group_slot("gpu", on_wait=lambda what: self.log(f"Đang đợi lượt {what} để tách nhạc nền…")):
-                self.log("Tách nhạc nền khỏi giọng nói của video gốc (Demucs, có thể mất vài phút)…")
-                separate_bgm(Path(job.footage[0]), out, model=bcfg.get("model", "htdemucs"),
-                             device=str(bcfg.get("device", "auto")), vocals_dst=analysis / "audio" / "vocals_00.wav")
+                if ranges:
+                    secs = sum(b - a for a, b in ranges)
+                    self.log(f"Tách nhạc nền khỏi giọng nói — chỉ {len(ranges)} tình huống đã duyệt (~{secs / 60:.1f} "
+                             f"phút), Demucs chạy bằng {where}…")
+                    layout = separate_ranges(Path(job.footage[0]), [tuple(r) for r in ranges], out,
+                                             analysis / "audio" / "vocals_00.wav",
+                                             concat_vocals_dst=analysis / "audio" / "vocals_concat.wav",
+                                             total_s=self._footage_size(job)[2] or max(b for _, b in ranges) + 1,
+                                             model=bcfg.get("model", "htdemucs"), device=str(bcfg.get("device", "auto")))
+                    job.data["bgm_layout"] = layout
+                else:
+                    self.log(f"Tách nhạc nền khỏi giọng nói của video gốc (Demucs chạy bằng {where}, có thể mất vài "
+                             "phút)…")
+                    separate_bgm(Path(job.footage[0]), out, model=bcfg.get("model", "htdemucs"),
+                                 device=str(bcfg.get("device", "auto")), vocals_dst=analysis / "audio" / "vocals_00.wav")
         except Exception as exc:
             self.log(f"Không giữ được nhạc nền gốc — dùng nhạc AI chọn thay thế. Lý do: {exc}")
             return None
+        job.data["bgm_ranges"] = ranges
         self.log("Đã tách xong nhạc nền gốc.")
         return out.resolve()
 

@@ -132,8 +132,9 @@ Cách tự cài bằng tay (khi muốn dùng môi trường OmniVoice có sẵn,
 cd C:\
 py -3.11 -m venv omnivoice-env
 C:\omnivoice-env\Scripts\python -m pip install --upgrade pip
-# Có GPU NVIDIA (kiểm tra CUDA bằng lệnh nvidia-smi); không có GPU thì bỏ phần +cu128 và --extra-index-url:
-C:\omnivoice-env\Scripts\python -m pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128
+# Có GPU NVIDIA (kiểm tra bằng lệnh nvidia-smi) — dùng bản cu126: bản cu128 của PyTorch 2.8 KHÔNG hỗ trợ card GTX 10xx
+# (Pascal) như 1080 Ti. Không có GPU thì bỏ phần +cu126 và --extra-index-url:
+C:\omnivoice-env\Scripts\python -m pip install torch==2.8.0+cu126 torchaudio==2.8.0+cu126 --extra-index-url https://download.pytorch.org/whl/cu126
 C:\omnivoice-env\Scripts\python -m pip install -r <thư mục tool>\requirements-tts.txt
 ```
 
@@ -161,6 +162,11 @@ nói khỏi nhạc ngay trên máy, kéo theo PyTorch (~1–2 GB). Mở PowerShe
 .\.venv\Scripts\python -m pip install -r requirements-bgm.txt
 .\.venv\Scripts\python -c "import demucs; print('Demucs OK')"
 ```
+
+**Cho Demucs chạy bằng GPU (nhanh hơn nhiều lần):** `pip install demucs` trên Windows mặc định kéo về PyTorch bản CHỈ CPU.
+Đóng `start.bat`, nhấp đúp **`install_gpu_torch.bat`** — đổi PyTorch của tool sang bản GPU CUDA 12.6 (giữ nguyên số phiên
+bản; bản CUDA 12.8 của PyTorch 2.8 không hỗ trợ card GTX 10xx như 1080 Ti), cuối cùng phải thấy `GPU chay duoc: ...`.
+Nhật ký job ghi rõ "Demucs chạy bằng GPU" hay "bằng CPU — CHẬM".
 
 Lần tách đầu tiên Demucs tự tải model (~80 MB, cần internet). Máy có GPU NVIDIA thì nhanh; không có GPU vẫn chạy bằng
 CPU (video 1–2 phút mất vài phút). Đổi `device: cpu` trong `config\dub.yaml → voice_only → keep_bgm` nếu GPU báo hết bộ nhớ.

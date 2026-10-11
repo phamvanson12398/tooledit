@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 81 — Tách nhạc nền nhanh hơn: chỉ tách các tình huống đã duyệt + Demucs chạy GPU `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Đóng `start.bat`, `git pull`.
+2. Nhấp đúp **`install_gpu_torch.bat`** (tải ~2,5 GB). Cuối cùng phải thấy `Thay GPU: True` và `GPU chay duoc: NVIDIA
+   GeForce GTX 1080 Ti ...`. Thấy `False` hoặc chữ LOI → chụp màn hình gửi Claude.
+3. Mở `start.bat`, Ctrl+F5. Tạo job **Lồng tiếng nhân vật** mới với một video dài. Sau khi duyệt các tình huống, nhật ký
+   phải có: "Tách nhạc nền khỏi giọng nói — chỉ N tình huống đã duyệt (~X phút), Demucs chạy bằng GPU…", rồi "Lời thoại
+   gốc trong các tình huống: A → B câu…". Bước này giờ chạy SAU khi duyệt (trước đây chạy cả phim trước khi chọn).
+4. So thời gian với lần trước. Nếu nhật ký ghi "Demucs chạy bằng CPU — CHẬM" → làm lại bước 2.
+5. OmniVoice (nếu đã cài bằng install_omnivoice.bat bản cũ — cu128, không dùng được GTX 1080 Ti): xóa thư mục
+   `omnivoice-env` trong thư mục tool rồi nhấp đúp lại `install_omnivoice.bat` (giờ cài bản cu126).
+
 ## Bước 80 — Lồng tiếng bắt đủ câu thoại gốc hơn; review nói liền mạch, gần như không hở `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, Ctrl+F5.

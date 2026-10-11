@@ -32,8 +32,8 @@ if errorlevel 1 (
   echo [3/4] KHONG thay GPU NVIDIA - cai PyTorch ban CPU. OmniVoice van chay nhung CHAM.
   %PY% -m pip install torch==2.8.0 torchaudio==2.8.0
 ) else (
-  echo [3/4] Thay GPU NVIDIA - cai PyTorch ban GPU CUDA 12.8 - khoang 3 GB ...
-  %PY% -m pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128
+  echo [3/4] Thay GPU NVIDIA - cai PyTorch ban GPU CUDA 12.6 - ho tro ca GTX 10xx - khoang 3 GB ...
+  %PY% -m pip install torch==2.8.0+cu126 torchaudio==2.8.0+cu126 --extra-index-url https://download.pytorch.org/whl/cu126
 )
 if errorlevel 1 (
   echo LOI khi cai PyTorch. Chup man hinh gui lai cho Claude.
