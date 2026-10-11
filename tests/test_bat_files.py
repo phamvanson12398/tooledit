@@ -48,3 +48,12 @@ def test_cmd_scripts_are_called(bat):
     bad = [f"dòng {i}: {ln.strip()}" for i, ln in enumerate(bat.read_text(encoding="utf-8").splitlines(), 1)
            if re.match(r"\s*(npm|npx|gemini)\b", ln, re.I)]
     assert not bad, "thiếu `call` trước lệnh .cmd:\n" + "\n".join(bad)
+
+
+def test_gpu_torch_bat_does_not_require_torchaudio():
+    """Chủ dự án 11/10: máy có demucs 4.1 nhưng không có torchaudio → file cài báo "No module named 'torchaudio'"."""
+    text = (ROOT / "install_gpu_torch.bat").read_text(encoding="utf-8")
+    read_line = next(ln for ln in text.splitlines() if "torch_ver.txt', 'w'" in ln)
+    assert "torchaudio" not in read_line                                    # đọc phiên bản chỉ cần torch
+    assert 'import torchaudio" 2>nul' in text and "if not errorlevel 1 set AUDIO=" in text  # có thì đổi luôn
+    assert "torch==%TV%+cu126 %AUDIO%" in text and "call :fallback" in text

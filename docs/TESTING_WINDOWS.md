@@ -1,5 +1,13 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 89 — Sửa install_gpu_torch.bat báo "No module named 'torchaudio'" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`.
+2. Nhấp đúp `install_gpu_torch.bat` lại. Không còn lỗi torchaudio; dòng "[2/3] Dang co torch 2.x.x - cai lai ban GPU
+   cu126 …" rồi tải khoảng 2.5 GB (không bấm chuột vào cửa sổ).
+3. Cuối cùng phải thấy "GPU chay duoc: NVIDIA GeForce GTX 1080 Ti 2.0". Mở lại `start.bat`, tạo job Lồng tiếng nhân vật:
+   nhật ký Demucs ghi chạy GPU.
+
 ## Bước 88 — Nhanh hơn: AI xem khung hình dạng ảnh lưới, bỏ phân tích thừa, ghi thời gian từng bước `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

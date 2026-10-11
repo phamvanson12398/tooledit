@@ -20,24 +20,33 @@ if errorlevel 1 (
   echo [1/3] Chua co Demucs - cai Demucs truoc ...
   %PY% -m pip install -r requirements-bgm.txt
 )
-%PY% -c "import torch, torchaudio; open('torch_ver.txt', 'w').write(torch.__version__.split('+')[0] + ' ' + torchaudio.__version__.split('+')[0])"
+rem torchaudio KHONG bat buoc - demucs 4.1 khong can; may nao co san thi doi luon sang ban GPU cung phien ban
+%PY% -c "import torch; open('torch_ver.txt', 'w').write(torch.__version__.split('+')[0])"
 if errorlevel 1 (
-  echo LOI: chua doc duoc phien ban PyTorch. Chup man hinh gui lai cho Claude.
+  echo LOI: chua co PyTorch trong .venv. Chup man hinh gui lai cho Claude.
   pause
   exit /b 1
 )
-for /f "tokens=1,2" %%a in (torch_ver.txt) do (
-  set TV=%%a
-  set TAV=%%b
-)
+set /p TV=<torch_ver.txt
 del torch_ver.txt
-echo [2/3] Dang co torch %TV%, torchaudio %TAV% - cai lai ban GPU cu126 cung phien ban ...
-%PY% -m pip install --force-reinstall --no-deps torch==%TV%+cu126 torchaudio==%TAV%+cu126 --index-url https://download.pytorch.org/whl/cu126
+set AUDIO=
+%PY% -c "import torchaudio" 2>nul
+if not errorlevel 1 set AUDIO=torchaudio==%TV%+cu126
+echo [2/3] Dang co torch %TV% - cai lai ban GPU cu126 cung phien ban ...
+%PY% -m pip install --force-reinstall --no-deps torch==%TV%+cu126 %AUDIO% --index-url https://download.pytorch.org/whl/cu126
 if errorlevel 1 (
   echo Phien ban %TV% khong co ban cu126 - thu torch 2.8.0 ban cu126 ...
-  %PY% -m pip install --force-reinstall --no-deps torch==2.8.0+cu126 torchaudio==2.8.0+cu126 --index-url https://download.pytorch.org/whl/cu126
+  set AUDIO2=
+  if defined AUDIO set AUDIO2=torchaudio==2.8.0+cu126
+  call :fallback
 )
+goto :check
 
+:fallback
+%PY% -m pip install --force-reinstall --no-deps torch==2.8.0+cu126 %AUDIO2% --index-url https://download.pytorch.org/whl/cu126
+exit /b 0
+
+:check
 echo.
 echo [3/3] Kiem tra GPU:
 %PY% -c "import torch; ok = torch.cuda.is_available(); print('Thay GPU:', ok); ok and print('GPU chay duoc:', torch.cuda.get_device_name(0), float(torch.ones(2).cuda().sum()))"
