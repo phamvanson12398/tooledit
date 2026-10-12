@@ -784,6 +784,14 @@ class Runner:
             lang = self._u_for(job, v).language
             got = ov.build_items(script, i, d / "voice", lang, dub_io.windows_for(d, i, script),
                                  self._tts_fit(job, cfg), only)
+            from app.director.tasks import wrong_language
+
+            skipped = [it for it in got if wrong_language(it["text"], lang)]  # câu còn tiếng gốc → không đọc nhầm ngôn ngữ
+            if skipped:
+                self.log(f"⚠️ Video {i:02d}: {len(skipped)} câu chưa được dịch sang ngôn ngữ đích ({lang}) — OmniVoice KHÔNG "
+                         "đọc các câu này; bấm 'AI viết lại thuyết minh' hoặc sửa câu rồi đọc lại: "
+                         + ", ".join(Path(it["out"]).stem.split("_dub")[-1] for it in skipped[:10]))
+                got = [it for it in got if it not in skipped]
             items += got
             used |= {it["voice"] for it in got}
         if not items:

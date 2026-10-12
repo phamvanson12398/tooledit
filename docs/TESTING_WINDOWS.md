@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 96 — Lồng tiếng / thuyết minh luôn nói ĐÚNG ngôn ngữ đã chọn `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Tạo job mới với chính video vừa bị lỗi (vd phim tiếng Nhật, chọn ngôn ngữ đích tiếng Hàn), cùng chế độ (Lồng tiếng
+   nhân vật / Đổi ngôn ngữ). Job cũ thì bấm **Làm lại** từ bước hiểu nội dung (job cũ có thể đã lưu nhầm tiếng gốc).
+3. Nhật ký phải có dòng "Đổi ngôn ngữ: ja → ko" (đúng tiếng gốc → tiếng đích), KHÔNG được có "Video gốc đã là ko".
+4. Trang voice: cột câu đọc phải toàn bằng ngôn ngữ đích. Nếu AI lỡ để câu tiếng gốc, tool bắt AI viết lại (tối đa vài
+   lần); vẫn sót thì bấm "🤖 Cho OmniVoice đọc" → nhật ký báo "⚠️ … câu chưa được dịch … OmniVoice KHÔNG đọc các câu này"
+   (không đọc nhầm tiếng gốc nữa) → bấm viết lại thuyết minh.
+5. Vẫn nghe tiếng gốc: chụp nhật ký + trang voice gửi mình (ghi rõ chữ trên trang voice đúng ngôn ngữ chưa, hay chỉ giọng
+   đọc sai).
+
 ## Bước 95 — Chọn đúng bản OmniVoice muốn dùng (vd bản trong Voice Studio) + nút kiểm tra `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

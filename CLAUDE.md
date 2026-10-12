@@ -168,6 +168,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   (câu nói hay / thoại đắt, hài, gay cấn, bất ngờ, cảm xúc, ấn tượng — cứ hấp dẫn là chọn, ghi loại trong ghi chú) CHỈ
   dùng cho chế độ chọn đoạn hay này. **Chủ dự án 11/10: "review phim và chọn đoạn hay là 2 chức năng khác nhau"** —
   review phim (chọn đoạn để KỂ CHUYỆN) và chia video dài giữ cách chọn đoạn riêng, không dùng `HOOKY_KINDS`.
+- **Cập nhật 12/10 ("lồng tiếng nói nhầm ngôn ngữ gốc"):** tiếng gốc lấy theo loại chữ thật của lời thoại khi AI báo
+  khác (`script_language` trong `understand` — AI báo trùng tiếng đích thì tool tưởng khỏi dịch); mọi kịch bản thuyết minh /
+  lồng tiếng / review bị chặn khi có câu `text` không viết bằng ngôn ngữ đích (`check_target_language`, AI phải viết lại);
+  OmniVoice bỏ qua câu còn tiếng gốc (`wrong_language`, ghi ⚠️ vào nhật ký).
 - Chủ dự án thu voice THEO NHÂN VẬT: mỗi nhân vật một file (đọc hết câu của nhân vật đó, nghỉ ~1 giây) — tool cắt đúng vào
   các câu (`dub_io.split_upload_speaker`); sửa tên nhân vật AI đoán nhầm ngay trên trang voice (`set_speakers`).
 - Âm thanh: tiếng nói gốc tách bỏ bằng Demucs, NHẠC + TIẾNG NỀN GỐC GIỮ NGUYÊN (hạ nhỏ dưới giọng lồng), không thêm

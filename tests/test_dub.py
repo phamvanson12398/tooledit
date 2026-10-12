@@ -108,9 +108,14 @@ def test_full_dub_job(tmp_path):
     assert plan["clips"]
 
 
+EN_TEXTS = ["That sumo wrestler was hated.", "Everyone disliked him back then.", "Then the hospital changed it all.",
+            "Suddenly his face changed.", "So what happened that day?"]
+FIX_EN = {**FIX, "lines": [{**ln, "text": t} for ln, t in zip(FIX["lines"], EN_TEXTS)]}
+
+
 def test_dub_skip_and_redo(tmp_path):
     jobs, job = prepare(tmp_path, JobOptions(target_language="en"))
-    r = make_runner(tmp_path, jobs)
+    r = make_runner(tmp_path, jobs, dub=FIX_EN)
     job = r.run(job)
     assert job.step == "dub_voice"
     (jobs / "j1" / "voice" / "video01_dub01.wav").write_bytes(b"RIFF")
@@ -568,3 +573,27 @@ def test_job_default_script_mode_is_rewrite(tmp_path):
     assert any(c["task"] == "dub_rewrite" for c in r._director.calls)
     job.options.script_mode = "translate"
     assert r.script_mode(job) == "translate"
+
+
+def test_wrong_language_check():
+    from app.director.tasks import check_target_language, wrong_language
+
+    assert wrong_language("저 스모 선수, 원래 미움받았대요.", "en")
+    assert wrong_language("あの力士は嫌われていた。", "ko") and not wrong_language("저 선수 OK, 진짜 대단해요.", "ko")
+    assert wrong_language("저 스모 선수", "ja") and not wrong_language("あの力士はTikTokで人気。", "ja")
+    assert not wrong_language("That sumo wrestler was hated.", "en")
+    errs = check_target_language(DubScript.model_validate(FIX), "en")
+    assert len(errs) == 1 and "câu 1, 2, 3, 4, 5" in errs[0] and "tiếng Anh" in errs[0]
+    assert check_target_language(DubScript.model_validate(FIX), "ko") == []
+    plan = EditPlan.model_validate(_short_plan())
+    assert any("KHÔNG viết bằng" in e for e in check_dub(DubScript.model_validate(FIX), plan, "en"))
+
+
+def test_script_language_overrides_wrong_ai_language():
+    from app.director.tasks import script_language
+
+    assert script_language("こんにちは、今日はいい天気ですね。散歩に行きましょう。") == "ja"
+    assert script_language("안녕하세요 오늘 날씨가 정말 좋네요 산책 갈까요") == "ko"
+    assert script_language("今天天气很好我们一起去公园散步吧朋友们快来") == "zh"
+    assert script_language("Hello there, the weather is really nice today.") == "en"
+    assert script_language("ok") is None

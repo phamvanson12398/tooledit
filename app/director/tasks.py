@@ -77,6 +77,9 @@ def understand(director: Director, analysis_dir: Path, client_style: str | None 
     from app.director.policy import add_auto_issues
 
     u = director.run("understand", variables, Understanding, images, extra_check=extra)
+    seen = script_language(" ".join(s.get("text", "") for s in tr.get("segments", [])))
+    if seen and seen != u.language:  # AI báo nhầm tiếng gốc (vd báo trùng tiếng đích → tool tưởng khỏi dịch) → tin chữ thật
+        u = u.model_copy(update={"language": seen})
     return add_auto_issues(u, tr.get("segments", []))  # + từ tục máy tự dò trong transcript
 
 
@@ -1077,7 +1080,7 @@ def check_dub(script, plan, language: str, cfg: dict | None = None, span: bool =
     max_speed = float(cfg.get("max_speed", 1.25))
     tmap = TimeMap(plan.clips)
     outs = [(tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)) for ln in script.lines]
-    errors, last_end = [], -1
+    errors, last_end = check_target_language(script, language), -1
     for i, ln in enumerate(script.lines, 1):
         clip = tmap.clip_containing((ln.source_start + ln.source_end) / 2)
         a, b = outs[i - 1]
@@ -1294,7 +1297,7 @@ def check_review_script(script, u, cfg: dict, rcfg: dict, hook_s: float = 0.0) -
 
     cps = effective_cps(cfg, u.language)
     lo, hi = u.usable_range.start, u.usable_range.end
-    errors, prev_end, total = [], lo - 1.0, 0.0
+    errors, prev_end, total = check_target_language(script, u.language), lo - 1.0, 0.0
     for i, ln in enumerate(script.lines, 1):
         est = speech_chars(ln.text) / cps
         total += est
@@ -1434,6 +1437,64 @@ def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, 
         return draft
 
 
+LANG_SCRIPT_VI = {"ko": "tiếng Hàn (Hangul)", "ja": "tiếng Nhật (kana / kanji)", "en": "tiếng Anh (chữ Latin)"}
+
+
+def _counts(text: str) -> dict:
+    c = {"hangul": 0, "kana": 0, "cjk": 0, "latin": 0}
+    for ch in text or "":
+        o = ord(ch)
+        if 0xAC00 <= o <= 0xD7A3 or 0x1100 <= o <= 0x11FF or 0x3130 <= o <= 0x318F:
+            c["hangul"] += 1
+        elif 0x3040 <= o <= 0x30FF or 0x31F0 <= o <= 0x31FF or 0xFF66 <= o <= 0xFF9D:
+            c["kana"] += 1
+        elif 0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF:
+            c["cjk"] += 1
+        elif ch.isascii() and ch.isalpha():
+            c["latin"] += 1
+    return c
+
+
+def script_language(text: str, min_chars: int = 20) -> str | None:
+    """Tiếng của lời thoại theo loại chữ thật (Hangul → ko, có kana → ja, chỉ chữ Hán → zh, Latin → en). Ít chữ / lẫn lộn
+    → None (để AI quyết)."""
+    c = _counts(text)
+    total = sum(c.values())
+    if total < min_chars:
+        return None
+    if c["hangul"] >= 0.6 * total:
+        return "ko"
+    if c["kana"] >= 0.15 * total and c["kana"] + c["cjk"] >= 0.6 * total:
+        return "ja"
+    if c["cjk"] >= 0.6 * total and c["kana"] == 0:
+        return "zh"
+    if c["latin"] >= 0.8 * total:
+        return "en"
+    return None
+
+
+def wrong_language(text: str, language: str) -> bool:
+    """Câu KHÔNG viết bằng ngôn ngữ đích (chủ dự án 11/10: "lồng tiếng nói nhầm ngôn ngữ gốc mà không nói ngôn ngữ được
+    chọn" — AI để nguyên câu gốc). Cho phép tên riêng / từ ngoại lai ngắn bằng chữ Latin."""
+    c = _counts(text)
+    if language == "ko":
+        return c["kana"] > 0 or c["cjk"] > 1 or (c["hangul"] == 0 and c["latin"] + c["cjk"] >= 3)
+    if language == "ja":
+        return c["hangul"] > 0 or (c["kana"] + c["cjk"] == 0 and c["latin"] >= 3)
+    if language == "en":
+        return c["hangul"] + c["kana"] + c["cjk"] > 0
+    return False
+
+
+def check_target_language(script, language: str) -> list[str]:
+    bad = [i for i, ln in enumerate(script.lines, 1) if ln.text.strip() and wrong_language(ln.text, language)]
+    if not bad:
+        return []
+    return [f"câu {', '.join(map(str, bad[:12]))}{' …' if len(bad) > 12 else ''}: KHÔNG viết bằng "
+            f"{LANG_SCRIPT_VI.get(language, language)} — mọi câu `text` phải là bản dịch sang ngôn ngữ đích (người xem nghe "
+            "và đọc ngôn ngữ đó), không để nguyên câu gốc; nghĩa tiếng Việt chỉ ghi ở `text_vi`"]
+
+
 def voice_tag(v: dict | None) -> str:
     if not v:
         return "giọng ?"
@@ -1441,7 +1502,7 @@ def voice_tag(v: dict | None) -> str:
 
 
 def check_char_dub(script, src: list[dict] | None = None, max_cps: float | None = None,
-                   voice_info: list | None = None) -> list[str]:
+                   voice_info: list | None = None, language: str | None = None) -> list[str]:
     """Lồng tiếng nhân vật: MỖI câu gốc đúng một câu lồng tiếng (đúng thứ tự, mốc giờ do code đặt), câu nào cũng có tên
     nhân vật và lời dịch; không có lời dẫn; câu dịch đọc kịp trong thời gian câu gốc."""
     errors = []
@@ -1453,6 +1514,8 @@ def check_char_dub(script, src: list[dict] | None = None, max_cps: float | None 
     errors += [f"câu {i}: chế độ lồng tiếng không có lời dẫn — chỉ dịch thoại nhân vật (kind: dub)"
                for i, ln in enumerate(script.lines, 1) if ln.kind == "narration"]
     errors += [f"câu {i}: thiếu lời dịch" for i, ln in enumerate(script.lines, 1) if not ln.text.strip()]
+    if language:
+        errors += check_target_language(script, language)
     if max_cps:
         for i, ln in enumerate(script.lines, 1):
             n = sum(ch.isalnum() for ch in ln.text)
@@ -1541,7 +1604,7 @@ def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_inde
         return r.model_copy(update={"lines": lines}), []
 
     def extra(r) -> list[str]:
-        errors = check_char_dub(r, src, max_cps, info)
+        errors = check_char_dub(r, src, max_cps, info, u.language)
         if r.video_index != video_index:
             errors.append(f"video_index phải là {video_index}")
         return errors
