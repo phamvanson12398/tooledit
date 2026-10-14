@@ -1,5 +1,25 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 97 — Chế độ mới "🧨 Review bỏ lửng" (kể hết phim thành nhiều phần) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Chế độ **🎬 Review phim** cũ vẫn giữ nguyên, đây là một thẻ riêng.
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Trang chủ → chọn một phim dài (vd 1 tiếng) → bấm thẻ **🧨 Review bỏ lửng** → chọn ngôn ngữ (Hàn / Nhật / Anh) →
+   chọn **🗣️ Ngôi kể** (ngôi thứ 3 hoặc ngôi thứ 1) → **🚀 Bắt đầu dựng**.
+3. Đầu trang job phải ghi "🧨 Review bỏ lửng · ngôi thứ …". Sau bước phân tích, AI chia phim → trang **🧨 Duyệt các phần**:
+   - các phần nối liền nhau (giây kết thúc phần trước = giây bắt đầu phần sau), phần đầu từ đầu phim, phần cuối tới hết phim;
+   - mỗi phần có dòng **🎬 Short mở đầu** (5–15 giây, sửa được giây) và **🧨 Bỏ lửng** (phần cuối: **🏁 Kết phim**).
+   Kiểm tra short có đúng pha kịch tính không, chỗ bỏ lửng có hợp không → **✅ Xác nhận và dựng tiếp**.
+4. Trang voice: mỗi phần một bài lời đọc. Đọc thử: ngôi kể đúng lựa chọn chưa (ngôi 1 = nhân vật chính xưng "tôi");
+   phần 2 trở đi mở bằng 1–2 câu nhắc bối cảnh; câu cuối mỗi phần dừng ở chỗ gay cấn, không có "xem phần sau".
+5. Thu voice (hoặc 🤖 OmniVoice đọc) → mở CapCut kiểm tra từng video:
+   - giây đầu là short **giữ nguyên hình + tiếng gốc**, không chữ, không nhạc;
+   - ngay sau short là tiêu đề + lời review + nhạc nhẹ, tiếng phim tắt;
+   - tổng mỗi video khoảng **1:30–2:00**.
+6. Video quá ngắn / dài, hoặc phần kể bị nhảy cóc: chụp trang duyệt + trang voice gửi mình. Các con số chỉnh trong
+   `config\cliff.yaml` (độ dài video, độ dài short, độ dài phim mỗi phần `min_raw_s` / `max_raw_s`).
+
 ## Bước 96 — Lồng tiếng / thuyết minh luôn nói ĐÚNG ngôn ngữ đã chọn `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

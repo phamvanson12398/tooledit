@@ -245,14 +245,17 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
           name: str, style: dict, *, hook: HookOption | None = None, voice: tuple[Path, int] | None = None,
           clean_audio: Path | None = None, video_index: int = 1, beats_fn=None, dub=None,
           dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False,
-          bgm_audio: Path | None = None, vocals_audio: Path | None = None) -> BuildResult:
+          bgm_audio: Path | None = None, vocals_audio: Path | None = None,
+          cold_clip: tuple[float, float] | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
     bgm_audio: nhạc nền gốc đã tách giọng nói (chỉ thay tiếng + giữ nhạc nền) — thay cho nhạc AI chọn.
     vocals_audio (lồng tiếng nhân vật): phần GIỌNG NÓI gốc Demucs tách ra — phát lại ở chỗ KHÔNG có câu lồng tiếng
     (tiếng cười / hét / câu Whisper nghe sót) để nhân vật mở miệng không bao giờ bị câm; tắt đúng trong các câu lồng.
     vi_subtitles: thêm phụ đề tiếng Việt (nghĩa từng câu) ngay dưới phụ đề chính để chủ dự án kiểm tra voice / phụ đề
-    đã khớp chưa — XÓA / TẮT trước khi xuất video đăng TikTok."""
+    đã khớp chưa — XÓA / TẮT trước khi xuất video đăng TikTok.
+    cold_clip (Review bỏ lửng, 14/10): (giây gốc đầu, cuối) của đoạn SHORT kịch tính đặt lên ĐẦU video, giữ NGUYÊN hình +
+    tiếng gốc — không chữ, không zoom, không nhạc, không lật; tiêu đề / nhạc / lời review bắt đầu ngay sau short."""
     safe = config.load("safe_area")
     sub_cfg = config.load("subtitles")
     sc, tr, subjects = analysis["scenes"], analysis["transcript"], analysis["subjects"]
@@ -396,6 +399,20 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         else:
             missing.append({"kind": "voice", "what": f"video{video_index:02d}_hook.wav", "video": video_index,
                             "at_s": 0.0, "purpose_vi": f"Voice hook: {(hook.intro + ' ' + hook.line).strip()}"})
+
+    # ---------- short mở đầu (review bỏ lửng): đoạn phim gốc giữ nguyên ----------
+    if cold_clip is not None and hook is None:
+        c0, c1 = max(0.0, float(cold_clip[0])), min(float(cold_clip[1]), sc["duration"])
+        if c1 - c0 >= 0.5:
+            hook_us = round((c1 - c0) * SEC)
+            ratio = ratio_for(None)
+            w.add_video(src, target_start=0, duration=hook_us, source_start=round(c0 * SEC),
+                        crop=fix_crop(crop_for(ratio, c0, c1), ratio, 0, hook_us, False, src=(c0, c1)),
+                        volume=0.0 if clean_audio else 1.0, transition=transition, **bg_kwargs(ratio))
+            if clean_audio:  # tiếng gốc đã làm sạch + chuẩn hóa âm lượng
+                w.add_local_audio(clean_audio, src.duration, target_start=0, duration=hook_us,
+                                  source_start=round(c0 * SEC))
+            notes.append(f"Short mở đầu {c0:.1f}–{c1:.1f}s ({c1 - c0:.1f}s) giữ nguyên hình + tiếng gốc.")
 
     # ---------- clip chính ----------
     # ---------- cắt theo nhịp nhạc: dời điểm cắt về beat gần nhất ----------
@@ -700,7 +717,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         w.add_filter(lib[("filter", plan.filter)], start=hook_us, duration=tmap.end - hook_us)
     if four and four.get("titles"):
         need = 4 if four.get("bottom_titles", True) else 2
-        if add_title_lines(w, plan, four, 0, tmap.end) < need:
+        if add_title_lines(w, plan, four, hook_us if cold_clip else 0, tmap.end) < need:
             notes.append("Kế hoạch dựng thiếu dòng tiêu đề (cần 2 dòng trên" +
                          (" + 2 dòng dưới)." if need == 4 else ")."))
         if plan.topic_label.strip():
@@ -746,7 +763,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         if hook is not None:
             intervals = [(0, hook_us), *intervals]  # hạ nhạc dưới voice hook
         m_dur = music.material.get("duration", 0)
-        t = 0
+        t = hook_us if (cold_clip and hook is None) else 0  # review bỏ lửng: short giữ nguyên, nhạc vào sau short
         while m_dur > 0 and t < tmap.end:
             seg_len = min(m_dur, tmap.end - t)
             _add_audio_item(w, music, target_start=t, duration=seg_len,

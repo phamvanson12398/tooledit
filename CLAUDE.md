@@ -343,6 +343,18 @@ AI đọc lại cả bài như biên tập viên bản xứ, sửa câu cứng /
 (`polish_review_script`, prompt `review_polish.md`, `polish: true` trong `config/review.yaml`; sai thì giữ bản nháp);
 (2) văn mẫu `config/review_style.txt` — chủ dự án dán lời video review họ thích, AI học giọng / nhịp (cả 2 lượt);
 (3) nút "✍️ Viết lại theo góp ý" trên trang voice (`Runner.rewrite_review`, gửi góp ý + bản trước; voice cũ → *_cu).
+**REVIEW BỎ LỬNG (chủ dự án yêu cầu 14/10) — chế độ RIÊNG, review cũ ở trên giữ nguyên:** thẻ "🧨 Review bỏ lửng"
+(`JobOptions.cliff`, đi cùng `review=True` để dùng chung mọi thứ của review; `config/cliff.yaml`, `app/director/cliff.py`).
+Kể HẾT phim, KHÔNG BỎ CẢNH: AI chia cả phim thành các PHẦN liền nhau (phần sau bắt đầu đúng chỗ phần trước dừng, phủ kín
+từ đầu tới cuối — `check_parts`, hở nhỏ tự nối `repair_parts`; phim dài chia lượt hỏi song song như `long_parts` rồi nối,
+phần quá ngắn ở chỗ nối gộp vào phần trước), prompt `cliff_segment.md`, luôn qua bảng duyệt. Mỗi phần = một video
+**1:30–2:00 TÍNH CẢ short**: đầu video là đoạn SHORT 5–15 giây kịch tính nằm trong phần, GIỮ NGUYÊN hình + tiếng gốc
+(không chữ / nhạc / zoom / câu hook — builder `cold_clip`, sửa giây được trên bảng duyệt), rồi lời review (prompt
+`dub_cliff.md` + biên tập `cliff_polish.md`) kể phủ kín đoạn phim của phần (`check_coverage`: ≥ 85%, không nhảy > 30s,
+kể từ đầu phần tới cuối phần), phần 2 trở đi nhắc nhanh bối cảnh, phần nào (trừ phần cuối) cũng kết BỎ LỬNG (không "xem
+phần sau"), phần cuối kể tới kết phim. **Ngôi kể chọn khi tạo job** (`cliff_pov`): ngôi 3 như review cũ, hoặc ngôi 1 —
+người kể LÀ nhân vật chính (`narrator_vi` do AI nhận ra lúc chia phần) xưng "tôi" (`check_first_person`). Ngôn ngữ
+Hàn / Nhật / Anh như review.
 **Voice đến đâu ghi CapCut đến đấy (chủ dự án yêu cầu 09/10, mọi chế độ có voice thuyết minh / review):** job ra
 nhiều video thì video nào ĐỦ voice được ghi draft CapCut NGAY ở bước chờ voice (`Runner.write_ready_videos`, lưu
 `job.data.ready_drafts` + dấu vân tay voice — thu lại câu nào thì ghi lại), không chờ các video khác; đủ hết thì bước

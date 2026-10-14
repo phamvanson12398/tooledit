@@ -124,6 +124,9 @@ STEP_VI = {
 STEP_VI_MODE = {
     "review": {               "plan": "AI chọn tiêu đề · nhạc", "dub": "AI viết bài lời đọc", "dub_voice": "Chờ bạn đọc cả bài",
                "write": "Dựng cảnh theo voice → CapCut"},
+    "cliff": {"segment": "AI chia phim thành các phần", "review_segments": "Chờ duyệt các phần",
+              "plan": "AI chọn tiêu đề · nhạc", "dub": "AI viết lời review từng phần", "dub_voice": "Chờ bạn đọc từng phần",
+              "write": "Short + dựng cảnh theo voice → CapCut"},
     "char_dub": {"segment": "AI chọn đoạn hay (TikTok)", "review_segments": "Chờ duyệt đoạn hay",
                  "plan": "AI cắt bỏ đoạn rề rà", "dub": "AI dịch thoại + nhận diện nhân vật",
                  "dub_voice": "Chờ voice từng nhân vật", "write": "Ghép giọng mới + nền gốc → CapCut"},
@@ -131,7 +134,7 @@ STEP_VI_MODE = {
     "voice_only": {"plan": "AI lập kế hoạch (giữ nguyên hình)", "dub": "AI viết thuyết minh",
                    "dub_voice": "Chờ voice thuyết minh"},
 }
-MODE_VI = {"char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
+MODE_VI = {"char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "cliff": "🧨 Review bỏ lửng", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
            "voice_only": "🎙️ Chỉ thay tiếng", "dub": "🌐 Đổi ngôn ngữ", "montage": "🎞️ Ghép nhiều video",
            "normal": "✂️ Dựng thường"}
 
@@ -152,6 +155,8 @@ def job_mode(job) -> str:
     o = job.options
     if o.char_dub:
         return "char_dub"
+    if o.cliff:
+        return "cliff"
     if o.review:
         return "review"
     if o.vi_sub:
@@ -165,6 +170,9 @@ def job_mode(job) -> str:
 
 def review_len(job) -> str:
     """Review phim: thời lượng chủ dự án chọn (hiện cạnh tên chế độ ở đầu trang job)."""
+    if job.options.cliff:  # review bỏ lửng: ngôi kể
+        pov = job.options.cliff_pov or str(app_config.load("cliff").get("default_pov", "3"))
+        return " · ngôi thứ 1" if pov == "1" else " · ngôi thứ 3"
     if not job.options.review:
         return ""
     sec = int(job.options.review_s or app_config.load("review").get("default_s", 150))
@@ -181,7 +189,7 @@ def step_label(job, st: str) -> str:
 
 
 # các chế độ (thẻ) trên trang chủ; mỗi chế độ bật đúng một ô tick cũ (normal / dub: không ô nào)
-MODES = ("normal", "dub", "voice_only", "review", "char_dub", "vi_sub")
+MODES = ("normal", "dub", "voice_only", "review", "cliff", "char_dub", "vi_sub")
 
 STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong",
              "stopped": "đã dừng"}
@@ -413,6 +421,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         def mmss(sec) -> str:
             return f"{int(sec) // 60}:{int(sec) % 60:02d}"
         default_s = int(rcfg.get("default_s", 150))
+        cliff_pov = str(app_config.load("cliff").get("default_pov", "3"))
         review_opts = "".join(f"<option value='{v}' {'selected' if int(v) == default_s else ''}>{mmss(v)}</option>"
                               for v in rcfg.get("durations") or [60, 90, 120, 150, 180, 240, 300])
         # chủ dự án 11/10: chỉ để "AI tự chọn" (các kiểu dựng vẫn còn trong styles/, AI tự chọn theo nội dung)
@@ -428,6 +437,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ("voice_only", "🎙️", "Chỉ thay tiếng", "Giữ NGUYÊN hình, chỉ thay voice + phụ đề ngôn ngữ mới"),
                 ("review", "🎬", "Review phim / hoạt hình",
                  "Tóm gọn CẢ phim thành MỘT video, chỉ kể ý chính — bạn chọn thời lượng"),
+                ("cliff", "🧨", "Review bỏ lửng",
+                 "Kể HẾT phim thành nhiều phần 1:30–2:00, mở bằng short kịch tính, kết bỏ lửng — ngôi 1 hoặc 3"),
                 ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn đoạn hay (câu nói hay, hài, gay cấn…), thay giọng từng nhân vật, giữ nhạc nền gốc"),
                 ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
             ))
@@ -453,7 +464,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <section class="stepbox"><div class="num">2</div><div class="sb">
             <h3>Bạn muốn làm gì?</h3>
             <div class="modes">{modes}</div>
-            <div class="langbox" data-modes="normal dub voice_only review char_dub">
+            <div class="langbox" data-modes="normal dub voice_only review cliff char_dub">
               <label>🌐 Ngôn ngữ video mới</label>
               <select name="target_language" id="lang"><option value="">Giữ nguyên ngôn ngữ gốc</option>
                 <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
@@ -462,6 +473,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <div data-modes="review"><label style="margin-top:10px">⏱️ Thời lượng video review</label>
                 <select name="review_s">{review_opts}</select>
                 <div class="muted">AI tóm gọn cả phim thành MỘT video dài đúng chừng này, chỉ kể ý chính, kể tới kết.</div></div>
+              <div data-modes="cliff"><label style="margin-top:10px">🗣️ Ngôi kể</label>
+                <select name="cliff_pov">
+                <option value="3" {'selected' if cliff_pov != '1' else ''}>Ngôi thứ 3 — người ngoài kể về nhân vật</option>
+                <option value="1" {'selected' if cliff_pov == '1' else ''}>Ngôi thứ 1 — nhân vật chính tự kể ("tôi")</option></select>
+                <div class="muted">Mỗi video 1:30–2:00 (tính cả short mở đầu). Phim chưa hết thì tự chia thêm phần, kể tới hết phim, không bỏ cảnh.</div></div>
               <div data-modes="dub voice_only"><label style="margin-top:10px">✍️ Cách viết lời thuyết minh</label>
                 <select name="script_mode">
                 <option value="rewrite">AI xem video rồi VIẾT MỚI nội dung hợp nước đó (không dịch)</option>
@@ -510,6 +526,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         const HINT={{normal:'Video gốc tiếng Hàn / Nhật / Anh thì để Giữ nguyên. Tiếng khác (Trung, Việt…) thì chọn ngôn ngữ cho bản TikTok.', dub:'Bạn sẽ thu voice từng câu bằng Voice Studio (hoặc cho OmniVoice đọc).',
           voice_only:'Không cắt, không đổi khung — chỉ thay tiếng. Cần chọn ngôn ngữ mới.',
           review:'Không chọn ngôn ngữ = lời review bằng tiếng gốc của phim.',
+          cliff:'Lời review tiếng Hàn / Nhật / Anh. Không chọn ngôn ngữ = tiếng gốc của phim (phải là Hàn / Nhật / Anh).',
           char_dub:'Cần chọn ngôn ngữ mới (vd phim Nhật → tiếng Hàn). Nên cài Demucs để giữ nhạc nền gốc.',
           vi_sub:'Không dựng lại — chỉ dịch phụ đề tiếng Việt.'}};
         function syncMode(){{
@@ -517,7 +534,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           document.querySelectorAll('#newjob [data-modes]').forEach(el=>{{
             const on=el.dataset.modes.split(' ').includes(m); el.hidden=!on;
             el.querySelectorAll('input,select').forEach(i=>i.disabled=!on);}});
-          const lang=document.getElementById('lang'); lang.options[0].hidden=!['review','normal'].includes(m);
+          const lang=document.getElementById('lang'); lang.options[0].hidden=!['review','cliff','normal'].includes(m);
           if(lang.options[0].hidden&&!lang.value){{lang.value='ko'; lang.dataset.auto='1';}}
           else if(!lang.options[0].hidden&&lang.dataset.auto==='1'){{lang.value=''; lang.dataset.auto='';}}  // tool tự chọn thì trả về "Giữ nguyên"
           document.getElementById('langhint').textContent=HINT[m]||'';
@@ -626,9 +643,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
                 keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None),
                 vi_sub: str | None = Form(None), review: str | None = Form(None), char_dub: str | None = Form(None),
-                ai: str = Form(""), mode: str = Form(""), review_s: int = Form(0)):
+                ai: str = Form(""), mode: str = Form(""), review_s: int = Form(0), cliff_pov: str = Form("")):
+        cliff = mode == "cliff"
         if mode in MODES:  # trang chủ mới: chọn MỘT chế độ (thẻ) thay cho các ô tick riêng
-            review, char_dub, vi_sub, voice_only = (("on" if mode == m else None)
+            review, char_dub, vi_sub, voice_only = (("on" if mode == m or (m == "review" and cliff) else None)
                                                     for m in ("review", "char_dub", "vi_sub", "voice_only"))
             if mode == "vi_sub":
                 target_language = ""
@@ -659,6 +677,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p><b>Lồng tiếng nhân vật</b> cần chọn ngôn "
                          "ngữ mới ở ô <b>🌐 Đổi ngôn ngữ video</b> (vd tiếng Nhật → chọn tiếng Hàn).</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
+        if cliff and len(paths) > 1:
+            return _page("Lỗi", "<div class='card'><h2>Review bỏ lửng dùng cho MỘT video</h2><p>Chọn một file phim "
+                         "(phim dài bao nhiêu cũng được — tool tự chia phần).</p>"
+                         "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         if review and (voice_only or vi_sub):
             return _page("Lỗi", "<div class='card'><h2>Chọn một chế độ thôi</h2><p><b>Review phim</b> không dùng cùng "
                          "<b>Chỉ thay tiếng</b> hay <b>Chỉ phụ đề tiếng Việt</b>. Bỏ bớt một ô tick.</p>"
@@ -668,7 +690,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             reframe_per_scene=bool(reframe) and not voice_only,
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and not review and len(paths) == 1,
             hype=bool(hype) and not voice_only and not review and not char_dub, review=bool(review),
-            review_s=max(0, min(int(review_s or 0), 600)) if review else 0,
+            review_s=max(0, min(int(review_s or 0), 600)) if review and not cliff else 0,
+            cliff=cliff, cliff_pov=(cliff_pov if cliff_pov in ("1", "3") else "") if cliff else "",
             char_dub=bool(char_dub),
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
             script_mode=script_mode if script_mode in ("rewrite", "translate") else "",
@@ -909,7 +932,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 k = key[5:]
                 rows.append({"start": float(form.get(f"start_{k}") or 0), "end": float(form.get(f"end_{k}") or 0),
                              "title_vi": str(form.get(f"title_{k}") or ""),
-                             "summary_vi": str(form.get(f"summary_{k}") or "")})
+                             "summary_vi": str(form.get(f"summary_{k}") or ""),
+                             "hook_start": form.get(f"hstart_{k}"), "hook_end": form.get(f"hend_{k}")})
         worker.start(job_id, action=lambda runner, job: runner.apply_segments(job, rows))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
@@ -1364,16 +1388,30 @@ def _segments_panel(job: Job, d: Path) -> str:
         return (f"<details><summary class='muted'>🎬 {len(ms)} tình huống ghép thành video (chỗ giữa các tình huống "
                 f"bị bỏ)</summary><ol style='margin:4px 0'>{items}</ol></details>")
 
+    cliff = job.options.cliff
+
+    def cliff_info(key: str, v: dict) -> str:  # review bỏ lửng: short mở đầu (sửa được giây) + chỗ bỏ lửng
+        if not cliff or not v.get("hook") and not v.get("cliff_vi"):
+            return ""
+        h = v.get("hook") or {}
+        hook = (f"<div class='muted' style='margin-top:4px'>🎬 Short mở đầu: "
+                f"<input type='number' step='0.1' name='hstart_{key}' value='{float(h['start']):.1f}' style='width:90px'> – "
+                f"<input type='number' step='0.1' name='hend_{key}' value='{float(h['end']):.1f}' style='width:90px'> "
+                f"({float(h['end']) - float(h['start']):.0f}s){' — ' + esc(h['why_vi']) if h.get('why_vi') else ''}</div>"
+                if h else "")
+        end = "🏁 Kết phim" if v.get("last") else "🧨 Bỏ lửng"
+        return hook + (f"<div class='muted'>{end}: {esc(v['cliff_vi'])}</div>" if v.get("cliff_vi") else "")
+
     def row(key: str, v: dict, keep: bool, note: str) -> str:
         span = float(v["end"]) - float(v["start"])
         if v.get("moments"):
             span = sum(float(m["end"]) - float(m["start"]) for m in v["moments"])
-        short = f" <span class='badge b-waiting'>ngắn hơn {min_s}s</span>" if span < min_s else ""
+        short = f" <span class='badge b-waiting'>ngắn hơn {min_s}s</span>" if span < min_s and not cliff else ""
         return (f"<tr><td><input type='checkbox' name='keep_{key}' {'checked' if keep else ''}></td>"
                 f"<td><input type='number' step='0.1' name='start_{key}' value='{float(v['start']):.1f}' style='width:90px'>"
                 f" – <input type='number' step='0.1' name='end_{key}' value='{float(v['end']):.1f}' style='width:90px'></td>"
                 f"<td>{span:.0f}s{short}</td><td><b>{esc(v.get('title_vi', ''))}</b><br>"
-                f"<span class='muted'>{esc(v.get('summary_vi', '') or note)}</span>{situations(v)}"
+                f"<span class='muted'>{esc(v.get('summary_vi', '') or note)}</span>{situations(v)}{cliff_info(key, v)}"
                 f"<input type='hidden' name='title_{key}' value='{esc(v.get('title_vi', ''))}'>"
                 f"<input type='hidden' name='summary_{key}' value='{esc(v.get('summary_vi', '') or note)}'></td></tr>")
 
@@ -1381,9 +1419,21 @@ def _segments_panel(job: Job, d: Path) -> str:
     dropped = "".join(row(f"d{i}", {**x, "title_vi": "Đoạn bị bỏ"}, False, "Lý do bỏ: " + x.get("reason_vi", ""))
                       for i, x in enumerate(prop.get("dropped", []), 1))
     head = "<tr><th>Dựng</th><th>Giây (bắt đầu – kết thúc)</th><th>Độ dài</th><th>Nội dung</th></tr>"
-    return (f"<div class='card'><h2>✂️ Duyệt chia video</h2>"
-            f"<p>AI đề xuất {len(data.get('videos', []))} video độc lập. Sửa giây bắt đầu/kết thúc nếu muốn, bỏ tick để "
-            f"không dựng, hoặc tick đoạn bị bỏ để dựng thêm. Mỗi video sau khi dựng sẽ được cắt gọn còn 60–150 giây.</p>"
+    if cliff:
+        ccfg = app_config.load("cliff")
+        intro = (f"<p>AI chia phim thành {len(data.get('videos', []))} phần LIỀN NHAU (kể hết phim, không bỏ cảnh). Mỗi "
+                 f"phần = một video {int(ccfg.get('min_video_s', 90)) // 60}:{int(ccfg.get('min_video_s', 90)) % 60:02d}–"
+                 f"{int(ccfg.get('max_video_s', 120)) // 60}:{int(ccfg.get('max_video_s', 120)) % 60:02d}: short mở đầu "
+                 "(giữ nguyên hình + tiếng gốc) rồi lời review, kết bỏ lửng. Sửa điểm chia / giây của short nếu muốn — "
+                 "phần sau nên bắt đầu đúng chỗ phần trước kết thúc để không bỏ cảnh. Độ dài ở cột giữa là độ dài "
+                 "<b>phim gốc</b> phần đó kể.</p>")
+        name = "🧨 Duyệt các phần"
+    else:
+        intro = (f"<p>AI đề xuất {len(data.get('videos', []))} video độc lập. Sửa giây bắt đầu/kết thúc nếu muốn, bỏ tick "
+                 "để không dựng, hoặc tick đoạn bị bỏ để dựng thêm. Mỗi video sau khi dựng sẽ được cắt gọn còn 60–150 "
+                 "giây.</p>")
+        name = "✂️ Duyệt chia video"
+    return (f"<div class='card'><h2>{name}</h2>" + intro +
             f"<p class='muted'>Ghi chú editor: {esc(prop.get('editor_notes', ''))}</p>"
             f"<form method='post' action='/jobs/{job.job_id}/segments'>"
             f"<h2 style='margin-top:14px'>Video sẽ dựng</h2><table>{head}{vids}</table>"

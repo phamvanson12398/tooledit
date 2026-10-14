@@ -179,6 +179,26 @@ def check_moments(sp: SegmentPlan, situation_s: tuple[float, float], min_s: floa
     return errors
 
 
+# ---------------- Review bỏ lửng (chủ dự án yêu cầu 14/10) ----------------
+
+class CliffHook(TimeRange):
+    why_vi: str = Field(description="vì sao đoạn này kịch tính, giữ người xem (tiếng Việt, ngắn)")
+
+
+class CliffPart(TimeRange):
+    title_vi: str = Field(description="tên ngắn của phần (tiếng Việt) để người dùng nhận ra")
+    summary_vi: str = Field(description="phần này kể chuyện gì: mở – diễn biến – chỗ dừng (tiếng Việt)")
+    hook: CliffHook = Field(description="đoạn SHORT 5–15 giây kịch tính nhất NẰM TRONG phần này, đặt lên đầu video, giữ "
+                                        "nguyên hình + tiếng gốc")
+    cliff_vi: str = Field(description="phần dừng BỎ LỬNG ở chỗ nào, người xem đang thắc mắc gì (phần cuối: phim kết ra sao)")
+
+
+class CliffPlan(BaseModel):
+    narrator_vi: str = Field(description="tên nhân vật chính (người kể nếu review ở ngôi thứ nhất), đúng tên trong phim")
+    parts: list[CliffPart] = Field(min_length=1)
+    editor_notes: str
+
+
 # ---------------- Hook (mục 5) ----------------
 
 HookType = Literal["climax_first", "open_question", "contrast", "half_reveal", "odd_detail"]

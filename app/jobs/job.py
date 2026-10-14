@@ -53,6 +53,9 @@ class JobOptions(BaseModel):
     review_s: int = 0                 # Review (11/10): thời lượng video chủ dự án chọn (giây); 0 = default_s trong review.yaml
     char_dub: bool = False            # Lồng tiếng nhân vật (11/10): đoạn hay TikTok, thay giọng từng nhân vật, giữ nền gốc
     ai: str = ""                      # AI đạo diễn của job (11/10): "claude" | "gemini"; "" = default_ai trong config
+    cliff: bool = False               # Review bỏ lửng (14/10): đi CÙNG review=True — kể HẾT phim thành nhiều phần 1:30–2:00,
+                                      #   mỗi phần mở bằng short kịch tính giữ nguyên, kết bỏ lửng (config/cliff.yaml)
+    cliff_pov: str = ""               # Review bỏ lửng: ngôi kể "1" (người kể là nhân vật chính) | "3"; "" = default_pov
 
 
 class HistoryEntry(BaseModel):
@@ -143,8 +146,8 @@ class Job(BaseModel):
     @property
     def picks_segments(self) -> bool:
         """Job có bước AI chọn / chia đoạn + bảng duyệt. Review phim KHÔNG (chủ dự án 11/10: tóm gọn cả phim thành MỘT
-        video, không chia nhiều video)."""
-        return self.options.split or self.options.char_dub
+        video, không chia nhiều video); Review bỏ lửng CÓ (chia phim thành các phần liền nhau)."""
+        return self.options.split or self.options.char_dub or self.options.cliff
 
     def applies(self, step: str) -> bool:
         if self.options.vi_sub:  # chỉ phân tích (nhận dạng lời) rồi dịch + ghi phụ đề ở bước write

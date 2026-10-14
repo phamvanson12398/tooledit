@@ -194,6 +194,10 @@ class Runner:
             from app.director.tasks import review_target
 
             rcfg = review_target(config.load("review"), job.options.review_s)  # thời lượng chủ dự án chọn (11/10)
+            if job.options.cliff:  # review bỏ lửng (14/10): mỗi phần một video 1:30–2:00 (tính cả short mở đầu)
+                from app.director.cliff import cliff_target
+
+                rcfg = cliff_target(config.load("review"))
             style = {**style, "review": rcfg, "reorder": False, "cold_open": False,
                      "original_audio": rcfg.get("original_audio") or {}}
             if rcfg.get("layout"):  # bố cục như video mẫu: khối phim 9:10 cắt thẳng từ footage, bám nhân vật
@@ -494,6 +498,19 @@ class Runner:
         if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
             self.log("Đã có kết quả chia video, dùng lại.")
             return
+        if job.options.cliff:  # review bỏ lửng: chia CẢ phim thành các phần liền nhau (không bỏ cảnh)
+            from app.director.cliff import make_parts_long
+
+            res = make_parts_long(self.director, analysis, u, log=self.log)
+            videos = res["videos"]
+            data = {"proposal": {"videos": videos, "dropped": [], "editor_notes": res["editor_notes"],
+                                 "narrator_vi": res["narrator_vi"]}, "videos": videos, "confirmed": False}
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            job.data["videos"] = videos
+            job.data["cliff_narrator"] = res["narrator_vi"]
+            self.log(f"Đạo diễn chia phim thành {len(videos)} phần liền nhau (kể hết, không bỏ cảnh)"
+                     + (f", nhân vật chính: {res['narrator_vi']}" if res["narrator_vi"] else "") + ".")
+            return
         sp = make_segments_long(self.director, analysis, u, review=job.options.review,
                                 highlight=job.options.char_dub, log=self.log)
         videos = [{"index": i, "start": v.start, "end": v.end, "title_vi": v.title_vi, "summary_vi": v.summary_vi,
@@ -543,6 +560,8 @@ class Runner:
         videos = [{"index": i, "start": float(r["start"]), "end": float(r["end"]), "title_vi": r.get("title_vi", ""),
                    "summary_vi": r.get("summary_vi", ""), **({"moments": ms} if (ms := moments_in(r)) else {})}
                   for i, r in enumerate(rows, 1)]
+        if job.options.cliff:  # review bỏ lửng: giữ short mở đầu + chỗ bỏ lửng của từng phần
+            videos = self._cliff_rows(rows, videos, data)
         changed = data.get("videos") != videos or not data.get("confirmed")
         data.update({"videos": videos, "confirmed": True})
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -551,6 +570,62 @@ class Runner:
             hook_io.hooks_path(d).unlink(missing_ok=True)
             self._clear_plans(d, plan_dir)
         job.save(self.jobs_root)
+
+    # ---------- Review bỏ lửng (chủ dự án yêu cầu 14/10) ----------
+
+    @staticmethod
+    def _cliff_hook(v: dict) -> tuple[float, float] | None:
+        """Short mở đầu (giây gốc) của một phần — chỉ nhận khi nằm trong phần."""
+        h = v.get("hook") or {}
+        try:
+            a, b = float(h["start"]), float(h["end"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        return (a, b) if b > a and a >= float(v["start"]) - 0.5 and b <= float(v["end"]) + 0.5 else None
+
+    def _cliff_hook_s(self, v: dict) -> float:
+        h = self._cliff_hook(v)
+        return round(h[1] - h[0], 2) if h else 0.0
+
+    def _cliff_info(self, job: Job, v: dict) -> dict:
+        """Thông tin phần gửi AI viết lời: thứ tự phần, ngôi kể, người kể, phần cuối?, chỗ bỏ lửng, short, phần trước."""
+        from app.director.cliff import load_cfg
+
+        vids = self.videos(job)
+        i = v["index"]
+        pov = job.options.cliff_pov or str(load_cfg().get("default_pov", "3"))
+        return {"index": i, "total": len(vids), "pov": "1" if pov == "1" else "3",
+                "narrator": job.data.get("cliff_narrator", ""), "last": i == len(vids) or bool(v.get("last")),
+                "cliff_vi": v.get("cliff_vi", ""), "hook": self._cliff_hook(v),
+                "prev": [x.get("summary_vi", "") for x in vids if x["index"] < i]}
+
+    def _cliff_rows(self, rows: list[dict], videos: list[dict], data: dict) -> list[dict]:
+        """Bảng duyệt review bỏ lửng: giữ short mở đầu (sửa được giây trên bảng) + chỗ bỏ lửng của từng phần. Phần mới
+        (người dùng thêm / dời điểm cắt) lấy theo phần đề xuất cũ chứa nó; short không còn nằm trong phần thì bỏ short."""
+        pool = (data.get("proposal") or {}).get("videos") or data.get("videos") or []
+        out = []
+        for r, v in zip(rows, videos):
+            a, b = v["start"], v["end"]
+            mid = (a + b) / 2
+            old = min(pool, key=lambda p: 0 if p["start"] <= mid <= p["end"] else
+                      min(abs(p["start"] - mid), abs(p["end"] - mid)), default={})
+            hook = old.get("hook")
+            if r.get("hook_start") not in (None, "") and r.get("hook_end") not in (None, ""):
+                hook = {**(hook or {}), "start": float(r["hook_start"]), "end": float(r["hook_end"])}
+            nv = {**v, "cliff_vi": old.get("cliff_vi", ""), "last": False}
+            if hook:
+                nv["hook"] = hook
+            if self._cliff_hook(nv) is None:
+                nv.pop("hook", None)
+                self.log(f"Phần {v['index']:02d}: short mở đầu không nằm trong {a:.1f}–{b:.1f}s — dựng không có short.")
+            out.append(nv)
+        if out:
+            out[-1]["last"] = True
+        for x, y in zip(out, out[1:]):
+            if y["start"] - x["end"] > 1.0:
+                self.log(f"⚠️ Bỏ trống {x['end']:.1f}–{y['start']:.1f}s phim giữa phần {x['index']} và {y['index']} "
+                         "(bạn đã sửa) — đoạn đó sẽ không được kể.")
+        return out
 
     def step_hooks(self, job: Job) -> None:
         from app.director.tasks import make_hooks
@@ -617,6 +692,8 @@ class Runner:
                 voice = hook_io.find_voice(d, i)
                 hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else \
                     (8.0 if hook and hook.intro.strip() else 4.0)
+            elif job.options.cliff:  # review bỏ lửng: short mở đầu tính vào 1:30–2:00
+                hook_s = self._cliff_hook_s(v)
             self.log(f"Lập kế hoạch dựng video {i:02d}…")
             music = [m for m in tpl.library if m.kind == "music"]
             choice = job.data.get("music_choice")
@@ -669,7 +746,9 @@ class Runner:
                     s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i,
                                  mode="review" if job.options.review else "char" if job.options.char_dub
                                  else self.script_mode(job), review_s=job.options.review_s,
-                                 voice_info=self._voice_info(job, analysis, plan, i) if job.options.char_dub else None)
+                                 voice_info=self._voice_info(job, analysis, plan, i) if job.options.char_dub else None,
+                                 **({"cliff": self._cliff_info(job, v), "hook_s": self._cliff_hook_s(v)}
+                                    if job.options.cliff else {}))
                 except DirectorError as exc:
                     if exc.last is None:
                         raise
@@ -879,7 +958,9 @@ class Runner:
         u = self._u_for(job, v)
         self.log(f"Video {video_index:02d}: AI viết lại bài lời đọc theo góp ý của bạn…")
         script = make_review_script(self.director, analysis, u, video_index=video_index, feedback=feedback,
-                                    previous=scripts.get(video_index), review_s=job.options.review_s)
+                                    previous=scripts.get(video_index), review_s=job.options.review_s,
+                                    **({"cliff": self._cliff_info(job, v), "hook_s": self._cliff_hook_s(v)}
+                                       if job.options.cliff else {}))
         dub_io.dub_path(d, video_index).write_text(script.model_dump_json(indent=2), encoding="utf-8")
         scripts[video_index] = script
         for old in (d / "voice").glob(f"video{video_index:02d}_dub*.*"):
@@ -1329,7 +1410,8 @@ class Runner:
         res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                     hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
                     video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job),
-                    bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm))
+                    bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm),
+                    cold_clip=self._cliff_hook(v) if job.options.cliff else None)
         out = res.writer.save(overwrite=True)
         dur = round(res.duration_us / 1_000_000, 1)
         info = {"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),

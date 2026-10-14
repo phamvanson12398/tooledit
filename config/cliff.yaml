@@ -1,0 +1,25 @@
+# Chế độ "REVIEW BỎ LỬNG" (chủ dự án yêu cầu 14/10) — TÍNH NĂNG RIÊNG, chế độ Review phim cũ giữ nguyên.
+# - Phim dài (vd 1 tiếng) được kể HẾT, KHÔNG BỎ CẢNH: chia thành nhiều PHẦN liền nhau theo thứ tự phim, phần sau nối đúng
+#   chỗ phần trước dừng, phủ kín từ đầu tới cuối phim. Mỗi phần = một video TikTok.
+# - Đầu mỗi video: một đoạn SHORT kịch tính cắt từ chính phần đó, GIỮ NGUYÊN (hình + tiếng gốc, không chữ, không nhạc,
+#   không câu hook), rồi mới tới lời review.
+# - Lời review: chọn NGÔI THỨ 1 (người kể là nhân vật chính, xưng "tôi") hoặc NGÔI THỨ 3 (người ngoài kể) khi tạo job.
+# - Phần nào (trừ phần cuối) cũng KẾT BỎ LỬNG ở chỗ gay cấn; phần cuối kể tới kết phim.
+# Những thứ khác (tốc độ giọng, bố cục, cắt cảnh theo voice, tiếng phim tắt, biên tập lượt 2…) dùng chung config/review.yaml.
+
+min_video_s: 90          # mỗi video dài 1:30 – 2:00, TÍNH CẢ đoạn short mở đầu
+max_video_s: 120
+hook_s: [5, 15]          # đoạn short mở đầu dài 5–15 giây
+# Độ dài đoạn phim GỐC mỗi phần kể (giây). Ngắn → nhiều phần, kể kỹ; dài → ít phần, kể lướt hơn.
+min_raw_s: 150
+max_raw_s: 480
+last_min_raw_s: 30       # phần CUỐI được ngắn hơn (chỉ còn chừng đó phim)
+snap_gap_s: 8            # AI để hở / chồng giữa 2 phần ≤ chừng này giây thì tool tự nối khít
+segment_frames: 40       # số khung hình (rải đều) gửi AI xem khi chia phần
+transcript_max_chars: 30000
+# KHÔNG BỎ CẢNH trong mỗi phần: các câu review phải kể phủ gần kín đoạn phim của phần đó
+min_cover: 0.85          # tổng đoạn phim các câu kể ≥ 85% độ dài phần
+max_skip_s: 30           # 2 câu liền nhau không được nhảy qua quá 30 giây phim
+min_reach: 0.95          # câu cuối kể tới 5% cuối của phần (phần sau nối tiếp từ đó)
+start_within: 0.05       # câu đầu kể từ 5% đầu của phần
+default_pov: "3"         # ngôi kể mặc định: "1" = ngôi thứ nhất, "3" = ngôi thứ ba
