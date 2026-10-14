@@ -177,6 +177,8 @@ def test_web_form_films(tmp_path):
     client = TestClient(app)
     home = client.get("/").text
     assert "Content nhiều phim" in home and 'name="post_url"' in home and 'name="post_images"' in home
+    # ô "Chọn video" (bắt buộc) bị ẩn ở chế độ này phải bị tắt — không thì trình duyệt chặn nút Bắt đầu (lỗi 14/10)
+    assert "querySelectorAll('input,select,textarea')" in home
     no_lang = client.post("/jobs", data={"mode": "films", "post_url": "https://www.tiktok.com/@a/photo/1"})
     assert "Chưa chọn ngôn ngữ" in no_lang.text
     r = client.post("/jobs", data={"mode": "films", "post_url": "https://www.tiktok.com/@a/photo/1",

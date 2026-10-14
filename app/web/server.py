@@ -575,7 +575,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           const m=(document.querySelector('input[name=mode]:checked')||{{}}).value||'normal';
           document.querySelectorAll('#newjob [data-modes]').forEach(el=>{{
             const on=el.dataset.modes.split(' ').includes(m); el.hidden=!on;
-            el.querySelectorAll('input,select').forEach(i=>i.disabled=!on);}});
+            el.querySelectorAll('input,select,textarea').forEach(i=>i.disabled=!on);}});
           const lang=document.getElementById('lang'); lang.options[0].hidden=!['review','cliff','normal'].includes(m);
           if(lang.options[0].hidden&&!lang.value){{lang.value='ko'; lang.dataset.auto='1';}}
           else if(!lang.options[0].hidden&&lang.dataset.auto==='1'){{lang.value=''; lang.dataset.auto='';}}  // tool tự chọn thì trả về "Giữ nguyên"
