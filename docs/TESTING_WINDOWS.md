@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 100 — Bước plan lỗi "sai khuôn 3 lần" → hỏi bạn có dùng bản gần nhất không `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Khi job báo "Lỗi ở bước plan: Đạo diễn trả kết quả sai khuôn 3 lần", trang job hiện khung **🛟 Có lấy kế hoạch dựng gần
+   nhất không?** kèm danh sách lỗi còn lại của từng video.
+3. Bấm **✅ Dùng bản này, làm tiếp** → tool dựng tiếp ngay, không hỏi lại AI. Không ưng → bấm **Chạy lại bước này**.
+4. Job cũ đang lỗi sẵn từ trước khi cập nhật thì chưa có bản lưu → bấm Chạy lại bước này một lần; lần sau lỗi sẽ có nút.
+5. Nếu AI trả về hoàn toàn không đọc được thì không có bản nào để dùng — trang ghi rõ, chỉ còn cách Chạy lại.
+
 ## Bước 99 — Sửa "có voice rồi nhưng không thêm vào dự án CapCut" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 Nguyên nhân tìm được trong code: (1) job đã **✅ Xong** rồi bạn mới tải / thu lại voice hoặc cho OmniVoice đọc → tool không

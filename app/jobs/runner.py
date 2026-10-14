@@ -974,8 +974,9 @@ class Runner:
             chosen = [m for m in music if m.name == choice] if choice else []
             if choice and not chosen:
                 self.log(f"Không thấy bài nhạc đã chọn '{choice}' trong kho — để AI tự chọn.")
-            plan = make_plan(self.director, analysis, self._u_for(job, v), self._style(job, style_name), hook=hook,
-                             hook_s=hook_s, video_index=i, moments=v.get("moments"),
+            plan = self._make_plan_or_pending(
+                plan_dir, i, make_plan, self.director, analysis, self._u_for(job, v), self._style(job, style_name),
+                             hook=hook, hook_s=hook_s, video_index=i, moments=v.get("moments"),
                              music_items=chosen or music,
                              sfx_items=[m for m in tpl.library if m.kind == "sfx"],
                              decor_items=[m for m in tpl.library if m.kind in ("video_effect", "sticker",
@@ -989,9 +990,46 @@ class Runner:
             if chosen:
                 self.log(f"Nhạc nền theo lựa chọn của bạn: {chosen[0].name}")
             out.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+            (plan_dir / f"pending_plan_video{i:02d}.json").unlink(missing_ok=True)
 
         run_parallel(one, [v for v in self.videos(job)
                            if not (plan_dir / f"edit_plan_video{v['index']:02d}.json").is_file()])
+
+    @staticmethod
+    def _make_plan_or_pending(plan_dir: Path, index: int, fn, *args, **kwargs):
+        """Hỏi AI lập kế hoạch; AI sai 3 lần thì LƯU bản gần nhất (plan/pending_plan_videoNN.json) để chủ dự án chọn
+        "Dùng bản này" trên trang lỗi (chủ dự án 14/10: "sai thì hỏi tôi có lấy không, lấy thì làm tiếp")."""
+        from app.director.base import DirectorError
+
+        try:
+            return fn(*args, **kwargs)
+        except DirectorError as exc:
+            if exc.last is not None:
+                (plan_dir / f"pending_plan_video{index:02d}.json").write_text(json.dumps(
+                    {"plan": exc.last.model_dump(), "problems": exc.problems}, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+            raise
+
+    def accept_pending_plan(self, job: Job) -> int:
+        """Chủ dự án bấm "Dùng bản này": lấy kế hoạch dựng gần nhất AI đã trả (còn lỗi), chạy tiếp, không hỏi lại AI."""
+        from app.director.schemas import EditPlan
+
+        _, _, plan_dir = self._paths(job)
+        n = 0
+        for p in sorted(plan_dir.glob("pending_plan_video*.json")):
+            data = json.loads(p.read_text(encoding="utf-8"))
+            plan = EditPlan.model_validate(data["plan"])
+            out = plan_dir / p.name.replace("pending_plan_", "edit_plan_")
+            out.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+            p.unlink()
+            self.log(f"{out.stem.replace('edit_plan_', '').replace('video', 'Video ')}: dùng kế hoạch dựng gần nhất, "
+                     f"bỏ qua {len(data.get('problems', []))} lỗi.")
+            n += 1
+        if n and job.status in (Status.error, Status.stopped):
+            job.status = Status.pending
+            job._log("người dùng chọn dùng kế hoạch dựng gần nhất")
+            job.save(self.jobs_root)
+        return n
 
     def step_dub(self, job: Job) -> None:
         """Chế độ Đổi ngôn ngữ: viết câu thuyết minh (ngôn ngữ đích) theo các clip của kế hoạch dựng."""

@@ -281,3 +281,27 @@ def test_long_video_split_into_parts_in_parallel(tmp_path):
     assert len(sp.dropped) == 3 and sp.editor_notes.count("Phần ") == 3
     assert peak[0] == 2                                              # parallel_calls: 2 lượt cùng lúc
     assert "chia 3 phần" in logs[0]
+
+
+def test_plan_wrong_3_times_asks_to_use_last(tmp_path):
+    """Chủ dự án 14/10: "Lỗi ở bước plan: Đạo diễn trả kết quả sai khuôn 3 lần" → cho chọn dùng bản gần nhất rồi làm tiếp."""
+    from fastapi.testclient import TestClient
+
+    from app.web.server import create_app
+
+    jobs, job = prepare(tmp_path, JobOptions())
+    r = make_runner(tmp_path, jobs)
+    bad = {**_short_plan(), "video_index": 7}  # luôn sai một lỗi nhỏ → AI sửa 3 lần không được
+    r._director = FakeDirector(responses={"plan": bad})
+    job = r.run(job)
+    assert job.status == Status.error and job.step == "plan" and "sai khuôn 3 lần" in job.message
+    pend = jobs / "j1" / "plan" / "pending_plan_video01.json"
+    assert pend.is_file() and json.loads(pend.read_text(encoding="utf-8"))["problems"]
+    page = TestClient(create_app(jobs, lambda root, log: None)).get("/jobs/j1").text
+    assert "Có lấy kế hoạch dựng gần nhất không?" in page and "/jobs/j1/accept-plan" in page
+    assert "video_index phải là 1" in page
+    assert r.accept_pending_plan(job) == 1 and not pend.is_file()
+    calls = len(r._director.calls)
+    job = r.run(job)
+    assert job.status == Status.done, job.message
+    assert not any(c["task"] == "plan" for c in r._director.calls[calls:])   # không hỏi lại AI kế hoạch

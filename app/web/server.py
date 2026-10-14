@@ -959,6 +959,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         worker.start(job_id, action=lambda runner, job: runner.rewrite_films_idea(job, feedback))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/accept-plan")
+    def accept_plan(job_id: str):
+        worker.start(job_id, action=lambda runner, job: runner.accept_pending_plan(job))  # rồi worker tự chạy tiếp
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/accept-dub")
     def accept_dub(job_id: str):
         worker.start(job_id, action=lambda runner, job: runner.accept_pending_dub(job))  # rồi worker tự chạy tiếp
@@ -1840,6 +1845,39 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                if skip else "") + "</div>")
 
 
+def _pending_plan_html(job: Job, d: Path) -> str:
+    """AI lập kế hoạch dựng 3 lần vẫn sai: hỏi chủ dự án có lấy bản gần nhất không (chủ dự án 14/10)."""
+    if job.step != "plan":
+        return ""
+    pend = sorted((d / "plan").glob("pending_plan_video*.json"))
+    if not pend:
+        if "sai khuôn" in (job.message or ""):
+            return ("<p class='muted'>Lần này AI trả về không đọc được (sai cấu trúc hoàn toàn) nên không có bản nào để "
+                    "dùng — bấm <b>Chạy lại bước này</b>.</p>")
+        return ""
+    esc = html.escape
+    items = []
+    for p in pend:
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        v = p.stem.replace("pending_plan_video", "")
+        probs = data.get("problems", [])
+        n_clips = len(data.get("plan", {}).get("clips", []))
+        items.append(f"<p><b>Video {esc(v)}</b> — {n_clips} cảnh, còn {len(probs)} lỗi:</p><ul>"
+                     + "".join(f"<li>{esc(x)}</li>" for x in probs[:8]) + ("<li>…</li>" if len(probs) > 8 else "")
+                     + "</ul>")
+    return ("<div class='card' style='margin:10px 0'><b>🛟 Có lấy kế hoạch dựng gần nhất không?</b>"
+            "<p class='muted'>AI đã sửa 3 lần nhưng bản cuối vẫn còn các lỗi dưới đây (thường là dài / ngắn hơn giới hạn "
+            "vài giây, tên nhạc / hiệu ứng không có trong kho, tiêu đề hơi dài). Bấm <b>Dùng bản này</b> để dựng tiếp luôn "
+            "(tên nhạc / hiệu ứng không có thì tool tự bỏ hoặc ghi vào danh sách cần bổ sung; bạn chỉnh lại trong CapCut nếu "
+            "cần). Hoặc bấm <b>Chạy lại bước này</b> để AI lập lại (mất thêm vài phút và hạn mức AI).</p>"
+            + "".join(items)
+            + f"<form method='post' action='/jobs/{job.job_id}/accept-plan'><button type='submit' class='btn'>"
+            "✅ Dùng bản này, làm tiếp</button></form></div>")
+
+
 def _pending_dub_html(job: Job, d: Path) -> str:
     """AI viết thuyết minh 3 lần vẫn còn lỗi nhỏ: cho chọn dùng luôn bản gần nhất (không hỏi lại AI)."""
     pend = sorted((d / "plan").glob("pending_dub_video*.json"))
@@ -1880,7 +1918,7 @@ def _step_panel(job: Job, d: Path) -> str:
                 "không phải hỏi lại AI phần hiểu nội dung.</p></div>")
     if job.status == Status.error:
         return (f"<div class='card'><h2>⚠️ Có lỗi</h2><pre>{esc(job.message)}</pre>"
-                f"{_pending_dub_html(job, d)}{_continue_button(job, 'Chạy lại bước này')}</div>")
+                f"{_pending_plan_html(job, d)}{_pending_dub_html(job, d)}{_continue_button(job, 'Chạy lại bước này')}</div>")
     if job.status == Status.stopped:
         return (f"<div class='card'><h2>⏹️ Đã dừng</h2><p>Dừng ở bước <b>{esc(step_label(job, job.step))}</b>. "
                 "Kết quả các bước trước vẫn giữ nguyên.</p>"
