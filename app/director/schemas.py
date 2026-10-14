@@ -193,6 +193,16 @@ class CliffPart(TimeRange):
     cliff_vi: str = Field(description="phần dừng BỎ LỬNG ở chỗ nào, người xem đang thắc mắc gì (phần cuối: phim kết ra sao)")
 
 
+class HookSubLine(BaseModel):
+    i: int = Field(ge=1, description="số thứ tự câu thoại gốc trong short")
+    text: str = Field(description="câu phụ đề bằng NGÔN NGỮ ĐÍCH, gọn, tự nhiên như phụ đề phim bản xứ")
+    text_vi: str = Field(default="", description="nghĩa tiếng Việt")
+
+
+class HookSubs(BaseModel):
+    lines: list[HookSubLine] = Field(default_factory=list)
+
+
 class CliffPlan(BaseModel):
     narrator_vi: str = Field(description="tên nhân vật chính (người kể nếu review ở ngôi thứ nhất), đúng tên trong phim")
     parts: list[CliffPart] = Field(min_length=1)

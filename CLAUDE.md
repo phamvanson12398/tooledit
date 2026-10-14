@@ -349,7 +349,7 @@ Kể HẾT phim, KHÔNG BỎ CẢNH: AI chia cả phim thành các PHẦN liền
 từ đầu tới cuối — `check_parts`, hở nhỏ tự nối `repair_parts`; phim dài chia lượt hỏi song song như `long_parts` rồi nối,
 phần quá ngắn ở chỗ nối gộp vào phần trước), prompt `cliff_segment.md`, luôn qua bảng duyệt. Mỗi phần = một video
 **1:30–2:00 TÍNH CẢ short**: đầu video là đoạn SHORT 5–15 giây kịch tính nằm trong phần, GIỮ NGUYÊN hình + tiếng gốc
-(không chữ / nhạc / zoom / câu hook — builder `cold_clip`, sửa giây được trên bảng duyệt), rồi lời review (prompt
+(không nhạc / zoom / câu hook — builder `cold_clip`, sửa giây được trên bảng duyệt; **cập nhật 14/10: có PHỤ ĐỀ** — lời thoại gốc trong short dịch sang ngôn ngữ đích, prompt `cliff_hook_subs.md`, lưu `plan/hook_subs_videoNN.json`, cùng tiếng thì dùng nguyên lời gốc — `cold_subs`), rồi lời review (prompt
 `dub_cliff.md` + biên tập `cliff_polish.md`) kể phủ kín đoạn phim của phần (`check_coverage`: ≥ 85%, không nhảy > 30s,
 kể từ đầu phần tới cuối phần), phần 2 trở đi nhắc nhanh bối cảnh, phần nào (trừ phần cuối) cũng kết BỎ LỬNG (không "xem
 phần sau"), phần cuối kể tới kết phim. **Ngôi kể chọn khi tạo job** (`cliff_pov`): ngôi 3 như review cũ, hoặc ngôi 1 —

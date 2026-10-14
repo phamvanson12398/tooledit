@@ -14,7 +14,9 @@ Chế độ **🎬 Review phim** cũ vẫn giữ nguyên, đây là một thẻ 
 4. Trang voice: mỗi phần một bài lời đọc. Đọc thử: ngôi kể đúng lựa chọn chưa (ngôi 1 = nhân vật chính xưng "tôi");
    phần 2 trở đi mở bằng 1–2 câu nhắc bối cảnh; câu cuối mỗi phần dừng ở chỗ gay cấn, không có "xem phần sau".
 5. Thu voice (hoặc 🤖 OmniVoice đọc) → mở CapCut kiểm tra từng video:
-   - giây đầu là short **giữ nguyên hình + tiếng gốc**, không chữ, không nhạc;
+   - giây đầu là short **giữ nguyên hình + tiếng gốc**, không nhạc, chỉ có **phụ đề** = lời thoại gốc dịch sang
+     ngôn ngữ video (phim cùng tiếng thì phụ đề nguyên lời gốc; chữ vàng tiếng Việt bên dưới chỉ để kiểm tra, tắt
+     trước khi xuất). Đối chiếu phụ đề có khớp lúc nhân vật nói không;
    - ngay sau short là tiêu đề + lời review + nhạc nhẹ, tiếng phim tắt;
    - tổng mỗi video khoảng **1:30–2:00**.
 6. Video quá ngắn / dài, hoặc phần kể bị nhảy cóc: chụp trang duyệt + trang voice gửi mình. Các con số chỉnh trong

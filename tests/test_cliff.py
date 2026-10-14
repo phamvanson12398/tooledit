@@ -91,7 +91,10 @@ def _run_job(tmp_path, pov="3"):
     jobs = tmp_path / "jobs"
     job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, cliff=True, cliff_pov=pov,
                                                                  target_language="ko"), job_id="cl")
-    make_analysis(jobs / "cl", duration=400.0)
+    a = make_analysis(jobs / "cl", duration=400.0)
+    tr = json.loads((a / "transcript.json").read_text(encoding="utf-8"))
+    tr[0]["segments"].append({"start": 52.0, "end": 55.0, "text": "待て！逃げるな！", "words": []})  # thoại trong short
+    (a / "transcript.json").write_text(json.dumps(tr, ensure_ascii=False), encoding="utf-8")
     r = make_runner(tmp_path, jobs)
     u = load("understand.json")
     u["usable_range"] = {"start": 0.0, "end": 400.0}
@@ -101,7 +104,8 @@ def _run_job(tmp_path, pov="3"):
         "understand": u, "cliff_segment": parts,
         "plan": [_plan(1, _clips(1.0, 30)), _plan(2, _clips(201.0, 30))],
         "dub_cliff": [_script(1, 0.0), _script(2, 200.0)], "cliff_polish": [_script(1, 0.0), _script(2, 200.0)],
-        "captions": [load("captions.json"), {**load("captions.json"), "video_index": 2}]})
+        "captions": [load("captions.json"), {**load("captions.json"), "video_index": 2}],
+        "cliff_hook_subs": {"lines": [{"i": 1, "text": "거기 서! 도망가지 마!", "text_vi": "Đứng lại! Đừng chạy!"}]}})
     return jobs, job, r
 
 
@@ -152,8 +156,34 @@ def test_cliff_job_end_to_end(tmp_path):
     assert first["volume"] == 1.0                                       # short giữ nguyên tiếng gốc
     rest = [s for s in video["segments"] if s is not first]
     assert rest and all(s["volume"] == 0.0 for s in rest)                # phần review: tiếng phim tắt
-    texts = [s for t in content["tracks"] if t["type"] == "text" for s in t["segments"]]
-    assert texts and min(s["target_timerange"]["start"] for s in texts) >= 10_000_000  # không chữ đè lên short
+    texts = {m["id"]: m for m in content["materials"]["texts"]}
+    segs = [s for t in content["tracks"] if t["type"] == "text" for s in t["segments"]]
+    in_short = [texts[s["material_id"]]["content"] for s in segs if s["target_timerange"]["start"] < 10_000_000]
+    # trên short CHỈ có phụ đề (dịch lời thoại gốc 52–55s → giây 2–5 của video), tiêu đề vào sau short
+    shown = [json.loads(c)["text"] for c in in_short]
+    assert shown[:2] == ["거기 서!", "도망가지 마!"], shown
+    assert set(shown[2:]) <= {"Đứng lại! Đừng chạy!"}                       # + chữ vàng tiếng Việt để kiểm tra (nếu bật)
+    first_sub = min(s["target_timerange"]["start"] for s in segs if s["target_timerange"]["start"] < 10_000_000)
+    assert first_sub == 2_000_000
+    sub_call = [c for c in r._director.calls if c["task"] == "cliff_hook_subs"]
+    assert len(sub_call) == 1 and "待て！逃げるな！" in sub_call[0]["prompt"]    # phần 2: short không có thoại
+    saved = json.loads((jobs / "cl" / "plan" / "hook_subs_video01.json").read_text(encoding="utf-8"))
+    assert saved["hook"] == [50.0, 60.0] and saved["lines"][0]["text"].startswith("거기")
+
+
+def test_hook_subs_same_language_and_lines(tmp_path):
+    from app.director.cliff import hook_lines, make_hook_subs
+    from app.director.tasks import understand
+
+    segs = [{"start": 48.0, "end": 51.0, "text": "a"}, {"start": 52.0, "end": 55.0, "text": "b"},
+            {"start": 59.0, "end": 63.0, "text": "c"}, {"start": 70.0, "end": 71.0, "text": "d"}]
+    assert [(x["start"], x["end"], x["src"]) for x in hook_lines(segs, 50, 60)] == \
+        [(50, 51.0, "a"), (52.0, 55.0, "b"), (59.0, 60, "c")]                 # cắt gọn vào trong short
+    a = make_analysis(tmp_path, duration=60.0)
+    u = understand(FakeDirector(), a)                                            # phim tiếng Nhật, review tiếng Nhật
+    d = FakeDirector()
+    out = make_hook_subs(d, a, u, (0.0, 10.0))
+    assert out[0]["text"] == "こんにちは" and not d.calls                       # cùng tiếng: dùng nguyên lời gốc
 
 
 def test_cliff_first_person_prompt(tmp_path):

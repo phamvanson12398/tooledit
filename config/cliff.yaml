@@ -1,8 +1,8 @@
 # Chế độ "REVIEW BỎ LỬNG" (chủ dự án yêu cầu 14/10) — TÍNH NĂNG RIÊNG, chế độ Review phim cũ giữ nguyên.
 # - Phim dài (vd 1 tiếng) được kể HẾT, KHÔNG BỎ CẢNH: chia thành nhiều PHẦN liền nhau theo thứ tự phim, phần sau nối đúng
 #   chỗ phần trước dừng, phủ kín từ đầu tới cuối phim. Mỗi phần = một video TikTok.
-# - Đầu mỗi video: một đoạn SHORT kịch tính cắt từ chính phần đó, GIỮ NGUYÊN (hình + tiếng gốc, không chữ, không nhạc,
-#   không câu hook), rồi mới tới lời review.
+# - Đầu mỗi video: một đoạn SHORT kịch tính cắt từ chính phần đó, GIỮ NGUYÊN (hình + tiếng gốc, không nhạc,
+#   không câu hook; có PHỤ ĐỀ dịch lời thoại gốc sang ngôn ngữ đích), rồi mới tới lời review.
 # - Lời review: chọn NGÔI THỨ 1 (người kể là nhân vật chính, xưng "tôi") hoặc NGÔI THỨ 3 (người ngoài kể) khi tạo job.
 # - Phần nào (trừ phần cuối) cũng KẾT BỎ LỬNG ở chỗ gay cấn; phần cuối kể tới kết phim.
 # Những thứ khác (tốc độ giọng, bố cục, cắt cảnh theo voice, tiếng phim tắt, biên tập lượt 2…) dùng chung config/review.yaml.

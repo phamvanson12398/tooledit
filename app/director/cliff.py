@@ -195,6 +195,60 @@ def make_parts_long(director: Director, analysis_dir: Path, u, footage: int = 0,
     return {"narrator_vi": narrator, "videos": videos, "editor_notes": notes}
 
 
+# ---------------- phụ đề cho short mở đầu (chủ dự án yêu cầu 14/10) ----------------
+
+def hook_lines(segments: list[dict], a: float, b: float, corrections=()) -> list[dict]:
+    """Câu thoại gốc (Whisper) nằm trong short a–b, mốc cắt gọn vào trong short."""
+    from app.director.tasks import apply_name_corrections
+
+    out = []
+    for s in segments:
+        s0, s1 = max(a, float(s["start"])), min(b, float(s["end"]))
+        text = apply_name_corrections(str(s.get("text", "")).strip(), corrections)
+        if s1 - s0 >= 0.2 and text:
+            out.append({"start": round(s0, 3), "end": round(s1, 3), "src": text})
+    return out
+
+
+def make_hook_subs(director: Director, analysis_dir: Path, u, hook: tuple[float, float], video_index: int = 1,
+                   footage: int = 0) -> list[dict]:
+    """Phụ đề cho short: lời thoại gốc trong short dịch sang ngôn ngữ đích (người xem nghe tiếng gốc, đọc phụ đề).
+    Tiếng gốc = tiếng đích thì dùng nguyên lời gốc, không hỏi AI. Trả [{start, end, text, text_vi}] (giây gốc)."""
+    from app.director.policy import find_forbidden
+    from app.director.schemas import HookSubs
+    from app.director.tasks import LANG_SCRIPT_VI, LANGUAGE_NAMES, MARKETS, load_analysis, wrong_language
+
+    a = load_analysis(analysis_dir, footage)
+    lines = hook_lines(a["transcript"].get("segments", []), hook[0], hook[1], u.name_corrections)
+    if not lines:
+        return []
+    if u.source_language == u.language:
+        return [{**ln, "text": ln["src"], "text_vi": ""} for ln in lines]
+    variables = {"video_index": video_index, "language_name": LANGUAGE_NAMES.get(u.language, u.language),
+                 "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
+                 "market": MARKETS.get(u.language, "TikTok"), "summary": u.summary_vi,
+                 "name_corrections": "\n".join(f"- {c.wrong} → {c.right}" for c in u.name_corrections) or "(không có)",
+                 "lines": "\n".join(f"[{i}] ({ln['start']:.1f}–{ln['end']:.1f}s) {ln['src']}"
+                                    for i, ln in enumerate(lines, 1))}
+
+    def extra(r) -> list[str]:
+        got = {x.i for x in r.lines}
+        errors = [f"thiếu câu {', '.join(map(str, sorted(set(range(1, len(lines) + 1)) - got)))} — mỗi câu gốc một câu "
+                  "phụ đề"] if got != set(range(1, len(lines) + 1)) else []
+        bad = [x.i for x in r.lines if wrong_language(x.text, u.language)]
+        if bad:
+            errors.append(f"câu {', '.join(map(str, bad))}: phải viết bằng {LANG_SCRIPT_VI.get(u.language, u.language)}")
+        for x in r.lines:
+            if find_forbidden(x.text, u.language):
+                errors.append(f"câu {x.i} có từ không được phép trên TikTok — viết nhẹ đi")
+        return errors
+
+    r = director.run("cliff_hook_subs", variables, HookSubs, extra_check=extra)
+    by = {x.i: x for x in r.lines}
+    return [{**ln, "text": by[i].text.strip(), "text_vi": by[i].text_vi.strip()}
+            for i, ln in enumerate(lines, 1) if i in by and by[i].text.strip()]
+
+
 # ---------------- lời review từng phần ----------------
 
 # Người kể xưng ngôi thứ nhất (bỏ qua phần trong ngoặc kép — lời nhân vật khác).

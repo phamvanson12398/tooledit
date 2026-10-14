@@ -246,7 +246,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
           clean_audio: Path | None = None, video_index: int = 1, beats_fn=None, dub=None,
           dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False,
           bgm_audio: Path | None = None, vocals_audio: Path | None = None,
-          cold_clip: tuple[float, float] | None = None) -> BuildResult:
+          cold_clip: tuple[float, float] | None = None, cold_subs: list[dict] | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
     bgm_audio: nhạc nền gốc đã tách giọng nói (chỉ thay tiếng + giữ nhạc nền) — thay cho nhạc AI chọn.
@@ -255,7 +255,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     vi_subtitles: thêm phụ đề tiếng Việt (nghĩa từng câu) ngay dưới phụ đề chính để chủ dự án kiểm tra voice / phụ đề
     đã khớp chưa — XÓA / TẮT trước khi xuất video đăng TikTok.
     cold_clip (Review bỏ lửng, 14/10): (giây gốc đầu, cuối) của đoạn SHORT kịch tính đặt lên ĐẦU video, giữ NGUYÊN hình +
-    tiếng gốc — không chữ, không zoom, không nhạc, không lật; tiêu đề / nhạc / lời review bắt đầu ngay sau short."""
+    tiếng gốc — không zoom, không nhạc, không lật; tiêu đề / nhạc / lời review bắt đầu ngay sau short.
+    cold_subs: phụ đề của short [{start, end (giây gốc), text (ngôn ngữ đích), text_vi}] — chữ duy nhất trên short."""
     safe = config.load("safe_area")
     sub_cfg = config.load("subtitles")
     sc, tr, subjects = analysis["scenes"], analysis["transcript"], analysis["subjects"]
@@ -658,6 +659,28 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         if n_vi:
             notes.append("Có phụ đề TIẾNG VIỆT (chữ vàng nhỏ dưới phụ đề chính) để kiểm tra — tắt ở trang job "
                          "(🇻🇳 Phụ đề tiếng Việt) rồi dựng lại trước khi xuất video đăng TikTok.")
+    if cold_clip is not None and hook is None and hook_us and cold_subs:  # phụ đề short (dịch lời thoại gốc)
+        from app.planner.dub_io import split_text, spread_cues
+
+        c0, n_cold = max(0.0, float(cold_clip[0])), 0
+        for ln in cold_subs:
+            a = max(0, round((float(ln["start"]) - c0) * SEC))
+            e = min(hook_us, round((float(ln["end"]) - c0) * SEC))
+            if e - a < 200_000 or not str(ln.get("text", "")).strip():
+                continue
+            for s0, e0, t in spread_cues(split_text(ln["text"], lang, max_chars), a, e):
+                w.add_text(t, start=s0, duration=max(1, e0 - s0), x=pos["x"], y=pos["bottom"], style=subtitle_style)
+                n_cold += 1
+            if vi_subtitles and str(ln.get("text_vi", "")).strip():
+                vcfg = config.load("dub").get("vi_subtitles") or {}
+                vi_style = dataclasses.replace(_style({"size": vcfg.get("size", 8),
+                                                       "color": vcfg.get("color", [1, 0.95, 0.4]),
+                                                       "stroke_color": [0, 0, 0], "stroke_width": 0.12}), bold=False)
+                for s0, e0, t in spread_cues(split_text(ln["text_vi"], "en", int(vcfg.get("max_chars", 34))), a, e):
+                    w.add_text(t, start=s0, duration=max(1, e0 - s0), x=pos["x"],
+                               y=pos["bottom"] - float(vcfg.get("gap", 0.075)), style=vi_style)
+        if n_cold:
+            notes.append(f"Short mở đầu có phụ đề ({n_cold} cụm, dịch lời thoại gốc).")
     palette = [tuple(c) for c in style.get("emphasis_palette") or []] or [emph_style.color]
     emph_anims = _animations(template, style.get("emphasis", {}).get("animations", ["in"]))
     for i, e in enumerate(plan.emphasis):

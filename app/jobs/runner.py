@@ -587,6 +587,31 @@ class Runner:
         h = self._cliff_hook(v)
         return round(h[1] - h[0], 2) if h else 0.0
 
+    def _cliff_hook_subs(self, job: Job, v: dict) -> list[dict]:
+        """Phụ đề cho short mở đầu (chủ dự án 14/10): lời thoại gốc trong short dịch sang ngôn ngữ đích. Lưu
+        plan/hook_subs_videoNN.json; sửa giây của short / đổi ngôn ngữ thì dịch lại."""
+        from app.director.cliff import make_hook_subs
+
+        hook = self._cliff_hook(v)
+        if hook is None:
+            return []
+        d, analysis, plan_dir = self._paths(job)
+        u = self._u_for(job, v)
+        path = plan_dir / f"hook_subs_video{v['index']:02d}.json"
+        key = {"hook": [round(hook[0], 2), round(hook[1], 2)], "language": u.language}
+        try:
+            saved = json.loads(path.read_text(encoding="utf-8"))
+            if {k: saved.get(k) for k in key} == key:
+                return saved.get("lines") or []
+        except (OSError, ValueError):
+            pass
+        lines = make_hook_subs(self.director, analysis, u, hook, video_index=v["index"])
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({**key, "lines": lines}, ensure_ascii=False, indent=2), encoding="utf-8")
+        if lines:
+            self.log(f"Video {v['index']:02d}: phụ đề cho short mở đầu — {len(lines)} câu.")
+        return lines
+
     def _cliff_info(self, job: Job, v: dict) -> dict:
         """Thông tin phần gửi AI viết lời: thứ tự phần, ngôi kể, người kể, phần cuối?, chỗ bỏ lửng, short, phần trước."""
         from app.director.cliff import load_cfg
@@ -763,6 +788,8 @@ class Runner:
                              "(accept_imperfect trong config/dub.yaml).")
                 dub_io.dub_path(d, i).write_text(s.model_dump_json(indent=2), encoding="utf-8")
                 dub_io.pending_path(d, i).unlink(missing_ok=True)
+            if job.options.cliff:  # phụ đề cho short mở đầu — dịch sẵn cùng lúc viết lời
+                self._cliff_hook_subs(job, v)
             return s
 
         vids = self.videos(job)
@@ -1411,7 +1438,8 @@ class Runner:
                     hook=hook, voice=voice, clean_audio=clean.resolve() if clean.is_file() else None,
                     video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job),
                     bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm),
-                    cold_clip=self._cliff_hook(v) if job.options.cliff else None)
+                    cold_clip=self._cliff_hook(v) if job.options.cliff else None,
+                    cold_subs=self._cliff_hook_subs(job, v) if job.options.cliff else None)
         out = res.writer.save(overwrite=True)
         dur = round(res.duration_us / 1_000_000, 1)
         info = {"index": i, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),
