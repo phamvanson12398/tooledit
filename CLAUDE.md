@@ -355,6 +355,18 @@ kể từ đầu phần tới cuối phần), phần 2 trở đi nhắc nhanh b�
 phần sau"), phần cuối kể tới kết phim. **Ngôi kể chọn khi tạo job** (`cliff_pov`): ngôi 3 như review cũ, hoặc ngôi 1 —
 người kể LÀ nhân vật chính (`narrator_vi` do AI nhận ra lúc chia phần) xưng "tôi" (`check_first_person`). Ngôn ngữ
 Hàn / Nhật / Anh như review.
+**CONTENT NHIỀU PHIM TỪ BÀI TIKTOK ẢNH (chủ dự án yêu cầu 14/10):** thẻ "🎞️ Content nhiều phim" (`JobOptions.films`,
+`config/films.yaml`, `app/director/films.py`, `app/planner/films_build.py`). Bước riêng: `post` (bài gốc: tiêu đề lấy từ
+link bằng yt-dlp — bài ẢNH yt-dlp 2026.8.19 chỉ trả nhạc + mô tả, KHÔNG có ảnh, link /photo/ đổi sang /video/ — nên chủ dự án
+tải ảnh lên `post/`) → `idea` (AI xem ảnh + tiêu đề, nhận ra các PHIM, viết content MỚI: mỗi câu gắn phim, `shot`
+video / freeze, cảnh cần tìm; prompt `films_idea.md`; góp ý → viết lại, vd "bỏ phim 3") → `films_wait` (chủ dự án chọn file
+từng phim) → `analyze` (mỗi phim một footage, KHÔNG nối; chế độ nhanh `fast`: chỉ dò cảnh + `frames_per_film` khung, không
+Whisper / dò mặt / làm sạch âm thanh) → `match` (AI tìm cảnh cho từng câu TRONG ĐÚNG phim đó, mỗi phim một lượt song song,
+prompt `films_match.md`; nút "🔎 tìm lại cảnh" giữ voice) → `dub` (bài đọc thành DubScript có `story_vi` → dùng chung trang
+voice / đọc cả bài / OmniVoice với review) → voice → `write`. **Dừng hình (chủ dự án chọn 14/10):** video chạy tới
+`freeze_t` rồi đứng hình bằng ẢNH TOOL TỰ CẮT TỪ PHIM (cắt đúng vùng khối hình), zoom chậm, SFX "tách", tên nhân vật hiện
+giữa khối; dừng hình ≤ `image_share` 30% video. Tiếng phim tắt; bố cục như review; tên phim hiện khi sang phim mới; caption
+viết cùng content. Video `video_s` 60–120s.
 **Voice đến đâu ghi CapCut đến đấy (chủ dự án yêu cầu 09/10, mọi chế độ có voice thuyết minh / review):** job ra
 nhiều video thì video nào ĐỦ voice được ghi draft CapCut NGAY ở bước chờ voice (`Runner.write_ready_videos`, lưu
 `job.data.ready_drafts` + dấu vân tay voice — thu lại câu nào thì ghi lại), không chờ các video khác; đủ hết thì bước

@@ -1,0 +1,26 @@
+# Chế độ "CONTENT NHIỀU PHIM TỪ BÀI TIKTOK ẢNH" (chủ dự án yêu cầu 14/10).
+# Bạn dán link bài TikTok dạng ảnh (+ tải ảnh của bài lên, vì yt-dlp chỉ lấy được nhạc + mô tả của bài ảnh — đối chiếu
+# mã nguồn yt-dlp 2026.8.19) → AI xem ảnh + tiêu đề, nhận ra các PHIM / nhân vật, viết content MỚI (lời đọc ngôn ngữ đích)
+# → tool liệt kê phim cần → bạn thả file từng phim → tool phân tích, AI tìm đúng cảnh trong TỪNG phim cho từng câu
+# → bạn đọc cả bài một file (hoặc OmniVoice) → tool cắt cảnh theo voice, xen DỪNG HÌNH, ghi CapCut.
+# Tiếng phim tắt hẳn (giọng đọc + nhạc nền nhẹ) như review. Bố cục / tốc độ giọng dùng chung với review.
+
+video_s: [60, 120]       # độ dài video (giây) — bài đọc viết vừa khoảng này
+max_films: 10            # tối đa số phim trong một video
+max_post_images: 20      # số ảnh của bài gốc gửi AI xem
+# DỪNG HÌNH (chủ dự án chọn 14/10): video chạy tới khoảnh khắc đắt thì đứng hình, ảnh tĩnh cắt từ phim, zoom nhẹ, tiếng
+# "tách" + tên nhân vật hiện lên. Ảnh = khung hình tool tự cắt từ phim.
+image_share: 0.3         # dừng hình chiếm tối đa ~30% thời lượng video
+freeze_lead_s: 0.8       # video chạy chừng này giây trước khi đứng hình
+freeze_max_s: 3.0        # một lần dừng hình tối đa 3 giây (câu dài hơn thì phần còn lại chạy video tiếp)
+freeze_zoom: 1.12        # ảnh dừng zoom chậm từ 1.0 tới mức này
+freeze_sfx: [pop, ding, whoosh]  # loại SFX khi đứng hình (lấy cái đầu tiên có trong kho)
+# Nhãn khi chuyển sang phim mới: tên phim (ngôn ngữ video) ở dải trên khối hình
+film_label: true
+film_label_s: 2.5
+# Cắt cảnh video theo voice (như review)
+cut_s: 2.0
+min_cut_s: 1.0
+# Phân tích phim: CHẾ ĐỘ NHANH (chủ dự án chọn) — chỉ dò cảnh + lấy khung hình, KHÔNG nhận dạng lời thoại, không dò mặt
+fast: true
+frames_per_film: 180     # số khung hình mỗi phim (AI xem dạng ảnh lưới để tìm cảnh)

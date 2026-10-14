@@ -209,6 +209,54 @@ class CliffPlan(BaseModel):
     editor_notes: str
 
 
+# ---------------- Content nhiều phim từ bài TikTok ảnh (chủ dự án yêu cầu 14/10) ----------------
+
+class FilmRef(BaseModel):
+    key: str = Field(description="mã phim: phim1, phim2… theo thứ tự xuất hiện trong video")
+    title: str = Field(description="tên phim CHÍNH THỨC ở thị trường của ngôn ngữ video (hiện trên màn hình)")
+    title_vi: str = Field(description="tên phim tiếng Việt / tên gốc để chủ dự án tìm đúng file phim")
+    year: str = Field(default="", description="năm phát hành nếu biết chắc, không thì để trống")
+    characters: list[str] = Field(default_factory=list, description="nhân vật được nhắc trong video (tên tiếng Việt / gốc)")
+
+
+class FilmLine(BaseModel):
+    film: str = Field(description="mã phim (key) mà câu này nói tới — hình của câu lấy từ phim đó")
+    shot: Literal["video", "freeze"] = Field(description="video = cảnh phim chạy; freeze = video chạy rồi DỪNG HÌNH ở "
+                                                          "khoảnh khắc đắt (tên nhân vật hiện lên)")
+    text: str = Field(description="câu đọc bằng NGÔN NGỮ VIDEO, văn nói tự nhiên của người bản xứ")
+    text_vi: str = Field(description="nghĩa tiếng Việt")
+    want_vi: str = Field(description="cảnh cần tìm trong phim (tiếng Việt, cụ thể: ai, làm gì, khoảnh khắc nào)")
+    label: str = Field(default="", description="(freeze) chữ hiện khi dừng hình: tên nhân vật, ngôn ngữ video, ngắn")
+
+
+class FilmsIdea(BaseModel):
+    topic_vi: str = Field(description="bài gốc nói về gì (tiếng Việt, 1–2 câu)")
+    films: list[FilmRef] = Field(min_length=1)
+    story_vi: str = Field(description="dàn ý content MỚI bằng tiếng Việt: mở – từng phim / nhân vật – kết")
+    lines: list[FilmLine] = Field(min_length=3)
+    titles_top: list[str] = Field(min_length=1, max_length=2, description="2 dòng tiêu đề trên (ngôn ngữ video)")
+    music: MusicChoice
+    caption: str = Field(description="caption TikTok bằng ngôn ngữ video, 1–3 câu")
+    caption_vi: str
+    hashtags: list[str] = Field(min_length=3, max_length=8)
+    hashtags_vi: list[str]
+    editor_notes: str
+
+
+class FilmPick(BaseModel):
+    line: int = Field(ge=1, description="số câu (theo danh sách được giao)")
+    start: float = Field(ge=0, description="giây bắt đầu đoạn phim cho câu này")
+    end: float = Field(gt=0, description="giây kết thúc")
+    freeze_t: float | None = Field(default=None, description="(câu dừng hình) giây đứng hình — khoảnh khắc đắt, nằm "
+                                                              "trong start–end, thấy rõ nhân vật")
+    why_vi: str = Field(default="", description="khung hình nào cho thấy cảnh này (tên file) — ngắn")
+
+
+class FilmMatch(BaseModel):
+    picks: list[FilmPick] = Field(min_length=1)
+    editor_notes: str
+
+
 # ---------------- Hook (mục 5) ----------------
 
 HookType = Literal["climax_first", "open_question", "contrast", "half_reveal", "odd_detail"]
@@ -657,3 +705,6 @@ class ViLine(BaseModel):
 
 class ViSubs(BaseModel):
     lines: list[ViLine] = Field(min_length=1)
+
+
+FilmsIdea.model_rebuild()  # MusicChoice khai báo phía dưới FilmsIdea

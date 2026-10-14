@@ -1,5 +1,27 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 98 — Chế độ mới "🎞️ Content nhiều phim (từ bài TikTok ảnh)" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, rồi cài thêm yt-dlp (chỉ lần này) trong PowerShell ở thư mục tool:
+
+   ```powershell
+   .venv\Scripts\pip install -r requirements.txt
+   ```
+
+2. Mở lại `start.bat` → trang chủ → thẻ **🎞️ Content nhiều phim** → dán **link bài TikTok ảnh**, chọn **các ảnh của
+   bài** (lưu ảnh từ app TikTok hoặc chụp màn hình — tool KHÔNG tự tải được ảnh của bài ảnh), chọn ngôn ngữ → Bắt đầu.
+3. Nhật ký: "Lấy được tiêu đề bài từ link…" (nếu báo không lấy được thì dán tiêu đề vào ô trên trang, không sao).
+4. AI viết xong → trang **🎞️ Chọn file từng phim**: kiểm tra AI nhận đúng tên phim chưa, đọc thử content (bấm "Xem … câu").
+   Bấm 📂 chọn file cho từng phim → **Lưu và chạy tiếp**. Thiếu phim / muốn đổi → gõ góp ý (vd "bỏ phim 3") → ✍️.
+5. Tool phân tích từng phim (chế độ nhanh: chỉ dò cảnh + khung hình — ghi lại mất bao lâu mỗi phim), AI tìm cảnh,
+   rồi tới trang voice: đọc cả bài một file (hoặc 🤖 OmniVoice — dùng "Mô tả giọng", không clone được vì tiếng phim tắt).
+6. Mở CapCut kiểm tra:
+   - cảnh có đúng nhân vật / sự việc câu đang nói không (sai nhiều → 🛠️ **AI tìm lại cảnh trong phim**, voice giữ nguyên);
+   - **dừng hình**: video chạy rồi đứng hình, ảnh zoom chậm, tên nhân vật hiện giữa khối hình, có tiếng "tách";
+   - ảnh dừng hình khớp đúng khung video (không lệch / méo) và chiếm khoảng 30% video;
+   - khi sang phim mới có tên phim ở góc trên khối hình.
+7. Gửi mình: phim nào AI tìm cảnh sai, ảnh dừng hình có bị lệch không, thời gian phân tích mỗi phim.
+
 ## Bước 97 — Chế độ mới "🧨 Review bỏ lửng" (kể hết phim thành nhiều phần) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 Chế độ **🎬 Review phim** cũ vẫn giữ nguyên, đây là một thẻ riêng.
