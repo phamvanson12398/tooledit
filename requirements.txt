@@ -11,7 +11,4 @@ fastapi>=0.110,<1
 uvicorn>=0.30,<1
 python-multipart>=0.0.9
 httpx>=0.27
-# Content nhiều phim: lấy tiêu đề / mô tả bài TikTok từ link (bài ẢNH: chỉ lấy được mô tả, không lấy được ảnh —
-# đối chiếu mã nguồn yt-dlp 2026.8.19). TikTok hay đổi → nên cập nhật: .venv\Scripts\pip install -U yt-dlp
-yt-dlp>=2026.8.19
 pytest>=8

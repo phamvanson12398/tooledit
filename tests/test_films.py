@@ -90,10 +90,9 @@ def test_films_job_end_to_end(tmp_path):
     jobs = tmp_path / "jobs"
     job = Job.create(jobs, [], JobOptions(films=True, target_language="ko"), job_id="mf")
     job.step = "post"
-    job.data["post_url"] = "https://www.tiktok.com/@a/photo/7400000000000000000"
     job.save(jobs)
     r = make_runner(tmp_path, jobs)
-    r._post_fn = lambda url: {"title": "5 nhân vật anime đáng nhớ", "uploader": "abc"}
+    r.save_post(job, title="5 nhân vật anime đáng nhớ")  # chủ dự án tự gõ tiêu đề
     r._still_fn = _fake_still
     r._director = FakeDirector(responses={"films_idea": _idea(), "films_match": _picks()})
     analyzed = []
@@ -176,13 +175,15 @@ def test_web_form_films(tmp_path):
     app.state.worker.start = lambda job_id, action=None: True
     client = TestClient(app)
     home = client.get("/").text
-    assert "Content nhiều phim" in home and 'name="post_url"' in home and 'name="post_images"' in home
+    assert "Content nhiều phim" in home and 'name="post_title"' in home and 'name="post_images"' in home
+    assert 'name="post_url"' not in home                                               # bỏ ô dán link (14/10)
     # ô "Chọn video" (bắt buộc) bị ẩn ở chế độ này phải bị tắt — không thì trình duyệt chặn nút Bắt đầu (lỗi 14/10)
     assert "querySelectorAll('input,select,textarea')" in home
-    no_lang = client.post("/jobs", data={"mode": "films", "post_url": "https://www.tiktok.com/@a/photo/1"})
+    no_lang = client.post("/jobs", data={"mode": "films", "post_title": "Top 5"})
     assert "Chưa chọn ngôn ngữ" in no_lang.text
-    r = client.post("/jobs", data={"mode": "films", "post_url": "https://www.tiktok.com/@a/photo/1",
-                                   "target_language": "ja", "post_title": "Top 5"},
+    no_title = client.post("/jobs", data={"mode": "films", "target_language": "ja"})
+    assert "Chưa có tiêu đề" in no_title.text
+    r = client.post("/jobs", data={"mode": "films", "target_language": "ja", "post_title": "Top 5"},
                     files=[("post_images", ("a.jpg", b"\xff\xd8", "image/jpeg")),
                            ("post_images", ("b.png", b"\x89PNG", "image/png"))], follow_redirects=False)
     job = Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1])

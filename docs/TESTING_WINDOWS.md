@@ -1,5 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 101 — Content nhiều phim: bỏ ô dán link, tự gõ tiêu đề `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Thẻ **🎞️ Content nhiều phim** giờ không còn ô "Link bài TikTok"; ô **📝 Tiêu đề / mô tả bài** là bắt buộc (gõ hoặc dán
+   tiêu đề bài), ảnh của bài vẫn tải lên như cũ. Không cần cài yt-dlp nữa (bỏ qua lệnh pip ở Bước 98).
+3. Gõ tiêu đề + chọn ảnh + chọn ngôn ngữ → **Bắt đầu** → job chạy, AI dùng đúng tiêu đề bạn gõ.
+
 ## Bước 100 — Bước plan lỗi "sai khuôn 3 lần" → hỏi bạn có dùng bản gần nhất không `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
@@ -24,7 +31,7 @@ dựng lại; (2) tải voice lên đúng lúc job **đang chạy** (đang ghi d
 
 ## Bước 98 — Chế độ mới "🎞️ Content nhiều phim (từ bài TikTok ảnh)" `[CẦN KIỂM TRA TRÊN MÁY]`
 
-1. Tắt `start.bat`, `git pull`, rồi cài thêm yt-dlp (chỉ lần này) trong PowerShell ở thư mục tool:
+1. Tắt `start.bat`, `git pull`, rồi (không còn bắt buộc từ Bước 101) cài lại thư viện trong PowerShell ở thư mục tool:
 
    ```powershell
    .venv\Scripts\pip install -r requirements.txt

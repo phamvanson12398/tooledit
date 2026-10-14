@@ -6,7 +6,6 @@ Video mới dùng HÌNH CẮT TỪ CHÍNH CÁC PHIM (chủ dự án có file phi
 
 ## Bài gốc
 - Tiêu đề / mô tả: {{title}}
-- Tài khoản: {{uploader}}
 - Ảnh của bài (mở từng file bằng Read để xem):
 {{images}}
 

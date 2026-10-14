@@ -356,9 +356,8 @@ phần sau"), phần cuối kể tới kết phim. **Ngôi kể chọn khi tạo
 người kể LÀ nhân vật chính (`narrator_vi` do AI nhận ra lúc chia phần) xưng "tôi" (`check_first_person`). Ngôn ngữ
 Hàn / Nhật / Anh như review.
 **CONTENT NHIỀU PHIM TỪ BÀI TIKTOK ẢNH (chủ dự án yêu cầu 14/10):** thẻ "🎞️ Content nhiều phim" (`JobOptions.films`,
-`config/films.yaml`, `app/director/films.py`, `app/planner/films_build.py`). Bước riêng: `post` (bài gốc: tiêu đề lấy từ
-link bằng yt-dlp — bài ẢNH yt-dlp 2026.8.19 chỉ trả nhạc + mô tả, KHÔNG có ảnh, link /photo/ đổi sang /video/ — nên chủ dự án
-tải ảnh lên `post/`) → `idea` (AI xem ảnh + tiêu đề, nhận ra các PHIM, viết content MỚI: mỗi câu gắn phim, `shot`
+`config/films.yaml`, `app/director/films.py`, `app/planner/films_build.py`). Bước riêng: `post` (bài gốc: chủ dự án TỰ GÕ
+tiêu đề + tải ảnh lên `post/` — **cập nhật 14/10: bỏ ô dán link / yt-dlp**, chủ dự án nhập tiêu đề tay) → `idea` (AI xem ảnh + tiêu đề, nhận ra các PHIM, viết content MỚI: mỗi câu gắn phim, `shot`
 video / freeze, cảnh cần tìm; prompt `films_idea.md`; góp ý → viết lại, vd "bỏ phim 3") → `films_wait` (chủ dự án chọn file
 từng phim) → `analyze` (mỗi phim một footage, KHÔNG nối; chế độ nhanh `fast`: chỉ dò cảnh + `frames_per_film` khung, không
 Whisper / dò mặt / làm sạch âm thanh) → `match` (AI tìm cảnh cho từng câu TRONG ĐÚNG phim đó, mỗi phim một lượt song song,

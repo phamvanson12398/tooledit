@@ -633,31 +633,14 @@ class Runner:
         return {int(k): v for k, v in raw.items()}
 
     def step_post(self, job: Job) -> None:
-        """Bài gốc: tiêu đề (chủ dự án dán, hoặc lấy từ link bằng yt-dlp) + ảnh (chủ dự án tải lên — yt-dlp không lấy
-        được ảnh của bài ảnh)."""
+        """Bài gốc: tiêu đề chủ dự án tự gõ (14/10: bỏ ô dán link) + ảnh chủ dự án tải lên."""
         info = self._post_info(job)
-        url = job.data.get("post_url", "")
-        if url and not info.get("fetched"):
-            from app.director.films import fetch_post
-
-            try:
-                got = (getattr(self, "_post_fn", None) or fetch_post)(url)
-                if got.get("title") and not info.get("title"):
-                    info["title"] = got["title"]
-                info["uploader"] = got.get("uploader", "")
-                self.log(f"Lấy được tiêu đề bài từ link: {info.get('title', '')[:80]}")
-            except Exception as exc:  # TikTok hay đổi — không lấy được thì chủ dự án dán tiêu đề
-                self.log(f"Không lấy được tiêu đề từ link ({str(exc)[:120]}) — dán tiêu đề vào ô trên trang nếu cần.")
-            info["fetched"] = True
-            d, _, _ = self._paths(job)
-            (d / "post").mkdir(parents=True, exist_ok=True)
-            (d / "post" / "post.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
         images = self.post_images(job)
         if not images and not info.get("no_images"):
-            job.wait("Tải lên các ẢNH của bài TikTok (lưu từng ảnh từ app / chụp màn hình) — tool không tự tải được ảnh "
-                     "của bài ảnh. Không có ảnh thì tick 'Chỉ dùng tiêu đề' rồi bấm Chạy tiếp.")
+            job.wait("Tải lên các ẢNH của bài TikTok (lưu từng ảnh từ app / chụp màn hình). Không có ảnh thì tick "
+                     "'Chỉ dùng tiêu đề' rồi bấm Chạy tiếp.")
         elif not images and not info.get("title"):
-            job.wait("Chưa có ảnh lẫn tiêu đề — dán tiêu đề / mô tả bài vào ô bên dưới.")
+            job.wait("Chưa có ảnh lẫn tiêu đề — gõ tiêu đề / mô tả bài vào ô bên dưới.")
         else:
             self.log(f"Bài gốc: {len(images)} ảnh, tiêu đề: {(info.get('title') or '(không có)')[:80]}")
 

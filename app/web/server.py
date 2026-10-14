@@ -468,7 +468,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ("cliff", "🧨", "Review bỏ lửng",
                  "Kể HẾT phim thành nhiều phần 1:30–2:00, mở bằng short kịch tính, kết bỏ lửng — ngôi 1 hoặc 3"),
                 ("films", "🎞️", "Content nhiều phim (từ bài TikTok ảnh)",
-                 "Dán link bài ảnh → AI viết content mới, bạn thả file các phim → tool tìm cảnh, xen dừng hình"),
+                 "Gõ tiêu đề + tải ảnh bài TikTok → AI viết content mới, bạn thả file các phim → tool tìm cảnh, xen dừng hình"),
                 ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn đoạn hay (câu nói hay, hài, gay cấn…), thay giọng từng nhân vật, giữ nhạc nền gốc"),
                 ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
             ))
@@ -494,11 +494,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             </div>
             <div data-modes="films">
             <h3>Bài TikTok ảnh làm ý tưởng</h3>
-            <label>🔗 Link bài TikTok</label><input type="text" name="post_url" placeholder="https://www.tiktok.com/@.../photo/...">
-            <label style="margin-top:8px">🖼️ Các ảnh của bài (lưu từ app / chụp màn hình — tool không tự tải được ảnh của bài ảnh)</label>
+            <label>📝 Tiêu đề / mô tả bài (bạn gõ hoặc dán vào)</label>
+            <textarea name="post_title" rows="2" required placeholder="vd: 5 nhân vật hoạt hình thông minh nhất"></textarea>
+            <label style="margin-top:8px">🖼️ Các ảnh của bài (lưu từ app / chụp màn hình)</label>
             <input type="file" name="post_images" multiple accept="image/*">
-            <label style="margin-top:8px">📝 Tiêu đề / mô tả bài (không bắt buộc — tool thử lấy từ link)</label>
-            <textarea name="post_title" rows="2"></textarea>
             <div class="muted">File phim chọn SAU, khi AI đã viết xong content và báo cần những phim nào.</div>
             </div>
           </div></section>
@@ -686,10 +685,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None),
                 vi_sub: str | None = Form(None), review: str | None = Form(None), char_dub: str | None = Form(None),
                 ai: str = Form(""), mode: str = Form(""), review_s: int = Form(0), cliff_pov: str = Form(""),
-                post_url: str = Form(""), post_title: str = Form(""),
+                post_title: str = Form(""),
                 post_images: list[UploadFile] | None = File(None)):
         if mode == "films":  # content nhiều phim: chưa có file phim, bắt đầu từ bài TikTok ảnh
-            return _new_films_job(Path(jobs_root), worker, target_language, post_url, post_title, post_images or [],
+            return _new_films_job(Path(jobs_root), worker, target_language, post_title, post_images or [],
                                   client, ai)
         cliff = mode == "cliff"
         if mode in MODES:  # trang chủ mới: chọn MỘT chế độ (thẻ) thay cho các ô tick riêng
@@ -776,7 +775,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         head = (f"<div class='card'><div style='display:flex;justify-content:space-between;align-items:center'>"
                 f"<div><h2 style='margin:0'>{html.escape(job_name(job))}</h2>"
                 f"<div class='muted'><b>{MODE_VI[job_mode(job)]}{review_len(job)}</b> · {job.job_id} · kiểu dựng: {html.escape(style)} · "
-                f"🤖 AI: <b>{AI_NAMES[_ai_of(job)]}</b> · {html.escape(job.footage[0] if job.footage else job.data.get('post_url', ''))}</div>"
+                f"🤖 AI: <b>{AI_NAMES[_ai_of(job)]}</b> · {html.escape(job.footage[0] if job.footage else job.data.get('post_title', ''))}</div>"
                 + ("" if running else
                    f"<form method='post' action='/jobs/{job_id}/ai' style='margin-top:6px'>"
                    f"<select name='ai' style='width:auto'>{_ai_options(_ai_of(job))}</select> "
@@ -1554,7 +1553,7 @@ def _save_post_images(d: Path, files: list) -> int:
     return n
 
 
-def _new_films_job(jobs_root: Path, worker, target_language: str, post_url: str, post_title: str, images: list,
+def _new_films_job(jobs_root: Path, worker, target_language: str, post_title: str, images: list,
                    client: str, ai: str):
     """Tạo job Content nhiều phim: chưa có file phim — bắt đầu từ bài TikTok ảnh (link / ảnh / tiêu đề)."""
     lang = target_language if target_language in ("ko", "ja", "en") else ""
@@ -1562,9 +1561,9 @@ def _new_films_job(jobs_root: Path, worker, target_language: str, post_url: str,
         return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p><b>Content nhiều phim</b> cần chọn ngôn ngữ "
                      "của video mới (Hàn / Nhật / Anh).</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
     images = [f for f in images if getattr(f, "filename", "")]
-    if not post_url.strip() and not post_title.strip() and not images:
-        return _page("Lỗi", "<div class='card'><h2>Chưa có bài gốc</h2><p>Dán link bài TikTok ảnh, hoặc tải ảnh / dán "
-                     "tiêu đề của bài.</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
+    if not post_title.strip():
+        return _page("Lỗi", "<div class='card'><h2>Chưa có tiêu đề</h2><p>Gõ tiêu đề / mô tả của bài TikTok vào ô "
+                     "<b>📝 Tiêu đề</b>.</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
     job = Job.create(jobs_root, [], JobOptions(client_id=client.strip() or "khach", films=True, target_language=lang,
                                                ai=ai if ai in AI_NAMES else ""))
     job.step = "post"
@@ -1572,7 +1571,7 @@ def _new_films_job(jobs_root: Path, worker, target_language: str, post_url: str,
     _save_post_images(d, images)
     info = {"title": post_title.strip()} if post_title.strip() else {}
     (d / "post" / "post.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
-    job.data.update({"post_url": post_url.strip(), "post_title": (post_title.strip() or post_url.strip())[:120]})
+    job.data["post_title"] = post_title.strip()[:120]
     job.save(jobs_root)
     worker.start(job.job_id)
     return RedirectResponse(f"/jobs/{job.job_id}", status_code=303)

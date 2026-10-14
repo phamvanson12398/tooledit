@@ -1,6 +1,5 @@
 # Chế độ "CONTENT NHIỀU PHIM TỪ BÀI TIKTOK ẢNH" (chủ dự án yêu cầu 14/10).
-# Bạn dán link bài TikTok dạng ảnh (+ tải ảnh của bài lên, vì yt-dlp chỉ lấy được nhạc + mô tả của bài ảnh — đối chiếu
-# mã nguồn yt-dlp 2026.8.19) → AI xem ảnh + tiêu đề, nhận ra các PHIM / nhân vật, viết content MỚI (lời đọc ngôn ngữ đích)
+# Bạn tự gõ tiêu đề bài TikTok ảnh + tải ảnh của bài lên (14/10: bỏ ô dán link) → AI xem ảnh + tiêu đề, nhận ra các PHIM / nhân vật, viết content MỚI (lời đọc ngôn ngữ đích)
 # → tool liệt kê phim cần → bạn thả file từng phim → tool phân tích, AI tìm đúng cảnh trong TỪNG phim cho từng câu
 # → bạn đọc cả bài một file (hoặc OmniVoice) → tool cắt cảnh theo voice, xen DỪNG HÌNH, ghi CapCut.
 # Tiếng phim tắt hẳn (giọng đọc + nhạc nền nhẹ) như review. Bố cục / tốc độ giọng dùng chung với review.

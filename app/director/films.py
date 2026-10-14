@@ -1,6 +1,6 @@
 """Chế độ "CONTENT NHIỀU PHIM TỪ BÀI TIKTOK ẢNH" (chủ dự án yêu cầu 14/10).
 
-1. Bài gốc: ảnh (chủ dự án tải lên) + tiêu đề / mô tả (lấy từ link bằng yt-dlp nếu được).
+1. Bài gốc: ảnh + tiêu đề / mô tả — chủ dự án tải ảnh lên và tự gõ tiêu đề (14/10: bỏ lấy từ link).
 2. AI xem ảnh + tiêu đề → nhận ra các PHIM / nhân vật → viết content MỚI (lời đọc ngôn ngữ video), mỗi câu gắn một phim,
    kiểu hình (video / dừng hình) và cảnh cần tìm (`make_idea`, prompt `films_idea.md`).
 3. Chủ dự án thả file từng phim → phân tích (nhanh: dò cảnh + khung hình) → AI tìm cảnh cho từng câu TRONG ĐÚNG PHIM đó
@@ -39,20 +39,6 @@ def freeze_part(est: float, cfg: dict) -> float:
     """Phần dừng hình của một câu freeze: video chạy freeze_lead_s rồi đứng hình, tối đa freeze_max_s."""
     lead = float(cfg.get("freeze_lead_s", 0.8))
     return max(0.0, min(est - lead, float(cfg.get("freeze_max_s", 3.0))))
-
-
-# ---------------- bài gốc ----------------
-
-def fetch_post(url: str) -> dict:
-    """Tiêu đề / mô tả của bài TikTok bằng yt-dlp (không tải gì). Bài ẢNH: yt-dlp 2026.8.19 chỉ nhận link /video/ (link
-    /photo/ đổi sang /video/ cùng mã bài) và chỉ trả nhạc + mô tả, KHÔNG có danh sách ảnh — ảnh chủ dự án tự tải lên."""
-    import yt_dlp
-
-    u = re.sub(r"/photo/(\d+)", r"/video/\1", url.strip())
-    with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "noplaylist": True}) as ydl:
-        info = ydl.extract_info(u, download=False) or {}
-    return {"title": (info.get("description") or info.get("title") or "").strip(),
-            "uploader": info.get("uploader") or ""}
 
 
 # ---------------- AI viết content ----------------
