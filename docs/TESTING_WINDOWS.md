@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 99 — Sửa "có voice rồi nhưng không thêm vào dự án CapCut" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Nguyên nhân tìm được trong code: (1) job đã **✅ Xong** rồi bạn mới tải / thu lại voice hoặc cho OmniVoice đọc → tool không
+dựng lại; (2) tải voice lên đúng lúc job **đang chạy** (đang ghi draft, OmniVoice đang đọc) → lượt đó bị bỏ qua.
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`. **Đóng CapCut** trước khi thử.
+2. Thử (1): chọn một job đã xong → tải lại 1–2 file voice (hoặc 🤖 OmniVoice đọc lại một câu) → đợi vài giây, nhật ký phải có
+   "✅ Đã cập nhật voice mới vào dự án CapCut: video 01". Mở CapCut → câu đó có voice mới.
+   Lưu ý: video được ghi lại như bấm 🔁 Dựng lại draft — chỉnh tay trong CapCut của video đó sẽ mất.
+3. Thử (2): lúc job đang chạy, tải thêm voice → khi lượt đang chạy xong, tool tự chạy thêm một lượt và đưa voice vào.
+4. CapCut đang mở → nhật ký báo "⚠️ … chưa ghi được vào dự án CapCut … Đóng CapCut rồi bấm 🔁 Dựng lại draft".
+5. Vẫn còn trường hợp thiếu voice: chụp nhật ký (log) + trang voice gửi mình, ghi rõ câu nào có ✅ mà CapCut không có.
+
 ## Bước 98 — Chế độ mới "🎞️ Content nhiều phim (từ bài TikTok ảnh)" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, rồi cài thêm yt-dlp (chỉ lần này) trong PowerShell ở thư mục tool:

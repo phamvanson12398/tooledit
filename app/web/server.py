@@ -218,6 +218,7 @@ class Worker:
         self.lock = threading.Lock()
         self.active: set[str] = set()
         self.queue: list[tuple[str, object]] = []
+        self.again: dict[str, list] = {}  # job đang chạy mà người dùng vừa thêm voice / bấm OmniVoice → chạy lại sau
 
     def queued_ids(self) -> list[str]:
         with self.lock:
@@ -258,6 +259,17 @@ class Worker:
         threading.Thread(target=self._work, args=(job_id, action), daemon=True).start()
         return True
 
+    def start_or_later(self, job_id: str, action=None) -> bool:
+        """Như start, nhưng job ĐANG CHẠY thì nhớ lại để chạy thêm một lượt ngay khi lượt này xong (chủ dự án 14/10:
+        "có voice rồi mà không thêm vào CapCut" — voice tải lên giữa lúc job đang ghi draft bị bỏ qua)."""
+        if self.start(job_id, action):
+            return True
+        with self.lock:
+            if job_id in self.active:
+                self.again.setdefault(job_id, []).append(action)
+                return True
+        return False
+
     def _work(self, job_id: str, action) -> None:
         try:
             log_path = Job.dir_for(self.jobs_root, job_id) / "log.txt"
@@ -287,11 +299,15 @@ class Worker:
             nxt = None
             with self.lock:
                 self.active.discard(job_id)
-                if self.queue and len(self.active) < max(1, int(self.max_jobs())):
+                later = self.again.pop(job_id, None)
+                if later is None and self.queue and len(self.active) < max(1, int(self.max_jobs())):
                     nxt = self.queue.pop(0)
                     self.active.add(nxt[0])
             if nxt:
                 threading.Thread(target=self._work, args=nxt, daemon=True).start()
+            if later is not None:  # có thay đổi trong lúc chạy → chạy thêm một lượt (gộp các thao tác đã bấm)
+                acts = [a for a in later if a]
+                self.start(job_id, (lambda runner, job: [a(runner, job) for a in acts]) if acts else None)
 
 
 def _page(title: str, body: str, refresh: bool = False) -> HTMLResponse:
@@ -848,7 +864,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         except (ValueError, RuntimeError) as exc:
             return _page("Lỗi", f"<div class='card'><h2>Chưa cắt được giọng {html.escape(speaker)}</h2>"
                          f"<p>{html.escape(str(exc))}</p><p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
-        worker.start(job_id)
+        worker.start_or_later(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/dub-speakers")
@@ -900,7 +916,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             runner.save_tts_voices(job, voices, clone_ok)
             runner.tts_generate(job, video, only_missing)
 
-        worker.start(job_id, action=action)
+        worker.start_or_later(job_id, action=action)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/review-feedback")
@@ -1101,7 +1117,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             old.unlink()
         with open(vdir / f"{hook_io.voice_name(video)}{ext}", "wb") as f:
             shutil.copyfileobj(voice.file, f)
-        worker.start(job_id)
+        worker.start_or_later(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/dub-voice")
@@ -1128,7 +1144,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             return _page("Lỗi", f"<div class='card'><h2>Có file không hợp lệ</h2><p>Chỉ nhận "
                          f"{', '.join(hook_io.VOICE_EXTS)}; đã bỏ qua: {html.escape(', '.join(bad))}</p>"
                          f"<p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
-        worker.start(job_id)
+        worker.start_or_later(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/dub-voice-all")
@@ -1151,7 +1167,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         except (ValueError, RuntimeError) as exc:
             return _page("Lỗi", f"<div class='card'><h2>Chưa cắt được file voice</h2><p>{html.escape(str(exc))}</p>"
                          f"<p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
-        worker.start(job_id)
+        worker.start_or_later(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/dub-skip")

@@ -275,6 +275,15 @@ class Runner:
 
     def resume(self, job: Job) -> Job:
         """Người dùng bấm Tiếp tục (đã chọn hook / đã thả voice / đã duyệt) → chạy tiếp."""
+        if job.status == Status.done:  # job xong rồi mới thu lại / thêm voice → cập nhật draft của video đó
+            from app.jobs import stop
+
+            stop.set_current(job.job_id)
+            try:
+                self.refresh_voice_drafts(job)
+            finally:
+                stop.set_current(None)
+            return job
         if job.status in (Status.waiting, Status.error, Status.stopped) and job.step in self.RECHECK_STEPS:
             job.status = Status.pending
         else:
@@ -1284,7 +1293,10 @@ class Runner:
         d, _, _ = self._paths(job)
         missing = dub_io.missing_lines(d, self._dub_scripts(job))
         if missing:
-            self.write_ready_videos(job)  # voice đến đâu ghi CapCut đến đấy
+            try:
+                self.write_ready_videos(job)  # voice đến đâu ghi CapCut đến đấy
+            except RuntimeError as exc:  # CapCut đang mở → vẫn chờ voice, báo rõ thay vì làm job lỗi
+                self.log(f"⚠️ Chưa ghi được video đủ voice vào CapCut: {exc}")
             job.wait(f"Thu voice thuyết minh theo kịch bản bên dưới rồi tải lên. Còn thiếu {len(missing)} file: "
                      + ", ".join(missing[:8]) + (" …" if len(missing) > 8 else ""))
 
@@ -1730,6 +1742,50 @@ class Runner:
         """Dấu vân tay voice của một video (tên + cỡ + giờ sửa) — đổi voice thì ghi lại draft."""
         files = sorted((d / "voice").glob(f"video{index:02d}_dub*.*")) if (d / "voice").is_dir() else []
         return "|".join(f"{f.name}:{f.stat().st_size}:{int(f.stat().st_mtime)}" for f in files if "_cu" not in f.stem)
+
+    def _voices_newer(self, job: Job, index: int, draft: Path) -> bool:
+        """Có file voice của video này mới hơn lần ghi draft cuối (tải lên / OmniVoice SAU khi dựng xong)?"""
+        from app.capcut_writer.template import timeline_copies
+
+        d, _, _ = self._paths(job)
+        names = [f"video{index:02d}_dub*.*", f"video{index:02d}_hook.*"]
+        files = [f for n in names for f in (d / "voice").glob(n)
+                 if "_cu" not in f.stem and f.is_file()] if (d / "voice").is_dir() else []
+        if not files:
+            return False
+        written = [p.stat().st_mtime for p in timeline_copies(draft) if p.is_file()]
+        return not written or max(f.stat().st_mtime for f in files) > max(written) + 1
+
+    def refresh_voice_drafts(self, job: Job) -> list[int]:
+        """Chủ dự án 14/10 "có voice rồi mà không thêm vào dự án CapCut": job đã XONG, sau đó bạn tải voice / thu lại /
+        cho OmniVoice đọc → trước đây tool không dựng lại. Giờ video nào có voice mới hơn draft thì ghi lại draft đó
+        (chỉnh tay trong CapCut của video đó sẽ mất — giống bấm 🔁 Dựng lại draft). Trả các video đã ghi lại."""
+        if not (self._dubbing(job) or job.use_hook) or job.options.vi_sub:
+            return []
+        drafts = list(job.data.get("drafts") or [])
+        todo = [dr for dr in drafts if self._voices_newer(job, int(dr["index"]), Path(dr["draft"]))]
+        if not todo:
+            return []
+        vids = {v["index"]: v for v in self.videos(job)}
+        done = []
+        try:
+            ctx = self._write_ctx(job)
+            for dr in todo:
+                i = int(dr["index"])
+                info, _ = self._write_video(job, vids[i], ctx)
+                drafts[drafts.index(dr)] = {**dr, **info}
+                done.append(i)
+        except RuntimeError as exc:  # thường là CapCut đang mở
+            job._log(f"⚠️ Có voice mới nhưng chưa ghi được vào dự án CapCut: {exc} Đóng CapCut rồi bấm 🔁 Dựng lại draft.")
+            job.save(self.jobs_root)
+            self.log(job.message)
+            return done
+        job.data["drafts"] = drafts
+        job.data["draft"] = drafts[0]["draft"]
+        job._log(f"✅ Đã cập nhật voice mới vào dự án CapCut: video {', '.join(f'{i:02d}' for i in done)}.")
+        job.save(self.jobs_root)
+        self.log(job.message)
+        return done
 
     def write_ready_videos(self, job: Job) -> list[int]:
         """Voice đến đâu ghi CapCut đến đấy (chủ dự án yêu cầu 09/10): video nào ĐỦ voice thì ghi draft ngay, không

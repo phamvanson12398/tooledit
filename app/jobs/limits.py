@@ -13,7 +13,8 @@ from contextlib import contextmanager
 from app import config
 
 STEP_GROUP = {"analyze": "analyze", "understand": "director", "segment": "director", "hooks": "director",
-              "plan": "director", "dub": "director", "captions": "director", "write": "write"}
+              "plan": "director", "dub": "director", "captions": "director", "write": "write",
+              "idea": "director", "match": "director"}  # content nhiều phim cũng tính vào lượt hỏi AI
 GROUP_VI = {"analyze": "phân tích", "gpu": "GPU (nhận dạng thoại)", "director": "hỏi đạo diễn AI", "write": "ghi draft CapCut"}
 _SEMS: dict[str, threading.Semaphore] = {}
 _LOCK = threading.Lock()
