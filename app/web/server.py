@@ -128,10 +128,12 @@ STEP_VI_MODE = {
                  "plan": "AI cắt bỏ đoạn rề rà", "dub": "AI dịch thoại + nhận diện nhân vật",
                  "dub_voice": "Chờ voice từng nhân vật", "write": "Ghép giọng mới + nền gốc → CapCut"},
     "vi_sub": {"write": "Dịch phụ đề tiếng Việt → CapCut"},
+    "sell": {"plan": "AI viết kịch bản mới + chọn cảnh", "dub_voice": "Chờ bạn đọc cả bài",
+             "write": "Cắt / đảo cảnh theo voice → đóng gói CapCut"},
     "voice_only": {"plan": "AI lập kế hoạch (giữ nguyên hình)", "dub": "AI viết thuyết minh",
                    "dub_voice": "Chờ voice thuyết minh"},
 }
-MODE_VI = {"char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
+MODE_VI = {"sell": "💰 Bán content", "char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
            "voice_only": "🎙️ Chỉ thay tiếng", "dub": "🌐 Đổi ngôn ngữ", "montage": "🎞️ Ghép nhiều video",
            "normal": "✂️ Dựng thường"}
 
@@ -150,6 +152,8 @@ def _ai_options(selected: str | None = None) -> str:
 
 def job_mode(job) -> str:
     o = job.options
+    if o.sell:
+        return "sell"
     if o.char_dub:
         return "char_dub"
     if o.review:
@@ -165,6 +169,11 @@ def job_mode(job) -> str:
 
 def review_len(job) -> str:
     """Review phim: thời lượng chủ dự án chọn (hiện cạnh tên chế độ ở đầu trang job)."""
+    if job.options.sell:
+        from app.director.sell import sell_cfg, sell_target
+
+        sec = int(sell_target(sell_cfg(), job.options.sell_s))
+        return f" · {sec // 60}:{sec % 60:02d}"
     if not job.options.review:
         return ""
     sec = int(job.options.review_s or app_config.load("review").get("default_s", 150))
@@ -181,7 +190,7 @@ def step_label(job, st: str) -> str:
 
 
 # các chế độ (thẻ) trên trang chủ; mỗi chế độ bật đúng một ô tick cũ (normal / dub: không ô nào)
-MODES = ("normal", "dub", "voice_only", "review", "char_dub", "vi_sub")
+MODES = ("normal", "dub", "voice_only", "review", "char_dub", "sell", "vi_sub")
 
 STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong",
              "stopped": "đã dừng"}
@@ -415,6 +424,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         default_s = int(rcfg.get("default_s", 150))
         review_opts = "".join(f"<option value='{v}' {'selected' if int(v) == default_s else ''}>{mmss(v)}</option>"
                               for v in rcfg.get("durations") or [60, 90, 120, 150, 180, 240, 300])
+        scfg = app_config.load("sell") or {}
+        sell_default = int(scfg.get("default_s", 65))
+        sell_opts = "".join(f"<option value='{v}' {'selected' if int(v) == sell_default else ''}>{int(v)} giây"
+                            f"{' (mặc định)' if int(v) == sell_default else ''}</option>"
+                            for v in scfg.get("durations") or [62, 65, 70, 75])
         # chủ dự án 11/10: chỉ để "AI tự chọn" (các kiểu dựng vẫn còn trong styles/, AI tự chọn theo nội dung)
         # chủ dự án 11/10: bỏ "Kho tài nguyên" + "So sánh video" khỏi trang chủ; làm lại form theo 3 bước dễ dùng
         lib, _ = _load_library()
@@ -429,6 +443,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ("review", "🎬", "Review phim / hoạt hình",
                  "Tóm gọn CẢ phim thành MỘT video, chỉ kể ý chính — bạn chọn thời lượng"),
                 ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn đoạn hay (câu nói hay, hài, gay cấn…), thay giọng từng nhân vật, giữ nhạc nền gốc"),
+                ("sell", "💰", "Bán content", "Video ~1 phút → AI viết kịch bản MỚI theo định hướng của bạn, đảo cảnh khớp "
+                 "lời, voice + nhạc mới, dự án CapCut đóng gói đủ file"),
                 ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
             ))
         ratios = ''.join(
@@ -453,7 +469,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <section class="stepbox"><div class="num">2</div><div class="sb">
             <h3>Bạn muốn làm gì?</h3>
             <div class="modes">{modes}</div>
-            <div class="langbox" data-modes="normal dub voice_only review char_dub">
+            <div class="langbox" data-modes="normal dub voice_only review char_dub sell">
               <label>🌐 Ngôn ngữ video mới</label>
               <select name="target_language" id="lang"><option value="">Giữ nguyên ngôn ngữ gốc</option>
                 <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
@@ -462,6 +478,14 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <div data-modes="review"><label style="margin-top:10px">⏱️ Thời lượng video review</label>
                 <select name="review_s">{review_opts}</select>
                 <div class="muted">AI tóm gọn cả phim thành MỘT video dài đúng chừng này, chỉ kể ý chính, kể tới kết.</div></div>
+              <div data-modes="sell"><label style="margin-top:10px">🎯 Định hướng nội dung</label>
+                <textarea name="sell_brief" rows="3" style="width:100%" placeholder="vd: giới thiệu quán mì ở Hà Nội, nhấn vào nước dùng ninh 10 tiếng, giá 50k, cuối video kêu gọi follow + ghé quán (địa chỉ: …)"></textarea>
+                <div class="muted">Ghi rõ sản phẩm / dịch vụ, điểm muốn nhấn, thông tin thật (giá, địa chỉ…) và có cần kêu
+                gọi hành động không. AI chỉ nói điều thấy trong video hoặc bạn ghi ở đây — không bịa.</div>
+                <label style="margin-top:10px">⏱️ Thời lượng video</label>
+                <select name="sell_s">{sell_opts}</select>
+                <div class="muted">Luôn dài hơn 60 giây. Video gốc ngắn hơn thì tool làm chậm nhẹ / dùng lại cảnh (lấy khúc
+                khác, lật ngang) cho đủ, hạn chế lặp dễ nhận ra.</div></div>
               <div data-modes="dub voice_only"><label style="margin-top:10px">✍️ Cách viết lời thuyết minh</label>
                 <select name="script_mode">
                 <option value="rewrite">AI xem video rồi VIẾT MỚI nội dung hợp nước đó (không dịch)</option>
@@ -511,6 +535,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           voice_only:'Không cắt, không đổi khung — chỉ thay tiếng. Cần chọn ngôn ngữ mới.',
           review:'Không chọn ngôn ngữ = lời review bằng tiếng gốc của phim.',
           char_dub:'Cần chọn ngôn ngữ mới (vd phim Nhật → tiếng Hàn). Nên cài Demucs để giữ nhạc nền gốc.',
+          sell:'Chọn ngôn ngữ của giọng đọc + phụ đề. Âm thanh gốc bị bỏ hết, thay bằng voice + nhạc mới.',
           vi_sub:'Không dựng lại — chỉ dịch phụ đề tiếng Việt.'}};
         function syncMode(){{
           const m=(document.querySelector('input[name=mode]:checked')||{{}}).value||'normal';
@@ -626,12 +651,20 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
                 keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None),
                 vi_sub: str | None = Form(None), review: str | None = Form(None), char_dub: str | None = Form(None),
-                ai: str = Form(""), mode: str = Form(""), review_s: int = Form(0)):
+                ai: str = Form(""), mode: str = Form(""), review_s: int = Form(0), sell_brief: str = Form(""),
+                sell_s: int = Form(0)):
         if mode in MODES:  # trang chủ mới: chọn MỘT chế độ (thẻ) thay cho các ô tick riêng
             review, char_dub, vi_sub, voice_only = (("on" if mode == m else None)
                                                     for m in ("review", "char_dub", "vi_sub", "voice_only"))
             if mode == "vi_sub":
                 target_language = ""
+            if mode == "sell" and target_language not in ("ko", "ja", "en"):
+                return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Bán content</b> cần chọn "
+                             "ngôn ngữ của giọng đọc (Hàn / Nhật / Anh).</p><p><a class='btn light' href='/'>Quay lại</a>"
+                             "</p></div>")
+            if mode == "sell" and len([x for x in footage.splitlines() if x.strip()]) > 1:
+                return _page("Lỗi", "<div class='card'><h2>Bán content dùng cho MỘT video</h2><p>Chỉ chọn một file "
+                             "(~55–60 giây).</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
             if mode == "dub" and target_language not in ("ko", "ja", "en"):
                 return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Đổi ngôn ngữ</b> cần chọn "
                              "ngôn ngữ mới (Hàn / Nhật / Anh).</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
@@ -663,7 +696,12 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             return _page("Lỗi", "<div class='card'><h2>Chọn một chế độ thôi</h2><p><b>Review phim</b> không dùng cùng "
                          "<b>Chỉ thay tiếng</b> hay <b>Chỉ phụ đề tiếng Việt</b>. Bỏ bớt một ô tick.</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
+        sell = mode == "sell"
+        if sell:
+            hook = split = hype = reframe = None
         job = Job.create(Path(jobs_root), [p.resolve() for p in paths], JobOptions(
+            sell=sell, sell_brief=sell_brief.strip()[:2000] if sell else "",
+            sell_s=max(0, min(int(sell_s or 0), 180)) if sell else 0,
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only and not review,
             reframe_per_scene=bool(reframe) and not voice_only,
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and not review and len(paths) == 1,
@@ -1506,7 +1544,7 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                      f"<p style='font-size:1.15em;line-height:1.7'>{esc(sep.join(ln.text.strip() for ln in script.lines))}</p>"
                      f"<p class='muted'>🇻🇳 {esc(' '.join(ln.text_vi.strip() for ln in script.lines))}</p>"
                      f"<p class='muted'>📖 {esc(script.story_vi)}</p>"
-                     "<p class='muted'>Tool đo từng câu bạn đọc rồi tự cắt cảnh của đúng đoạn phim câu đó kể, dài đúng bằng câu "
+                     "<p class='muted'>Tool đo từng câu bạn đọc rồi tự cắt cảnh của đúng câu đó, dài đúng bằng câu "
                      "— đọc nhanh hay chậm đều khớp.</p>"
                      f"<form method='post' action='/jobs/{job.job_id}/review-feedback' onsubmit=\"return confirm('AI sẽ viết "
                      "lại cả bài theo góp ý; voice đã tải của video này được cất thành *_cu. Tiếp tục?')\">"

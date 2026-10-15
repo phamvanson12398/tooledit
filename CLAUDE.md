@@ -208,6 +208,30 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   `config/tts.yaml`), nút 🔎 Kiểm tra (`check_omnivoice`: bản omnivoice, torch, GPU, model là thư mục?); worker bị tắt khi
   quá `timeout_s` hoặc bấm Dừng (`run_worker`).
 
+## 5e. Chế độ "Bán content" (chủ dự án yêu cầu 15/10)
+
+- Thẻ "💰 Bán content" ở trang chủ (`JobOptions.sell`, `sell_brief` = định hướng nội dung, `sell_s` = thời lượng;
+  `config/sell.yaml`), MỘT video gốc ~55–60 giây, cần chọn ngôn ngữ giọng đọc (Hàn / Nhật / Anh). Không hook riêng, không
+  chia video, không ⚡.
+- MỘT lượt hỏi AI (`app/director/sell.py → make_sell_script`, prompt `sell.md`): AI xem khung hình (khung đầu mỗi cảnh +
+  rải đều) + định hướng, viết dàn ý `outline_vi` rồi kịch bản MỚI — câu 1 `hook` (mở đầu thu hút), các câu `body` mạch lạc,
+  `cta` (kêu gọi hành động) chỉ ở cuối và chỉ khi cần; mỗi câu chọn 1–3 cảnh (`shots`, giây gốc, gọn trong một cảnh, được
+  ĐẢO THỨ TỰ / dùng lại); kèm 2 dòng tiêu đề + nhạc. `check_sell_script`: đúng ngôn ngữ, đủ chữ cho thời lượng
+  (`script_fill`), cảnh trong video / không vắt điểm đổi cảnh / không chạm đoạn vi phạm chính sách, không từ cấm. Không
+  bịa: chỉ nói điều thấy trong video hoặc có trong định hướng. Kế hoạch dựng tạo bằng code (`sell_plan`), không hỏi AI
+  thêm.
+- Voice: như Review — trang voice hiện cả bài (đọc liền một file, tool cắt theo số chữ) hoặc OmniVoice; nút "✍️ Viết lại
+  theo góp ý" dùng chung (`Runner.rewrite_review` → `_sell_script`).
+- Dựng (`app/planner/sell_sync.build_sell`): đo voice thật từng câu, cắt cảnh của câu cho dài đúng câu + `voice_gap_s`
+  (khúc ~`cut_s`, ≤ `max_cut_s`); thiếu ít → chậm nhẹ ≥ `min_speed` 0.85; thiếu nhiều → thêm cảnh khác, ưu tiên phần
+  footage CHƯA dùng, không lặp một cảnh trong `reuse_gap` cảnh liền kề, phải dùng lại thì lấy khúc khác + phản chiếu ngang
+  (`PlanClip.mirror`, tự tắt khi hình có chữ in sẵn); tổng luôn ≥ `min_s` 60.5s (thiếu thì thêm cảnh kết, nhạc chạy
+  tiếp). Vị trí voice do tool tính (`build(dub_windows=…)`). Âm thanh gốc TẮT HẲN; nhạc nền -14 dB, chỉ chọn nhạc file
+  trong `assets/` (đóng gói được; không có thì dùng nhạc thư viện CapCut và báo).
+- Đóng gói (`DraftWriter.pack_media`): chép video nguồn + voice + nhạc / ảnh trên máy vào `<draft>/media` và trỏ draft
+  vào đó; âm thanh thư viện CapCut KHÔNG chép (quy tắc mục 7). Voice và nhạc mỗi thứ một track âm thanh riêng (`lane`
+  trong writer — áp dụng cho mọi chế độ).
+
 ## 5c. Chế độ "Phụ đề tiếng Việt" (chủ dự án yêu cầu 08/10)
 
 - Mục đích: chủ dự án XEM HIỂU video nước ngoài, không đăng. Ô tick "🇻🇳 Chỉ phụ đề tiếng Việt" (`JobOptions.vi_sub`).

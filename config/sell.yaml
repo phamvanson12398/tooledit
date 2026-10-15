@@ -1,0 +1,25 @@
+# CHẾ ĐỘ "BÁN CONTENT" (chủ dự án yêu cầu 15/10)
+# Tải video gốc ~55–60 giây + nhập định hướng nội dung → AI xem khung hình, chia cảnh, viết KỊCH BẢN MỚI (mở đầu thu hút →
+# nội dung mạch lạc → lời kêu gọi hành động khi cần), chọn cảnh cho từng câu (được ĐẢO THỨ TỰ, được dùng lại cảnh). Toàn
+# bộ âm thanh gốc bị loại bỏ, thay bằng voice + nhạc nền mới. Đầu ra: dự án CapCut dựng sẵn, đóng gói đủ video nguồn,
+# voice và nhạc vào trong thư mục dự án (mở lên không thiếu file), cảnh trên track video, voice và nhạc trên 2 track âm
+# thanh riêng.
+
+default_s: 65                 # thời lượng mục tiêu mặc định (giây)
+durations: [62, 65, 70, 75]   # các lựa chọn trên trang chủ
+min_s: 60.5                   # video luôn DÀI HƠN 60 giây: thiếu thì kéo dài cảnh cuối (nhạc chạy tiếp)
+script_fill: [0.92, 1.03]     # bài đọc dài 92–103% thời lượng mục tiêu (theo tốc độ giọng)
+frames: 40                    # số khung hình gửi AI xem (khung đầu mỗi cảnh + rải đều)
+voice_cps: {}                 # tốc độ đọc riêng (chữ/giây); rỗng = theo max_cps của config/dub.yaml
+# Dựng theo voice
+voice_gap_s: 0.08             # nghỉ giữa 2 câu voice
+cut_s: 2.2                    # mỗi cảnh trên màn hình dài khoảng chừng này
+min_cut_s: 1.0                # cảnh ngắn nhất (giây)
+max_cut_s: 4.0                # cảnh dài nhất ở tốc độ thường
+min_speed: 0.85               # làm chậm nhẹ tối đa (0.85x) khi cảnh AI chọn ngắn hơn câu đọc
+reuse_mirror: true            # dùng lại một cảnh lần nữa thì phản chiếu ngang + lấy khúc khác cho khỏi lộ lặp
+reuse_gap: 2                  # một cảnh không xuất hiện lại trong vòng chừng này cảnh liền kề
+# Âm thanh
+music_base_db: -14            # nhạc nền nằm dưới giọng đọc
+pack_media: true              # chép video nguồn + voice + nhạc (file trên máy) vào thư mục dự án CapCut
+title_max_chars: {ko: 12, ja: 12, en: 22}

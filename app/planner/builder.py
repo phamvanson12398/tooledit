@@ -245,14 +245,17 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
           name: str, style: dict, *, hook: HookOption | None = None, voice: tuple[Path, int] | None = None,
           clean_audio: Path | None = None, video_index: int = 1, beats_fn=None, dub=None,
           dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False,
-          bgm_audio: Path | None = None, vocals_audio: Path | None = None) -> BuildResult:
+          bgm_audio: Path | None = None, vocals_audio: Path | None = None,
+          dub_windows: list | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
     bgm_audio: nhạc nền gốc đã tách giọng nói (chỉ thay tiếng + giữ nhạc nền) — thay cho nhạc AI chọn.
     vocals_audio (lồng tiếng nhân vật): phần GIỌNG NÓI gốc Demucs tách ra — phát lại ở chỗ KHÔNG có câu lồng tiếng
     (tiếng cười / hét / câu Whisper nghe sót) để nhân vật mở miệng không bao giờ bị câm; tắt đúng trong các câu lồng.
     vi_subtitles: thêm phụ đề tiếng Việt (nghĩa từng câu) ngay dưới phụ đề chính để chủ dự án kiểm tra voice / phụ đề
-    đã khớp chưa — XÓA / TẮT trước khi xuất video đăng TikTok."""
+    đã khớp chưa — XÓA / TẮT trước khi xuất video đăng TikTok.
+    dub_windows (bán content): vị trí từng câu voice do tool tính sẵn [(µs bắt đầu, giây, giây)] — cảnh đã đảo thứ tự /
+    dùng lại nên không suy từ giây gốc được."""
     safe = config.load("safe_area")
     sub_cfg = config.load("subtitles")
     sc, tr, subjects = analysis["scenes"], analysis["transcript"], analysis["subjects"]
@@ -429,8 +432,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         max_speed = float(dcfg.get("max_speed", 1.25))
         from app.planner.dub_io import line_windows, place_voices
 
-        windows = line_windows(dub, tmap)
-        rv = style.get("review") if isinstance(style.get("review"), dict) else None
+        windows = dub_windows if dub_windows is not None else line_windows(dub, tmap)
+        rv = style.get("review") if isinstance(style.get("review"), dict) else \
+            style.get("sell") if isinstance(style.get("sell"), dict) else None
         placed = place_voices(windows, {i: v[1] for i, v in (dub_voices or {}).items()}, max_speed=max_speed,
                               hard_max_speed=float(dcfg.get("hard_max_speed", 1.4)),
                               max_delay_s=float(dcfg.get("max_delay_s", 0.8)),
@@ -493,6 +497,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         since_wide, shot_count = 0.0, {"close": 0, "medium": 0, "wide": 0}
     for idx, (clip, p) in enumerate(zip(plan.clips, tmap.placed)):
         ratio = ratio_for(clip.ratio)
+        # bán content: tool đặt sẵn cảnh nào phản chiếu (cảnh dùng lại) → theo clip, không theo kiểu dựng
+        flip_of = (lambda t, i=0, m=clip.mirror: m) if clip.mirror is not None else mirrored
         last_trans = trans_after.get(idx)
         if camera_on and not clip.replay and ratio != "full":
             shots, since_wide = plan_shots(clip.source_start, clip.source_end, speech, faces, people, cam_cfg,
@@ -507,13 +513,13 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                             source_start=round(sh.start * SEC), speed=clip.speed,
                             crop=fix_crop(shot_crop(sh, people, ratio, src.width, src.height, cam_cfg,
                                                     fallback_cx=subject_center(subjects, sh.start, sh.end)),
-                                          ratio, bounds[j], bounds[j + 1] - bounds[j], mirrored(sh.start, idx),
+                                          ratio, bounds[j], bounds[j + 1] - bounds[j], flip_of(sh.start, idx),
                                           src=(sh.start, sh.end), speed=clip.speed),
                             volume=0.0 if (clean_audio or mute_orig) else 1.0,
                             keyframes=(kfs or []) + ([] if clean_audio else orig_volume(bounds[j], bounds[j + 1])) or None,
                             transition=last_trans if j == len(shots) - 1 else None,
-                            flip_horizontal=mirrored(sh.start, idx), **bg_kwargs(ratio))
-                n_mirror += mirrored(sh.start, idx)
+                            flip_horizontal=flip_of(sh.start, idx), **bg_kwargs(ratio))
+                n_mirror += flip_of(sh.start, idx)
                 shot_count[sh.kind] += 1
         else:
             kfs = zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
@@ -523,13 +529,13 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             w.add_video(src, target_start=p.out_start, duration=p.out_duration,
                         source_start=round(clip.source_start * SEC), speed=clip.speed,
                         crop=fix_crop(crop_for(ratio, clip.source_start, clip.source_end), ratio, p.out_start,
-                                      p.out_duration, mirrored(clip.source_start, idx),
+                                      p.out_duration, flip_of(clip.source_start, idx),
                                       src=(clip.source_start, clip.source_end), speed=clip.speed),
                         volume=0.0 if (clean_audio or clip.replay or mute_orig) else 1.0,
                         keyframes=(kfs or []) + ([] if (clean_audio or clip.replay) else
                                                  orig_volume(p.out_start, p.out_end)) or None,
-                        transition=last_trans, flip_horizontal=mirrored(clip.source_start, idx), **bg_kwargs(ratio))
-            n_mirror += mirrored(clip.source_start, idx)
+                        transition=last_trans, flip_horizontal=flip_of(clip.source_start, idx), **bg_kwargs(ratio))
+            n_mirror += flip_of(clip.source_start, idx)
         if bgm_audio and not clip.replay:  # nhạc nền gốc (đã bỏ giọng nói) chạy đúng theo hình, hạ nhỏ dưới voice
             bcfg = (config.load("dub").get("voice_only") or {}).get("keep_bgm") or {}
             ccd = style.get("char_dub") if isinstance(style.get("char_dub"), dict) else {}
@@ -615,7 +621,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
 
         for _, a, e, _, v, speed in dub_slots:
             if v:
-                w.add_local_audio(v[0], v[1], target_start=a, duration=e - a, speed=speed)
+                w.add_local_audio(v[0], v[1], target_start=a, duration=e - a, speed=speed, lane="voice")
         cues = [Cue(s0, e0, t) for _, a, e, text, _, _ in dub_slots
                 for s0, e0, t in spread_cues(split_text(text, lang, max_chars), a, e)]
     else:
@@ -749,7 +755,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         t = 0
         while m_dur > 0 and t < tmap.end:
             seg_len = min(m_dur, tmap.end - t)
-            _add_audio_item(w, music, target_start=t, duration=seg_len,
+            _add_audio_item(w, music, target_start=t, duration=seg_len, lane="music",
                         keyframes=duck_keyframes(t, t + seg_len, intervals, v_speech, v_gap,
                                                  round(mcfg.get("fade_s", 0.25) * SEC)))
             t += seg_len
@@ -789,9 +795,10 @@ def _fallback_sfx(library, kind: str):
                  and any(k in m.name.lower() for k in keys)), None)
 
 
-def _add_audio_item(w, item, *, target_start: int, duration: int, volume: float = 1.0, keyframes=None):
+def _add_audio_item(w, item, *, target_start: int, duration: int, volume: float = 1.0, keyframes=None, lane: str = ""):
     """Âm thanh thư viện CapCut → tham chiếu trong draft; file local (assets/) → âm thanh trên máy."""
     if item.material.get("local"):
         return w.add_local_audio(Path(item.material["path"]), item.material["duration"], target_start=target_start,
-                                 duration=duration, volume=volume, keyframes=keyframes)
-    return w.add_music(item, target_start=target_start, duration=duration, volume=volume, keyframes=keyframes)
+                                 duration=duration, volume=volume, keyframes=keyframes, lane=lane)
+    return w.add_music(item, target_start=target_start, duration=duration, volume=volume, keyframes=keyframes,
+                       lane=lane)

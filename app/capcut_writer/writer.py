@@ -131,6 +131,7 @@ class _Placed:
     start: int
     end: int
     segment: dict
+    lane: str = ""  # nhóm làn riêng (vd "voice", "music"): mỗi nhóm nằm trên track của riêng nó, dễ chỉnh trong CapCut
 
 
 @dataclass
@@ -141,6 +142,10 @@ class DraftWriter:
     _placed: list[_Placed] = field(default_factory=list)
     _materials: dict[str, list] = field(default_factory=dict)
     _videos: list[VideoSource] = field(default_factory=list)
+    # bán content (15/10): chép mọi file trên máy (video nguồn, voice, nhạc, ảnh) vào <draft>/media và trỏ draft vào đó
+    # → mở lên không thiếu file. Âm thanh thư viện CapCut KHÔNG chép (chỉ tham chiếu trong draft, đúng quy tắc mục 7).
+    pack_media: bool = False
+    _pack_map: dict[str, str] = field(default_factory=dict)
 
     # ---------- phần chung ----------
 
@@ -170,9 +175,9 @@ class DraftWriter:
                     return mat
         return None
 
-    def _place(self, track_type: str, seg: dict, start: int, duration: int) -> dict:
+    def _place(self, track_type: str, seg: dict, start: int, duration: int, lane: str = "") -> dict:
         seg["target_timerange"] = {"start": int(start), "duration": int(duration)}
-        self._placed.append(_Placed(track_type, int(start), int(start + duration), seg))
+        self._placed.append(_Placed(track_type, int(start), int(start + duration), seg, lane))
         return seg
 
     @staticmethod
@@ -243,6 +248,10 @@ class DraftWriter:
         """Thêm một clip. flip_horizontal: phản chiếu ngang (clip.flip.horizontal như CapCut 9.5.0 tự ghi). background_blur (0–1): lấp phần trống bằng bản mờ của chính video;
         background_color ('#RRGGBBAA'): lấp bằng màu trơn (theo định dạng BackgroundFilling của pyCapCut). duration là thời lượng trên timeline; nguồn dùng duration*speed."""
         source_duration = round(duration * speed)
+        over = source_start + source_duration - source.duration
+        if source_start >= 0 and 0 < over <= 50_000:  # lệch vài mili-giây do làm tròn mốc giây: cắt bớt đuôi cho vừa file
+            source_duration -= over
+            duration = max(1, int(source_duration / speed))
         if source_start < 0 or source_start + source_duration > source.duration:
             raise ValueError(
                 f"Đoạn {source_start}-{source_start + source_duration}µs vượt quá độ dài file "
@@ -300,7 +309,7 @@ class DraftWriter:
 
     def add_music(
         self, music: LibraryItem, *, target_start: int, duration: int, source_start: int = 0, volume: float = 1.0,
-        keyframes: list[Keyframe] | None = None,
+        keyframes: list[Keyframe] | None = None, lane: str = "",
     ) -> dict:
         """Nhạc/âm thanh từ thư viện CapCut (đã có trong cache máy)."""
         seg, mat = self._instantiate(self.template.prototype("audio"))
@@ -308,11 +317,11 @@ class DraftWriter:
         mat.clear()
         mat.update(copy.deepcopy(music.material))
         mat["id"] = keep_id
-        return self._finish_audio(seg, mat, target_start, duration, source_start, volume, keyframes)
+        return self._finish_audio(seg, mat, target_start, duration, source_start, volume, keyframes, lane=lane)
 
     def add_local_audio(
         self, path: Path, file_duration: int, *, target_start: int, duration: int, source_start: int = 0,
-        volume: float = 1.0, keyframes: list[Keyframe] | None = None, speed: float = 1.0,
+        volume: float = 1.0, keyframes: list[Keyframe] | None = None, speed: float = 1.0, lane: str = "",
     ) -> dict:
         """File âm thanh trên máy (ví dụ voice hook). Các trường khớp đúng với vật liệu âm thanh local mà
         CapCut 9.5.0 tự ghi (mẫu lần 3, file kkk2.wav): type extract_music, category_name local, app_id 0,
@@ -333,10 +342,10 @@ class DraftWriter:
             "check_flag": 1,
             "copyright_limit_type": "none",
         })
-        return self._finish_audio(seg, mat, target_start, duration, source_start, volume, keyframes, speed)
+        return self._finish_audio(seg, mat, target_start, duration, source_start, volume, keyframes, speed, lane)
 
     def _finish_audio(self, seg, mat, target_start, duration, source_start, volume, keyframes,
-                      speed: float = 1.0) -> dict:
+                      speed: float = 1.0, lane: str = "") -> dict:
         source_duration = round(duration * speed)
         over = source_start + source_duration - mat.get("duration", 0)
         if 0 < over <= 50_000:  # lệch vài mili-giây do làm tròn tốc độ / đo độ dài: cắt bớt đuôi cho vừa file
@@ -352,7 +361,7 @@ class DraftWriter:
         seg["volume"] = volume
         if keyframes:
             self._set_keyframes(seg, keyframes)
-        return self._place("audio", seg, target_start, duration)
+        return self._place("audio", seg, target_start, duration, lane)
 
     # ---------- chữ ----------
 
@@ -464,15 +473,19 @@ class DraftWriter:
 
         tracks: list[dict] = []
         for ttype in TRACK_ORDER:
-            placed = sorted((p for p in self._placed if p.track_type == ttype), key=lambda p: p.start)
+            placed = [p for p in self._placed if p.track_type == ttype]
             lanes: list[list[_Placed]] = []
-            for item in placed:  # xếp vào làn đầu tiên không chồng thời gian
-                for lane in lanes:
-                    if lane[-1].end <= item.start:
-                        lane.append(item)
-                        break
-                else:
-                    lanes.append([item])
+            groups = list(dict.fromkeys(p.lane for p in placed))  # mỗi nhóm làn (voice / music…) có track riêng
+            for g in groups:
+                mine: list[list[_Placed]] = []
+                for item in sorted((p for p in placed if p.lane == g), key=lambda p: p.start):
+                    for lane in mine:  # xếp vào làn đầu tiên không chồng thời gian
+                        if lane[-1].end <= item.start:
+                            lane.append(item)
+                            break
+                    else:
+                        mine.append([item])
+                lanes += mine
             for lane in lanes:
                 track = copy.deepcopy(self.template.track_prototypes.get(ttype, {"type": ttype, "flag": 0,
                                                                                    "attribute": 0, "is_default_name": True, "name": ""}))
@@ -504,6 +517,8 @@ class DraftWriter:
         shutil.copytree(self.template.draft_dir, dst, ignore=shutil.ignore_patterns("*.bak", "draft_cover.jpg"))
 
         timeline = self.build_timeline()
+        if self.pack_media:
+            self._pack(dst, timeline)
         data = json.dumps(timeline, ensure_ascii=False, separators=(",", ":"))
         for path in timeline_copies(dst):
             if path.exists() or path.parent.exists():
@@ -513,6 +528,39 @@ class DraftWriter:
             shutil.rmtree(patch_dir)
         self._update_meta(dst, timeline)
         return dst
+
+    def _pack(self, dst: Path, timeline: dict) -> None:
+        """Chép file trên máy vào <draft>/media (trùng tên khác file thì thêm số), sửa đường dẫn trong draft."""
+        media = dst / "media"
+        self._pack_map = {}
+        mats = timeline.get("materials", {})
+        items = [m for m in mats.get("videos", [])] + [m for m in mats.get("audios", [])
+                                                       if m.get("category_name") == "local"]
+        taken: dict[str, str] = {}
+        for m in items:
+            src = m.get("path") or ""
+            if not src:
+                continue
+            if src in self._pack_map:
+                m["path"] = self._pack_map[src]
+                continue
+            p = Path(src)
+            if not p.is_file():
+                continue
+            name, n = p.name, 1
+            while name in taken and taken[name] != src:
+                n += 1
+                name = f"{p.stem}_{n}{p.suffix}"
+            taken[name] = src
+            media.mkdir(parents=True, exist_ok=True)
+            out = media / name
+            shutil.copy2(p, out)
+            self._pack_map[src] = out.as_posix()
+            m["path"] = out.as_posix()
+
+    def packed_files(self) -> dict[str, str]:
+        """Sau save(pack_media): {file gốc: file trong thư mục dự án}."""
+        return dict(self._pack_map)
 
     def _update_meta(self, dst: Path, timeline: dict) -> None:
         meta_path = dst / "draft_meta_info.json"
@@ -536,7 +584,7 @@ class DraftWriter:
                     entry = copy.deepcopy(proto)
                     entry.update({
                         "id": str(uuid.uuid4()),
-                        "file_Path": Path(src.path).as_posix(),
+                        "file_Path": self._pack_map.get(Path(src.path).as_posix(), Path(src.path).as_posix()),
                         "extra_info": Path(src.path).name,
                         "width": src.width,
                         "height": src.height,

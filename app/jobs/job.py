@@ -53,6 +53,9 @@ class JobOptions(BaseModel):
     review_s: int = 0                 # Review (11/10): thời lượng video chủ dự án chọn (giây); 0 = default_s trong review.yaml
     char_dub: bool = False            # Lồng tiếng nhân vật (11/10): đoạn hay TikTok, thay giọng từng nhân vật, giữ nền gốc
     ai: str = ""                      # AI đạo diễn của job (11/10): "claude" | "gemini"; "" = default_ai trong config
+    sell: bool = False                # Bán content (15/10): kịch bản mới + cảnh đảo theo lời, voice + nhạc mới, đóng gói CapCut
+    sell_brief: str = ""              # Bán content: định hướng nội dung chủ dự án nhập
+    sell_s: int = 0                   # Bán content: thời lượng mục tiêu (giây); 0 = default_s trong config/sell.yaml
 
 
 class HistoryEntry(BaseModel):
@@ -138,7 +141,7 @@ class Job(BaseModel):
     @property
     def use_hook(self) -> bool:
         """Có hook voice riêng. Review phim thì KHÔNG (câu mở đầu của bài lời đọc là hook; hook riêng làm đứt mạch kể)."""
-        return self.options.hook and not self.options.review and not self.options.char_dub
+        return self.options.hook and not self.options.review and not self.options.char_dub and not self.options.sell
 
     @property
     def picks_segments(self) -> bool:
@@ -156,7 +159,7 @@ class Job(BaseModel):
         if step == "review_segments":
             return self.picks_segments
         if step in ("dub", "dub_voice"):
-            return bool(self.options.target_language) or self.options.review
+            return bool(self.options.target_language) or self.options.review or self.options.sell
         return True
 
     def resume(self, message: str = "người dùng bấm Tiếp tục") -> None:

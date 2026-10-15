@@ -261,6 +261,7 @@ class PlanClip(BaseModel):
     ratio: Ratio | None = Field(default=None, description="khung riêng cho clip; null = khung mặc định")
     highlight: bool = Field(default=False, description="true = cảnh GAY CẤN / đắt giá (kiểu chuyển cảnh liên tục: "
                                                        "code xếp các cảnh này lên đầu video)")
+    mirror: bool | None = Field(default=None, description="(tool đặt) phản chiếu ngang clip này; null = theo kiểu dựng")
     purpose_vi: str = ""
 
 
@@ -579,6 +580,11 @@ def check_captions(c: Captions) -> list[str]:
 
 # ---------------- Thuyết minh (chế độ Đổi ngôn ngữ) ----------------
 
+class Shot(BaseModel):
+    start: float = Field(ge=0, description="giây GỐC bắt đầu cảnh")
+    end: float = Field(gt=0, description="giây GỐC kết thúc cảnh")
+
+
 class DubLine(BaseModel):
     kind: Literal["dub", "narration"] = Field(
         default="dub", description="dub = dịch lời thoại gốc; narration = lời dẫn viết thêm cho chỗ KHÔNG có giọng nói")
@@ -589,6 +595,8 @@ class DubLine(BaseModel):
     action_vi: str = Field(default="", description="với lời dẫn: cảnh / hành động đáng nói đang diễn ra (tiếng Việt)")
     adapt_vi: str = Field(default="", description="nếu câu được BẢN ĐỊA HÓA (đổi ví dụ, đơn vị, cách đùa…): đổi gì, vì sao")
     speaker: str = Field(default="", description="(lồng tiếng nhân vật) TÊN nhân vật nói câu này — viết thống nhất")
+    role: str = Field(default="", description="(bán content) hook / body / cta")
+    shots: list["Shot"] = Field(default_factory=list, description="(bán content) các cảnh chạy dưới câu, theo thứ tự hiện")
 
 
 class ShortLine(BaseModel):
@@ -616,6 +624,28 @@ class DubScript(BaseModel):
     story_vi: str = Field(default="", description="(review phim) dàn ý CÂU CHUYỆN bằng tiếng Việt: mở đầu – mâu thuẫn – "
                                                   "cao trào – kết, viết TRƯỚC rồi mới viết lời")
     cast: list[CastVoice] = Field(default_factory=list, description="(lồng tiếng nhân vật) giọng đề xuất cho mỗi nhân vật")
+
+
+# ---------------- Bán content (chủ dự án yêu cầu 15/10) ----------------
+
+class SellLine(BaseModel):
+    role: Literal["hook", "body", "cta"] = Field(description="hook = câu mở đầu thu hút; body = nội dung; cta = kêu gọi "
+                                                             "hành động (chỉ ở cuối, khi cần)")
+    text: str = Field(description="câu đọc bằng NGÔN NGỮ ĐÍCH, văn nói tự nhiên của người bản xứ")
+    text_vi: str = Field(description="nghĩa tiếng Việt")
+    shots: list[Shot] = Field(min_length=1, description="1–3 cảnh (giây gốc) chạy dưới câu này, theo thứ tự hiện trên "
+                                                        "màn hình — được lấy cảnh ở BẤT KỲ đâu trong video gốc")
+    shots_vi: str = Field(default="", description="các cảnh đó có gì (tiếng Việt, ngắn) — để chủ dự án đối chiếu")
+
+
+class SellScript(BaseModel):
+    video_index: int = Field(ge=1)
+    outline_vi: str = Field(description="dàn ý tiếng Việt viết TRƯỚC: mở đầu thu hút → nội dung → (kêu gọi hành động)")
+    titles_top: list[str] = Field(default_factory=list, max_length=2,
+                                  description="2 dòng tiêu đề lớn phía trên khối video, ngôn ngữ đích")
+    music: MusicChoice
+    lines: list[SellLine] = Field(min_length=3)
+    editor_notes: str
 
 
 # ---------------- Phụ đề tiếng Việt (chế độ "xem hiểu video nước ngoài") ----------------

@@ -1,0 +1,71 @@
+# Nhiệm vụ: VIẾT KỊCH BẢN MỚI + CHỌN CẢNH cho video "bán content" — {{language_name}}, {{market}} (video số {{video_index}})
+
+Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây) và định hướng nội dung bên dưới. Bạn dựng lại thành MỘT video
+TikTok MỚI dài khoảng **{{target_s}} giây**:
+- TOÀN BỘ âm thanh gốc bị bỏ. Âm thanh mới = giọng đọc kịch bản của bạn (chủ dự án thu / AI đọc) + nhạc nền mới.
+- Hình = các cảnh cắt từ video gốc, ĐƯỢC ĐẢO THỨ TỰ cho khớp lời dẫn, được dùng lại một cảnh khi cần (tool tự lấy khúc
+  khác + phản chiếu cho khỏi lộ lặp) — nhưng hạn chế dùng lại, ưu tiên cảnh chưa dùng.
+- Tool sẽ đo độ dài từng câu voice thật rồi cắt các cảnh bạn chọn cho dài đúng bằng câu (cảnh ngắn thì làm chậm nhẹ /
+  ghép thêm cảnh khác). Bạn không cần tính giây cho từng cảnh trên màn hình.
+
+## Định hướng nội dung của chủ dự án (làm ĐÚNG theo đây)
+{{brief}}
+
+## Cấu trúc kịch bản
+1. Viết `outline_vi` (tiếng Việt) TRƯỚC: mở đầu thu hút → nội dung chính (2–4 ý, nối nhau mạch lạc) → kết / kêu gọi hành
+   động (nếu cần).
+2. `lines[0]` có `role: "hook"`: câu mở đầu THU HÚT ngay giây đầu (câu hỏi gây tò mò, con số / chi tiết lạ, tương phản,
+   vấn đề người xem đang gặp…), đọc ≤ 3–4 giây, chạy trên cảnh MẠNH NHẤT của video (không nhất thiết là cảnh đầu).
+3. Các câu `role: "body"`: nội dung mạch lạc, mỗi câu một ý, nối nhau tự nhiên; câu nào nói về gì thì cảnh dưới câu đó
+   phải THẤY đúng thứ đó.
+4. `role: "cta"` — lời kêu gọi hành động, CHỈ khi định hướng / nội dung cần (bán hàng, giới thiệu dịch vụ, xin follow…),
+   đặt ở CUỐI, 1–2 câu, tự nhiên, không ép. Kiểu được dùng: follow, bình luận, lưu video, "link ở bio", "giỏ hàng TikTok".
+   KHÔNG nhắc nền tảng khác ngoài TikTok (YouTube, Instagram, subscribe/구독/チャンネル登録…). Định hướng không cần thì
+   không có câu cta, câu cuối khép lại gọn.
+
+## Viết lời
+- Văn NÓI tự nhiên của người bản xứ {{language_name}} làm TikTok cho khán giả nước mình — không dịch từ tiếng Việt, không
+  văn viết; câu dài ngắn xen kẽ, không lặp cùng từ nối ở nhiều câu liền.
+- ĐÚNG SỰ THẬT: chỉ nói điều thấy trong khung hình hoặc có trong định hướng của chủ dự án. Không bịa công dụng, giá, số
+  liệu, cam kết ("chữa khỏi", "100%", "rẻ nhất"…) mà định hướng không cho. Không chửi thề.
+- Độ dài: cả bài đọc khoảng **{{target_s}} giây** ở tốc độ giọng ~{{cps}} chữ/giây → khoảng **{{target_chars}} chữ**
+  (không tính dấu cách, dấu câu). Tool đếm và bắt viết lại nếu thiếu / thừa. Mỗi phần tử `lines` là 1 câu (hoặc 2 câu
+  rất ngắn), đọc khoảng 2–7 giây.
+- `text_vi` = nghĩa tiếng Việt; `shots_vi` = các cảnh dưới câu có gì (tiếng Việt, ngắn).
+
+## Chọn cảnh (`shots`)
+- Mỗi câu 1–3 cảnh, ghi giây GỐC `start`–`end`, nằm TRỌN trong một cảnh của danh sách "Các cảnh" bên dưới (không vắt qua
+  điểm đổi cảnh), mỗi cảnh ≥ 1 giây. Thứ tự trong `shots` = thứ tự hiện trên màn hình.
+- Được lấy cảnh ở BẤT KỲ đâu trong video gốc và đảo thứ tự tùy ý cho khớp lời.
+- Tổng độ dài các cảnh của một câu nên ≥ thời gian đọc câu đó (thiếu thì tool làm chậm nhẹ / thêm cảnh khác).
+- Rải cảnh cho đều: cố dùng hết các cảnh đẹp của video; 2 câu liền nhau không dùng cùng một cảnh.
+- Tránh cảnh mờ, rung, có chữ / logo của người khác, đoạn vi phạm chính sách (xem "Điều cấm").
+
+## Tiêu đề và nhạc
+- `titles_top`: 2 dòng tiêu đề CHỮ RẤT TO cố định phía trên video, ngôn ngữ đích, mỗi dòng ≤ {{title_max}} ký tự, gây tò
+  mò, đúng nội dung (không spoil hết, không nhắc nền tảng khác).
+- `music`: chọn một bài trong danh sách nhạc (đúng tên) hợp không khí; không bài nào hợp thì `name: null`.
+
+{{localize_brief}}
+
+## Góp ý của chủ dự án
+{{feedback}}
+
+## Điều cấm
+{{sensitive_notes}}
+{{policy_cuts}}
+
+## Tóm tắt nội dung video gốc
+{{summary}}
+
+## Nhạc có sẵn
+{{music_list}}
+
+## Các cảnh trong video gốc (giây gốc)
+{{scenes}}
+
+## Khung hình (mở bằng Read để xem) — giây gốc
+{{frames}}
+
+## Lời nói gốc (nếu có — chỉ để hiểu, KHÔNG dịch lại)
+{{transcript}}

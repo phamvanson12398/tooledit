@@ -1,5 +1,27 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 97 — Chế độ "💰 Bán content" + sửa lỗi "vượt quá độ dài file" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. (Nên làm) Thả vài file nhạc nền vào `assets\music\` — chỉ nhạc file mới được chép vào dự án CapCut. Không có thì tool
+   dùng nhạc thư viện CapCut (CapCut tự tải khi mở) và ghi chú trong nhật ký.
+3. Trang chủ → chọn video ~55–60 giây → thẻ **💰 Bán content** → chọn ngôn ngữ giọng đọc → gõ **🎯 Định hướng nội dung**
+   (vd sản phẩm, điểm muốn nhấn, giá / địa chỉ thật, có cần kêu gọi follow / mua không) → thời lượng (mặc định 65 giây)
+   → 🚀 Bắt đầu dựng.
+4. Chờ tới bước "Chờ bạn đọc cả bài": kiểm tra
+   - câu đầu là câu mở thu hút, nội dung mạch lạc, câu kêu gọi hành động (nếu có) nằm cuối;
+   - chữ toàn bằng ngôn ngữ đã chọn, không có điều video / định hướng không nói.
+   Chưa ưng → gõ góp ý → **✍️ Viết lại theo góp ý**.
+5. Đọc cả bài vào MỘT file (nghỉ ~1 giây giữa các câu) rồi tải lên ô **Một file cả bài** (hoặc **🤖 Cho OmniVoice đọc**).
+6. Xong, mở CapCut, mở dự án `<khách>_<job>_video01`:
+   - video dài > 60 giây; cảnh đổi theo lời (không theo thứ tự gốc), cảnh khớp câu đang nói;
+   - KHÔNG còn tiếng gốc; voice nằm trên một track âm thanh riêng, nhạc nền trên track riêng;
+   - cảnh dùng lại (nếu có) được lật ngang, không đứng cạnh nhau;
+   - KHÔNG có ô đỏ "thiếu file": trong thư mục dự án có thư mục `media` chứa video nguồn + voice + nhạc. Thử đổi tên
+     file video gốc ở chỗ cũ → mở lại dự án → vẫn chạy được (vì đã dùng bản trong `media`).
+7. Lỗi cũ "Đoạn …µs vượt quá độ dài file …" (clip lố cuối file vài mili-giây): chạy lại job đó (Chạy tiếp / dựng lại)
+   → không còn báo lỗi.
+
 ## Bước 96 — Lồng tiếng / thuyết minh luôn nói ĐÚNG ngôn ngữ đã chọn `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
