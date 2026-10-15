@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 102 — Bớt "Đợi lượt hỏi đạo diễn AI" + chỉnh số lượt hỏi AI cùng lúc `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Trước đây cả một bước (lập kế hoạch, viết thuyết minh…) giữ lượt hỏi AI kể cả lúc bước đó đang làm việc khác (tách nhạc,
+nhận dạng lại thoại…) nên video khác phải chờ. Giờ chỉ giữ lượt đúng lúc AI đang trả lời.
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Trang chủ → ⚙️ Cài đặt → **Số lượt hỏi AI cùng lúc (mọi video)**: mặc định 3, chọn 1–6 (có tác dụng ngay).
+3. Chạy 3–4 video cùng lúc: nhật ký ít thấy "Đợi lượt hỏi đạo diễn AI" hơn; khi phải đợi thì ghi rõ "đang có N lượt khác chạy".
+4. Nếu Claude / Gemini báo lỗi giới hạn (quá nhiều yêu cầu) → giảm số này xuống 2–3.
+
 ## Bước 101 — Content nhiều phim: bỏ ô dán link, tự gõ tiêu đề `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

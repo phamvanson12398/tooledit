@@ -434,6 +434,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     def index():
         n_max = max_jobs()
         opts = "".join(f"<option value='{n}' {'selected' if n == n_max else ''}>{n}</option>" for n in range(1, 7))
+        from app.jobs.limits import ai_limit
+
+        n_ai = ai_limit(settings_path)
+        ai_opts = "".join(f"<option value='{n}' {'selected' if n == n_ai else ''}>{n}</option>" for n in range(1, 7))
         kd = keep_days()
         day_opts = "".join(f"<option value='{v}' {'selected' if float(v) == kd else ''}>{label}</option>"
                            for v, label in (("0", "không tự xóa"), ("1", "1 ngày"), ("2", "2 ngày"), ("3", "3 ngày"),
@@ -443,7 +447,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                    f"<select name='n' onchange='this.form.submit()' style='width:auto'>{opts}</select></form>"
                    f"<form method='post' action='/settings/cleanup' class='row' style='align-items:center;gap:8px;margin-top:6px'>"
                    f"<span class='muted'>Tự xóa job không hoạt động quá:</span>"
-                   f"<select name='days' onchange='this.form.submit()' style='width:auto'>{day_opts}</select></form>")
+                   f"<select name='days' onchange='this.form.submit()' style='width:auto'>{day_opts}</select></form>"
+                   f"<form method='post' action='/settings/ai-parallel' class='row' style='align-items:center;gap:8px;margin-top:6px'>"
+                   f"<span class='muted'>Số lượt hỏi AI cùng lúc (mọi video):</span>"
+                   f"<select name='n' onchange='this.form.submit()' style='width:auto'>{ai_opts}</select></form>")
         rcfg = app_config.load("review")  # độ dài video review lấy từ config/review.yaml (đổi config là trang tự đổi)
 
         def mmss(sec) -> str:
@@ -550,8 +557,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         <div class="side"><div class="card jobs"><h2>🗂️ Các video <span class="muted" style="font-weight:400">tự cập nhật</span></h2>
         <div id="jobs-panel">{jobs_panel()}</div>
         <details class="adv"><summary>⚙️ Cài đặt</summary>{threads}{_template_setting()}{tts_setting()}
-        <p class='muted'>Mỗi video chạy trên một luồng riêng. Bước phân tích dùng GPU nên lần lượt từng video; hỏi đạo diễn
-        AI tối đa 2 lượt cùng lúc (chung hạn mức gói Pro).</p></details></div></div></div>
+        <p class='muted'>Mỗi video chạy trên một luồng riêng. Bước phân tích dùng GPU nên lần lượt từng video. Số lượt hỏi AI
+        cùng lúc tính trên MỌI video (chung hạn mức gói Pro) — tăng thì nhanh hơn, nhưng quá nhiều dễ bị từ chối tạm thời /
+        nhanh hết hạn mức; 3–4 là vừa.</p></details></div></div></div>
         <script>
         async function pick(){{
           const m=document.getElementById('pickmsg'); m.textContent='Đang mở hộp thoại chọn file…';
@@ -1071,6 +1079,12 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 starts.append(nxt)
         for nxt in starts:
             threading.Thread(target=worker._work, args=nxt, daemon=True).start()
+        return RedirectResponse("/", status_code=303)
+
+    @app.post("/settings/ai-parallel")
+    def save_ai_parallel(n: int = Form(3)):
+        """Số lượt hỏi AI cùng lúc trên mọi video (chủ dự án 15/10 "đợi lượt hỏi AI lâu quá") — có tác dụng ngay."""
+        app_settings.save({"parallel_ai": max(1, min(6, n))}, settings_path)
         return RedirectResponse("/", status_code=303)
 
     @app.post("/settings/cleanup")

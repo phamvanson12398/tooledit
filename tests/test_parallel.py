@@ -71,7 +71,9 @@ def test_analyze_step_one_at_a_time_director_two(monkeypatch):
     lk = threading.Lock()
 
     def work(step, group):
-        with limits.slot(step, on_wait=waits.append):
+        ctx = limits.ai_slot(on_wait=waits.append, limit=lambda: 2) if group == "director" else \
+            limits.slot(step, on_wait=waits.append)
+        with ctx:
             with lk:
                 now[group] += 1
                 peak[group] = max(peak[group], now[group])
@@ -87,7 +89,28 @@ def test_analyze_step_one_at_a_time_director_two(monkeypatch):
         t.join()
     assert peak == {"analyze": 1, "director": 2}
     assert "phân tích" in waits  # có báo đợi lượt
+    assert any(isinstance(w, int) for w in waits)  # lượt hỏi AI: báo số lượt đang chạy
     limits.reset()
+
+
+def test_ai_slot_only_while_asking_ai(tmp_path):
+    """Chủ dự án 15/10 "đợi lượt hỏi AI lâu quá": bước plan / dub KHÔNG giữ lượt hỏi AI cả bước nữa — chỉ đúng lúc gọi AI."""
+    from app.director.fake import FakeDirector
+
+    assert "plan" not in limits.STEP_GROUP and "dub" not in limits.STEP_GROUP
+    seen = []
+
+    class D(FakeDirector):
+        def _complete(self, task, prompt, schema, images):
+            seen.append(limits.ai_busy())
+            return super()._complete(task, prompt, schema, images)
+
+    from tests.test_director import make_analysis
+    from app.director.tasks import understand
+
+    assert limits.ai_busy() == 0
+    understand(D(), make_analysis(tmp_path))
+    assert seen == [1] and limits.ai_busy() == 0
 
 
 def test_gpu_lock_only_around_transcription(monkeypatch):
@@ -123,3 +146,16 @@ def test_gpu_lock_only_around_transcription(monkeypatch):
         t.join()
     assert peak == {"analyze": 2, "gpu": 1} and waits == ["GPU (nhận dạng thoại)"]
     limits.reset()
+
+
+def test_web_ai_parallel_setting(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.web.server import create_app
+
+    local = tmp_path / "local.yaml"
+    client = TestClient(create_app(tmp_path / "jobs", lambda root, log: None, settings_path=local))
+    assert "Số lượt hỏi AI cùng lúc" in client.get("/").text
+    client.post("/settings/ai-parallel", data={"n": "5"})
+    assert limits.ai_limit(local) == 5
+    assert "<option value='5' selected>5</option>" in client.get("/").text
