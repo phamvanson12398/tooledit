@@ -278,9 +278,15 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     if four and four.get("subtitle"):
         subtitle_style = dataclasses.replace(_style(four["subtitle"]), bold=True)
 
+    # Chủ dự án 15/10: "bỏ khung video, mặc định khung video GỐC, không thu phóng gì hết" — style["keep_frame"]: khối
+    # hình đúng tỉ lệ video gốc, không cắt (crop), không zoom / chuyển động / góc máy theo người nói
+    keep = bool(style.get("keep_frame"))
+
     def ratio_for(clip_ratio) -> str:
         if four:
             return four.get("block_ratio", "16:9")
+        if keep:
+            return "full" if vertical else style.get("block_ratio") or "16:9"
         return "full" if vertical else (clip_ratio or plan.default_ratio if plan.default_ratio != "full" else "4:3")
 
     bg = config.load("capcut").get("background", {"type": "blur", "blur": 0.375})
@@ -300,7 +306,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     crop_ratio = style.get("crop_ratio")  # vùng lấy từ video gốc người dùng chọn (4:3 / 1:1 / 16:9), khác khung hiển thị
 
     def crop_for(ratio: str, start: float, end: float):
-        if ratio == "full":
+        if ratio == "full" or keep:
             return None
         cx = subject_center(subjects, start, end)
         if crop_ratio and crop_ratio != ratio:
@@ -382,8 +388,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             if dur <= 0:
                 continue
             h_start = min(rng.start, max(0.0, sc["duration"] - dur / SEC))
-            kfs = ([Keyframe("scale", 0, 1.0), Keyframe("scale", dur, 1.08)] if kind == "slow" else
-                   [Keyframe("scale", 0, 1.18), Keyframe("scale", min(dur, 250_000), 1.05), Keyframe("scale", dur, 1.12)])
+            kfs = [] if keep else \
+                ([Keyframe("scale", 0, 1.0), Keyframe("scale", dur, 1.08)] if kind == "slow" else
+                 [Keyframe("scale", 0, 1.18), Keyframe("scale", min(dur, 250_000), 1.05), Keyframe("scale", dur, 1.12)])
             flip = mirrored(h_start, 1 if kind == "punch" else 0)
             w.add_video(src, target_start=start, duration=dur, source_start=round(h_start * SEC),
                         crop=fix_crop(crop_for(ratio, h_start, h_start + dur / SEC), ratio, start, dur, flip,
@@ -496,9 +503,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     lib = {(i.kind, i.name): i for i in template.library}
     trans_after = {t.after_clip: lib.get(("transition", t.name)) for t in plan.transitions}
     motion_cfg = style.get("motion") or {}
-    motion_on, motion_n = bool(motion_cfg.get("every_clip")), 0
+    motion_on, motion_n = bool(motion_cfg.get("every_clip")) and not keep, 0
     cam_cfg = style.get("camera") or {}
-    camera_on = cam_cfg.get("mode") == "speaker"
+    camera_on = cam_cfg.get("mode") == "speaker" and not keep
     if camera_on:  # góc máy theo người đang nói (podcast)
         from app.planner.camera import persons_from_faces, plan_shots, shot_crop
 
@@ -536,7 +543,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                 n_mirror += mirrored(sh.start, idx)
                 shot_count[sh.kind] += 1
         else:
-            kfs = zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
+            kfs = [] if keep else zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
                 [Keyframe("scale", 0, 1.0), Keyframe("scale", p.out_duration, style.get("zoom", {}).get("slow_scale", 1.12))]
             if not kfs and motion_on:
                 kfs, motion_n = auto_motion(motion_n, p.out_duration, motion_cfg), motion_n + 1

@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from typing import Callable
 
 from app import config
-from app.capcut_writer import SEC, DraftTemplate, DraftWriter, Keyframe, VideoSource, block_crop
+from app.capcut_writer import SEC, Crop, DraftTemplate, DraftWriter, Keyframe, VideoSource, block_crop
 from app.capcut_writer.layout import RATIOS, row_to_y
 from app.planner.builder import (BuildResult, _add_audio_item, _animations, _fallback_sfx, _style, add_title_lines,
                                  db_to_gain, duck_keyframes, four_title_positions, pick_music)
@@ -44,7 +44,7 @@ def extract_still(src: Path, at_s: float, dst: Path, crop, width: int) -> tuple[
 
 def build_films(idea, picks: dict[int, dict], films: dict[str, dict], template: DraftTemplate, drafts_root: Path,
                 name: str, *, language: str, voices: dict[int, tuple[Path, int]], stills_dir: Path,
-                vi_subtitles: bool = False, cfg: dict | None = None,
+                vi_subtitles: bool = False, cfg: dict | None = None, keep_frame: bool = False,
                 still_fn: Callable | None = None) -> BuildResult:
     """films[key] = {path, width, height, duration (giây), scene_starts}; picks[số câu] = {film, start, end, freeze_t};
     voices[số câu] = (file voice, độ dài µs). Câu chưa có voice tạm tính theo số chữ (dựng thử trước khi thu)."""
@@ -55,8 +55,15 @@ def build_films(idea, picks: dict[int, dict], films: dict[str, dict], template: 
     cfg = config.load("films") if cfg is None else cfg
     rcfg = config.load("review")
     still_fn = still_fn or extract_still
-    four = layout_for({"layout": rcfg.get("layout", "review_story"), "block_ratio": "9:10"}) or {}
-    ratio = four.get("frame_ratio") or four.get("block_ratio", "9:10")
+    if keep_frame and films:  # chủ dự án 15/10: khung video GỐC (theo phim đầu), không cắt, không thu phóng
+        from app.capcut_writer.layout import nearest_ratio
+
+        f0 = next(iter(films.values()))
+        ratio = nearest_ratio(int(f0["width"]), int(f0["height"]))
+        four = layout_for({"layout": rcfg.get("layout", "review_story"), "block_ratio": ratio, "keep_frame": True}) or {}
+    else:
+        four = layout_for({"layout": rcfg.get("layout", "review_story"), "block_ratio": "9:10"}) or {}
+        ratio = four.get("frame_ratio") or four.get("block_ratio", "9:10")
     if ratio not in RATIOS:
         ratio = "9:10"
     bg = four.get("background_color", "#000000FF")
@@ -95,7 +102,7 @@ def build_films(idea, picks: dict[int, dict], films: dict[str, dict], template: 
             continue
         src = source(ln.film)
         f = films[ln.film]
-        crop = block_crop(src.width, src.height, ratio)
+        crop = Crop() if keep_frame else block_crop(src.width, src.height, ratio)
         v = voices.get(i)
         voice_s = v[1] / SEC if v else est_s(ln.text, language)
         want = voice_s + gap
@@ -113,7 +120,8 @@ def build_films(idea, picks: dict[int, dict], films: dict[str, dict], template: 
             hold_us = want_us - run_us
             still, iw, ih = still_fn(src.path, ft, stills_dir / f"{ln.film}_{ft:09.2f}.jpg", crop, src.width)
             w.add_image(still, iw, ih, target_start=t + run_us, duration=hold_us, background_color=bg,
-                        keyframes=[Keyframe("scale", 0, 1.0), Keyframe("scale", hold_us, zoom)])
+                        keyframes=None if keep_frame or zoom == 1.0 else
+                        [Keyframe("scale", 0, 1.0), Keyframe("scale", hold_us, zoom)])
             if ln.label.strip():
                 w.add_text(ln.label, start=t + run_us, duration=hold_us, x=pos["x"], y=pos["center"],
                            style=label_style, animations=anims_in[:1])

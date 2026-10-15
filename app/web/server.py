@@ -479,12 +479,6 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn đoạn hay (câu nói hay, hài, gay cấn…), thay giọng từng nhân vật, giữ nhạc nền gốc"),
                 ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
             ))
-        ratios = ''.join(
-            f"<label class='ratio'><input type='radio' name='ratio' value='{v}' {'checked' if v == '4:3' else ''}>"
-            f"<i style='aspect-ratio:{v.replace(':', '/') if v != 'auto' else '1/1'}'></i><b>{v if v != 'auto' else 'Tự động'}</b>"
-            f"<span>{d}</span></label>"
-            for v, d in (("4:3", "ngang vừa"), ("16:9", "ngang rộng"), ("1:1", "vuông"), ("4:5", "hơi dọc"),
-                         ("3:4", "dọc"), ("9:10", "gần vuông"), ("9:16", "kín màn hình"), ("auto", "theo bố cục")))
         body = f"""
         <div class="hero"><div><h2>Xin chào 👋</h2><p>Chọn video → chọn kiểu làm → bấm <b>Bắt đầu</b>.
         Tool tự làm phần còn lại, chỗ nào cần bạn (duyệt đoạn, thu voice…) sẽ báo trong danh sách bên phải.</p></div></div>
@@ -538,11 +532,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="split"> ✂️ Chia video dài thành nhiều video</label>
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục</label>
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="confirm"> ✅ Xác nhận trước khi dựng</label>
-              <label class="chip" data-modes="normal dub review"><input type="checkbox" name="reframe"> 🔲 Đổi khung theo cảnh</label>
               <label class="chip" data-modes="normal dub voice_only review"><input type="checkbox" name="business"> 💼 Khách doanh nghiệp</label>
             </div>
-            <div class="field" style="margin-top:14px"><label>🖼️ Khung video</label>
-              <div class="ratios">{ratios}</div></div>
+            <div class="muted" style="margin-top:10px">🖼️ Khung video: giữ đúng khung video gốc, không cắt, không thu phóng.</div>
             <details class="adv"><summary>⚙️ Nâng cao: AI đạo diễn, nhạc nền, mã khách</summary>
               <div class="field"><label>🤖 AI đạo diễn</label><select name="ai">{_ai_options()}</select>
                 <div class="muted">Claude: gói Claude Pro qua Claude Code. Gemini Pro: gói Google AI Pro qua Antigravity CLI
@@ -741,7 +733,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         job = Job.create(Path(jobs_root), [p.resolve() for p in paths], JobOptions(
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only and not review,
-            reframe_per_scene=bool(reframe) and not voice_only,
+            reframe_per_scene=False,  # 15/10: khung video gốc → không đổi khung theo cảnh
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and not review and len(paths) == 1,
             hype=bool(hype) and not voice_only and not review and not char_dub, review=bool(review),
             review_s=max(0, min(int(review_s or 0), 600)) if review and not cliff else 0,
@@ -750,7 +742,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
             script_mode=script_mode if script_mode in ("rewrite", "translate") else "",
             vi_sub=bool(vi_sub) and len(paths) == 1, ai=ai if ai in AI_NAMES else ""))
-        job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
+        # chủ dự án 15/10: bỏ ô Khung video — mọi job mới giữ khung video GỐC, không cắt, không thu phóng
+        job.data.update({"business": bool(business), "default_ratio": "source", "style": style})
         if music_file is not None and music_file.filename:
             chosen = _save_user_music(music_file, Path(assets_root))
             if chosen:
@@ -1585,7 +1578,7 @@ def _new_films_job(jobs_root: Path, worker, target_language: str, post_title: st
     _save_post_images(d, images)
     info = {"title": post_title.strip()} if post_title.strip() else {}
     (d / "post" / "post.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
-    job.data["post_title"] = post_title.strip()[:120]
+    job.data.update({"post_title": post_title.strip()[:120], "default_ratio": "source"})
     job.save(jobs_root)
     worker.start(job.job_id)
     return RedirectResponse(f"/jobs/{job.job_id}", status_code=303)

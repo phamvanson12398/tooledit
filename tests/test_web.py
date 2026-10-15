@@ -317,8 +317,8 @@ def test_home_only_auto_style_more_ratios_no_keep_bgm(tmp_path):
     assert "AI tự chọn" in page and page.count("name='style'") == 1
     assert "Giải trí / show" not in page and "Trang điểm / làm đẹp" not in page
     assert "name=\"keep_bgm\"" not in page and "Giữ nhạc nền gốc" not in page
-    for r in ("16:9", "4:3", "1:1", "4:5", "3:4", "9:10", "9:16"):
-        assert f"name='ratio' value='{r}'" in page
+    # 15/10: bỏ ô Khung video (mặc định khung gốc) — job cũ đã chọn khung vẫn dựng như trước
+    assert "name='ratio'" not in page and "name=\"reframe\"" not in page and "giữ đúng khung video gốc" in page
     job = Job.create(tmp_path / "j", [Path("C:/f/a.mp4")], JobOptions(), job_id="x")
     job.data["default_ratio"] = "4:5"
     style = Runner._style(Runner.__new__(Runner), job, "tiktok_retention")
@@ -382,3 +382,39 @@ def test_pick_language_after_error_and_continue(tmp_path):
     job = Job.load(jobs, "zh")
     assert job.options.target_language == "ja" and job.data["reuse_understanding"] and job.status == Status.pending
     assert started == ["zh"] and job.step == "understand"
+
+
+def test_new_job_keeps_source_frame_no_zoom(tmp_path):
+    """Chủ dự án 15/10: "bỏ khung video, mặc định khung video gốc, không thu phóng gì hết"."""
+    import json as _json
+
+    from fastapi.testclient import TestClient
+
+    from app.capcut_writer import Crop
+    from app.jobs.job import Job, JobOptions, Status
+    from app.web.server import create_app
+    from tests.test_runner import make_runner, prepare
+
+    f = tmp_path / "v.mp4"
+    f.write_bytes(b"x")
+    app = create_app(tmp_path / "web", lambda root, log: None)
+    app.state.worker.start = lambda job_id, action=None: True
+    r = TestClient(app).post("/jobs", data={"footage": str(f), "mode": "normal", "reframe": "on"},
+                             follow_redirects=False)
+    made = Job.load(tmp_path / "web", r.headers["location"].rsplit("/", 1)[1])
+    assert made.data["default_ratio"] == "source" and not made.options.reframe_per_scene
+
+    jobs, job = prepare(tmp_path, JobOptions())          # footage 1920x1080
+    job.data["default_ratio"] = "source"
+    job.save(jobs)
+    runner = make_runner(tmp_path, jobs)
+    job = runner.run(job)
+    assert job.status == Status.done, job.message
+    style = runner._style(job)
+    assert style["keep_frame"] and style["block_ratio"] == "16:9" and style["crop_ratio"] is None
+    content = _json.loads((Path(job.data["draft"]) / "draft_content.json").read_text(encoding="utf-8"))
+    vids = [m for m in content["materials"]["videos"] if m.get("type") != "photo" and m["path"].endswith("test.mp4")]
+    assert vids and all(m["crop"] == Crop().to_json() for m in vids)          # không cắt khung
+    segs = [sg for t in content["tracks"] if t["type"] == "video" for sg in t["segments"]]
+    scale_kfs = [k for sg in segs for k in sg.get("common_keyframes", []) if "Scale" in k.get("property_type", "")]
+    assert not scale_kfs                                                         # không zoom / thu phóng

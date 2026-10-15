@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 104 — Bỏ ô "Khung video": mọi video mới giữ khung GỐC, không cắt, không thu phóng `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Trang chủ không còn ô **🖼️ Khung video** và ô **🔲 Đổi khung theo cảnh**; chỉ còn dòng "Khung video: giữ đúng khung
+   video gốc, không cắt, không thu phóng".
+3. Tạo một job mới (bất kỳ chế độ nào: dựng thường, đổi ngôn ngữ, review, review bỏ lửng, content nhiều phim) → mở
+   CapCut kiểm tra:
+   - video ngang 16:9 hiện đủ cả khung (không bị cắt hai bên), video dọc tràn màn hình;
+   - không có keyframe zoom / chuyển động trên các clip; dừng hình (content nhiều phim) đứng yên, không zoom;
+   - tiêu đề / phụ đề nằm đúng phía trên / trong khối hình.
+4. Job tạo TRƯỚC khi cập nhật vẫn dựng theo khung đã chọn lúc đó.
+
 ## Bước 103 — Review phim: có voice mà CapCut hổng voice + phụ đề từng đoạn `[CẦN KIỂM TRA TRÊN MÁY]`
 
 Nguyên nhân: kiểu dựng có "cắt theo nhịp nhạc" dời điểm cắt cho trúng beat → cảnh cuối của một câu ngắn đi một chút → tool

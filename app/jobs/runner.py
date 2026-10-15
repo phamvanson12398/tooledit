@@ -221,7 +221,18 @@ class Runner:
 
                 r = nearest_ratio(w, h)
                 style = {**style, "block_ratio": r, "crop_ratio": r}
+        if job.data.get("default_ratio") == "source":  # chủ dự án 15/10: khung video GỐC, không cắt, không thu phóng
+            style = self._keep_frame(job, style)
         return style
+
+    def _keep_frame(self, job: Job, style: dict) -> dict:
+        """Khối hình = đúng tỉ lệ video gốc (gần nhất trong RATIOS, bố cục chữ tự dời theo khối), không crop, không zoom /
+        chuyển động / góc máy theo người nói (builder đọc `keep_frame`)."""
+        from app.capcut_writer.layout import nearest_ratio
+
+        w, h, _ = self._footage_size(job)
+        r = nearest_ratio(w, h) if w and h else style.get("block_ratio") or "16:9"
+        return {**style, "keep_frame": True, "block_ratio": r, "crop_ratio": None, "motion": {}, "camera": {}}
 
     def _template(self):
         from app.capcut_writer import DraftTemplate
@@ -793,7 +804,8 @@ class Runner:
         name = f"{job.options.client_id or 'khach'}_{job.job_id}_video01"
         res = build_films(idea, picks, films, ctx["tpl"], self._drafts_dir or drafts_root(), name,
                           language=job.options.target_language or "ko", voices=voices, stills_dir=d / "stills",
-                          vi_subtitles=self.vi_subtitles(job), still_fn=getattr(self, "_still_fn", None))
+                          vi_subtitles=self.vi_subtitles(job), still_fn=getattr(self, "_still_fn", None),
+                          keep_frame=job.data.get("default_ratio") == "source")
         out = res.writer.save(overwrite=True)
         dur = round(res.duration_us / 1_000_000, 1)
         for n in res.notes:

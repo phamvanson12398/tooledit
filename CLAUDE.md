@@ -234,6 +234,11 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   trắng**, **chữ tiêu đề đen** (viền trắng mảnh) — `config/layout.yaml → four_titles`.
   **Cập nhật 11/10:** ô Khung video có thêm 4:5 / 3:4 / 9:10 / 9:16 (mọi tỉ lệ trong `RATIOS` của
   `app/capcut_writer/layout.py`; 9:16 = kín màn hình, chữ đè theo `overlay`).
+  **Cập nhật 15/10 (chủ dự án): BỎ ô "Khung video" + "Đổi khung theo cảnh" trên trang chủ — mọi job mới giữ KHUNG VIDEO GỐC,
+  không cắt, không thu phóng** (`job.data.default_ratio = "source"` → `Runner._keep_frame`: khối = `nearest_ratio` của
+  video gốc, `crop_ratio` None, style `keep_frame` → builder không crop / không zoom / không chuyển động / không góc máy;
+  bố cục cố định như `review_story` cũng theo khung gốc — `layout_for`; content nhiều phim + dừng hình cũng vậy). Job cũ giữ
+  khung đã chọn.
   ~~Cập nhật 02/10: khung cố định 3:4~~ — **chủ dự án BỎ ngày 02/10**: khung video trở lại theo lựa chọn 4:3 / 1:1 /
   16:9 khi tạo job như cập nhật 01/10 (`frame_ratio` / `frame_lock` không còn đặt trong `config/layout.yaml`).
 - **Ngoại lệ thể thao (chủ dự án chốt 25/09, video mẫu boxing):** kiểu `sports_analysis` dùng bố cục `sports_focus`:
