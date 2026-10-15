@@ -451,3 +451,52 @@ def test_review_always_third_person(tmp_path):
     d = FakeDirector(responses={"dub_review": [data, _script(1, 1.0)], "review_polish": _script(1, 1.0)})
     make_dub(d, a, _u(a), plan=None, mode="review")
     assert "NGÔI THỨ 3" in d.calls[1]["prompt"]  # AI được báo lỗi rồi viết lại
+
+
+def test_beat_snap_never_drops_voice_or_subtitles(tmp_path, monkeypatch):
+    """Chủ dự án 15/10 (ảnh CapCut review): "có file âm thanh rồi mà không vào CapCut, không có sub" — dời điểm cắt theo
+    nhịp nhạc làm cảnh cuối của câu ngắn lại → tool tưởng câu nằm ngoài video, bỏ cả voice + phụ đề của câu đó."""
+    from app.planner import builder
+    from app.planner.beats import snap_cuts
+    from app.planner.dub_io import line_windows
+    from app.planner.review_sync import build_from_voice
+    from app.planner.timeline import TimeMap
+
+    # (1) đoạn phim của câu bị cắt bớt cuối vẫn tính được chỗ đặt voice
+    plan = EditPlan.model_validate(_plan(1, _clips(1.0, 10)))
+    s = DubScript.model_validate(_script(1, 1.0, n=6))
+    p2, s2, _ = build_from_voice(plan, s, {i: 3.0 for i in range(1, 7)}, [], cps=10, gap_s=0.05)
+    clips, n = snap_cuts([c.model_dump() for c in p2.clips], 0.0, [x * 0.5 + 0.13 for x in range(200)], [], 300.0, 0.25)
+    assert n > 0
+    p3 = p2.model_copy(update={"clips": [type(p2.clips[0]).model_validate(c) for c in clips]})
+    assert all(w is not None for w in line_windows(s2, TimeMap(p3.clips)))
+
+    # (2) cả job review: kiểu dựng có cắt theo nhịp nhạc + bài nhạc có nhịp → đủ 15 voice + phụ đề trong CapCut
+    jobs = tmp_path / "jobs"
+    job = Job.create(jobs, [Path("C:/f/phim.mp4")], JobOptions(review=True, review_s=150), job_id="bs")
+    make_analysis(jobs / "bs", duration=200.0)
+    r = make_runner(tmp_path, jobs)
+    u = load("understand.json")
+    u.update({"usable_range": {"start": 0.0, "end": 200.0}, "language": "ko"})
+    r._director = FakeDirector(responses={"understand": u, "plan": _plan(1, _clips(1.0, 56)),
+                                          "dub_review": _script(1, 1.0), "review_polish": _script(1, 1.0),
+                                          "captions": load("captions.json")})
+    real = builder.build
+
+    def with_beats(plan, u, analysis, template, drafts_root, name, style, **kw):
+        style = {**style, "beat_sync": {"enabled": True, "tolerance_s": 0.25}}
+        return real(plan, u, analysis, template, drafts_root, name, style,
+                    **{**kw, "beats_fn": lambda m: [x * 0.5 + 0.13 for x in range(600)]})
+    monkeypatch.setattr(builder, "build", with_beats)
+    job = r.run(job)
+    assert job.step == "dub_voice", job.message
+    for n in range(1, 16):
+        (jobs / "bs" / "voice" / f"video01_dub{n:02d}.wav").write_bytes(b"RIFF")
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+    content = json.loads((Path(job.data["drafts"][0]["draft"]) / "draft_content.json").read_text(encoding="utf-8"))
+    voices = [a for a in content["materials"]["audios"] if "video01_dub" in a.get("path", "") or "_lien_mach" in
+              a.get("path", "")]
+    assert len(voices) == 15
+    texts = [json.loads(t["content"])["text"] for t in content["materials"]["texts"]]
+    assert sum("이 장면" in t for t in texts) >= 15                                    # phụ đề đủ 15 câu

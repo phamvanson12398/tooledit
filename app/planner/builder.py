@@ -420,7 +420,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     music = None if bgm_audio else pick_music(template, plan)  # giữ nhạc nền gốc → không thêm nhạc khác
     beats_out: list[float] = []
     bcfg = style.get("beat_sync") or {}
-    if bcfg.get("enabled") and music is not None:
+    # Review: cảnh được cắt ĐÚNG theo độ dài từng câu voice (review_sync) — dời điểm cắt theo nhịp nhạc sẽ làm lệch giọng
+    # với hình và trước đây làm tool tưởng câu nằm ngoài video → mất voice + phụ đề (chủ dự án 15/10)
+    if bcfg.get("enabled") and music is not None and not style.get("review"):
         from app.planner.beats import beats_for_music, looped_beats, snap_cuts
 
         try:

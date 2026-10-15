@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 103 — Review phim: có voice mà CapCut hổng voice + phụ đề từng đoạn `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Nguyên nhân: kiểu dựng có "cắt theo nhịp nhạc" dời điểm cắt cho trúng beat → cảnh cuối của một câu ngắn đi một chút → tool
+tưởng câu đó nằm ngoài video và bỏ luôn voice + phụ đề của câu (chỗ hổng trên timeline). Giờ review không dời điểm cắt
+theo nhịp nữa (cảnh vốn cắt đúng theo giọng), và dù cảnh bị cắt bớt thì câu vẫn được giữ.
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`. **Đóng CapCut.**
+2. Job review bị hổng: trang job → 🛠️ **🔁 Dựng lại draft** (voice đã thu giữ nguyên).
+3. Mở CapCut: track voice và 2 hàng phụ đề phải liền từ đầu tới cuối, không còn khúc trống; đếm số khối voice = số câu
+   trên trang voice.
+
 ## Bước 102 — Bớt "Đợi lượt hỏi đạo diễn AI" + chỉnh số lượt hỏi AI cùng lúc `[CẦN KIỂM TRA TRÊN MÁY]`
 
 Trước đây cả một bước (lập kế hoạch, viết thuyết minh…) giữ lượt hỏi AI kể cả lúc bước đó đang làm việc khác (tách nhạc,

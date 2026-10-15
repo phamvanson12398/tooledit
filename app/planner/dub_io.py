@@ -50,6 +50,16 @@ def line_windows(script: DubScript, tmap) -> list[tuple[int, float, float] | Non
     spans = []
     for ln in script.lines:
         a, b = tmap.to_out(ln.source_start), tmap.to_out(ln.source_end)
+        if a is None or b is None or b <= a:
+            # đầu / cuối câu rơi đúng chỗ bị cắt bớt (vd điểm cắt dời theo nhịp nhạc): lấy các clip nằm trong đoạn của câu
+            # thay vì bỏ cả câu — trước đây câu bị bỏ thì mất luôn voice + phụ đề (chủ dự án 15/10)
+            inside = [p for p in tmap.placed if p.source_end > ln.source_start + 1e-3
+                      and p.source_start < ln.source_end - 1e-3]
+            if inside:
+                a = min(p.out_start + round(max(0.0, ln.source_start - p.source_start) / p.speed * 1e6) for p in inside) \
+                    if a is None else a
+                b = max((p.out_start + round((min(ln.source_end, p.source_end) - p.source_start) / p.speed * 1e6)
+                         for p in inside if p.out_start >= a - 1), default=None)
         spans.append((a, b) if a is not None and b is not None and b > a else None)
     out: list[tuple[int, float, float] | None] = []
     for i, sp in enumerate(spans):
