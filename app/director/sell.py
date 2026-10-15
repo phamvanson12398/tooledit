@@ -92,7 +92,8 @@ def _lines_text(previous) -> str:
 
 def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, sell_s: float | int = 0,
                      music_items: list | None = None, video_index: int = 1, feedback: str = "", previous=None):
-    """AI xem khung hình + định hướng → SellScript (lời + cảnh từng câu + tiêu đề + nhạc)."""
+    """AI xem khung hình + lời nói gốc, TỰ chọn góc kể theo nội dung gốc (chủ dự án 15/10 bỏ ô định hướng; `brief` chỉ còn
+    cho job cũ đã nhập) → SellScript (lời + cảnh từng câu + tiêu đề + nhạc)."""
     from app.director.policy import cut_ranges
     from app.director.schemas import SellScript
     from app.director.tasks import (LANGUAGE_NAMES, MARKETS, _segments_in, _shared_context, load_analysis,
@@ -124,8 +125,9 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
                  "market": MARKETS.get(u.language, "TikTok"), "localize_brief": localize_brief(u),
                  "source_s": f"{duration:.0f}", "target_s": f"{target:.0f}", "cps": f"{cps:.1f}",
                  "target_chars": f"{int(lo * (target - gap * 12) * cps)}–{int(hi * target * cps)}",
-                 "title_max": title_max, "brief": (brief or "").strip() or
-                 "(không có — tự chọn góc kể hấp dẫn nhất theo nội dung video; không kêu gọi mua hàng)",
+                 "title_max": title_max,
+                 "brief": (f"Chủ dự án có ghi thêm (ưu tiên làm theo): {brief.strip()}" if (brief or "").strip()
+                           else "Chủ dự án không ghi gì thêm — bạn tự quyết hoàn toàn theo nội dung gốc."),
                  "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
                  "scenes": "\n".join(f"- C{i}: {s['start']:.1f}–{s['end']:.1f}s" for i, s in enumerate(scenes, 1)),
                  "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)",

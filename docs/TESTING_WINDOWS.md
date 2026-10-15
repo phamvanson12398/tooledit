@@ -1,5 +1,13 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 106 — Bán content: có lại ô chọn video, bỏ ô định hướng (AI tự viết theo nội dung gốc) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Bấm thẻ **💰 Bán content**: bước 1 phải có ô **Chọn video** + nút **📂 Chọn file…**; bước 2 không còn ô "Định hướng nội
+   dung", chỉ còn ngôn ngữ + thời lượng.
+3. Chọn video ~1 phút → Bắt đầu. Ở trang voice, đọc dàn ý (📖): dòng đầu ghi "Góc kể: …" do AI tự chọn theo video. Kiểm
+   tra kịch bản đúng với nội dung video, không bịa tên quán / giá / địa chỉ mà video không có.
+
 ## Bước 105 — Chế độ "💰 Bán content" + sửa lỗi "vượt quá độ dài file" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

@@ -210,6 +210,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 
 ## 5e. Chế độ "Bán content" (chủ dự án yêu cầu 15/10)
 
+- **Cập nhật 15/10 (chủ dự án): bỏ ô "Định hướng nội dung"** — AI tự xem nội dung gốc (khung hình + lời nói gốc) rồi tự
+  chọn góc kể và viết; `sell_brief` chỉ còn cho job cũ đã nhập. Ô chọn file hiện cho mọi chế độ trừ Content nhiều phim
+  (test chặn lỗi gộp nhánh làm mất ô).
 - Thẻ "💰 Bán content" ở trang chủ (`JobOptions.sell`, `sell_brief` = định hướng nội dung, `sell_s` = thời lượng;
   `config/sell.yaml`), MỘT video gốc ~55–60 giây, cần chọn ngôn ngữ giọng đọc (Hàn / Nhật / Anh). Không hook riêng, không
   chia video, không ⚡.

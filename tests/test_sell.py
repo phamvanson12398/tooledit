@@ -87,15 +87,14 @@ def make_runner(tmp_path, jobs):
 
 
 def test_full_sell_job_packs_media_and_separate_audio_tracks(tmp_path):
-    jobs, job = prepare(tmp_path, JobOptions(sell=True, target_language="ko", sell_brief="giới thiệu quán mì",
-                                             client_id="k"))
+    jobs, job = prepare(tmp_path, JobOptions(sell=True, target_language="ko", client_id="k"))
     r = make_runner(tmp_path, jobs)
     job = r.run(job)
     assert job.status == Status.waiting and job.step == "dub_voice", job.message
     calls = [c["task"] for c in r.director.calls]
     assert "sell" in calls and "plan" not in calls  # một lượt AI ra cả kịch bản + cảnh + tiêu đề + nhạc
     prompt = next(c["prompt"] for c in r.director.calls if c["task"] == "sell")
-    assert "giới thiệu quán mì" in prompt and "65 giây" in prompt
+    assert "tự quyết hoàn toàn theo nội dung gốc" in prompt and "65 giây" in prompt  # 15/10: không còn ô định hướng
     script = (jobs / "j1" / "dub_scripts.txt").read_text(encoding="utf-8")
     assert "BÀI LỜI ĐỌC" in script and "video01_dub12.wav" in script
     vdir = jobs / "j1" / "voice"
@@ -159,11 +158,18 @@ def test_home_sell_mode(tmp_path):
     app.state.worker.start = lambda job_id, action=None: True
     client = TestClient(app)
     home = client.get("/").text
-    assert "name='mode' value='sell'" in home and "Định hướng nội dung" in home and "65 giây (mặc định)" in home
+    assert "name='mode' value='sell'" in home and "65 giây (mặc định)" in home
+    assert "sell_brief" not in home  # chủ dự án 15/10: bỏ ô định hướng — AI tự viết theo nội dung gốc
+    import re
+
+    from app.web.server import MODES
+
+    box = re.search(r'<div data-modes="([^"]+)">\s*<h3>Chọn video</h3>', home)
+    assert box and set(box.group(1).split()) == set(MODES) - {"films"}  # mọi chế độ (trừ nhiều phim) đều có ô chọn file
     r = client.post("/jobs", data={"footage": str(f), "mode": "sell", "target_language": "ja", "hook": "on",
-                                   "split": "on", "sell_brief": "bán áo khoác", "sell_s": "70"}, follow_redirects=False)
+                                   "split": "on", "sell_s": "70"}, follow_redirects=False)
     o = Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1]).options
-    assert o.sell and o.sell_brief == "bán áo khoác" and o.sell_s == 70 and o.target_language == "ja"
+    assert o.sell and not o.sell_brief and o.sell_s == 70 and o.target_language == "ja"
     assert not o.hook and not o.split
     assert "Chưa chọn ngôn ngữ" in client.post("/jobs", data={"footage": str(f), "mode": "sell"}).text
     page = client.get(r.headers["location"]).text

@@ -1,15 +1,19 @@
 # Nhiệm vụ: VIẾT KỊCH BẢN MỚI + CHỌN CẢNH cho video "bán content" — {{language_name}}, {{market}} (video số {{video_index}})
 
-Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây) và định hướng nội dung bên dưới. Bạn dựng lại thành MỘT video
-TikTok MỚI dài khoảng **{{target_s}} giây**:
+Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây). BẠN TỰ xem kỹ nội dung gốc (khung hình + lời nói gốc nếu có)
+để hiểu video nói / cho thấy gì, rồi tự chọn góc kể hấp dẫn nhất và dựng lại thành MỘT video TikTok MỚI dài khoảng
+**{{target_s}} giây**:
 - TOÀN BỘ âm thanh gốc bị bỏ. Âm thanh mới = giọng đọc kịch bản của bạn (chủ dự án thu / AI đọc) + nhạc nền mới.
 - Hình = các cảnh cắt từ video gốc, ĐƯỢC ĐẢO THỨ TỰ cho khớp lời dẫn, được dùng lại một cảnh khi cần (tool tự lấy khúc
   khác + phản chiếu cho khỏi lộ lặp) — nhưng hạn chế dùng lại, ưu tiên cảnh chưa dùng.
 - Tool sẽ đo độ dài từng câu voice thật rồi cắt các cảnh bạn chọn cho dài đúng bằng câu (cảnh ngắn thì làm chậm nhẹ /
   ghép thêm cảnh khác). Bạn không cần tính giây cho từng cảnh trên màn hình.
 
-## Định hướng nội dung của chủ dự án (làm ĐÚNG theo đây)
+## Định hướng nội dung (bạn tự xác định từ nội dung gốc)
 {{brief}}
+- Video về sản phẩm / món ăn / quán / dịch vụ / địa điểm → giới thiệu cho người xem muốn thử, muốn mua, muốn ghé.
+- Video kể chuyện / khoảnh khắc / mẹo / kiến thức → kể lại cuốn hơn, rõ ý hơn bản gốc.
+- Viết góc kể đã chọn vào đầu `outline_vi` (vd "Góc kể: giới thiệu quán mì — nhấn nước dùng, sợi mì kéo tay").
 
 ## Cấu trúc kịch bản
 1. Viết `outline_vi` (tiếng Việt) TRƯỚC: mở đầu thu hút → nội dung chính (2–4 ý, nối nhau mạch lạc) → kết / kêu gọi hành
@@ -18,16 +22,16 @@ TikTok MỚI dài khoảng **{{target_s}} giây**:
    vấn đề người xem đang gặp…), đọc ≤ 3–4 giây, chạy trên cảnh MẠNH NHẤT của video (không nhất thiết là cảnh đầu).
 3. Các câu `role: "body"`: nội dung mạch lạc, mỗi câu một ý, nối nhau tự nhiên; câu nào nói về gì thì cảnh dưới câu đó
    phải THẤY đúng thứ đó.
-4. `role: "cta"` — lời kêu gọi hành động, CHỈ khi định hướng / nội dung cần (bán hàng, giới thiệu dịch vụ, xin follow…),
+4. `role: "cta"` — lời kêu gọi hành động, CHỈ khi nội dung cần (giới thiệu sản phẩm / quán / dịch vụ, xin follow…),
    đặt ở CUỐI, 1–2 câu, tự nhiên, không ép. Kiểu được dùng: follow, bình luận, lưu video, "link ở bio", "giỏ hàng TikTok".
-   KHÔNG nhắc nền tảng khác ngoài TikTok (YouTube, Instagram, subscribe/구독/チャンネル登録…). Định hướng không cần thì
+   KHÔNG nhắc nền tảng khác ngoài TikTok (YouTube, Instagram, subscribe/구독/チャンネル登録…). Nội dung không cần thì
    không có câu cta, câu cuối khép lại gọn.
 
 ## Viết lời
 - Văn NÓI tự nhiên của người bản xứ {{language_name}} làm TikTok cho khán giả nước mình — không dịch từ tiếng Việt, không
   văn viết; câu dài ngắn xen kẽ, không lặp cùng từ nối ở nhiều câu liền.
-- ĐÚNG SỰ THẬT: chỉ nói điều thấy trong khung hình hoặc có trong định hướng của chủ dự án. Không bịa công dụng, giá, số
-  liệu, cam kết ("chữa khỏi", "100%", "rẻ nhất"…) mà định hướng không cho. Không chửi thề.
+- ĐÚNG SỰ THẬT: chỉ nói điều thấy trong khung hình hoặc nghe trong lời nói gốc. Không bịa tên quán / thương hiệu, công
+  dụng, giá, địa chỉ, số liệu, cam kết ("chữa khỏi", "100%", "rẻ nhất"…) mà video gốc không có. Không chửi thề.
 - Độ dài: cả bài đọc khoảng **{{target_s}} giây** ở tốc độ giọng ~{{cps}} chữ/giây → khoảng **{{target_chars}} chữ**
   (không tính dấu cách, dấu câu). Tool đếm và bắt viết lại nếu thiếu / thừa. Mỗi phần tử `lines` là 1 câu (hoặc 2 câu
   rất ngắn), đọc khoảng 2–7 giây.
@@ -67,5 +71,5 @@ TikTok MỚI dài khoảng **{{target_s}} giây**:
 ## Khung hình (mở bằng Read để xem) — giây gốc
 {{frames}}
 
-## Lời nói gốc (nếu có — chỉ để hiểu, KHÔNG dịch lại)
+## Lời nói gốc (nếu có — để hiểu nội dung, lấy thông tin thật như tên, giá… KHÔNG dịch lại từng câu)
 {{transcript}}

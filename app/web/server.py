@@ -491,7 +491,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ("films", "🎞️", "Content nhiều phim (từ bài TikTok ảnh)",
                  "Gõ tiêu đề + tải ảnh bài TikTok → AI viết content mới, bạn thả file các phim → tool tìm cảnh, xen dừng hình"),
                 ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn đoạn hay (câu nói hay, hài, gay cấn…), thay giọng từng nhân vật, giữ nhạc nền gốc"),
-                ("sell", "💰", "Bán content", "Video ~1 phút → AI viết kịch bản MỚI theo định hướng của bạn, đảo cảnh khớp "
+                ("sell", "💰", "Bán content", "Video ~1 phút → AI xem nội dung gốc rồi tự viết kịch bản MỚI, đảo cảnh khớp "
                  "lời, voice + nhạc mới, dự án CapCut đóng gói đủ file"),
                 ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
             ))
@@ -503,7 +503,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <h2>🎞️ Tạo video mới</h2>
           <input type='hidden' name='style' value='auto'>
           <section class="stepbox"><div class="num">1</div><div class="sb">
-            <div data-modes="normal dub voice_only review cliff char_dub vi_sub">
+            <div data-modes="normal dub voice_only review cliff char_dub sell vi_sub">
             <h3>Chọn video</h3>
             <div class="row"><textarea id="footage" name="footage" rows="2" placeholder="Bấm Chọn file… hoặc dán đường dẫn (nhiều video: mỗi dòng một file)" required></textarea>
             <button type="button" class="btn light" onclick="pick()">📂 Chọn file…</button></div>
@@ -530,10 +530,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <div data-modes="review"><label style="margin-top:10px">⏱️ Thời lượng video review</label>
                 <select name="review_s">{review_opts}</select>
                 <div class="muted">AI tóm gọn cả phim thành MỘT video dài đúng chừng này, chỉ kể ý chính, kể tới kết.</div></div>
-              <div data-modes="sell"><label style="margin-top:10px">🎯 Định hướng nội dung</label>
-                <textarea name="sell_brief" rows="3" style="width:100%" placeholder="vd: giới thiệu quán mì ở Hà Nội, nhấn vào nước dùng ninh 10 tiếng, giá 50k, cuối video kêu gọi follow + ghé quán (địa chỉ: …)"></textarea>
-                <div class="muted">Ghi rõ sản phẩm / dịch vụ, điểm muốn nhấn, thông tin thật (giá, địa chỉ…) và có cần kêu
-                gọi hành động không. AI chỉ nói điều thấy trong video hoặc bạn ghi ở đây — không bịa.</div>
+              <div data-modes="sell">
                 <label style="margin-top:10px">⏱️ Thời lượng video</label>
                 <select name="sell_s">{sell_opts}</select>
                 <div class="muted">Luôn dài hơn 60 giây. Video gốc ngắn hơn thì tool làm chậm nhẹ / dùng lại cảnh (lấy khúc
@@ -593,7 +590,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           films:'Chọn ngôn ngữ của video mới (Hàn / Nhật / Anh).',
           cliff:'Lời review tiếng Hàn / Nhật / Anh. Không chọn ngôn ngữ = tiếng gốc của phim (phải là Hàn / Nhật / Anh).',
           char_dub:'Cần chọn ngôn ngữ mới (vd phim Nhật → tiếng Hàn). Nên cài Demucs để giữ nhạc nền gốc.',
-          sell:'Chọn ngôn ngữ của giọng đọc + phụ đề. Âm thanh gốc bị bỏ hết, thay bằng voice + nhạc mới.',
+          sell:'AI tự xem nội dung gốc rồi viết kịch bản mới. Chọn ngôn ngữ của giọng đọc + phụ đề; âm thanh gốc bị bỏ hết, thay bằng voice + nhạc mới.',
           vi_sub:'Không dựng lại — chỉ dịch phụ đề tiếng Việt.'}};
         function syncMode(){{
           const m=(document.querySelector('input[name=mode]:checked')||{{}}).value||'normal';
