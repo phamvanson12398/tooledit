@@ -63,7 +63,11 @@ class Director(ABC):
         feedback = ""
         last, last_problems = None, []
         for attempt in range(1, self.max_attempts + 1):
-            raw = self._complete(task, prompt + feedback, schema, images or [])
+            from app.jobs.limits import ai_slot
+
+            # giới hạn số lượt hỏi AI cùng lúc trên mọi job (chủ dự án 15/10) — chỉ giữ lượt trong lúc AI đang trả lời
+            with ai_slot(on_wait=lambda n: self.log(f"Đợi lượt hỏi đạo diễn AI (đang có {n} lượt khác chạy)…")):
+                raw = self._complete(task, prompt + feedback, schema, images or [])
             try:
                 result = model.model_validate(raw)
                 if repair is not None:

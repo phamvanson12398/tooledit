@@ -158,8 +158,8 @@ class Runner:
 
     def _dubbing(self, job: Job) -> bool:
         """Có lời thuyết minh: chế độ Đổi ngôn ngữ (tiếng gốc khác tiếng đích) hoặc Review phim (luôn có lời review)."""
-        return (bool(job.options.target_language) and not job.data.get("dub_same")) or job.options.review \
-            or job.options.sell
+        return (bool(job.options.target_language) and not job.data.get("dub_same")) or job.options.review or \
+            job.options.films or job.options.sell
 
     def _footage_size(self, job: Job) -> tuple[int, int, float]:
         """(rộng, cao, thời lượng giây) của footage, từ kết quả phân tích; chưa phân tích → (0, 0, 0)."""
@@ -195,6 +195,10 @@ class Runner:
             from app.director.tasks import review_target
 
             rcfg = review_target(config.load("review"), job.options.review_s)  # thời lượng chủ dự án chọn (11/10)
+            if job.options.cliff:  # review bỏ lửng (14/10): mỗi phần một video 1:30–2:00 (tính cả short mở đầu)
+                from app.director.cliff import cliff_target
+
+                rcfg = cliff_target(config.load("review"))
             style = {**style, "review": rcfg, "reorder": False, "cold_open": False,
                      "original_audio": rcfg.get("original_audio") or {}}
             if rcfg.get("layout"):  # bố cục như video mẫu: khối phim 9:10 cắt thẳng từ footage, bám nhân vật
@@ -227,7 +231,18 @@ class Runner:
 
                 r = nearest_ratio(w, h)
                 style = {**style, "block_ratio": r, "crop_ratio": r}
+        if job.data.get("default_ratio") == "source":  # chủ dự án 15/10: khung video GỐC, không cắt, không thu phóng
+            style = self._keep_frame(job, style)
         return style
+
+    def _keep_frame(self, job: Job, style: dict) -> dict:
+        """Khối hình = đúng tỉ lệ video gốc (gần nhất trong RATIOS, bố cục chữ tự dời theo khối), không crop, không zoom /
+        chuyển động / góc máy theo người nói (builder đọc `keep_frame`)."""
+        from app.capcut_writer.layout import nearest_ratio
+
+        w, h, _ = self._footage_size(job)
+        r = nearest_ratio(w, h) if w and h else style.get("block_ratio") or "16:9"
+        return {**style, "keep_frame": True, "block_ratio": r, "crop_ratio": None, "motion": {}, "camera": {}}
 
     def _template(self):
         from app.capcut_writer import DraftTemplate
@@ -277,10 +292,19 @@ class Runner:
 
     # ---------- chạy ----------
 
-    RECHECK_STEPS = {"review_segments", "choose_hook", "voice", "dub_voice"}  # chạy lại bước để kiểm tra điều kiện
+    RECHECK_STEPS = {"post", "films_wait", "review_segments", "choose_hook", "voice", "dub_voice"}  # chạy lại bước để kiểm tra điều kiện
 
     def resume(self, job: Job) -> Job:
         """Người dùng bấm Tiếp tục (đã chọn hook / đã thả voice / đã duyệt) → chạy tiếp."""
+        if job.status == Status.done:  # job xong rồi mới thu lại / thêm voice → cập nhật draft của video đó
+            from app.jobs import stop
+
+            stop.set_current(job.job_id)
+            try:
+                self.refresh_voice_drafts(job)
+            finally:
+                stop.set_current(None)
+            return job
         if job.status in (Status.waiting, Status.error, Status.stopped) and job.step in self.RECHECK_STEPS:
             job.status = Status.pending
         else:
@@ -288,14 +312,26 @@ class Runner:
         job.save(self.jobs_root)
         return self.run(job)
 
-    REDO_STEPS = ("segment", "hooks", "choose_hook", "plan", "dub", "write")
+    REDO_STEPS = ("segment", "hooks", "choose_hook", "plan", "dub", "write", "match")
 
     def redo(self, job: Job, step: str) -> None:
         """Làm lại từ một bước (nút trên giao diện): chia lại video, viết hook mới, chọn hook khác,
         lập lại kế hoạch, dựng lại draft. Xóa kết quả cũ của các bước phụ thuộc."""
         from app.planner import hook_io
 
-        if step not in self.REDO_STEPS or (step != "segment" and not job.applies(step)) or \
+        if job.options.films and step in ("match", "write"):  # content nhiều phim: tìm lại cảnh (giữ voice) / dựng lại
+            if step == "match":
+                from app.planner import dub_io
+
+                d, _, plan_dir = self._paths(job)
+                (plan_dir / "films_match.json").unlink(missing_ok=True)
+                dub_io.dub_path(d, 1).unlink(missing_ok=True)  # lời không đổi → voice đã thu vẫn dùng được
+                job.data.pop("ready_drafts", None)
+            job.step, job.status = step, Status.pending
+            job._log(f"người dùng yêu cầu làm lại từ bước {step}")
+            job.save(self.jobs_root)
+            return
+        if step not in self.REDO_STEPS or step == "match" or (step != "segment" and not job.applies(step)) or \
                 (step == "segment" and not job.picks_segments):
             raise ValueError(f"Không làm lại được bước {step!r}")
         d, _, plan_dir = self._paths(job)
@@ -426,8 +462,8 @@ class Runner:
         if (analysis / "frames.json").is_file():
             self.log("Đã phân tích trước đó, dùng lại kết quả.")
             return
-        if len(job.footage) > 1 and not job.data.get("montage_parts"):
-            self._build_montage(job, d)
+        if len(job.footage) > 1 and not job.data.get("montage_parts") and not job.options.films:
+            self._build_montage(job, d)  # content nhiều phim: mỗi phim phân tích riêng (footage 0, 1, 2…), không nối
         if self._analyze_fn is None:
             from app.analysis.pipeline import run_analysis as fn
         else:
@@ -505,6 +541,19 @@ class Runner:
         if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
             self.log("Đã có kết quả chia video, dùng lại.")
             return
+        if job.options.cliff:  # review bỏ lửng: chia CẢ phim thành các phần liền nhau (không bỏ cảnh)
+            from app.director.cliff import make_parts_long
+
+            res = make_parts_long(self.director, analysis, u, log=self.log)
+            videos = res["videos"]
+            data = {"proposal": {"videos": videos, "dropped": [], "editor_notes": res["editor_notes"],
+                                 "narrator_vi": res["narrator_vi"]}, "videos": videos, "confirmed": False}
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            job.data["videos"] = videos
+            job.data["cliff_narrator"] = res["narrator_vi"]
+            self.log(f"Đạo diễn chia phim thành {len(videos)} phần liền nhau (kể hết, không bỏ cảnh)"
+                     + (f", nhân vật chính: {res['narrator_vi']}" if res["narrator_vi"] else "") + ".")
+            return
         sp = make_segments_long(self.director, analysis, u, review=job.options.review,
                                 highlight=job.options.char_dub, log=self.log)
         videos = [{"index": i, "start": v.start, "end": v.end, "title_vi": v.title_vi, "summary_vi": v.summary_vi,
@@ -554,6 +603,8 @@ class Runner:
         videos = [{"index": i, "start": float(r["start"]), "end": float(r["end"]), "title_vi": r.get("title_vi", ""),
                    "summary_vi": r.get("summary_vi", ""), **({"moments": ms} if (ms := moments_in(r)) else {})}
                   for i, r in enumerate(rows, 1)]
+        if job.options.cliff:  # review bỏ lửng: giữ short mở đầu + chỗ bỏ lửng của từng phần
+            videos = self._cliff_rows(rows, videos, data)
         changed = data.get("videos") != videos or not data.get("confirmed")
         data.update({"videos": videos, "confirmed": True})
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -562,6 +613,298 @@ class Runner:
             hook_io.hooks_path(d).unlink(missing_ok=True)
             self._clear_plans(d, plan_dir)
         job.save(self.jobs_root)
+
+    # ---------- Content nhiều phim từ bài TikTok ảnh (chủ dự án yêu cầu 14/10) ----------
+
+    POST_EXT = (".jpg", ".jpeg", ".png", ".webp")
+
+    def post_images(self, job: Job) -> list[Path]:
+        d, _, _ = self._paths(job)
+        return sorted(p for p in (d / "post").glob("*") if p.suffix.lower() in self.POST_EXT)
+
+    def _post_info(self, job: Job) -> dict:
+        d, _, _ = self._paths(job)
+        try:
+            return json.loads((d / "post" / "post.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+
+    def save_post(self, job: Job, title: str | None = None, no_images: bool | None = None) -> None:
+        d, _, _ = self._paths(job)
+        info = self._post_info(job)
+        if title is not None and title.strip():
+            info["title"] = title.strip()
+        if no_images is not None:
+            info["no_images"] = bool(no_images)
+        (d / "post").mkdir(parents=True, exist_ok=True)
+        (d / "post" / "post.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _films_idea(self, job: Job):
+        from app.director.schemas import FilmsIdea
+
+        _, _, plan_dir = self._paths(job)
+        return FilmsIdea.model_validate_json((plan_dir / "films_idea.json").read_text(encoding="utf-8"))
+
+    def _films_picks(self, job: Job) -> dict[int, dict]:
+        _, _, plan_dir = self._paths(job)
+        try:
+            raw = json.loads((plan_dir / "films_match.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        return {int(k): v for k, v in raw.items()}
+
+    def step_post(self, job: Job) -> None:
+        """Bài gốc: tiêu đề chủ dự án tự gõ (14/10: bỏ ô dán link) + ảnh chủ dự án tải lên."""
+        info = self._post_info(job)
+        images = self.post_images(job)
+        if not images and not info.get("no_images"):
+            job.wait("Tải lên các ẢNH của bài TikTok (lưu từng ảnh từ app / chụp màn hình). Không có ảnh thì tick "
+                     "'Chỉ dùng tiêu đề' rồi bấm Chạy tiếp.")
+        elif not images and not info.get("title"):
+            job.wait("Chưa có ảnh lẫn tiêu đề — gõ tiêu đề / mô tả bài vào ô bên dưới.")
+        else:
+            self.log(f"Bài gốc: {len(images)} ảnh, tiêu đề: {(info.get('title') or '(không có)')[:80]}")
+
+    def step_idea(self, job: Job) -> None:
+        from app.director.films import load_cfg, make_idea
+
+        _, _, plan_dir = self._paths(job)
+        path = plan_dir / "films_idea.json"
+        if not path.is_file():
+            info = self._post_info(job)
+            lang = job.options.target_language or "ko"
+            tpl = self._template()
+            self.log("AI xem bài gốc, nhận ra các phim và viết content mới…")
+            idea = make_idea(self.director, self.post_images(job)[:int(load_cfg().get("max_post_images", 20))],
+                             info.get("title", ""), lang, music_items=[m for m in tpl.library if m.kind == "music"],
+                             uploader=info.get("uploader", ""))
+            plan_dir.mkdir(parents=True, exist_ok=True)
+            path.write_text(idea.model_dump_json(indent=2), encoding="utf-8")
+        idea = self._films_idea(job)
+        job.data["videos"] = [{"index": 1, "start": 0.0, "end": 0.0, "title_vi": idea.topic_vi[:80],
+                               "summary_vi": idea.story_vi}]
+        self.log(f"Content mới: {len(idea.lines)} câu về {len(idea.films)} phim — "
+                 + ", ".join(f"{f.key}: {f.title_vi}" for f in idea.films))
+
+    def rewrite_films_idea(self, job: Job, feedback: str) -> None:
+        """Nút "✍️ Viết lại theo góp ý" (vd "bỏ phim 3, thay bằng phim X"): AI viết lại content, các bước sau làm lại."""
+        from app.director.films import make_idea
+
+        if not feedback.strip():
+            raise ValueError("Hãy gõ góp ý (vd: bỏ phim 3, giọng vui hơn, thêm dừng hình…).")
+        d, _, plan_dir = self._paths(job)
+        prev = self._films_idea(job)
+        info = self._post_info(job)
+        tpl = self._template()
+        self.log("AI viết lại content theo góp ý của bạn…")
+        idea = make_idea(self.director, self.post_images(job), info.get("title", ""),
+                         job.options.target_language or "ko", music_items=[m for m in tpl.library if m.kind == "music"],
+                         feedback=feedback, previous=prev, uploader=info.get("uploader", ""))
+        (plan_dir / "films_idea.json").write_text(idea.model_dump_json(indent=2), encoding="utf-8")
+        self._reset_films_after_idea(job)
+        job.data.setdefault("films_feedback", []).append(feedback.strip())
+        job.step, job.status = "idea", Status.pending
+        job._log("người dùng góp ý — đã viết lại content")
+        job.save(self.jobs_root)
+
+    def _reset_films_after_idea(self, job: Job) -> None:
+        """Content đổi → cảnh đã tìm + kịch bản voice cũ không còn đúng (voice cũ cất thành *_cu)."""
+        from app.planner import dub_io
+
+        d, _, plan_dir = self._paths(job)
+        (plan_dir / "films_match.json").unlink(missing_ok=True)
+        dub_io.dub_path(d, 1).unlink(missing_ok=True)
+        for old in (d / "voice").glob("video01_dub*.*"):
+            if "_cu" not in old.stem:
+                old.replace(old.with_name(f"{old.stem}_cu{old.suffix}"))
+        job.data.pop("ready_drafts", None)
+
+    def set_films(self, job: Job, paths: dict[str, str]) -> list[str]:
+        """Chủ dự án chọn file cho từng phim (mã phim → đường dẫn). Trả các mã có file sai."""
+        films = dict(job.data.get("films") or {})
+        bad = []
+        for key, p in paths.items():
+            p = str(p).strip().strip('"')
+            if not p:
+                continue
+            if Path(p).is_file():
+                films[key] = str(Path(p).resolve())
+            else:
+                bad.append(key)
+        job.data["films"] = films
+        job.save(self.jobs_root)
+        return bad
+
+    def step_films_wait(self, job: Job) -> None:
+        import shutil
+
+        idea = self._films_idea(job)
+        have = job.data.get("films") or {}
+        missing = [f for f in idea.films if not (have.get(f.key) and Path(have[f.key]).is_file())]
+        if missing:
+            job.wait("Chọn file cho từng phim (bảng bên dưới). Còn thiếu: "
+                     + ", ".join(f"{f.key} = {f.title_vi}" for f in missing))
+            return
+        paths = [Path(have[f.key]).as_posix() for f in idea.films]
+        if job.footage != paths:  # đổi / thêm phim → phân tích + tìm cảnh lại
+            d, analysis, plan_dir = self._paths(job)
+            if job.footage:
+                shutil.rmtree(analysis, ignore_errors=True)
+                (plan_dir / "films_match.json").unlink(missing_ok=True)
+            job.footage = paths
+        job.data["film_index"] = {f.key: k for k, f in enumerate(idea.films)}
+
+    def step_match(self, job: Job) -> None:
+        from app.director.films import make_match
+        from app.jobs.parallel import run_parallel
+
+        _, analysis, plan_dir = self._paths(job)
+        path = plan_dir / "films_match.json"
+        if path.is_file():
+            return
+        idea = self._films_idea(job)
+        index = job.data.get("film_index") or {f.key: k for k, f in enumerate(idea.films)}
+        lang = job.options.target_language or "ko"
+
+        def one(film):
+            lines = {n: ln for n, ln in enumerate(idea.lines, 1) if ln.film == film.key}
+            self.log(f"AI tìm cảnh trong {film.title_vi} cho {len(lines)} câu…")
+            r = make_match(self.director, analysis, index[film.key], film, lines, lang)
+            return {p.line: {"film": film.key, "start": p.start, "end": p.end, "freeze_t": p.freeze_t, "why_vi": p.why_vi}
+                    for p in r.picks}
+
+        picks = {}
+        for part in run_parallel(one, idea.films):
+            picks.update(part)
+        path.write_text(json.dumps({str(k): v for k, v in sorted(picks.items())}, ensure_ascii=False, indent=2),
+                        encoding="utf-8")
+        self.log(f"Đã tìm cảnh cho {len(picks)}/{len(idea.lines)} câu.")
+
+    def _films_dub(self, job: Job) -> None:
+        from app.director.films import to_script
+        from app.planner import dub_io
+
+        d, _, _ = self._paths(job)
+        if dub_io.load_dub(d, 1) is None:
+            dub_io.dub_path(d, 1).write_text(to_script(self._films_idea(job), self._films_picks(job))
+                                             .model_dump_json(indent=2), encoding="utf-8")
+        s = dub_io.load_dub(d, 1)
+        path = dub_io.write_dub_scripts(d, {1: s}, {1: []})
+        self.log(f"Đã xuất {path} ({len(s.lines)} câu — đọc liền một mạch vào một file)")
+
+    def _write_films(self, job: Job, v: dict, ctx: dict) -> tuple[dict, list]:
+        from app.director.tasks import load_analysis
+        from app.planner import dub_io
+        from app.planner.films_build import build_films
+
+        d, analysis = ctx["d"], ctx["analysis"]
+        idea, picks = self._films_idea(job), self._films_picks(job)
+        index = job.data.get("film_index") or {f.key: k for k, f in enumerate(idea.films)}
+        films = {}
+        for f in idea.films:
+            a = load_analysis(analysis, index[f.key])
+            sc = a["scenes"]
+            films[f.key] = {"path": sc["path"], "width": sc["width"], "height": sc["height"],
+                            "duration": sc["duration"], "scene_starts": [x["start"] for x in sc.get("scenes", [])]}
+        voices = {}
+        for n in range(1, len(idea.lines) + 1):
+            fv = dub_io.find_line_voice(d, 1, n)
+            if fv is not None:
+                voices[n] = self._review_trimmed(d, fv)  # cắt sạch lặng đầu / cuối → nói liền mạch như review
+        name = f"{job.options.client_id or 'khach'}_{job.job_id}_video01"
+        res = build_films(idea, picks, films, ctx["tpl"], self._drafts_dir or drafts_root(), name,
+                          language=job.options.target_language or "ko", voices=voices, stills_dir=d / "stills",
+                          vi_subtitles=self.vi_subtitles(job), still_fn=getattr(self, "_still_fn", None),
+                          keep_frame=job.data.get("default_ratio") == "source")
+        out = res.writer.save(overwrite=True)
+        dur = round(res.duration_us / 1_000_000, 1)
+        for n in res.notes:
+            self.log(f"[video 01] {n}")
+        self.log(f"Đã ghi draft CapCut: {out} ({dur}s)")
+        return ({"index": 1, "draft": str(out), "duration_s": dur, "missing_assets": len(res.missing_assets),
+                 "start": 0.0, "end": 0.0, "short": False, "credits": self._credits(res.used_local)},
+                res.missing_assets)
+
+    # ---------- Review bỏ lửng (chủ dự án yêu cầu 14/10) ----------
+
+    @staticmethod
+    def _cliff_hook(v: dict) -> tuple[float, float] | None:
+        """Short mở đầu (giây gốc) của một phần — chỉ nhận khi nằm trong phần."""
+        h = v.get("hook") or {}
+        try:
+            a, b = float(h["start"]), float(h["end"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        return (a, b) if b > a and a >= float(v["start"]) - 0.5 and b <= float(v["end"]) + 0.5 else None
+
+    def _cliff_hook_s(self, v: dict) -> float:
+        h = self._cliff_hook(v)
+        return round(h[1] - h[0], 2) if h else 0.0
+
+    def _cliff_hook_subs(self, job: Job, v: dict) -> list[dict]:
+        """Phụ đề cho short mở đầu (chủ dự án 14/10): lời thoại gốc trong short dịch sang ngôn ngữ đích. Lưu
+        plan/hook_subs_videoNN.json; sửa giây của short / đổi ngôn ngữ thì dịch lại."""
+        from app.director.cliff import make_hook_subs
+
+        hook = self._cliff_hook(v)
+        if hook is None:
+            return []
+        d, analysis, plan_dir = self._paths(job)
+        u = self._u_for(job, v)
+        path = plan_dir / f"hook_subs_video{v['index']:02d}.json"
+        key = {"hook": [round(hook[0], 2), round(hook[1], 2)], "language": u.language}
+        try:
+            saved = json.loads(path.read_text(encoding="utf-8"))
+            if {k: saved.get(k) for k in key} == key:
+                return saved.get("lines") or []
+        except (OSError, ValueError):
+            pass
+        lines = make_hook_subs(self.director, analysis, u, hook, video_index=v["index"])
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({**key, "lines": lines}, ensure_ascii=False, indent=2), encoding="utf-8")
+        if lines:
+            self.log(f"Video {v['index']:02d}: phụ đề cho short mở đầu — {len(lines)} câu.")
+        return lines
+
+    def _cliff_info(self, job: Job, v: dict) -> dict:
+        """Thông tin phần gửi AI viết lời: thứ tự phần, ngôi kể, người kể, phần cuối?, chỗ bỏ lửng, short, phần trước."""
+        from app.director.cliff import load_cfg
+
+        vids = self.videos(job)
+        i = v["index"]
+        pov = job.options.cliff_pov or str(load_cfg().get("default_pov", "3"))
+        return {"index": i, "total": len(vids), "pov": "1" if pov == "1" else "3",
+                "narrator": job.data.get("cliff_narrator", ""), "last": i == len(vids) or bool(v.get("last")),
+                "cliff_vi": v.get("cliff_vi", ""), "hook": self._cliff_hook(v),
+                "prev": [x.get("summary_vi", "") for x in vids if x["index"] < i]}
+
+    def _cliff_rows(self, rows: list[dict], videos: list[dict], data: dict) -> list[dict]:
+        """Bảng duyệt review bỏ lửng: giữ short mở đầu (sửa được giây trên bảng) + chỗ bỏ lửng của từng phần. Phần mới
+        (người dùng thêm / dời điểm cắt) lấy theo phần đề xuất cũ chứa nó; short không còn nằm trong phần thì bỏ short."""
+        pool = (data.get("proposal") or {}).get("videos") or data.get("videos") or []
+        out = []
+        for r, v in zip(rows, videos):
+            a, b = v["start"], v["end"]
+            mid = (a + b) / 2
+            old = min(pool, key=lambda p: 0 if p["start"] <= mid <= p["end"] else
+                      min(abs(p["start"] - mid), abs(p["end"] - mid)), default={})
+            hook = old.get("hook")
+            if r.get("hook_start") not in (None, "") and r.get("hook_end") not in (None, ""):
+                hook = {**(hook or {}), "start": float(r["hook_start"]), "end": float(r["hook_end"])}
+            nv = {**v, "cliff_vi": old.get("cliff_vi", ""), "last": False}
+            if hook:
+                nv["hook"] = hook
+            if self._cliff_hook(nv) is None:
+                nv.pop("hook", None)
+                self.log(f"Phần {v['index']:02d}: short mở đầu không nằm trong {a:.1f}–{b:.1f}s — dựng không có short.")
+            out.append(nv)
+        if out:
+            out[-1]["last"] = True
+        for x, y in zip(out, out[1:]):
+            if y["start"] - x["end"] > 1.0:
+                self.log(f"⚠️ Bỏ trống {x['end']:.1f}–{y['start']:.1f}s phim giữa phần {x['index']} và {y['index']} "
+                         "(bạn đã sửa) — đoạn đó sẽ không được kể.")
+        return out
 
     def step_hooks(self, job: Job) -> None:
         from app.director.tasks import make_hooks
@@ -633,14 +976,17 @@ class Runner:
                 voice = hook_io.find_voice(d, i)
                 hook_s = max(3.0, self._voice_duration(voice) / 1_000_000 + 0.2) if voice else \
                     (8.0 if hook and hook.intro.strip() else 4.0)
+            elif job.options.cliff:  # review bỏ lửng: short mở đầu tính vào 1:30–2:00
+                hook_s = self._cliff_hook_s(v)
             self.log(f"Lập kế hoạch dựng video {i:02d}…")
             music = [m for m in tpl.library if m.kind == "music"]
             choice = job.data.get("music_choice")
             chosen = [m for m in music if m.name == choice] if choice else []
             if choice and not chosen:
                 self.log(f"Không thấy bài nhạc đã chọn '{choice}' trong kho — để AI tự chọn.")
-            plan = make_plan(self.director, analysis, self._u_for(job, v), self._style(job, style_name), hook=hook,
-                             hook_s=hook_s, video_index=i, moments=v.get("moments"),
+            plan = self._make_plan_or_pending(
+                plan_dir, i, make_plan, self.director, analysis, self._u_for(job, v), self._style(job, style_name),
+                             hook=hook, hook_s=hook_s, video_index=i, moments=v.get("moments"),
                              music_items=chosen or music,
                              sfx_items=[m for m in tpl.library if m.kind == "sfx"],
                              decor_items=[m for m in tpl.library if m.kind in ("video_effect", "sticker",
@@ -654,9 +1000,46 @@ class Runner:
             if chosen:
                 self.log(f"Nhạc nền theo lựa chọn của bạn: {chosen[0].name}")
             out.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+            (plan_dir / f"pending_plan_video{i:02d}.json").unlink(missing_ok=True)
 
         run_parallel(one, [v for v in self.videos(job)
                            if not (plan_dir / f"edit_plan_video{v['index']:02d}.json").is_file()])
+
+    @staticmethod
+    def _make_plan_or_pending(plan_dir: Path, index: int, fn, *args, **kwargs):
+        """Hỏi AI lập kế hoạch; AI sai 3 lần thì LƯU bản gần nhất (plan/pending_plan_videoNN.json) để chủ dự án chọn
+        "Dùng bản này" trên trang lỗi (chủ dự án 14/10: "sai thì hỏi tôi có lấy không, lấy thì làm tiếp")."""
+        from app.director.base import DirectorError
+
+        try:
+            return fn(*args, **kwargs)
+        except DirectorError as exc:
+            if exc.last is not None:
+                (plan_dir / f"pending_plan_video{index:02d}.json").write_text(json.dumps(
+                    {"plan": exc.last.model_dump(), "problems": exc.problems}, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+            raise
+
+    def accept_pending_plan(self, job: Job) -> int:
+        """Chủ dự án bấm "Dùng bản này": lấy kế hoạch dựng gần nhất AI đã trả (còn lỗi), chạy tiếp, không hỏi lại AI."""
+        from app.director.schemas import EditPlan
+
+        _, _, plan_dir = self._paths(job)
+        n = 0
+        for p in sorted(plan_dir.glob("pending_plan_video*.json")):
+            data = json.loads(p.read_text(encoding="utf-8"))
+            plan = EditPlan.model_validate(data["plan"])
+            out = plan_dir / p.name.replace("pending_plan_", "edit_plan_")
+            out.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+            p.unlink()
+            self.log(f"{out.stem.replace('edit_plan_', '').replace('video', 'Video ')}: dùng kế hoạch dựng gần nhất, "
+                     f"bỏ qua {len(data.get('problems', []))} lỗi.")
+            n += 1
+        if n and job.status in (Status.error, Status.stopped):
+            job.status = Status.pending
+            job._log("người dùng chọn dùng kế hoạch dựng gần nhất")
+            job.save(self.jobs_root)
+        return n
 
     def step_dub(self, job: Job) -> None:
         """Chế độ Đổi ngôn ngữ: viết câu thuyết minh (ngôn ngữ đích) theo các clip của kế hoạch dựng."""
@@ -668,6 +1051,8 @@ class Runner:
 
         if not self._dubbing(job):
             return
+        if job.options.films:  # content nhiều phim: bài đọc AI đã viết + cảnh đã tìm → kịch bản voice
+            return self._films_dub(job)
         d, analysis, plan_dir = self._paths(job)
 
         if job.options.char_dub and any(dub_io.load_dub(d, v["index"]) is None for v in self.videos(job)):
@@ -687,7 +1072,9 @@ class Runner:
                     s = make_dub(self.director, analysis, self._u_for(job, v), plan, hook=hook, video_index=i,
                                  mode="review" if job.options.review else "char" if job.options.char_dub
                                  else self.script_mode(job), review_s=job.options.review_s,
-                                 voice_info=self._voice_info(job, analysis, plan, i) if job.options.char_dub else None)
+                                 voice_info=self._voice_info(job, analysis, plan, i) if job.options.char_dub else None,
+                                 **({"cliff": self._cliff_info(job, v), "hook_s": self._cliff_hook_s(v)}
+                                    if job.options.cliff else {}))
                 except DirectorError as exc:
                     if exc.last is None:
                         raise
@@ -702,6 +1089,8 @@ class Runner:
                              "(accept_imperfect trong config/dub.yaml).")
                 dub_io.dub_path(d, i).write_text(s.model_dump_json(indent=2), encoding="utf-8")
                 dub_io.pending_path(d, i).unlink(missing_ok=True)
+            if job.options.cliff:  # phụ đề cho short mở đầu — dịch sẵn cùng lúc viết lời
+                self._cliff_hook_subs(job, v)
             return s
 
         vids = self.videos(job)
@@ -734,7 +1123,7 @@ class Runner:
         from app.planner import dub_io
 
         d, _, _ = self._paths(job)
-        if job.options.review or job.options.sell:  # hình chạy theo giọng → không có câu "tràn"
+        if job.options.review or job.options.films or job.options.sell:  # hình chạy theo giọng → không có câu "tràn"
             return {}
         cfg = config.load("dub")
         max_speed, delay = float(cfg.get("max_speed", 1.25)), float(cfg.get("max_delay_s", 0.8))
@@ -780,7 +1169,8 @@ class Runner:
     def _tts_fit(job: Job, cfg: dict) -> bool:
         """Đọc vừa khít thời lượng câu gốc? Review phim: KHÔNG — hình được dựng theo giọng đọc (build_from_voice), giọng
         phải nói tốc độ tự nhiên (chủ dự án 09/10: "đọc 2 giây mà ghi 4 giây")."""
-        return bool(cfg.get("fit_duration", True)) and not job.options.review and not job.options.sell
+        return (bool(cfg.get("fit_duration", True)) and not job.options.review and not job.options.films
+                and not job.options.sell)
 
     def tts_generate(self, job: Job, video_index: int | None = None, only_missing: bool = True) -> int:
         """🤖 Cho OmniVoice đọc thoại: tạo voice/videoNN_dubMM.wav cho các câu (mặc định câu còn thiếu voice), mỗi nhân
@@ -799,7 +1189,7 @@ class Runner:
             i, script = v["index"], scripts[v["index"]]
             only = ({n for n in range(1, len(script.lines) + 1) if not dub_io.find_line_voice(d, i, n)}
                     if only_missing else None)
-            lang = self._u_for(job, v).language
+            lang = (job.options.target_language or "ko") if job.options.films else self._u_for(job, v).language
             got = ov.build_items(script, i, d / "voice", lang, dub_io.windows_for(d, i, script),
                                  self._tts_fit(job, cfg), only)
             from app.director.tasks import wrong_language
@@ -933,7 +1323,9 @@ class Runner:
             script = self._sell_script(job, v, feedback=feedback, previous=scripts.get(video_index))
         else:
             script = make_review_script(self.director, analysis, u, video_index=video_index, feedback=feedback,
-                                        previous=scripts.get(video_index), review_s=job.options.review_s)
+                                        previous=scripts.get(video_index), review_s=job.options.review_s,
+                                        **({"cliff": self._cliff_info(job, v), "hook_s": self._cliff_hook_s(v)}
+                                           if job.options.cliff else {}))
             dub_io.dub_path(d, video_index).write_text(script.model_dump_json(indent=2), encoding="utf-8")
         scripts[video_index] = script
         for old in (d / "voice").glob(f"video{video_index:02d}_dub*.*"):
@@ -988,7 +1380,10 @@ class Runner:
         d, _, _ = self._paths(job)
         missing = dub_io.missing_lines(d, self._dub_scripts(job))
         if missing:
-            self.write_ready_videos(job)  # voice đến đâu ghi CapCut đến đấy
+            try:
+                self.write_ready_videos(job)  # voice đến đâu ghi CapCut đến đấy
+            except RuntimeError as exc:  # CapCut đang mở → vẫn chờ voice, báo rõ thay vì làm job lỗi
+                self.log(f"⚠️ Chưa ghi được video đủ voice vào CapCut: {exc}")
             job.wait(f"Thu voice thuyết minh theo kịch bản bên dưới rồi tải lên. Còn thiếu {len(missing)} file: "
                      + ", ".join(missing[:8]) + (" …" if len(missing) > 8 else ""))
 
@@ -1311,6 +1706,8 @@ class Runner:
         from app.director.tasks import load_analysis
 
         d, analysis, plan_dir = self._paths(job)
+        if job.options.films:  # content nhiều phim: dựng riêng (app/planner/films_build.py)
+            return {"d": d, "analysis": analysis, "plan_dir": plan_dir, "tpl": self._template()}
         style = self._style(job)
         a = load_analysis(analysis)
         a["text_boxes"] = self._text_boxes(job, analysis, a)
@@ -1326,6 +1723,8 @@ class Runner:
 
     def _write_video(self, job: Job, v: dict, ctx: dict) -> tuple[dict, list]:
         """Ghi draft CapCut cho MỘT video; trả (thông tin draft, tài nguyên còn thiếu)."""
+        if job.options.films:
+            return self._write_films(job, v, ctx)
         from app.director.schemas import EditPlan
         from app.director.policy import cut_ranges, repair_policy
         from app.director.policy import load_cfg as policy_cfg
@@ -1400,7 +1799,9 @@ class Runner:
                     hook=hook, voice=voice,
                     clean_audio=clean.resolve() if clean.is_file() and not job.options.sell else None,
                     video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job),
-                    bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm), dub_windows=dub_windows)
+                    bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm),
+                    cold_clip=self._cliff_hook(v) if job.options.cliff else None,
+                    cold_subs=self._cliff_hook_subs(job, v) if job.options.cliff else None, dub_windows=dub_windows)
         if job.options.sell:
             from app.director.sell import sell_cfg
 
@@ -1452,6 +1853,50 @@ class Runner:
         """Dấu vân tay voice của một video (tên + cỡ + giờ sửa) — đổi voice thì ghi lại draft."""
         files = sorted((d / "voice").glob(f"video{index:02d}_dub*.*")) if (d / "voice").is_dir() else []
         return "|".join(f"{f.name}:{f.stat().st_size}:{int(f.stat().st_mtime)}" for f in files if "_cu" not in f.stem)
+
+    def _voices_newer(self, job: Job, index: int, draft: Path) -> bool:
+        """Có file voice của video này mới hơn lần ghi draft cuối (tải lên / OmniVoice SAU khi dựng xong)?"""
+        from app.capcut_writer.template import timeline_copies
+
+        d, _, _ = self._paths(job)
+        names = [f"video{index:02d}_dub*.*", f"video{index:02d}_hook.*"]
+        files = [f for n in names for f in (d / "voice").glob(n)
+                 if "_cu" not in f.stem and f.is_file()] if (d / "voice").is_dir() else []
+        if not files:
+            return False
+        written = [p.stat().st_mtime for p in timeline_copies(draft) if p.is_file()]
+        return not written or max(f.stat().st_mtime for f in files) > max(written) + 1
+
+    def refresh_voice_drafts(self, job: Job) -> list[int]:
+        """Chủ dự án 14/10 "có voice rồi mà không thêm vào dự án CapCut": job đã XONG, sau đó bạn tải voice / thu lại /
+        cho OmniVoice đọc → trước đây tool không dựng lại. Giờ video nào có voice mới hơn draft thì ghi lại draft đó
+        (chỉnh tay trong CapCut của video đó sẽ mất — giống bấm 🔁 Dựng lại draft). Trả các video đã ghi lại."""
+        if not (self._dubbing(job) or job.use_hook) or job.options.vi_sub:
+            return []
+        drafts = list(job.data.get("drafts") or [])
+        todo = [dr for dr in drafts if self._voices_newer(job, int(dr["index"]), Path(dr["draft"]))]
+        if not todo:
+            return []
+        vids = {v["index"]: v for v in self.videos(job)}
+        done = []
+        try:
+            ctx = self._write_ctx(job)
+            for dr in todo:
+                i = int(dr["index"])
+                info, _ = self._write_video(job, vids[i], ctx)
+                drafts[drafts.index(dr)] = {**dr, **info}
+                done.append(i)
+        except RuntimeError as exc:  # thường là CapCut đang mở
+            job._log(f"⚠️ Có voice mới nhưng chưa ghi được vào dự án CapCut: {exc} Đóng CapCut rồi bấm 🔁 Dựng lại draft.")
+            job.save(self.jobs_root)
+            self.log(job.message)
+            return done
+        job.data["drafts"] = drafts
+        job.data["draft"] = drafts[0]["draft"]
+        job._log(f"✅ Đã cập nhật voice mới vào dự án CapCut: video {', '.join(f'{i:02d}' for i in done)}.")
+        job.save(self.jobs_root)
+        self.log(job.message)
+        return done
 
     def write_ready_videos(self, job: Job) -> list[int]:
         """Voice đến đâu ghi CapCut đến đấy (chủ dự án yêu cầu 09/10): video nào ĐỦ voice thì ghi draft ngay, không
@@ -1543,6 +1988,15 @@ class Runner:
         from app.director.tasks import captions_text, make_captions
 
         d, analysis, plan_dir = self._paths(job)
+        if job.options.films:  # caption đã viết cùng content (không hỏi AI thêm)
+            from app.director.films import to_captions
+
+            out = d / "deliver" / "video01_captions.txt"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(captions_text(to_captions(self._films_idea(job))), encoding="utf-8")
+            job.data["captions"] = str(d / "deliver")
+            self.log(f"Đã xuất caption: {out}")
+            return
         credits = {dr["index"]: dr.get("credits") or [] for dr in job.data.get("drafts", [])}
         for v in self.videos(job):
             i = v["index"]

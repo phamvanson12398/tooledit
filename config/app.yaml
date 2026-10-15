@@ -4,7 +4,8 @@ parallel:
   # Bước nặng dùng chung tài nguyên máy nên phải lần lượt / giới hạn:
   analyze: 2       # số video phân tích cùng lúc (dò cảnh, dò mặt dùng CPU)
   gpu: 1           # nhận dạng thoại Whisper trên GPU GTX 1080 Ti — 1 video một lúc cho khỏi tràn bộ nhớ GPU
-  director: 2      # số lần hỏi đạo diễn AI cùng lúc (dùng chung hạn mức Claude Pro)
+  director: 3      # số LƯỢT hỏi đạo diễn AI cùng lúc trên mọi video (đổi được trên giao diện → ⚙️ Cài đặt); gói Pro có
+                   # giới hạn tần suất — quá nhiều thì dễ bị từ chối tạm thời / nhanh hết hạn mức
   write: 2         # ghi draft CapCut
 
 # Tự xóa job không hoạt động quá N ngày (0 = không tự xóa). Đổi được trên giao diện.

@@ -12,8 +12,11 @@ from contextlib import contextmanager
 
 from app import config
 
-STEP_GROUP = {"analyze": "analyze", "understand": "director", "segment": "director", "hooks": "director",
-              "plan": "director", "dub": "director", "captions": "director", "write": "write"}
+# Chủ dự án 15/10 "đợi lượt hỏi đạo diễn AI lâu quá": trước đây CẢ BƯỚC (plan, dub, segment…) giữ một chỗ "hỏi AI" kể
+# cả lúc bước đó đang làm việc khác (tách nhạc Demucs, nhận dạng lại thoại…) → job khác phải chờ dù không ai đang hỏi AI.
+# Giờ giới hạn đặt đúng ở TỪNG LƯỢT HỎI AI (ai_slot, gọi trong Director.run) — số lượt cùng lúc trên MỌI job đổi được
+# trên giao diện (config/local.yaml → parallel_ai, mặc định config/app.yaml → parallel.director).
+STEP_GROUP = {"analyze": "analyze", "write": "write"}
 GROUP_VI = {"analyze": "phân tích", "gpu": "GPU (nhận dạng thoại)", "director": "hỏi đạo diễn AI", "write": "ghi draft CapCut"}
 _SEMS: dict[str, threading.Semaphore] = {}
 _LOCK = threading.Lock()
@@ -51,6 +54,53 @@ def group_slot(group: str | None, on_wait=None):
         yield
     finally:
         sem.release()
+
+
+def ai_limit(path=None) -> int:
+    """Số lượt hỏi AI cùng lúc trên mọi job: chỉnh trên giao diện (config/local.yaml → parallel_ai), không thì theo
+    config/app.yaml → parallel.director. Đọc lại mỗi lần nên đổi trên giao diện là có tác dụng ngay."""
+    from app import settings
+
+    try:
+        local = (settings.load(path) if path else settings.load()).get("parallel_ai")
+    except Exception:
+        local = None
+    return max(1, int(local or (config.load("app").get("parallel") or {}).get("director", 3)))
+
+
+class _AiCounter:
+    def __init__(self):
+        self.n = 0
+        self.cv = threading.Condition()
+
+
+_AI = _AiCounter()
+
+
+def ai_busy() -> int:
+    return _AI.n
+
+
+@contextmanager
+def ai_slot(on_wait=None, limit=None):
+    """Giữ một lượt hỏi AI trong lúc gọi Claude / Gemini; hết lượt thì gọi on_wait(số lượt đang chạy) rồi đợi (bấm Dừng
+    vẫn thoát được)."""
+    from app.jobs import stop
+
+    get = limit or ai_limit
+    with _AI.cv:
+        if _AI.n >= get() and on_wait:
+            on_wait(_AI.n)
+        while _AI.n >= get():
+            _AI.cv.wait(0.5)
+            stop.check()
+        _AI.n += 1
+    try:
+        yield
+    finally:
+        with _AI.cv:
+            _AI.n -= 1
+            _AI.cv.notify_all()
 
 
 def reset() -> None:

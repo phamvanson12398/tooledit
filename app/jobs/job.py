@@ -21,10 +21,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-STEPS = ["analyze", "understand", "confirm_genre", "segment", "review_segments", "hooks", "choose_hook", "voice",
-         "plan", "dub", "dub_voice", "assets", "write", "captions", "done"]
+# post / idea / films_wait / match: chỉ chế độ Content nhiều phim (14/10) — job thường bắt đầu từ "analyze"
+STEPS = ["post", "idea", "films_wait", "analyze", "understand", "confirm_genre", "segment", "review_segments", "hooks",
+         "choose_hook", "voice", "plan", "match", "dub", "dub_voice", "assets", "write", "captions", "done"]
+FILMS_STEPS = ("post", "idea", "films_wait", "analyze", "match", "dub", "dub_voice", "write", "captions", "done")
 
-WAIT_STEPS = {"confirm_genre", "review_segments", "choose_hook", "voice", "dub_voice"}
+WAIT_STEPS = {"post", "films_wait", "confirm_genre", "review_segments", "choose_hook", "voice", "dub_voice"}
 
 
 class Status(str, Enum):
@@ -56,6 +58,11 @@ class JobOptions(BaseModel):
     sell: bool = False                # Bán content (15/10): kịch bản mới + cảnh đảo theo lời, voice + nhạc mới, đóng gói CapCut
     sell_brief: str = ""              # Bán content: định hướng nội dung chủ dự án nhập
     sell_s: int = 0                   # Bán content: thời lượng mục tiêu (giây); 0 = default_s trong config/sell.yaml
+    cliff: bool = False               # Review bỏ lửng (14/10): đi CÙNG review=True — kể HẾT phim thành nhiều phần 1:30–2:00,
+                                      #   mỗi phần mở bằng short kịch tính giữ nguyên, kết bỏ lửng (config/cliff.yaml)
+    films: bool = False               # Content nhiều phim từ bài TikTok ảnh (14/10): AI viết content mới, hình cắt từ
+                                      #   các file phim chủ dự án đưa, xen dừng hình (config/films.yaml)
+    cliff_pov: str = ""               # Review bỏ lửng: ngôi kể "1" (người kể là nhân vật chính) | "3"; "" = default_pov
 
 
 class HistoryEntry(BaseModel):
@@ -69,7 +76,7 @@ class Job(BaseModel):
     job_id: str
     footage: list[str]
     options: JobOptions = Field(default_factory=JobOptions)
-    step: str = STEPS[0]
+    step: str = "analyze"        # chế độ Content nhiều phim bắt đầu từ "post"
     status: Status = Status.pending
     message: str = ""            # thông báo tiếng Việt hiển thị trên giao diện
     history: list[HistoryEntry] = Field(default_factory=list)
@@ -146,10 +153,14 @@ class Job(BaseModel):
     @property
     def picks_segments(self) -> bool:
         """Job có bước AI chọn / chia đoạn + bảng duyệt. Review phim KHÔNG (chủ dự án 11/10: tóm gọn cả phim thành MỘT
-        video, không chia nhiều video)."""
-        return self.options.split or self.options.char_dub
+        video, không chia nhiều video); Review bỏ lửng CÓ (chia phim thành các phần liền nhau)."""
+        return self.options.split or self.options.char_dub or self.options.cliff
 
     def applies(self, step: str) -> bool:
+        if self.options.films:
+            return step in FILMS_STEPS
+        if step in ("post", "idea", "films_wait", "match"):
+            return False
         if self.options.vi_sub:  # chỉ phân tích (nhận dạng lời) rồi dịch + ghi phụ đề ở bước write
             return step in ("analyze", "write", "done")
         if step == "confirm_genre":

@@ -124,6 +124,12 @@ STEP_VI = {
 STEP_VI_MODE = {
     "review": {               "plan": "AI chọn tiêu đề · nhạc", "dub": "AI viết bài lời đọc", "dub_voice": "Chờ bạn đọc cả bài",
                "write": "Dựng cảnh theo voice → CapCut"},
+    "films": {"post": "Chờ ảnh bài gốc", "idea": "AI đọc bài + viết content", "films_wait": "Chờ file phim",
+              "analyze": "Phân tích phim (nhanh)", "match": "AI tìm cảnh trong từng phim", "dub": "Xuất bài đọc",
+              "dub_voice": "Chờ bạn đọc cả bài", "write": "Dựng cảnh + dừng hình → CapCut"},
+    "cliff": {"segment": "AI chia phim thành các phần", "review_segments": "Chờ duyệt các phần",
+              "plan": "AI chọn tiêu đề · nhạc", "dub": "AI viết lời review từng phần", "dub_voice": "Chờ bạn đọc từng phần",
+              "write": "Short + dựng cảnh theo voice → CapCut"},
     "char_dub": {"segment": "AI chọn đoạn hay (TikTok)", "review_segments": "Chờ duyệt đoạn hay",
                  "plan": "AI cắt bỏ đoạn rề rà", "dub": "AI dịch thoại + nhận diện nhân vật",
                  "dub_voice": "Chờ voice từng nhân vật", "write": "Ghép giọng mới + nền gốc → CapCut"},
@@ -133,7 +139,7 @@ STEP_VI_MODE = {
     "voice_only": {"plan": "AI lập kế hoạch (giữ nguyên hình)", "dub": "AI viết thuyết minh",
                    "dub_voice": "Chờ voice thuyết minh"},
 }
-MODE_VI = {"sell": "💰 Bán content", "char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
+MODE_VI = {"sell": "💰 Bán content", "films": "🎞️ Content nhiều phim", "char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "cliff": "🧨 Review bỏ lửng", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
            "voice_only": "🎙️ Chỉ thay tiếng", "dub": "🌐 Đổi ngôn ngữ", "montage": "🎞️ Ghép nhiều video",
            "normal": "✂️ Dựng thường"}
 
@@ -154,8 +160,12 @@ def job_mode(job) -> str:
     o = job.options
     if o.sell:
         return "sell"
+    if o.films:
+        return "films"
     if o.char_dub:
         return "char_dub"
+    if o.cliff:
+        return "cliff"
     if o.review:
         return "review"
     if o.vi_sub:
@@ -167,6 +177,13 @@ def job_mode(job) -> str:
     return "dub" if o.target_language else "normal"
 
 
+def job_name(job) -> str:
+    """Tên hiện trên danh sách / đầu trang job: tên file video; content nhiều phim (chưa có file) = tiêu đề bài gốc."""
+    if job.options.films:
+        return (job.data.get("post_title") or "Content nhiều phim")[:60]
+    return Path(job.footage[0]).name if job.footage else job.job_id
+
+
 def review_len(job) -> str:
     """Review phim: thời lượng chủ dự án chọn (hiện cạnh tên chế độ ở đầu trang job)."""
     if job.options.sell:
@@ -174,6 +191,9 @@ def review_len(job) -> str:
 
         sec = int(sell_target(sell_cfg(), job.options.sell_s))
         return f" · {sec // 60}:{sec % 60:02d}"
+    if job.options.cliff:  # review bỏ lửng: ngôi kể
+        pov = job.options.cliff_pov or str(app_config.load("cliff").get("default_pov", "3"))
+        return " · ngôi thứ 1" if pov == "1" else " · ngôi thứ 3"
     if not job.options.review:
         return ""
     sec = int(job.options.review_s or app_config.load("review").get("default_s", 150))
@@ -190,7 +210,7 @@ def step_label(job, st: str) -> str:
 
 
 # các chế độ (thẻ) trên trang chủ; mỗi chế độ bật đúng một ô tick cũ (normal / dub: không ô nào)
-MODES = ("normal", "dub", "voice_only", "review", "char_dub", "sell", "vi_sub")
+MODES = ("normal", "dub", "voice_only", "review", "cliff", "films", "char_dub", "sell", "vi_sub")
 
 STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong",
              "stopped": "đã dừng"}
@@ -207,6 +227,7 @@ class Worker:
         self.lock = threading.Lock()
         self.active: set[str] = set()
         self.queue: list[tuple[str, object]] = []
+        self.again: dict[str, list] = {}  # job đang chạy mà người dùng vừa thêm voice / bấm OmniVoice → chạy lại sau
 
     def queued_ids(self) -> list[str]:
         with self.lock:
@@ -247,6 +268,17 @@ class Worker:
         threading.Thread(target=self._work, args=(job_id, action), daemon=True).start()
         return True
 
+    def start_or_later(self, job_id: str, action=None) -> bool:
+        """Như start, nhưng job ĐANG CHẠY thì nhớ lại để chạy thêm một lượt ngay khi lượt này xong (chủ dự án 14/10:
+        "có voice rồi mà không thêm vào CapCut" — voice tải lên giữa lúc job đang ghi draft bị bỏ qua)."""
+        if self.start(job_id, action):
+            return True
+        with self.lock:
+            if job_id in self.active:
+                self.again.setdefault(job_id, []).append(action)
+                return True
+        return False
+
     def _work(self, job_id: str, action) -> None:
         try:
             log_path = Job.dir_for(self.jobs_root, job_id) / "log.txt"
@@ -276,11 +308,15 @@ class Worker:
             nxt = None
             with self.lock:
                 self.active.discard(job_id)
-                if self.queue and len(self.active) < max(1, int(self.max_jobs())):
+                later = self.again.pop(job_id, None)
+                if later is None and self.queue and len(self.active) < max(1, int(self.max_jobs())):
                     nxt = self.queue.pop(0)
                     self.active.add(nxt[0])
             if nxt:
                 threading.Thread(target=self._work, args=nxt, daemon=True).start()
+            if later is not None:  # có thay đổi trong lúc chạy → chạy thêm một lượt (gộp các thao tác đã bấm)
+                acts = [a for a in later if a]
+                self.start(job_id, (lambda runner, job: [a(runner, job) for a in acts]) if acts else None)
 
 
 def _page(title: str, body: str, refresh: bool = False) -> HTMLResponse:
@@ -372,7 +408,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             return " · ".join(x for x in parts if x)
 
         jobs_html = "".join(
-            f"<a class='job' href='/jobs/{j.job_id}'><div><div class='name'>{html.escape(Path(j.footage[0]).name)}</div>"
+            f"<a class='job' href='/jobs/{j.job_id}'><div><div class='name'>{html.escape(job_name(j))}</div>"
             f"<div class='sub'>{sub(j)}</div></div>{badge(j)}</a>" for j in list_jobs())
         status = (f"<p class='muted'>Đang chạy <b>{len(worker.active)}/{max_jobs()}</b> luồng"
                   f"{f', {len(queued_ids)} xếp hàng' if queued_ids else ''}</p>")
@@ -407,6 +443,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
     def index():
         n_max = max_jobs()
         opts = "".join(f"<option value='{n}' {'selected' if n == n_max else ''}>{n}</option>" for n in range(1, 7))
+        from app.jobs.limits import ai_limit
+
+        n_ai = ai_limit(settings_path)
+        ai_opts = "".join(f"<option value='{n}' {'selected' if n == n_ai else ''}>{n}</option>" for n in range(1, 7))
         kd = keep_days()
         day_opts = "".join(f"<option value='{v}' {'selected' if float(v) == kd else ''}>{label}</option>"
                            for v, label in (("0", "không tự xóa"), ("1", "1 ngày"), ("2", "2 ngày"), ("3", "3 ngày"),
@@ -416,12 +456,16 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                    f"<select name='n' onchange='this.form.submit()' style='width:auto'>{opts}</select></form>"
                    f"<form method='post' action='/settings/cleanup' class='row' style='align-items:center;gap:8px;margin-top:6px'>"
                    f"<span class='muted'>Tự xóa job không hoạt động quá:</span>"
-                   f"<select name='days' onchange='this.form.submit()' style='width:auto'>{day_opts}</select></form>")
+                   f"<select name='days' onchange='this.form.submit()' style='width:auto'>{day_opts}</select></form>"
+                   f"<form method='post' action='/settings/ai-parallel' class='row' style='align-items:center;gap:8px;margin-top:6px'>"
+                   f"<span class='muted'>Số lượt hỏi AI cùng lúc (mọi video):</span>"
+                   f"<select name='n' onchange='this.form.submit()' style='width:auto'>{ai_opts}</select></form>")
         rcfg = app_config.load("review")  # độ dài video review lấy từ config/review.yaml (đổi config là trang tự đổi)
 
         def mmss(sec) -> str:
             return f"{int(sec) // 60}:{int(sec) % 60:02d}"
         default_s = int(rcfg.get("default_s", 150))
+        cliff_pov = str(app_config.load("cliff").get("default_pov", "3"))
         review_opts = "".join(f"<option value='{v}' {'selected' if int(v) == default_s else ''}>{mmss(v)}</option>"
                               for v in rcfg.get("durations") or [60, 90, 120, 150, 180, 240, 300])
         scfg = app_config.load("sell") or {}
@@ -442,17 +486,15 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ("voice_only", "🎙️", "Chỉ thay tiếng", "Giữ NGUYÊN hình, chỉ thay voice + phụ đề ngôn ngữ mới"),
                 ("review", "🎬", "Review phim / hoạt hình",
                  "Tóm gọn CẢ phim thành MỘT video, chỉ kể ý chính — bạn chọn thời lượng"),
+                ("cliff", "🧨", "Review bỏ lửng",
+                 "Kể HẾT phim thành nhiều phần 1:30–2:00, mở bằng short kịch tính, kết bỏ lửng — ngôi 1 hoặc 3"),
+                ("films", "🎞️", "Content nhiều phim (từ bài TikTok ảnh)",
+                 "Gõ tiêu đề + tải ảnh bài TikTok → AI viết content mới, bạn thả file các phim → tool tìm cảnh, xen dừng hình"),
                 ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn đoạn hay (câu nói hay, hài, gay cấn…), thay giọng từng nhân vật, giữ nhạc nền gốc"),
                 ("sell", "💰", "Bán content", "Video ~1 phút → AI viết kịch bản MỚI theo định hướng của bạn, đảo cảnh khớp "
                  "lời, voice + nhạc mới, dự án CapCut đóng gói đủ file"),
                 ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
             ))
-        ratios = ''.join(
-            f"<label class='ratio'><input type='radio' name='ratio' value='{v}' {'checked' if v == '4:3' else ''}>"
-            f"<i style='aspect-ratio:{v.replace(':', '/') if v != 'auto' else '1/1'}'></i><b>{v if v != 'auto' else 'Tự động'}</b>"
-            f"<span>{d}</span></label>"
-            for v, d in (("4:3", "ngang vừa"), ("16:9", "ngang rộng"), ("1:1", "vuông"), ("4:5", "hơi dọc"),
-                         ("3:4", "dọc"), ("9:10", "gần vuông"), ("9:16", "kín màn hình"), ("auto", "theo bố cục")))
         body = f"""
         <div class="hero"><div><h2>Xin chào 👋</h2><p>Chọn video → chọn kiểu làm → bấm <b>Bắt đầu</b>.
         Tool tự làm phần còn lại, chỗ nào cần bạn (duyệt đoạn, thu voice…) sẽ báo trong danh sách bên phải.</p></div></div>
@@ -461,15 +503,25 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <h2>🎞️ Tạo video mới</h2>
           <input type='hidden' name='style' value='auto'>
           <section class="stepbox"><div class="num">1</div><div class="sb">
+            <div data-modes="normal dub voice_only review cliff char_dub vi_sub">
             <h3>Chọn video</h3>
             <div class="row"><textarea id="footage" name="footage" rows="2" placeholder="Bấm Chọn file… hoặc dán đường dẫn (nhiều video: mỗi dòng một file)" required></textarea>
             <button type="button" class="btn light" onclick="pick()">📂 Chọn file…</button></div>
             <div class="muted" id="pickmsg">Mẹo: giữ <b>Ctrl</b> khi chọn để lấy nhiều file → tool ghép thành MỘT video.</div>
+            </div>
+            <div data-modes="films">
+            <h3>Bài TikTok ảnh làm ý tưởng</h3>
+            <label>📝 Tiêu đề / mô tả bài (bạn gõ hoặc dán vào)</label>
+            <textarea name="post_title" rows="2" required placeholder="vd: 5 nhân vật hoạt hình thông minh nhất"></textarea>
+            <label style="margin-top:8px">🖼️ Các ảnh của bài (lưu từ app / chụp màn hình)</label>
+            <input type="file" name="post_images" multiple accept="image/*">
+            <div class="muted">File phim chọn SAU, khi AI đã viết xong content và báo cần những phim nào.</div>
+            </div>
           </div></section>
           <section class="stepbox"><div class="num">2</div><div class="sb">
             <h3>Bạn muốn làm gì?</h3>
             <div class="modes">{modes}</div>
-            <div class="langbox" data-modes="normal dub voice_only review char_dub sell">
+            <div class="langbox" data-modes="normal dub voice_only review cliff films char_dub sell">
               <label>🌐 Ngôn ngữ video mới</label>
               <select name="target_language" id="lang"><option value="">Giữ nguyên ngôn ngữ gốc</option>
                 <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
@@ -486,6 +538,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 <select name="sell_s">{sell_opts}</select>
                 <div class="muted">Luôn dài hơn 60 giây. Video gốc ngắn hơn thì tool làm chậm nhẹ / dùng lại cảnh (lấy khúc
                 khác, lật ngang) cho đủ, hạn chế lặp dễ nhận ra.</div></div>
+              <div data-modes="cliff"><label style="margin-top:10px">🗣️ Ngôi kể</label>
+                <select name="cliff_pov">
+                <option value="3" {'selected' if cliff_pov != '1' else ''}>Ngôi thứ 3 — người ngoài kể về nhân vật</option>
+                <option value="1" {'selected' if cliff_pov == '1' else ''}>Ngôi thứ 1 — nhân vật chính tự kể ("tôi")</option></select>
+                <div class="muted">Mỗi video 1:30–2:00 (tính cả short mở đầu). Phim chưa hết thì tự chia thêm phần, kể tới hết phim, không bỏ cảnh.</div></div>
               <div data-modes="dub voice_only"><label style="margin-top:10px">✍️ Cách viết lời thuyết minh</label>
                 <select name="script_mode">
                 <option value="rewrite">AI xem video rồi VIẾT MỚI nội dung hợp nước đó (không dịch)</option>
@@ -499,11 +556,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="split"> ✂️ Chia video dài thành nhiều video</label>
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục</label>
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="confirm"> ✅ Xác nhận trước khi dựng</label>
-              <label class="chip" data-modes="normal dub review"><input type="checkbox" name="reframe"> 🔲 Đổi khung theo cảnh</label>
               <label class="chip" data-modes="normal dub voice_only review"><input type="checkbox" name="business"> 💼 Khách doanh nghiệp</label>
             </div>
-            <div class="field" style="margin-top:14px"><label>🖼️ Khung video</label>
-              <div class="ratios">{ratios}</div></div>
+            <div class="muted" style="margin-top:10px">🖼️ Khung video: giữ đúng khung video gốc, không cắt, không thu phóng.</div>
             <details class="adv"><summary>⚙️ Nâng cao: AI đạo diễn, nhạc nền, mã khách</summary>
               <div class="field"><label>🤖 AI đạo diễn</label><select name="ai">{_ai_options()}</select>
                 <div class="muted">Claude: gói Claude Pro qua Claude Code. Gemini Pro: gói Google AI Pro qua Antigravity CLI
@@ -518,8 +573,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         <div class="side"><div class="card jobs"><h2>🗂️ Các video <span class="muted" style="font-weight:400">tự cập nhật</span></h2>
         <div id="jobs-panel">{jobs_panel()}</div>
         <details class="adv"><summary>⚙️ Cài đặt</summary>{threads}{_template_setting()}{tts_setting()}
-        <p class='muted'>Mỗi video chạy trên một luồng riêng. Bước phân tích dùng GPU nên lần lượt từng video; hỏi đạo diễn
-        AI tối đa 2 lượt cùng lúc (chung hạn mức gói Pro).</p></details></div></div></div>
+        <p class='muted'>Mỗi video chạy trên một luồng riêng. Bước phân tích dùng GPU nên lần lượt từng video. Số lượt hỏi AI
+        cùng lúc tính trên MỌI video (chung hạn mức gói Pro) — tăng thì nhanh hơn, nhưng quá nhiều dễ bị từ chối tạm thời /
+        nhanh hết hạn mức; 3–4 là vừa.</p></details></div></div></div>
         <script>
         async function pick(){{
           const m=document.getElementById('pickmsg'); m.textContent='Đang mở hộp thoại chọn file…';
@@ -534,6 +590,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         const HINT={{normal:'Video gốc tiếng Hàn / Nhật / Anh thì để Giữ nguyên. Tiếng khác (Trung, Việt…) thì chọn ngôn ngữ cho bản TikTok.', dub:'Bạn sẽ thu voice từng câu bằng Voice Studio (hoặc cho OmniVoice đọc).',
           voice_only:'Không cắt, không đổi khung — chỉ thay tiếng. Cần chọn ngôn ngữ mới.',
           review:'Không chọn ngôn ngữ = lời review bằng tiếng gốc của phim.',
+          films:'Chọn ngôn ngữ của video mới (Hàn / Nhật / Anh).',
+          cliff:'Lời review tiếng Hàn / Nhật / Anh. Không chọn ngôn ngữ = tiếng gốc của phim (phải là Hàn / Nhật / Anh).',
           char_dub:'Cần chọn ngôn ngữ mới (vd phim Nhật → tiếng Hàn). Nên cài Demucs để giữ nhạc nền gốc.',
           sell:'Chọn ngôn ngữ của giọng đọc + phụ đề. Âm thanh gốc bị bỏ hết, thay bằng voice + nhạc mới.',
           vi_sub:'Không dựng lại — chỉ dịch phụ đề tiếng Việt.'}};
@@ -541,8 +599,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           const m=(document.querySelector('input[name=mode]:checked')||{{}}).value||'normal';
           document.querySelectorAll('#newjob [data-modes]').forEach(el=>{{
             const on=el.dataset.modes.split(' ').includes(m); el.hidden=!on;
-            el.querySelectorAll('input,select').forEach(i=>i.disabled=!on);}});
-          const lang=document.getElementById('lang'); lang.options[0].hidden=!['review','normal'].includes(m);
+            el.querySelectorAll('input,select,textarea').forEach(i=>i.disabled=!on);}});
+          const lang=document.getElementById('lang'); lang.options[0].hidden=!['review','cliff','normal'].includes(m);
           if(lang.options[0].hidden&&!lang.value){{lang.value='ko'; lang.dataset.auto='1';}}
           else if(!lang.options[0].hidden&&lang.dataset.auto==='1'){{lang.value=''; lang.dataset.auto='';}}  // tool tự chọn thì trả về "Giữ nguyên"
           document.getElementById('langhint').textContent=HINT[m]||'';
@@ -644,17 +702,23 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         return _page("Nhập thư mục", body)
 
     @app.post("/jobs")
-    def new_job(footage: str = Form(...), client: str = Form("khach"), hook: str | None = Form(None),
+    def new_job(footage: str = Form(""), client: str = Form("khach"), hook: str | None = Form(None),
                 reframe: str | None = Form(None), business: str | None = Form(None),
                 confirm: str | None = Form(None), ratio: str = Form("4:3"), style: str = Form("auto"),
                 split: str | None = Form(None), target_language: str = Form(""), music: str = Form(""),
                 music_file: UploadFile | None = File(None), voice_only: str | None = Form(None),
                 keep_bgm: str | None = Form(None), script_mode: str = Form(""), hype: str | None = Form(None),
                 vi_sub: str | None = Form(None), review: str | None = Form(None), char_dub: str | None = Form(None),
-                ai: str = Form(""), mode: str = Form(""), review_s: int = Form(0), sell_brief: str = Form(""),
+                ai: str = Form(""), mode: str = Form(""), review_s: int = Form(0), cliff_pov: str = Form(""),
+                post_title: str = Form(""),
+                post_images: list[UploadFile] | None = File(None), sell_brief: str = Form(""),
                 sell_s: int = Form(0)):
+        if mode == "films":  # content nhiều phim: chưa có file phim, bắt đầu từ bài TikTok ảnh
+            return _new_films_job(Path(jobs_root), worker, target_language, post_title, post_images or [],
+                                  client, ai)
+        cliff = mode == "cliff"
         if mode in MODES:  # trang chủ mới: chọn MỘT chế độ (thẻ) thay cho các ô tick riêng
-            review, char_dub, vi_sub, voice_only = (("on" if mode == m else None)
+            review, char_dub, vi_sub, voice_only = (("on" if mode == m or (m == "review" and cliff) else None)
                                                     for m in ("review", "char_dub", "vi_sub", "voice_only"))
             if mode == "vi_sub":
                 target_language = ""
@@ -692,6 +756,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p><b>Lồng tiếng nhân vật</b> cần chọn ngôn "
                          "ngữ mới ở ô <b>🌐 Đổi ngôn ngữ video</b> (vd tiếng Nhật → chọn tiếng Hàn).</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
+        if cliff and len(paths) > 1:
+            return _page("Lỗi", "<div class='card'><h2>Review bỏ lửng dùng cho MỘT video</h2><p>Chọn một file phim "
+                         "(phim dài bao nhiêu cũng được — tool tự chia phần).</p>"
+                         "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         if review and (voice_only or vi_sub):
             return _page("Lỗi", "<div class='card'><h2>Chọn một chế độ thôi</h2><p><b>Review phim</b> không dùng cùng "
                          "<b>Chỉ thay tiếng</b> hay <b>Chỉ phụ đề tiếng Việt</b>. Bỏ bớt một ô tick.</p>"
@@ -703,15 +771,17 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             sell=sell, sell_brief=sell_brief.strip()[:2000] if sell else "",
             sell_s=max(0, min(int(sell_s or 0), 180)) if sell else 0,
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only and not review,
-            reframe_per_scene=bool(reframe) and not voice_only,
+            reframe_per_scene=False,  # 15/10: khung video gốc → không đổi khung theo cảnh
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and not review and len(paths) == 1,
             hype=bool(hype) and not voice_only and not review and not char_dub, review=bool(review),
-            review_s=max(0, min(int(review_s or 0), 600)) if review else 0,
+            review_s=max(0, min(int(review_s or 0), 600)) if review and not cliff else 0,
+            cliff=cliff, cliff_pov=(cliff_pov if cliff_pov in ("1", "3") else "") if cliff else "",
             char_dub=bool(char_dub),
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
             script_mode=script_mode if script_mode in ("rewrite", "translate") else "",
             vi_sub=bool(vi_sub) and len(paths) == 1, ai=ai if ai in AI_NAMES else ""))
-        job.data.update({"business": bool(business), "default_ratio": ratio, "style": style})
+        # chủ dự án 15/10: bỏ ô Khung video — mọi job mới giữ khung video GỐC, không cắt, không thu phóng
+        job.data.update({"business": bool(business), "default_ratio": "source", "style": style})
         if music_file is not None and music_file.filename:
             chosen = _save_user_music(music_file, Path(assets_root))
             if chosen:
@@ -742,9 +812,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             chips.append(f"<span class='step {cls}'>{step_label(job, st)}</span>")
         style = job.data.get("style_used") or job.data.get("style") or "auto"
         head = (f"<div class='card'><div style='display:flex;justify-content:space-between;align-items:center'>"
-                f"<div><h2 style='margin:0'>{html.escape(Path(job.footage[0]).name)}</h2>"
+                f"<div><h2 style='margin:0'>{html.escape(job_name(job))}</h2>"
                 f"<div class='muted'><b>{MODE_VI[job_mode(job)]}{review_len(job)}</b> · {job.job_id} · kiểu dựng: {html.escape(style)} · "
-                f"🤖 AI: <b>{AI_NAMES[_ai_of(job)]}</b> · {html.escape(job.footage[0])}</div>"
+                f"🤖 AI: <b>{AI_NAMES[_ai_of(job)]}</b> · {html.escape(job.footage[0] if job.footage else job.data.get('post_title', ''))}</div>"
                 + ("" if running else
                    f"<form method='post' action='/jobs/{job_id}/ai' style='margin-top:6px'>"
                    f"<select name='ai' style='width:auto'>{_ai_options(_ai_of(job))}</select> "
@@ -832,7 +902,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         except (ValueError, RuntimeError) as exc:
             return _page("Lỗi", f"<div class='card'><h2>Chưa cắt được giọng {html.escape(speaker)}</h2>"
                          f"<p>{html.escape(str(exc))}</p><p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
-        worker.start(job_id)
+        worker.start_or_later(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/dub-speakers")
@@ -884,12 +954,52 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             runner.save_tts_voices(job, voices, clone_ok)
             runner.tts_generate(job, video, only_missing)
 
-        worker.start(job_id, action=action)
+        worker.start_or_later(job_id, action=action)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/review-feedback")
     def review_feedback(job_id: str, video: int = Form(...), feedback: str = Form("")):
+        if Job.load(Path(jobs_root), job_id).options.films:  # content nhiều phim: góp ý → AI viết lại content
+            worker.start(job_id, action=lambda runner, job: runner.rewrite_films_idea(job, feedback))
+            return RedirectResponse(f"/jobs/{job_id}", status_code=303)
         worker.start(job_id, action=lambda runner, job: runner.rewrite_review(job, video, feedback))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/post")
+    async def films_post(job_id: str, request: Request):
+        form = await request.form()
+        d = Job.dir_for(Path(jobs_root), job_id)
+        _save_post_images(d, [f for f in form.getlist("post_images") if getattr(f, "filename", "")])
+        title, no_images = str(form.get("post_title") or ""), bool(form.get("no_images"))
+
+        def act(runner, job):
+            runner.save_post(job, title=title, no_images=no_images)
+            if title.strip():
+                job.data["post_title"] = title.strip()[:120]
+            job.save(Path(jobs_root))  # worker tự chạy tiếp sau action
+        worker.start(job_id, action=act)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/films")
+    async def films_files(job_id: str, request: Request):
+        form = await request.form()
+        paths = {k[5:]: str(v) for k, v in form.items() if k.startswith("film_") and str(v).strip()}
+
+        def act(runner, job):
+            bad = runner.set_films(job, paths)
+            if bad:
+                runner.log("Không thấy file cho: " + ", ".join(bad))
+        worker.start(job_id, action=act)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/films-feedback")
+    def films_feedback(job_id: str, feedback: str = Form("")):
+        worker.start(job_id, action=lambda runner, job: runner.rewrite_films_idea(job, feedback))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/accept-plan")
+    def accept_plan(job_id: str):
+        worker.start(job_id, action=lambda runner, job: runner.accept_pending_plan(job))  # rồi worker tự chạy tiếp
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/accept-dub")
@@ -947,7 +1057,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 k = key[5:]
                 rows.append({"start": float(form.get(f"start_{k}") or 0), "end": float(form.get(f"end_{k}") or 0),
                              "title_vi": str(form.get(f"title_{k}") or ""),
-                             "summary_vi": str(form.get(f"summary_{k}") or "")})
+                             "summary_vi": str(form.get(f"summary_{k}") or ""),
+                             "hook_start": form.get(f"hstart_{k}"), "hook_end": form.get(f"hend_{k}")})
         worker.start(job_id, action=lambda runner, job: runner.apply_segments(job, rows))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
@@ -1001,6 +1112,12 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             threading.Thread(target=worker._work, args=nxt, daemon=True).start()
         return RedirectResponse("/", status_code=303)
 
+    @app.post("/settings/ai-parallel")
+    def save_ai_parallel(n: int = Form(3)):
+        """Số lượt hỏi AI cùng lúc trên mọi video (chủ dự án 15/10 "đợi lượt hỏi AI lâu quá") — có tác dụng ngay."""
+        app_settings.save({"parallel_ai": max(1, min(6, n))}, settings_path)
+        return RedirectResponse("/", status_code=303)
+
     @app.post("/settings/cleanup")
     def save_cleanup(days: float = Form(2)):
         app_settings.save({"cleanup_days": max(0.0, min(30.0, days))}, settings_path)
@@ -1049,7 +1166,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             old.unlink()
         with open(vdir / f"{hook_io.voice_name(video)}{ext}", "wb") as f:
             shutil.copyfileobj(voice.file, f)
-        worker.start(job_id)
+        worker.start_or_later(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/dub-voice")
@@ -1076,7 +1193,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             return _page("Lỗi", f"<div class='card'><h2>Có file không hợp lệ</h2><p>Chỉ nhận "
                          f"{', '.join(hook_io.VOICE_EXTS)}; đã bỏ qua: {html.escape(', '.join(bad))}</p>"
                          f"<p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
-        worker.start(job_id)
+        worker.start_or_later(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/dub-voice-all")
@@ -1099,7 +1216,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         except (ValueError, RuntimeError) as exc:
             return _page("Lỗi", f"<div class='card'><h2>Chưa cắt được file voice</h2><p>{html.escape(str(exc))}</p>"
                          f"<p><a class='btn light' href='/jobs/{job_id}'>Quay lại</a></p></div>")
-        worker.start(job_id)
+        worker.start_or_later(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/jobs/{job_id}/dub-skip")
@@ -1157,6 +1274,16 @@ def _manage_panel(job: Job) -> str:
                 f"<button type='submit' class='btn light small'>{label}</button></form>")
 
     buttons = []
+    if job.options.films:  # content nhiều phim: tìm lại cảnh / dựng lại (viết lại content = ô góp ý)
+        if STEPS.index(job.step) > STEPS.index("match") or job.status == Status.done:
+            buttons.append(redo("write", "🔁 Dựng lại draft", "Ghi đè draft CapCut hiện tại? Đóng CapCut trước khi bấm."))
+            buttons.append(redo("match", "🔎 AI tìm lại cảnh trong phim", "AI tìm lại cảnh cho mọi câu (voice đã thu "
+                                "vẫn giữ). Tiếp tục?"))
+        buttons.append(f"<form method='post' action='/jobs/{jid}/delete' onsubmit=\"return confirm('Xóa job này? "
+                       "(draft đã ghi trong CapCut vẫn giữ nguyên)')\"><button type='submit' class='btn danger small'>"
+                       "🗑️ Xóa job</button></form>")
+        return (f"<div class='card'><h2>🛠️ Thao tác</h2><div class='actions'>"
+                f"<a class='btn small' href='/'>🏠 Về trang chủ</a>{''.join(buttons)}</div></div>")
     if job.picks_segments and STEPS.index(job.step) > STEPS.index("review_segments"):
         buttons.append(redo("segment", "✂️ Chia lại video",
                             "AI sẽ chia lại video; hook, kế hoạch và voice cũ sẽ phải làm lại. Tiếp tục?"))
@@ -1402,16 +1529,30 @@ def _segments_panel(job: Job, d: Path) -> str:
         return (f"<details><summary class='muted'>🎬 {len(ms)} tình huống ghép thành video (chỗ giữa các tình huống "
                 f"bị bỏ)</summary><ol style='margin:4px 0'>{items}</ol></details>")
 
+    cliff = job.options.cliff
+
+    def cliff_info(key: str, v: dict) -> str:  # review bỏ lửng: short mở đầu (sửa được giây) + chỗ bỏ lửng
+        if not cliff or not v.get("hook") and not v.get("cliff_vi"):
+            return ""
+        h = v.get("hook") or {}
+        hook = (f"<div class='muted' style='margin-top:4px'>🎬 Short mở đầu: "
+                f"<input type='number' step='0.1' name='hstart_{key}' value='{float(h['start']):.1f}' style='width:90px'> – "
+                f"<input type='number' step='0.1' name='hend_{key}' value='{float(h['end']):.1f}' style='width:90px'> "
+                f"({float(h['end']) - float(h['start']):.0f}s){' — ' + esc(h['why_vi']) if h.get('why_vi') else ''}</div>"
+                if h else "")
+        end = "🏁 Kết phim" if v.get("last") else "🧨 Bỏ lửng"
+        return hook + (f"<div class='muted'>{end}: {esc(v['cliff_vi'])}</div>" if v.get("cliff_vi") else "")
+
     def row(key: str, v: dict, keep: bool, note: str) -> str:
         span = float(v["end"]) - float(v["start"])
         if v.get("moments"):
             span = sum(float(m["end"]) - float(m["start"]) for m in v["moments"])
-        short = f" <span class='badge b-waiting'>ngắn hơn {min_s}s</span>" if span < min_s else ""
+        short = f" <span class='badge b-waiting'>ngắn hơn {min_s}s</span>" if span < min_s and not cliff else ""
         return (f"<tr><td><input type='checkbox' name='keep_{key}' {'checked' if keep else ''}></td>"
                 f"<td><input type='number' step='0.1' name='start_{key}' value='{float(v['start']):.1f}' style='width:90px'>"
                 f" – <input type='number' step='0.1' name='end_{key}' value='{float(v['end']):.1f}' style='width:90px'></td>"
                 f"<td>{span:.0f}s{short}</td><td><b>{esc(v.get('title_vi', ''))}</b><br>"
-                f"<span class='muted'>{esc(v.get('summary_vi', '') or note)}</span>{situations(v)}"
+                f"<span class='muted'>{esc(v.get('summary_vi', '') or note)}</span>{situations(v)}{cliff_info(key, v)}"
                 f"<input type='hidden' name='title_{key}' value='{esc(v.get('title_vi', ''))}'>"
                 f"<input type='hidden' name='summary_{key}' value='{esc(v.get('summary_vi', '') or note)}'></td></tr>")
 
@@ -1419,15 +1560,130 @@ def _segments_panel(job: Job, d: Path) -> str:
     dropped = "".join(row(f"d{i}", {**x, "title_vi": "Đoạn bị bỏ"}, False, "Lý do bỏ: " + x.get("reason_vi", ""))
                       for i, x in enumerate(prop.get("dropped", []), 1))
     head = "<tr><th>Dựng</th><th>Giây (bắt đầu – kết thúc)</th><th>Độ dài</th><th>Nội dung</th></tr>"
-    return (f"<div class='card'><h2>✂️ Duyệt chia video</h2>"
-            f"<p>AI đề xuất {len(data.get('videos', []))} video độc lập. Sửa giây bắt đầu/kết thúc nếu muốn, bỏ tick để "
-            f"không dựng, hoặc tick đoạn bị bỏ để dựng thêm. Mỗi video sau khi dựng sẽ được cắt gọn còn 60–150 giây.</p>"
+    if cliff:
+        ccfg = app_config.load("cliff")
+        intro = (f"<p>AI chia phim thành {len(data.get('videos', []))} phần LIỀN NHAU (kể hết phim, không bỏ cảnh). Mỗi "
+                 f"phần = một video {int(ccfg.get('min_video_s', 90)) // 60}:{int(ccfg.get('min_video_s', 90)) % 60:02d}–"
+                 f"{int(ccfg.get('max_video_s', 120)) // 60}:{int(ccfg.get('max_video_s', 120)) % 60:02d}: short mở đầu "
+                 "(giữ nguyên hình + tiếng gốc) rồi lời review, kết bỏ lửng. Sửa điểm chia / giây của short nếu muốn — "
+                 "phần sau nên bắt đầu đúng chỗ phần trước kết thúc để không bỏ cảnh. Độ dài ở cột giữa là độ dài "
+                 "<b>phim gốc</b> phần đó kể.</p>")
+        name = "🧨 Duyệt các phần"
+    else:
+        intro = (f"<p>AI đề xuất {len(data.get('videos', []))} video độc lập. Sửa giây bắt đầu/kết thúc nếu muốn, bỏ tick "
+                 "để không dựng, hoặc tick đoạn bị bỏ để dựng thêm. Mỗi video sau khi dựng sẽ được cắt gọn còn 60–150 "
+                 "giây.</p>")
+        name = "✂️ Duyệt chia video"
+    return (f"<div class='card'><h2>{name}</h2>" + intro +
             f"<p class='muted'>Ghi chú editor: {esc(prop.get('editor_notes', ''))}</p>"
             f"<form method='post' action='/jobs/{job.job_id}/segments'>"
             f"<h2 style='margin-top:14px'>Video sẽ dựng</h2><table>{head}{vids}</table>"
             + (f"<h2 style='margin-top:18px'>Đoạn bị bỏ</h2><table>{head}{dropped}</table>" if dropped else "")
             + _policy_html(d, job=job, form=False)
             + "<p><button type='submit' class='btn'>✅ Xác nhận và dựng tiếp</button></p></form></div>")
+
+
+def _save_post_images(d: Path, files: list) -> int:
+    """Ảnh bài TikTok tải lên → jobs/<id>/post/anh_NN.<đuôi> (nối tiếp ảnh đã có)."""
+    post = d / "post"
+    post.mkdir(parents=True, exist_ok=True)
+    have = len(list(post.glob("anh_*")))
+    n = 0
+    for f in files:
+        ext = Path(f.filename).suffix.lower()
+        if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+            continue
+        n += 1
+        (post / f"anh_{have + n:02d}{ext}").write_bytes(f.file.read())
+    return n
+
+
+def _new_films_job(jobs_root: Path, worker, target_language: str, post_title: str, images: list,
+                   client: str, ai: str):
+    """Tạo job Content nhiều phim: chưa có file phim — bắt đầu từ bài TikTok ảnh (link / ảnh / tiêu đề)."""
+    lang = target_language if target_language in ("ko", "ja", "en") else ""
+    if not lang:
+        return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p><b>Content nhiều phim</b> cần chọn ngôn ngữ "
+                     "của video mới (Hàn / Nhật / Anh).</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
+    images = [f for f in images if getattr(f, "filename", "")]
+    if not post_title.strip():
+        return _page("Lỗi", "<div class='card'><h2>Chưa có tiêu đề</h2><p>Gõ tiêu đề / mô tả của bài TikTok vào ô "
+                     "<b>📝 Tiêu đề</b>.</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
+    job = Job.create(jobs_root, [], JobOptions(client_id=client.strip() or "khach", films=True, target_language=lang,
+                                               ai=ai if ai in AI_NAMES else ""))
+    job.step = "post"
+    d = job.dir(jobs_root)
+    _save_post_images(d, images)
+    info = {"title": post_title.strip()} if post_title.strip() else {}
+    (d / "post" / "post.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
+    job.data.update({"post_title": post_title.strip()[:120], "default_ratio": "source"})
+    job.save(jobs_root)
+    worker.start(job.job_id)
+    return RedirectResponse(f"/jobs/{job.job_id}", status_code=303)
+
+
+def _films_idea_html(d: Path) -> str:
+    """Content AI đã viết: các phim + từng câu (phim, kiểu hình, cảnh cần tìm)."""
+    esc = html.escape
+    raw = _read(d / "plan" / "films_idea.json")
+    if not raw:
+        return ""
+    idea = json.loads(raw)
+    titles = {f["key"]: f.get("title_vi") or f["title"] for f in idea.get("films", [])}
+
+    def shot(ln: dict) -> str:
+        if ln["shot"] != "freeze":
+            return "🎬 video"
+        return "⏸️ dừng hình" + (f" · {esc(ln['label'])}" if ln.get("label") else "")
+
+    rows = "".join(f"<tr><td>{i}</td><td>{esc(titles.get(ln['film'], ln['film']))}</td><td>{shot(ln)}</td>"
+                   f"<td>{esc(ln['text'])}<br><span class='muted'>🇻🇳 {esc(ln['text_vi'])}<br>🔎 {esc(ln['want_vi'])}"
+                   f"</span></td></tr>" for i, ln in enumerate(idea.get("lines", []), 1))
+    return (f"<h2 style='margin-top:14px'>📝 Content mới</h2><p class='muted'>Bài gốc: {esc(idea.get('topic_vi', ''))}</p>"
+            f"<p>📖 {esc(idea.get('story_vi', ''))}</p><p class='muted'>Ghi chú editor: {esc(idea.get('editor_notes', ''))}</p>"
+            f"<details><summary>Xem {len(idea.get('lines', []))} câu</summary><table><tr><th>#</th><th>Phim</th>"
+            f"<th>Hình</th><th>Lời đọc</th></tr>{rows}</table></details>")
+
+
+def _films_panel(job: Job, d: Path) -> str:
+    """Content nhiều phim: chờ ảnh bài gốc (post) hoặc chờ file từng phim (films_wait)."""
+    esc = html.escape
+    if job.step == "post":
+        info = json.loads(_read(d / "post" / "post.json") or "{}")
+        n = len(list((d / "post").glob("anh_*"))) if (d / "post").is_dir() else 0
+        return (f"<div class='card'><h2>🖼️ Ảnh của bài TikTok</h2><pre>{esc(job.message)}</pre>"
+                f"<form method='post' action='/jobs/{job.job_id}/post' enctype='multipart/form-data'>"
+                f"<p>Đã có {n} ảnh. Thêm ảnh: <input type='file' name='post_images' multiple accept='image/*'></p>"
+                f"<label>📝 Tiêu đề / mô tả bài</label><textarea name='post_title' rows='2'>"
+                f"{esc(info.get('title', ''))}</textarea>"
+                "<p><label><input type='checkbox' name='no_images'> Không có ảnh — chỉ dùng tiêu đề</label></p>"
+                "<button type='submit' class='btn'>▶️ Lưu và chạy tiếp</button></form></div>")
+    idea = json.loads(_read(d / "plan" / "films_idea.json") or "{}")
+    have = job.data.get("films") or {}
+    rows = []
+    for k, f in enumerate(idea.get("films", [])):
+        key = f["key"]
+        p = have.get(key, "")
+        ok = bool(p) and Path(p).is_file()
+        year = f" · {esc(f['year'])}" if f.get("year") else ""
+        rows.append(f"<tr><td>{'✅' if ok else '❌'}</td><td><b>{esc(key)}</b></td>"
+                    f"<td><b>{esc(f.get('title_vi', ''))}</b><br><span class='muted'>{esc(f.get('title', ''))}{year} · "
+                    f"nhân vật: {esc(', '.join(f.get('characters', [])))}</span></td>"
+                    f"<td><div class='row'><input type='text' id='film{k}' name='film_{esc(key)}' value='{esc(p)}' "
+                    f"placeholder='đường dẫn file phim'><button type='button' class='btn light small' "
+                    f"onclick=\"pickFilm('film{k}')\">📂</button></div></td></tr>")
+    return (f"<div class='card'><h2>🎞️ Chọn file từng phim</h2><pre>{esc(job.message)}</pre>"
+            f"<form method='post' action='/jobs/{job.job_id}/films'><table><tr><th></th><th>Mã</th><th>Phim</th>"
+            f"<th>File phim</th></tr>{''.join(rows)}</table>"
+            "<p class='muted'>Đủ file mới chạy tiếp được. Thiếu phim nào / muốn đổi phim → gõ góp ý bên dưới (vd \"bỏ "
+            "phim 3\") để AI viết lại content.</p><button type='submit' class='btn'>▶️ Lưu và chạy tiếp</button></form>"
+            f"<form method='post' action='/jobs/{job.job_id}/films-feedback' class='row' style='margin-top:12px'>"
+            "<textarea name='feedback' rows='2' placeholder='Góp ý cho AI viết lại content (vd: bỏ phim 3, giọng vui "
+            "hơn…)'></textarea><button type='submit' class='btn light'>✍️ Viết lại theo góp ý</button></form>"
+            f"{_films_idea_html(d)}</div>"
+            "<script>async function pickFilm(id){try{const r=await fetch('/api/pick-file');const d=await r.json();"
+            "if(d.path)document.getElementById(id).value=d.path;else if(d.error)alert(d.error);}catch(e){alert(e);}}"
+            "</script>")
 
 
 def _tts_card(job: Job, d: Path) -> str:
@@ -1633,6 +1889,39 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                if skip else "") + "</div>")
 
 
+def _pending_plan_html(job: Job, d: Path) -> str:
+    """AI lập kế hoạch dựng 3 lần vẫn sai: hỏi chủ dự án có lấy bản gần nhất không (chủ dự án 14/10)."""
+    if job.step != "plan":
+        return ""
+    pend = sorted((d / "plan").glob("pending_plan_video*.json"))
+    if not pend:
+        if "sai khuôn" in (job.message or ""):
+            return ("<p class='muted'>Lần này AI trả về không đọc được (sai cấu trúc hoàn toàn) nên không có bản nào để "
+                    "dùng — bấm <b>Chạy lại bước này</b>.</p>")
+        return ""
+    esc = html.escape
+    items = []
+    for p in pend:
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        v = p.stem.replace("pending_plan_video", "")
+        probs = data.get("problems", [])
+        n_clips = len(data.get("plan", {}).get("clips", []))
+        items.append(f"<p><b>Video {esc(v)}</b> — {n_clips} cảnh, còn {len(probs)} lỗi:</p><ul>"
+                     + "".join(f"<li>{esc(x)}</li>" for x in probs[:8]) + ("<li>…</li>" if len(probs) > 8 else "")
+                     + "</ul>")
+    return ("<div class='card' style='margin:10px 0'><b>🛟 Có lấy kế hoạch dựng gần nhất không?</b>"
+            "<p class='muted'>AI đã sửa 3 lần nhưng bản cuối vẫn còn các lỗi dưới đây (thường là dài / ngắn hơn giới hạn "
+            "vài giây, tên nhạc / hiệu ứng không có trong kho, tiêu đề hơi dài). Bấm <b>Dùng bản này</b> để dựng tiếp luôn "
+            "(tên nhạc / hiệu ứng không có thì tool tự bỏ hoặc ghi vào danh sách cần bổ sung; bạn chỉnh lại trong CapCut nếu "
+            "cần). Hoặc bấm <b>Chạy lại bước này</b> để AI lập lại (mất thêm vài phút và hạn mức AI).</p>"
+            + "".join(items)
+            + f"<form method='post' action='/jobs/{job.job_id}/accept-plan'><button type='submit' class='btn'>"
+            "✅ Dùng bản này, làm tiếp</button></form></div>")
+
+
 def _pending_dub_html(job: Job, d: Path) -> str:
     """AI viết thuyết minh 3 lần vẫn còn lỗi nhỏ: cho chọn dùng luôn bản gần nhất (không hỏi lại AI)."""
     pend = sorted((d / "plan").glob("pending_dub_video*.json"))
@@ -1673,7 +1962,7 @@ def _step_panel(job: Job, d: Path) -> str:
                 "không phải hỏi lại AI phần hiểu nội dung.</p></div>")
     if job.status == Status.error:
         return (f"<div class='card'><h2>⚠️ Có lỗi</h2><pre>{esc(job.message)}</pre>"
-                f"{_pending_dub_html(job, d)}{_continue_button(job, 'Chạy lại bước này')}</div>")
+                f"{_pending_plan_html(job, d)}{_pending_dub_html(job, d)}{_continue_button(job, 'Chạy lại bước này')}</div>")
     if job.status == Status.stopped:
         return (f"<div class='card'><h2>⏹️ Đã dừng</h2><p>Dừng ở bước <b>{esc(step_label(job, job.step))}</b>. "
                 "Kết quả các bước trước vẫn giữ nguyên.</p>"
@@ -1716,6 +2005,8 @@ def _step_panel(job: Job, d: Path) -> str:
                 f"từng file (wav / mp3 / m4a). Đủ file là tool tự dựng tiếp.</p>"
                 f"<pre>{esc(_read(d / 'hook_scripts.txt'))}</pre>{''.join(forms)}"
                 f"<p class='muted'>{esc(job.message)}</p></div>")
+    if job.options.films and job.status == Status.waiting and job.step in ("post", "films_wait"):
+        return _films_panel(job, d)
     if job.status == Status.waiting and job.step == "review_segments":
         return _segments_panel(job, d)
     if job.status == Status.waiting and job.step == "dub_voice":

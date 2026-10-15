@@ -1,6 +1,6 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
-## Bước 97 — Chế độ "💰 Bán content" + sửa lỗi "vượt quá độ dài file" `[CẦN KIỂM TRA TRÊN MÁY]`
+## Bước 105 — Chế độ "💰 Bán content" + sửa lỗi "vượt quá độ dài file" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
 2. (Nên làm) Thả vài file nhạc nền vào `assets\music\` — chỉ nhạc file mới được chép vào dự án CapCut. Không có thì tool
@@ -21,6 +21,112 @@
      file video gốc ở chỗ cũ → mở lại dự án → vẫn chạy được (vì đã dùng bản trong `media`).
 7. Lỗi cũ "Đoạn …µs vượt quá độ dài file …" (clip lố cuối file vài mili-giây): chạy lại job đó (Chạy tiếp / dựng lại)
    → không còn báo lỗi.
+
+## Bước 104 — Bỏ ô "Khung video": mọi video mới giữ khung GỐC, không cắt, không thu phóng `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Trang chủ không còn ô **🖼️ Khung video** và ô **🔲 Đổi khung theo cảnh**; chỉ còn dòng "Khung video: giữ đúng khung
+   video gốc, không cắt, không thu phóng".
+3. Tạo một job mới (bất kỳ chế độ nào: dựng thường, đổi ngôn ngữ, review, review bỏ lửng, content nhiều phim) → mở
+   CapCut kiểm tra:
+   - video ngang 16:9 hiện đủ cả khung (không bị cắt hai bên), video dọc tràn màn hình;
+   - không có keyframe zoom / chuyển động trên các clip; dừng hình (content nhiều phim) đứng yên, không zoom;
+   - tiêu đề / phụ đề nằm đúng phía trên / trong khối hình.
+4. Job tạo TRƯỚC khi cập nhật vẫn dựng theo khung đã chọn lúc đó.
+
+## Bước 103 — Review phim: có voice mà CapCut hổng voice + phụ đề từng đoạn `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Nguyên nhân: kiểu dựng có "cắt theo nhịp nhạc" dời điểm cắt cho trúng beat → cảnh cuối của một câu ngắn đi một chút → tool
+tưởng câu đó nằm ngoài video và bỏ luôn voice + phụ đề của câu (chỗ hổng trên timeline). Giờ review không dời điểm cắt
+theo nhịp nữa (cảnh vốn cắt đúng theo giọng), và dù cảnh bị cắt bớt thì câu vẫn được giữ.
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`. **Đóng CapCut.**
+2. Job review bị hổng: trang job → 🛠️ **🔁 Dựng lại draft** (voice đã thu giữ nguyên).
+3. Mở CapCut: track voice và 2 hàng phụ đề phải liền từ đầu tới cuối, không còn khúc trống; đếm số khối voice = số câu
+   trên trang voice.
+
+## Bước 102 — Bớt "Đợi lượt hỏi đạo diễn AI" + chỉnh số lượt hỏi AI cùng lúc `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Trước đây cả một bước (lập kế hoạch, viết thuyết minh…) giữ lượt hỏi AI kể cả lúc bước đó đang làm việc khác (tách nhạc,
+nhận dạng lại thoại…) nên video khác phải chờ. Giờ chỉ giữ lượt đúng lúc AI đang trả lời.
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Trang chủ → ⚙️ Cài đặt → **Số lượt hỏi AI cùng lúc (mọi video)**: mặc định 3, chọn 1–6 (có tác dụng ngay).
+3. Chạy 3–4 video cùng lúc: nhật ký ít thấy "Đợi lượt hỏi đạo diễn AI" hơn; khi phải đợi thì ghi rõ "đang có N lượt khác chạy".
+4. Nếu Claude / Gemini báo lỗi giới hạn (quá nhiều yêu cầu) → giảm số này xuống 2–3.
+
+## Bước 101 — Content nhiều phim: bỏ ô dán link, tự gõ tiêu đề `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Thẻ **🎞️ Content nhiều phim** giờ không còn ô "Link bài TikTok"; ô **📝 Tiêu đề / mô tả bài** là bắt buộc (gõ hoặc dán
+   tiêu đề bài), ảnh của bài vẫn tải lên như cũ. Không cần cài yt-dlp nữa (bỏ qua lệnh pip ở Bước 98).
+3. Gõ tiêu đề + chọn ảnh + chọn ngôn ngữ → **Bắt đầu** → job chạy, AI dùng đúng tiêu đề bạn gõ.
+
+## Bước 100 — Bước plan lỗi "sai khuôn 3 lần" → hỏi bạn có dùng bản gần nhất không `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Khi job báo "Lỗi ở bước plan: Đạo diễn trả kết quả sai khuôn 3 lần", trang job hiện khung **🛟 Có lấy kế hoạch dựng gần
+   nhất không?** kèm danh sách lỗi còn lại của từng video.
+3. Bấm **✅ Dùng bản này, làm tiếp** → tool dựng tiếp ngay, không hỏi lại AI. Không ưng → bấm **Chạy lại bước này**.
+4. Job cũ đang lỗi sẵn từ trước khi cập nhật thì chưa có bản lưu → bấm Chạy lại bước này một lần; lần sau lỗi sẽ có nút.
+5. Nếu AI trả về hoàn toàn không đọc được thì không có bản nào để dùng — trang ghi rõ, chỉ còn cách Chạy lại.
+
+## Bước 99 — Sửa "có voice rồi nhưng không thêm vào dự án CapCut" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Nguyên nhân tìm được trong code: (1) job đã **✅ Xong** rồi bạn mới tải / thu lại voice hoặc cho OmniVoice đọc → tool không
+dựng lại; (2) tải voice lên đúng lúc job **đang chạy** (đang ghi draft, OmniVoice đang đọc) → lượt đó bị bỏ qua.
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`. **Đóng CapCut** trước khi thử.
+2. Thử (1): chọn một job đã xong → tải lại 1–2 file voice (hoặc 🤖 OmniVoice đọc lại một câu) → đợi vài giây, nhật ký phải có
+   "✅ Đã cập nhật voice mới vào dự án CapCut: video 01". Mở CapCut → câu đó có voice mới.
+   Lưu ý: video được ghi lại như bấm 🔁 Dựng lại draft — chỉnh tay trong CapCut của video đó sẽ mất.
+3. Thử (2): lúc job đang chạy, tải thêm voice → khi lượt đang chạy xong, tool tự chạy thêm một lượt và đưa voice vào.
+4. CapCut đang mở → nhật ký báo "⚠️ … chưa ghi được vào dự án CapCut … Đóng CapCut rồi bấm 🔁 Dựng lại draft".
+5. Vẫn còn trường hợp thiếu voice: chụp nhật ký (log) + trang voice gửi mình, ghi rõ câu nào có ✅ mà CapCut không có.
+
+## Bước 98 — Chế độ mới "🎞️ Content nhiều phim (từ bài TikTok ảnh)" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, rồi (không còn bắt buộc từ Bước 101) cài lại thư viện trong PowerShell ở thư mục tool:
+
+   ```powershell
+   .venv\Scripts\pip install -r requirements.txt
+   ```
+
+2. Mở lại `start.bat` → trang chủ → thẻ **🎞️ Content nhiều phim** → dán **link bài TikTok ảnh**, chọn **các ảnh của
+   bài** (lưu ảnh từ app TikTok hoặc chụp màn hình — tool KHÔNG tự tải được ảnh của bài ảnh), chọn ngôn ngữ → Bắt đầu.
+3. Nhật ký: "Lấy được tiêu đề bài từ link…" (nếu báo không lấy được thì dán tiêu đề vào ô trên trang, không sao).
+4. AI viết xong → trang **🎞️ Chọn file từng phim**: kiểm tra AI nhận đúng tên phim chưa, đọc thử content (bấm "Xem … câu").
+   Bấm 📂 chọn file cho từng phim → **Lưu và chạy tiếp**. Thiếu phim / muốn đổi → gõ góp ý (vd "bỏ phim 3") → ✍️.
+5. Tool phân tích từng phim (chế độ nhanh: chỉ dò cảnh + khung hình — ghi lại mất bao lâu mỗi phim), AI tìm cảnh,
+   rồi tới trang voice: đọc cả bài một file (hoặc 🤖 OmniVoice — dùng "Mô tả giọng", không clone được vì tiếng phim tắt).
+6. Mở CapCut kiểm tra:
+   - cảnh có đúng nhân vật / sự việc câu đang nói không (sai nhiều → 🛠️ **AI tìm lại cảnh trong phim**, voice giữ nguyên);
+   - **dừng hình**: video chạy rồi đứng hình, ảnh zoom chậm, tên nhân vật hiện giữa khối hình, có tiếng "tách";
+   - ảnh dừng hình khớp đúng khung video (không lệch / méo) và chiếm khoảng 30% video;
+   - khi sang phim mới có tên phim ở góc trên khối hình.
+7. Gửi mình: phim nào AI tìm cảnh sai, ảnh dừng hình có bị lệch không, thời gian phân tích mỗi phim.
+
+## Bước 97 — Chế độ mới "🧨 Review bỏ lửng" (kể hết phim thành nhiều phần) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+Chế độ **🎬 Review phim** cũ vẫn giữ nguyên, đây là một thẻ riêng.
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Trang chủ → chọn một phim dài (vd 1 tiếng) → bấm thẻ **🧨 Review bỏ lửng** → chọn ngôn ngữ (Hàn / Nhật / Anh) →
+   chọn **🗣️ Ngôi kể** (ngôi thứ 3 hoặc ngôi thứ 1) → **🚀 Bắt đầu dựng**.
+3. Đầu trang job phải ghi "🧨 Review bỏ lửng · ngôi thứ …". Sau bước phân tích, AI chia phim → trang **🧨 Duyệt các phần**:
+   - các phần nối liền nhau (giây kết thúc phần trước = giây bắt đầu phần sau), phần đầu từ đầu phim, phần cuối tới hết phim;
+   - mỗi phần có dòng **🎬 Short mở đầu** (5–15 giây, sửa được giây) và **🧨 Bỏ lửng** (phần cuối: **🏁 Kết phim**).
+   Kiểm tra short có đúng pha kịch tính không, chỗ bỏ lửng có hợp không → **✅ Xác nhận và dựng tiếp**.
+4. Trang voice: mỗi phần một bài lời đọc. Đọc thử: ngôi kể đúng lựa chọn chưa (ngôi 1 = nhân vật chính xưng "tôi");
+   phần 2 trở đi mở bằng 1–2 câu nhắc bối cảnh; câu cuối mỗi phần dừng ở chỗ gay cấn, không có "xem phần sau".
+5. Thu voice (hoặc 🤖 OmniVoice đọc) → mở CapCut kiểm tra từng video:
+   - giây đầu là short **giữ nguyên hình + tiếng gốc**, không nhạc, chỉ có **phụ đề** = lời thoại gốc dịch sang
+     ngôn ngữ video (phim cùng tiếng thì phụ đề nguyên lời gốc; chữ vàng tiếng Việt bên dưới chỉ để kiểm tra, tắt
+     trước khi xuất). Đối chiếu phụ đề có khớp lúc nhân vật nói không;
+   - ngay sau short là tiêu đề + lời review + nhạc nhẹ, tiếng phim tắt;
+   - tổng mỗi video khoảng **1:30–2:00**.
+6. Video quá ngắn / dài, hoặc phần kể bị nhảy cóc: chụp trang duyệt + trang voice gửi mình. Các con số chỉnh trong
+   `config\cliff.yaml` (độ dài video, độ dài short, độ dài phim mỗi phần `min_raw_s` / `max_raw_s`).
 
 ## Bước 96 — Lồng tiếng / thuyết minh luôn nói ĐÚNG ngôn ngữ đã chọn `[CẦN KIỂM TRA TRÊN MÁY]`
 

@@ -258,6 +258,11 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   trắng**, **chữ tiêu đề đen** (viền trắng mảnh) — `config/layout.yaml → four_titles`.
   **Cập nhật 11/10:** ô Khung video có thêm 4:5 / 3:4 / 9:10 / 9:16 (mọi tỉ lệ trong `RATIOS` của
   `app/capcut_writer/layout.py`; 9:16 = kín màn hình, chữ đè theo `overlay`).
+  **Cập nhật 15/10 (chủ dự án): BỎ ô "Khung video" + "Đổi khung theo cảnh" trên trang chủ — mọi job mới giữ KHUNG VIDEO GỐC,
+  không cắt, không thu phóng** (`job.data.default_ratio = "source"` → `Runner._keep_frame`: khối = `nearest_ratio` của
+  video gốc, `crop_ratio` None, style `keep_frame` → builder không crop / không zoom / không chuyển động / không góc máy;
+  bố cục cố định như `review_story` cũng theo khung gốc — `layout_for`; content nhiều phim + dừng hình cũng vậy). Job cũ giữ
+  khung đã chọn.
   ~~Cập nhật 02/10: khung cố định 3:4~~ — **chủ dự án BỎ ngày 02/10**: khung video trở lại theo lựa chọn 4:3 / 1:1 /
   16:9 khi tạo job như cập nhật 01/10 (`frame_ratio` / `frame_lock` không còn đặt trong `config/layout.yaml`).
 - **Ngoại lệ thể thao (chủ dự án chốt 25/09, video mẫu boxing):** kiểu `sports_analysis` dùng bố cục `sports_focus`:
@@ -367,6 +372,29 @@ AI đọc lại cả bài như biên tập viên bản xứ, sửa câu cứng /
 (`polish_review_script`, prompt `review_polish.md`, `polish: true` trong `config/review.yaml`; sai thì giữ bản nháp);
 (2) văn mẫu `config/review_style.txt` — chủ dự án dán lời video review họ thích, AI học giọng / nhịp (cả 2 lượt);
 (3) nút "✍️ Viết lại theo góp ý" trên trang voice (`Runner.rewrite_review`, gửi góp ý + bản trước; voice cũ → *_cu).
+**REVIEW BỎ LỬNG (chủ dự án yêu cầu 14/10) — chế độ RIÊNG, review cũ ở trên giữ nguyên:** thẻ "🧨 Review bỏ lửng"
+(`JobOptions.cliff`, đi cùng `review=True` để dùng chung mọi thứ của review; `config/cliff.yaml`, `app/director/cliff.py`).
+Kể HẾT phim, KHÔNG BỎ CẢNH: AI chia cả phim thành các PHẦN liền nhau (phần sau bắt đầu đúng chỗ phần trước dừng, phủ kín
+từ đầu tới cuối — `check_parts`, hở nhỏ tự nối `repair_parts`; phim dài chia lượt hỏi song song như `long_parts` rồi nối,
+phần quá ngắn ở chỗ nối gộp vào phần trước), prompt `cliff_segment.md`, luôn qua bảng duyệt. Mỗi phần = một video
+**1:30–2:00 TÍNH CẢ short**: đầu video là đoạn SHORT 5–15 giây kịch tính nằm trong phần, GIỮ NGUYÊN hình + tiếng gốc
+(không nhạc / zoom / câu hook — builder `cold_clip`, sửa giây được trên bảng duyệt; **cập nhật 14/10: có PHỤ ĐỀ** — lời thoại gốc trong short dịch sang ngôn ngữ đích, prompt `cliff_hook_subs.md`, lưu `plan/hook_subs_videoNN.json`, cùng tiếng thì dùng nguyên lời gốc — `cold_subs`), rồi lời review (prompt
+`dub_cliff.md` + biên tập `cliff_polish.md`) kể phủ kín đoạn phim của phần (`check_coverage`: ≥ 85%, không nhảy > 30s,
+kể từ đầu phần tới cuối phần), phần 2 trở đi nhắc nhanh bối cảnh, phần nào (trừ phần cuối) cũng kết BỎ LỬNG (không "xem
+phần sau"), phần cuối kể tới kết phim. **Ngôi kể chọn khi tạo job** (`cliff_pov`): ngôi 3 như review cũ, hoặc ngôi 1 —
+người kể LÀ nhân vật chính (`narrator_vi` do AI nhận ra lúc chia phần) xưng "tôi" (`check_first_person`). Ngôn ngữ
+Hàn / Nhật / Anh như review.
+**CONTENT NHIỀU PHIM TỪ BÀI TIKTOK ẢNH (chủ dự án yêu cầu 14/10):** thẻ "🎞️ Content nhiều phim" (`JobOptions.films`,
+`config/films.yaml`, `app/director/films.py`, `app/planner/films_build.py`). Bước riêng: `post` (bài gốc: chủ dự án TỰ GÕ
+tiêu đề + tải ảnh lên `post/` — **cập nhật 14/10: bỏ ô dán link / yt-dlp**, chủ dự án nhập tiêu đề tay) → `idea` (AI xem ảnh + tiêu đề, nhận ra các PHIM, viết content MỚI: mỗi câu gắn phim, `shot`
+video / freeze, cảnh cần tìm; prompt `films_idea.md`; góp ý → viết lại, vd "bỏ phim 3") → `films_wait` (chủ dự án chọn file
+từng phim) → `analyze` (mỗi phim một footage, KHÔNG nối; chế độ nhanh `fast`: chỉ dò cảnh + `frames_per_film` khung, không
+Whisper / dò mặt / làm sạch âm thanh) → `match` (AI tìm cảnh cho từng câu TRONG ĐÚNG phim đó, mỗi phim một lượt song song,
+prompt `films_match.md`; nút "🔎 tìm lại cảnh" giữ voice) → `dub` (bài đọc thành DubScript có `story_vi` → dùng chung trang
+voice / đọc cả bài / OmniVoice với review) → voice → `write`. **Dừng hình (chủ dự án chọn 14/10):** video chạy tới
+`freeze_t` rồi đứng hình bằng ẢNH TOOL TỰ CẮT TỪ PHIM (cắt đúng vùng khối hình), zoom chậm, SFX "tách", tên nhân vật hiện
+giữa khối; dừng hình ≤ `image_share` 30% video. Tiếng phim tắt; bố cục như review; tên phim hiện khi sang phim mới; caption
+viết cùng content. Video `video_s` 60–120s.
 **Voice đến đâu ghi CapCut đến đấy (chủ dự án yêu cầu 09/10, mọi chế độ có voice thuyết minh / review):** job ra
 nhiều video thì video nào ĐỦ voice được ghi draft CapCut NGAY ở bước chờ voice (`Runner.write_ready_videos`, lưu
 `job.data.ready_drafts` + dấu vân tay voice — thu lại câu nào thì ghi lại), không chờ các video khác; đủ hết thì bước
@@ -436,6 +464,9 @@ Edit plan tối thiểu phải mô tả: danh sách clip (nguồn, in/out, tốc
   gần điểm chia đều (`long_parts`), mỗi phần một lượt hỏi (chỉ chọn trong phần của mình — `restrict`), chạy song song
   rồi gộp (`make_segments_long`); lập kế hoạch / viết thoại nhiều video cũng chạy song song. Số lượt cùng lúc
   `parallel_calls` (2) trong `config/director.yaml`, `app/jobs/parallel.py` (gắn job cho luồng con để nút Dừng vẫn chạy).
+  **Cập nhật 15/10 ("đợi lượt hỏi AI lâu quá"):** giới hạn số lượt hỏi AI cùng lúc trên MỌI job đặt ở TỪNG LƯỢT GỌI AI
+  (`limits.ai_slot` trong `Director.run`), không giữ cả bước nữa; số lượt chỉnh trên giao diện ⚙️ Cài đặt
+  (`config/local.yaml → parallel_ai`, mặc định `config/app.yaml → parallel.director` = 3).
 - **Nhanh hơn (chủ dự án 11/10: "chậm quá"):** ≥ 6 khung hình thì ghép thành ẢNH LƯỚI 3×3 có nhãn tên file trước khi gửi
   AI (`app/director/contact_sheet.py`, `contact_sheet` trong `config/director.yaml`) — AI đọc 9 file thay vì 80; dùng cho cả
   Claude lẫn Antigravity. Phân tích bỏ phần chế độ không dùng (Phụ đề tiếng Việt: không dò cảnh / mặt; Chỉ thay tiếng: không

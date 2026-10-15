@@ -22,6 +22,26 @@ def _keep_decor(plan, new_clips) -> dict:
     return upd
 
 
+def cut_pieces(a: float, b: float, want: float, scene_starts: list[float], *, cut_s: float = 2.0,
+               min_cut_s: float = 1.0, min_speed: float = 0.8) -> list[tuple[float, float, float]]:
+    """Cắt đoạn phim a–b thành n cảnh (n ≈ want / cut_s) rải đều, tổng đúng `want` giây trên video: mỗi khúc lấy cảnh ở
+    giữa (bám điểm đổi cảnh gần nhất nếu có); đoạn phim ngắn hơn `want` thì quay chậm nhẹ. Trả [(đầu, cuối, tốc độ)]."""
+    n = max(1, min(round(want / cut_s), int((b - a) / min_cut_s) or 1))
+    seg, w = want / n, (b - a) / n
+    pieces = []
+    for k in range(n):
+        sa, se = a + k * w, a + (k + 1) * w
+        if w >= seg:  # đủ phim: lấy khúc ở giữa, bám điểm đổi cảnh gần nhất nếu nằm trong khoảng cho phép
+            start = sa + (w - seg) / 2
+            near = [s for s in scene_starts if sa <= s <= se - seg]
+            if near:
+                start = min(near, key=lambda s: abs(s - start))
+            pieces.append((start, start + seg, 1.0))
+        else:  # thiếu phim: lấy cả khúc, quay chậm nhẹ
+            pieces.append((sa, se, round(max(min_speed, w / seg), 3)))
+    return pieces
+
+
 def build_from_voice(plan, script, voice_s: dict[int, float], scene_starts: list[float], *, cps: float,
                      gap_s: float = 0.12, cut_s: float = 2.0, min_cut_s: float = 1.0, min_speed: float = 0.8):
     """REVIEW — DỰNG TỪ VOICE (chủ dự án chốt 09/10): bài lời đọc viết trước, mỗi câu ghi đoạn phim nó kể; chủ dự án đọc
@@ -44,20 +64,7 @@ def build_from_voice(plan, script, voice_s: dict[int, float], scene_starts: list
         if not v:
             v = max(1.0, speech_chars(ln.text) / max(cps, 1e-6))
             est_n += 1
-        want = v + gap_s
-        n = max(1, min(round(want / cut_s), int((b - a) / min_cut_s) or 1))
-        seg, w = want / n, (b - a) / n
-        pieces = []
-        for k in range(n):
-            sa, se = a + k * w, a + (k + 1) * w
-            if w >= seg:  # đủ phim: lấy khúc ở giữa, bám điểm đổi cảnh gần nhất nếu nằm trong khoảng cho phép
-                start = sa + (w - seg) / 2
-                near = [s for s in scene_starts if sa <= s <= se - seg]
-                if near:
-                    start = min(near, key=lambda s: abs(s - start))
-                pieces.append((start, start + seg, 1.0))
-            else:  # thiếu phim: lấy cả khúc, quay chậm nhẹ
-                pieces.append((sa, se, round(max(min_speed, w / seg), 3)))
+        pieces = cut_pieces(a, b, v + gap_s, scene_starts, cut_s=cut_s, min_cut_s=min_cut_s, min_speed=min_speed)
         for pa, pb, sp in pieces:
             clips.append(base.model_copy(update={"source_start": round(pa, 3), "source_end": round(pb, 3), "speed": sp,
                                                  "ratio": None, "replay": False, "repeat": False}))

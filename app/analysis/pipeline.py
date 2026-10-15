@@ -72,24 +72,29 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
         info = probe_video(src, cfg.get("ffprobe") or None)
         duration = info.duration / 1_000_000
         t_all = time.monotonic()
+        films = bool(getattr(job.options, "films", False))  # content nhiều phim: tiếng phim tắt hẳn
+        fast = films and bool(config.load("films").get("fast", True))  # chế độ nhanh: không nghe thoại
         with ThreadPoolExecutor(max_workers=4) as pool:
             cleaning = []
-            if info.has_audio:
+            listen = info.has_audio and not fast
+            if listen:
                 whisper_wav = out / "audio" / f"whisper_{tag}.wav"
                 wav_job = _in_thread(pool, ffmpeg.run, ffmpeg.whisper_audio_args(src, whisper_wav))
                 progress("Làm sạch âm thanh (lọc ồn, chuẩn hóa độ to) — chạy nền")
-                cleaning = [_in_thread(pool, ffmpeg.run, ffmpeg.clean_audio_args(src, out / "audio" / f"clean_{tag}.wav", cfg)),
+                cleaning = [] if films else [_in_thread(pool, ffmpeg.run, ffmpeg.clean_audio_args(src, out / "audio" / f"clean_{tag}.wav", cfg)),
                             _in_thread(pool, ffmpeg.run, ffmpeg.clean_audio_args(src, out / "audio" / f"light_{tag}.wav",
                                                                                cfg, light=True))]
             fr = cfg.get("frames", {})
             max_frames = int(fr.get("max_frames_review", 80) if getattr(job.options, "review", False)
                              else fr.get("max_frames", 40))
+            if films:  # AI tìm cảnh bằng mắt → nhiều khung hình mỗi phim
+                max_frames = int(config.load("films").get("frames_per_film", 180))
             o = job.options  # bỏ phần không cần cho chế độ này (chủ dự án 11/10: "chậm quá")
             need_scenes = not getattr(o, "vi_sub", False)             # phụ đề tiếng Việt: chỉ cần lời thoại
-            need_faces = not (getattr(o, "vi_sub", False) or getattr(o, "voice_only", False))  # giữ nguyên khung gốc
+            need_faces = not (getattr(o, "vi_sub", False) or getattr(o, "voice_only", False) or films)  # giữ khung gốc
             video_job = _in_thread(pool, _video_part, src, i, tag, duration, info, out, cfg, workers, progress,
                                    max_frames if need_scenes else 6, need_scenes, need_faces)
-            if info.has_audio:
+            if listen:
                 wav_job.result()
                 tr, events = _audio_part(job, whisper_wav, transcribe_fn, cfg, progress)
                 transcripts.append({"footage": i, **tr.model_dump()})

@@ -60,17 +60,12 @@ def test_waiting_for_slot_can_be_stopped():
     from app.jobs import limits
 
     limits.reset()
-    sem = limits._sem("director")
-    taken = []
-    while sem.acquire(blocking=False):
-        taken.append(1)
     stop.set_current("jw")
     threading.Timer(0.3, lambda: stop.request("jw")).start()
-    with pytest.raises(stop.JobStopped):
-        with limits.slot("plan"):
-            pass
-    for _ in taken:
-        sem.release()
+    with limits.ai_slot(limit=lambda: 1):  # lượt hỏi AI duy nhất đang bận
+        with pytest.raises(stop.JobStopped):
+            with limits.ai_slot(limit=lambda: 1):
+                pass
     stop.clear("jw")
     stop.set_current(None)
     limits.reset()

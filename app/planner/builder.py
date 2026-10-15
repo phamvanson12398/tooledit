@@ -246,6 +246,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
           clean_audio: Path | None = None, video_index: int = 1, beats_fn=None, dub=None,
           dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False,
           bgm_audio: Path | None = None, vocals_audio: Path | None = None,
+          cold_clip: tuple[float, float] | None = None, cold_subs: list[dict] | None = None,
           dub_windows: list | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
@@ -254,6 +255,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     (tiếng cười / hét / câu Whisper nghe sót) để nhân vật mở miệng không bao giờ bị câm; tắt đúng trong các câu lồng.
     vi_subtitles: thêm phụ đề tiếng Việt (nghĩa từng câu) ngay dưới phụ đề chính để chủ dự án kiểm tra voice / phụ đề
     đã khớp chưa — XÓA / TẮT trước khi xuất video đăng TikTok.
+    cold_clip (Review bỏ lửng, 14/10): (giây gốc đầu, cuối) của đoạn SHORT kịch tính đặt lên ĐẦU video, giữ NGUYÊN hình +
+    tiếng gốc — không zoom, không nhạc, không lật; tiêu đề / nhạc / lời review bắt đầu ngay sau short.
+    cold_subs: phụ đề của short [{start, end (giây gốc), text (ngôn ngữ đích), text_vi}] — chữ duy nhất trên short.
     dub_windows (bán content): vị trí từng câu voice do tool tính sẵn [(µs bắt đầu, giây, giây)] — cảnh đã đảo thứ tự /
     dùng lại nên không suy từ giây gốc được."""
     safe = config.load("safe_area")
@@ -277,9 +281,15 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     if four and four.get("subtitle"):
         subtitle_style = dataclasses.replace(_style(four["subtitle"]), bold=True)
 
+    # Chủ dự án 15/10: "bỏ khung video, mặc định khung video GỐC, không thu phóng gì hết" — style["keep_frame"]: khối
+    # hình đúng tỉ lệ video gốc, không cắt (crop), không zoom / chuyển động / góc máy theo người nói
+    keep = bool(style.get("keep_frame"))
+
     def ratio_for(clip_ratio) -> str:
         if four:
             return four.get("block_ratio", "16:9")
+        if keep:
+            return "full" if vertical else style.get("block_ratio") or "16:9"
         return "full" if vertical else (clip_ratio or plan.default_ratio if plan.default_ratio != "full" else "4:3")
 
     bg = config.load("capcut").get("background", {"type": "blur", "blur": 0.375})
@@ -299,7 +309,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     crop_ratio = style.get("crop_ratio")  # vùng lấy từ video gốc người dùng chọn (4:3 / 1:1 / 16:9), khác khung hiển thị
 
     def crop_for(ratio: str, start: float, end: float):
-        if ratio == "full":
+        if ratio == "full" or keep:
             return None
         cx = subject_center(subjects, start, end)
         if crop_ratio and crop_ratio != ratio:
@@ -381,8 +391,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             if dur <= 0:
                 continue
             h_start = min(rng.start, max(0.0, sc["duration"] - dur / SEC))
-            kfs = ([Keyframe("scale", 0, 1.0), Keyframe("scale", dur, 1.08)] if kind == "slow" else
-                   [Keyframe("scale", 0, 1.18), Keyframe("scale", min(dur, 250_000), 1.05), Keyframe("scale", dur, 1.12)])
+            kfs = [] if keep else \
+                ([Keyframe("scale", 0, 1.0), Keyframe("scale", dur, 1.08)] if kind == "slow" else
+                 [Keyframe("scale", 0, 1.18), Keyframe("scale", min(dur, 250_000), 1.05), Keyframe("scale", dur, 1.12)])
             flip = mirrored(h_start, 1 if kind == "punch" else 0)
             w.add_video(src, target_start=start, duration=dur, source_start=round(h_start * SEC),
                         crop=fix_crop(crop_for(ratio, h_start, h_start + dur / SEC), ratio, start, dur, flip,
@@ -400,12 +411,28 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             missing.append({"kind": "voice", "what": f"video{video_index:02d}_hook.wav", "video": video_index,
                             "at_s": 0.0, "purpose_vi": f"Voice hook: {(hook.intro + ' ' + hook.line).strip()}"})
 
+    # ---------- short mở đầu (review bỏ lửng): đoạn phim gốc giữ nguyên ----------
+    if cold_clip is not None and hook is None:
+        c0, c1 = max(0.0, float(cold_clip[0])), min(float(cold_clip[1]), sc["duration"])
+        if c1 - c0 >= 0.5:
+            hook_us = round((c1 - c0) * SEC)
+            ratio = ratio_for(None)
+            w.add_video(src, target_start=0, duration=hook_us, source_start=round(c0 * SEC),
+                        crop=fix_crop(crop_for(ratio, c0, c1), ratio, 0, hook_us, False, src=(c0, c1)),
+                        volume=0.0 if clean_audio else 1.0, transition=transition, **bg_kwargs(ratio))
+            if clean_audio:  # tiếng gốc đã làm sạch + chuẩn hóa âm lượng
+                w.add_local_audio(clean_audio, src.duration, target_start=0, duration=hook_us,
+                                  source_start=round(c0 * SEC))
+            notes.append(f"Short mở đầu {c0:.1f}–{c1:.1f}s ({c1 - c0:.1f}s) giữ nguyên hình + tiếng gốc.")
+
     # ---------- clip chính ----------
     # ---------- cắt theo nhịp nhạc: dời điểm cắt về beat gần nhất ----------
     music = None if bgm_audio else pick_music(template, plan)  # giữ nhạc nền gốc → không thêm nhạc khác
     beats_out: list[float] = []
     bcfg = style.get("beat_sync") or {}
-    if bcfg.get("enabled") and music is not None:
+    # Review: cảnh được cắt ĐÚNG theo độ dài từng câu voice (review_sync) — dời điểm cắt theo nhịp nhạc sẽ làm lệch giọng
+    # với hình và trước đây làm tool tưởng câu nằm ngoài video → mất voice + phụ đề (chủ dự án 15/10)
+    if bcfg.get("enabled") and music is not None and not style.get("review"):
         from app.planner.beats import beats_for_music, looped_beats, snap_cuts
 
         try:
@@ -480,9 +507,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     lib = {(i.kind, i.name): i for i in template.library}
     trans_after = {t.after_clip: lib.get(("transition", t.name)) for t in plan.transitions}
     motion_cfg = style.get("motion") or {}
-    motion_on, motion_n = bool(motion_cfg.get("every_clip")), 0
+    motion_on, motion_n = bool(motion_cfg.get("every_clip")) and not keep, 0
     cam_cfg = style.get("camera") or {}
-    camera_on = cam_cfg.get("mode") == "speaker"
+    camera_on = cam_cfg.get("mode") == "speaker" and not keep
     if camera_on:  # góc máy theo người đang nói (podcast)
         from app.planner.camera import persons_from_faces, plan_shots, shot_crop
 
@@ -522,7 +549,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                 n_mirror += flip_of(sh.start, idx)
                 shot_count[sh.kind] += 1
         else:
-            kfs = zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
+            kfs = [] if keep else zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
                 [Keyframe("scale", 0, 1.0), Keyframe("scale", p.out_duration, style.get("zoom", {}).get("slow_scale", 1.12))]
             if not kfs and motion_on:
                 kfs, motion_n = auto_motion(motion_n, p.out_duration, motion_cfg), motion_n + 1
@@ -647,6 +674,28 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         if n_vi:
             notes.append("Có phụ đề TIẾNG VIỆT (chữ vàng nhỏ dưới phụ đề chính) để kiểm tra — tắt ở trang job "
                          "(🇻🇳 Phụ đề tiếng Việt) rồi dựng lại trước khi xuất video đăng TikTok.")
+    if cold_clip is not None and hook is None and hook_us and cold_subs:  # phụ đề short (dịch lời thoại gốc)
+        from app.planner.dub_io import split_text, spread_cues
+
+        c0, n_cold = max(0.0, float(cold_clip[0])), 0
+        for ln in cold_subs:
+            a = max(0, round((float(ln["start"]) - c0) * SEC))
+            e = min(hook_us, round((float(ln["end"]) - c0) * SEC))
+            if e - a < 200_000 or not str(ln.get("text", "")).strip():
+                continue
+            for s0, e0, t in spread_cues(split_text(ln["text"], lang, max_chars), a, e):
+                w.add_text(t, start=s0, duration=max(1, e0 - s0), x=pos["x"], y=pos["bottom"], style=subtitle_style)
+                n_cold += 1
+            if vi_subtitles and str(ln.get("text_vi", "")).strip():
+                vcfg = config.load("dub").get("vi_subtitles") or {}
+                vi_style = dataclasses.replace(_style({"size": vcfg.get("size", 8),
+                                                       "color": vcfg.get("color", [1, 0.95, 0.4]),
+                                                       "stroke_color": [0, 0, 0], "stroke_width": 0.12}), bold=False)
+                for s0, e0, t in spread_cues(split_text(ln["text_vi"], "en", int(vcfg.get("max_chars", 34))), a, e):
+                    w.add_text(t, start=s0, duration=max(1, e0 - s0), x=pos["x"],
+                               y=pos["bottom"] - float(vcfg.get("gap", 0.075)), style=vi_style)
+        if n_cold:
+            notes.append(f"Short mở đầu có phụ đề ({n_cold} cụm, dịch lời thoại gốc).")
     palette = [tuple(c) for c in style.get("emphasis_palette") or []] or [emph_style.color]
     emph_anims = _animations(template, style.get("emphasis", {}).get("animations", ["in"]))
     for i, e in enumerate(plan.emphasis):
@@ -706,7 +755,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         w.add_filter(lib[("filter", plan.filter)], start=hook_us, duration=tmap.end - hook_us)
     if four and four.get("titles"):
         need = 4 if four.get("bottom_titles", True) else 2
-        if add_title_lines(w, plan, four, 0, tmap.end) < need:
+        if add_title_lines(w, plan, four, hook_us if cold_clip else 0, tmap.end) < need:
             notes.append("Kế hoạch dựng thiếu dòng tiêu đề (cần 2 dòng trên" +
                          (" + 2 dòng dưới)." if need == 4 else ")."))
         if plan.topic_label.strip():
@@ -752,7 +801,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         if hook is not None:
             intervals = [(0, hook_us), *intervals]  # hạ nhạc dưới voice hook
         m_dur = music.material.get("duration", 0)
-        t = 0
+        t = hook_us if (cold_clip and hook is None) else 0  # review bỏ lửng: short giữ nguyên, nhạc vào sau short
         while m_dur > 0 and t < tmap.end:
             seg_len = min(m_dur, tmap.end - t)
             _add_audio_item(w, music, target_start=t, duration=seg_len, lane="music",

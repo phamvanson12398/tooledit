@@ -42,6 +42,8 @@ def layout_for(style: dict) -> dict | None:
     # khung hiển thị: theo khung người dùng chọn (style["block_ratio"]); bố cục có frame_ratio thì cố định theo đó
     # (chủ dự án bỏ khung cố định 3:4 ngày 02/10 — layout.yaml không còn đặt frame_ratio)
     ratio = out.get("frame_ratio") or style.get("block_ratio")
+    if style.get("keep_frame") and style.get("block_ratio"):  # khung video gốc (15/10) thắng khung cố định của bố cục
+        ratio = style["block_ratio"]
     return adapt_layout(out, ratio) if ratio and ratio != out.get("block_ratio") else out
 
 
