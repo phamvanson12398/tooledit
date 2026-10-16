@@ -12,3 +12,5 @@ fit_duration: true       # đọc vừa khít thời lượng câu thoại gốc
 min_ref_s: 3.0           # giọng mẫu để clone: 3–10 giây (khuyến nghị của OmniVoice)
 max_ref_s: 10.0
 # Clone giọng: CHỈ dùng khi bạn có quyền với giọng đó (giọng diễn viên lồng tiếng là của họ). Tool bắt tick xác nhận.
+studio_max_ref_s: 15.0   # Voice Studio: giọng mẫu tải lên dài hơn chừng này giây thì lấy đoạn đầu (OmniVoice khuyên 3–10s,
+                         # cảnh báo > 20s). Thông số sinh của Studio chỉnh ngay trên tab 🎙️ Voice Studio.

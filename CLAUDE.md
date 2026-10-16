@@ -244,6 +244,21 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   vào đó; âm thanh thư viện CapCut KHÔNG chép (quy tắc mục 7). Voice và nhạc mỗi thứ một track âm thanh riêng (`lane`
   trong writer — áp dụng cho mọi chế độ).
 
+## 5f. Tab "🎙️ Voice Studio" (chủ dự án yêu cầu 16/10)
+
+- Tab riêng trên thanh đầu trang (`/studio`, `app/web/studio_page.py`, logic `app/tts/studio.py`): dùng chính OmniVoice
+  của tool (python / model chọn ở ⚙️ Cài đặt) như một tool TTS — giọng mẫu + chữ → file WAV (cả bài một file, hoặc mỗi
+  dòng một file), nghe / tải ngay trên trang, lịch sử file đã đọc (`studio/outputs/`, kèm .json chữ + thông số).
+- **Thư viện giọng mẫu** `studio/voices/<tên>/`: sample.wav (WAV mono 24 kHz, ≤ `studio_max_ref_s` trong
+  `config/tts.yaml`, dài hơn thì lấy đoạn đầu và bỏ lời đọc), meta.json (tên, lời đọc mẫu, ngôn ngữ, ghi chú, quyền), và
+  `prompt.pt` = VoiceClonePrompt đã xử lý (worker tự lưu / nạp lại — `VoiceClonePrompt.save/load` bản 0.2.1) cho lần sau
+  nhanh; lưu được cả giọng "mô tả" (instruct). Lời đọc mẫu để trống → OmniVoice tự nhận dạng (tải Whisper turbo).
+  Clone CHỈ khi tick xác nhận có quyền dùng giọng. `studio/` bị .gitignore.
+- **Đủ thông số** (đối chiếu `OmniVoiceGenerationConfig` + `generate()` 0.2.1): tốc độ, thời lượng cố định, num_step,
+  guidance_scale, t_shift, layer_penalty_factor, position_temperature, class_temperature, denoise, preprocess_prompt,
+  postprocess_output, normalize_text, audio_chunk_duration / threshold, pad / fade, seed (worker `torch.manual_seed`);
+  lưu làm mặc định ở `config/local.yaml → studio_params`. Worker nhận thêm `gen` (yêu cầu cũ không có `gen` chạy như cũ).
+
 ## 5c. Chế độ "Phụ đề tiếng Việt" (chủ dự án yêu cầu 08/10)
 
 - Mục đích: chủ dự án XEM HIỂU video nước ngoài, không đăng. Ô tick "🇻🇳 Chỉ phụ đề tiếng Việt" (`JobOptions.vi_sub`).

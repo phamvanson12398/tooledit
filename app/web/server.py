@@ -30,7 +30,9 @@ CSS = """
 header{background:linear-gradient(120deg,var(--pri),var(--pri2));color:#fff;padding:14px 28px;display:flex;align-items:center;gap:14px;
 box-shadow:0 4px 20px rgba(91,91,247,.25)}
 header .logo{font-size:26px;background:rgba(255,255,255,.18);width:44px;height:44px;border-radius:12px;display:grid;place-items:center}
-header h1{font-size:19px;margin:0}header small{opacity:.85}header a{color:#fff;text-decoration:none}
+header h1{font-size:19px;margin:0}header .tabs{margin-left:auto;display:flex;gap:6px}
+header .tabs a{background:rgba(255,255,255,.18);padding:7px 14px;border-radius:999px;font-weight:600;font-size:14px}
+header .tabs a:hover{background:rgba(255,255,255,.32)}.params td{vertical-align:top;padding:6px 4px}header small{opacity:.85}header a{color:#fff;text-decoration:none}
 main{max-width:1240px;margin:22px auto;padding:0 16px}
 .grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.9fr);gap:22px;align-items:start}
 @media(max-width:960px){.grid{grid-template-columns:1fr}}
@@ -325,7 +327,9 @@ def _page(title: str, body: str, refresh: bool = False) -> HTMLResponse:
         f"<!doctype html><html lang='vi'><head><meta charset='utf-8'>{meta}"
         f"<meta name='viewport' content='width=device-width,initial-scale=1'><title>{html.escape(title)}</title>"
         f"<style>{CSS}</style></head><body><header><span class='logo'>🎬</span><div><h1><a href='/'>Tool dựng video TikTok"
-        f"</a></h1><small>CapCut 9.5.0 · đạo diễn AI chạy trên máy</small></div></header><main>{body}</main></body></html>")
+        f"</a></h1><small>CapCut 9.5.0 · đạo diễn AI chạy trên máy</small></div>"
+        f"<nav class='tabs'><a href='/'>🎞️ Dựng video</a><a href='/studio'>🎙️ Voice Studio</a></nav>"
+        f"</header><main>{body}</main></body></html>")
 
 
 def _read(path: Path) -> str:
@@ -333,7 +337,8 @@ def _read(path: Path) -> str:
 
 
 def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root: Path | None = None,
-               settings_path: Path | None = None, scan_fn=None) -> FastAPI:
+               settings_path: Path | None = None, scan_fn=None, studio_root: Path | None = None,
+               studio_worker=None) -> FastAPI:
     from app import settings as app_settings
     from app.assets import ledger
 
@@ -1272,6 +1277,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             shutil.rmtree(d, ignore_errors=True)
         return RedirectResponse("/", status_code=303)
 
+    from app.web.studio_page import register as register_studio  # tab 🎙️ Voice Studio (16/10)
+
+    register_studio(app, _page, root=studio_root, settings_path=settings_path if settings_path.is_file() else None,
+                    run_worker=studio_worker)
     return app
 
 

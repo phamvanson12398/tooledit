@@ -51,3 +51,6 @@ assets/.imports/
 
 # Môi trường OmniVoice do install_omnivoice.bat tạo (vài GB)
 /omnivoice-env/
+
+# Voice Studio: thư viện giọng mẫu + file đã đọc (giọng / âm thanh không bao giờ commit)
+/studio/

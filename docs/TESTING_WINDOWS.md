@@ -1,5 +1,20 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 108 — Tab "🎙️ Voice Studio" (OmniVoice như tool TTS + thư viện giọng mẫu) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat` (cần OmniVoice đã cài như Bước 95 — 🔎 Kiểm tra OmniVoice phải ✅).
+2. Thanh trên cùng có 2 nút **🎞️ Dựng video** / **🎙️ Voice Studio** → bấm Voice Studio.
+3. Mở **➕ Giọng mẫu mới**: chọn file giọng 3–10 giây, đặt tên, gõ lời đọc trong file (hoặc để trống cho OmniVoice tự
+   nhận dạng — lần đầu sẽ tải thêm model nhận dạng, hơi lâu), tick **Tôi xác nhận có quyền dùng giọng mẫu này**.
+4. Gõ chữ cần đọc, chọn ngôn ngữ → **🔊 Đọc**. Ô ⏳ Tiến độ hiện từng bước; xong tự tải lại trang, file nằm ở **🎧 File
+   đã đọc** (nghe thử / ⬇️ tải). File cũng ở thư mục `studio\outputs` trong tool.
+5. Giọng vừa dùng nằm trong **📚 Thư viện giọng mẫu** → lần sau bấm **Dùng** (hoặc chọn ở ô 1️⃣) là đọc ngay, không phải
+   tải file lại. Lần đọc thứ 2 với cùng giọng phải nhanh hơn (đã lưu prompt.pt).
+6. Thử **⚙️ 3️⃣ Thông số**: tốc độ 1.2, seed 42 → đọc 2 lần cùng chữ → 2 file phải giống nhau; tick "Lưu các thông số
+   này làm mặc định" → mở lại trang thấy giữ nguyên.
+7. Thử **📝 Mô tả giọng** (vd `female, young adult, high pitch`) không cần file mẫu; tick "Lưu mô tả này vào thư viện".
+8. Lỗi đỏ ❌ ở ô Tiến độ: chụp gửi mình (kèm dòng INFO phía trên).
+
 ## Bước 107 — Bán content: voice đủ dài + viết theo phụ đề trên hình `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

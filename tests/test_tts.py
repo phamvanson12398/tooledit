@@ -24,20 +24,31 @@ from tests.test_runner import make_runner
 FAKE_OMNIVOICE = textwrap.dedent('''
     import numpy as np
     CALLS = []
-    class _Prompt:
+    import json as _json
+    class VoiceClonePrompt:  # giống bản thật 0.2.1: save / load
         def __init__(self, ref_audio, ref_text):
             self.ref_audio, self.ref_text = ref_audio, ref_text
+        def save(self, path):
+            open(path, "w", encoding="utf-8").write(_json.dumps([self.ref_audio, self.ref_text]))
+        @classmethod
+        def load(cls, path, map_location="cpu"):
+            with open("calls.log", "a", encoding="utf-8") as f:
+                f.write("LOADED_CACHE\\n")
+            return cls(*_json.loads(open(path, encoding="utf-8").read()))
+    _Prompt = VoiceClonePrompt
     class OmniVoice:
         sampling_rate = 24000
         @classmethod
         def from_pretrained(cls, name, device_map=None, dtype=None):
             m = cls(); m.device = device_map; return m
-        def create_voice_clone_prompt(self, ref_audio, ref_text=None):
-            return _Prompt(ref_audio, ref_text)
-        def generate(self, text, language=None, num_step=32, duration=None, instruct=None, voice_clone_prompt=None):
+        def create_voice_clone_prompt(self, ref_audio, ref_text=None, preprocess_prompt=True):
+            return _Prompt(ref_audio, ref_text if ref_text is not None else "AUTO_ASR")
+        def generate(self, text, language=None, duration=None, instruct=None, voice_clone_prompt=None, speed=None,
+                     normalize_text=False, **kwargs):
             secs = duration or 1.0
             with open("calls.log", "a", encoding="utf-8") as f:
-                f.write(f"{text}|{language}|{duration}|{instruct}|{getattr(voice_clone_prompt, 'ref_text', None)}\\n")
+                f.write(f"{text}|{language}|{duration}|{instruct}|{getattr(voice_clone_prompt, 'ref_text', None)}"
+                        f"|{speed}|{normalize_text}|{_json.dumps(kwargs, sort_keys=True)}\\n")
             return [np.full(int(secs * self.sampling_rate), 0.1, dtype=np.float32)]
 ''')
 FAKE_TORCH = textwrap.dedent('''
@@ -46,6 +57,9 @@ FAKE_TORCH = textwrap.dedent('''
         @staticmethod
         def is_available(): return False
     class backends: pass
+    def manual_seed(n):
+        with open("calls.log", "a", encoding="utf-8") as f:
+            f.write(f"SEED {n}\\n")
 ''')
 
 
@@ -91,7 +105,8 @@ def test_worker_runs_omnivoice_in_separate_process(tmp_path):
     with wave.open(str(out / "a.wav")) as w:
         assert w.getframerate() == 24000 and abs(w.getnframes() / 24000 - 2.0) < 0.01
     calls = (tmp_path / "calls.log").read_text(encoding="utf-8").splitlines()
-    assert calls[0] == "안녕|ko|2.0|None|こんにちは" and calls[1] == "뭐야|ko|None|male, child|None"
+    assert calls[0].startswith("안녕|ko|2.0|None|こんにちは|") and calls[1].startswith("뭐야|ko|None|male, child|None|")
+    assert calls[0].endswith('{"num_step": 16}')  # yêu cầu cũ (không có "gen") vẫn chạy như trước
     assert calls[2].startswith("좋아|ko|1.5|None|None")
 
 
