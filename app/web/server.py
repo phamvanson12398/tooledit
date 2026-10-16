@@ -1216,6 +1216,20 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         worker.start_or_later(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
+    @app.post("/jobs/{job_id}/sell-longer")
+    def sell_longer(job_id: str, video: int = Form(1)):
+        """Bán content: voice ngắn hơn video → AI viết lại dài hơn theo tốc độ giọng thật."""
+        worker.start(job_id, action=lambda runner, job: runner.sell_lengthen(job, video))
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/sell-accept-short")
+    def sell_accept_short(job_id: str):
+        job = Job.load(Path(jobs_root), job_id)
+        job.data["sell_accept_short"] = True
+        job.save(Path(jobs_root))
+        worker.start(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
     @app.post("/jobs/{job_id}/dub-skip")
     def dub_skip(job_id: str):
         job = Job.load(Path(jobs_root), job_id)
@@ -1790,6 +1804,22 @@ def _dub_panel(job: Job, d: Path, skip: bool = True) -> str:
                       f"✂️ Viết gọn {n_long} câu 🔴 (AI viết lại ngắn hơn)</button></form>")
         done = sum(1 for i in range(1, len(script.lines) + 1) if dub_io.find_line_voice(d, v, i))
         whole = ""
+        if job.options.sell:  # chủ dự án 15/10: voice phải phủ kín video — đọc xong mà ngắn thì báo + nút viết dài thêm
+            from app.director.sell import short_voice
+
+            sv = short_voice(d, {v: script}, job.options.sell_s).get(v)
+            if sv:
+                tools += (f"<div class='note'><b>⚠️ Voice mới dài {sv['voice_s']:.0f}s — video cần ≥ {sv['need_s']:.0f}s "
+                          f"(mục tiêu {sv['target_s']:.0f}s).</b> Phần thiếu sẽ chỉ có hình + nhạc."
+                          + (f" Giọng bạn đọc ~{sv['rate']:.1f} chữ/giây → cần thêm khoảng {sv['extra_chars']} chữ."
+                             if sv['rate'] else "")
+                          + f"<form method='post' action='/jobs/{job.job_id}/sell-longer' style='margin-top:8px' "
+                          "onsubmit=\"return confirm('AI viết lại cả bài DÀI HƠN theo đúng tốc độ giọng bạn; voice đã tải "
+                          "được cất thành *_cu, bạn đọc lại. Tiếp tục?')\">"
+                          f"<input type='hidden' name='video' value='{v}'>"
+                          "<button type='submit' class='btn small'>📏 Viết dài thêm cho đủ thời lượng</button></form>"
+                          f"<form method='post' action='/jobs/{job.job_id}/sell-accept-short' style='margin-top:6px'>"
+                          "<button type='submit' class='btn small light'>Vẫn dựng với voice này</button></form></div>")
         if script.story_vi:  # review: bài lời đọc viết trước — đọc liền một mạch, tool dựng cảnh theo voice
             sep = "" if job.options.target_language == "ja" else " "
             whole = (f"<div class='card' style='background:#f7f7ff'><b>📜 Bài lời đọc — đọc LIỀN MỘT MẠCH, nghỉ ~1 giây "

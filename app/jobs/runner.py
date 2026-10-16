@@ -1306,6 +1306,34 @@ class Runner:
         dub_io.pending_path(d, i).unlink(missing_ok=True)
         return script
 
+    def sell_short_voice(self, job: Job) -> dict[int, dict]:
+        from app.director.sell import short_voice
+
+        d, _, _ = self._paths(job)
+        return short_voice(d, self._dub_scripts(job), job.options.sell_s)
+
+    def sell_lengthen(self, job: Job, video_index: int) -> None:
+        """Nút "📏 Viết dài thêm cho đủ thời lượng": lưu tốc độ đọc THẬT của giọng vừa thu (để AI tính đúng số chữ), rồi
+        AI viết lại cả bài dài hơn (giữ ý cũ, thêm chi tiết thật) — voice cũ cất *_cu, chờ đọc lại."""
+        from app.planner import dub_io
+
+        info = self.sell_short_voice(job).get(video_index)
+        d, _, _ = self._paths(job)
+        script = self._dub_scripts(job).get(video_index)
+        rate = (info or {}).get("rate") or (dub_io.voice_rate(d, video_index, script, min_lines=1) if script else None)
+        if rate:
+            u = self._u_for(job, next(x for x in self.videos(job) if x["index"] == video_index))
+            saved = dub_io.remember_voice_rate(u.language, rate, "sell_voice_cps")
+            self.log(f"Giọng bạn đọc ~{rate:.1f} chữ/giây — đã lưu {saved:.1f} để AI viết đủ chữ cho video.")
+        fb = ("Bài đọc thật " + (f"chỉ dài {info['voice_s']:.0f} giây, video cần ~{info['target_s']:.0f} giây" if info
+                                  else "còn ngắn so với video")
+              + (f" (giọng đọc ~{rate:.1f} chữ/giây → cần viết THÊM khoảng {info['extra_chars']} chữ)" if info and rate
+                 else "")
+              + ". Viết DÀI HƠN cho voice phủ kín video: giữ các ý hay của bản trước, thêm ý / chi tiết THẬT có trong "
+                "video (phụ đề trên hình, điều thấy trong cảnh), không lặp ý, không bịa.")
+        job.data.pop("sell_accept_short", None)
+        self.rewrite_review(job, video_index, fb)
+
     def rewrite_review(self, job: Job, video_index: int, feedback: str) -> None:
         """Review phim — nút "✍️ Viết lại theo góp ý": AI viết lại bài lời đọc của một video theo đúng góp ý của chủ dự
         án (kèm bản trước), voice cũ của video đó cất thành *_cu, job quay về chờ đọc lại cả bài."""
@@ -1386,6 +1414,14 @@ class Runner:
                 self.log(f"⚠️ Chưa ghi được video đủ voice vào CapCut: {exc}")
             job.wait(f"Thu voice thuyết minh theo kịch bản bên dưới rồi tải lên. Còn thiếu {len(missing)} file: "
                      + ", ".join(missing[:8]) + (" …" if len(missing) > 8 else ""))
+            return
+        if job.options.sell and not job.data.get("sell_accept_short"):  # chủ dự án 15/10: voice phải phủ kín video
+            short = self.sell_short_voice(job)
+            if short:
+                job.wait("⚠️ Voice chưa đủ dài: " + "; ".join(
+                    f"video {i:02d} đọc {x['voice_s']:.0f}s, cần ≥ {x['need_s']:.0f}s" for i, x in short.items())
+                    + " — bấm '📏 Viết dài thêm cho đủ thời lượng' (AI viết lại theo đúng tốc độ giọng bạn) rồi đọc lại, "
+                    "hoặc 'Vẫn dựng với voice này' (phần thiếu chỉ có hình + nhạc).")
 
     def _text_boxes(self, job: Job, analysis: Path, a: dict) -> list:
         """Vùng chữ in sẵn trên footage (để cắt tránh / che). Chỉ dò khi AI báo footage có chữ; lưu text_boxes.json."""
@@ -1759,7 +1795,8 @@ class Runner:
                             (f.resolve(), self._voice_duration(f))
                 rate = dub_io.voice_rate(d, i, dub)
                 if rate:  # nhớ tốc độ đọc thật của giọng bạn → lần sau AI viết câu vừa giọng, khỏi đè tiếng
-                    key = "review_voice_cps" if job.options.review else "voice_cps"
+                    key = "review_voice_cps" if job.options.review else "sell_voice_cps" if job.options.sell \
+                        else "voice_cps"
                     saved = dub_io.remember_voice_rate(u_v.language, rate, key)
                     self.log(f"Giọng thu của bạn đọc ~{rate:.1f} ký tự/giây ({u_v.language}); đã lưu {saved:.1f} "
                              + ("(giọng review) " if job.options.review else "")

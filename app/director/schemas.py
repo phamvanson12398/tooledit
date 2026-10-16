@@ -716,8 +716,15 @@ class SellLine(BaseModel):
     shots_vi: str = Field(default="", description="các cảnh đó có gì (tiếng Việt, ngắn) — để chủ dự án đối chiếu")
 
 
+class OnscreenLine(BaseModel):
+    t: float = Field(ge=0, description="giây gốc lúc dòng chữ xuất hiện")
+    text: str = Field(description="dòng phụ đề / chữ in trên hình, chép đúng chữ gốc")
+
+
 class SellScript(BaseModel):
     video_index: int = Field(ge=1)
+    onscreen_text: list[OnscreenLine] = Field(default_factory=list, description="phụ đề in trên hình AI đọc được, theo "
+                                                                                 "thứ tự (rỗng nếu không có)")
     outline_vi: str = Field(description="dàn ý tiếng Việt viết TRƯỚC: mở đầu thu hút → nội dung → (kêu gọi hành động)")
     titles_top: list[str] = Field(default_factory=list, max_length=2,
                                   description="2 dòng tiêu đề lớn phía trên khối video, ngôn ngữ đích")

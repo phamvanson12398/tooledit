@@ -21,12 +21,14 @@ def sell_target(cfg: dict, sell_s: float | int = 0) -> float:
 
 
 def sell_cps(cfg: dict, language: str) -> float:
-    """Tốc độ đọc dùng để tính độ dài bài: voice_cps riêng của chế độ này (nếu có), không thì như giọng thuyết minh
-    (config/dub.yaml → max_cps, hoặc tốc độ đo thật của giọng bạn)."""
+    """Tốc độ đọc dùng để tính độ dài bài. Chủ dự án 15/10 ("voice thiếu, không đủ ý"): đã đo được giọng thật của chế
+    độ này (config/local.yaml → sell_voice_cps) thì dùng ĐÚNG tốc độ đó (nhanh hơn cũng theo) → bài đủ dài cho voice phủ
+    kín video; chưa đo thì voice_cps của config/sell.yaml, không có nữa thì max_cps của config/dub.yaml."""
     from app.director.tasks import effective_cps
 
-    own = (cfg.get("voice_cps") or {}).get(language)
-    return float(own) if own else effective_cps(config.load("dub"), language)
+    dub = config.load("dub")
+    return effective_cps({**dub, "max_cps": {**(dub.get("max_cps") or {}), **(cfg.get("voice_cps") or {})},
+                          "measured_key": "sell_voice_cps", "measured_override": True}, language)
 
 
 def _scene_of(t: float, scenes: list[dict]) -> dict | None:
@@ -86,6 +88,18 @@ def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], 
     return errors
 
 
+ONSCREEN_YES = """CÓ chữ in trên hình (vùng: {regions}; {note}).
+1. ĐỌC chữ trên TỪNG khung hình theo thứ tự thời gian (mở hết các file khung hình). Nếu đó là PHỤ ĐỀ / chữ thuyết minh
+   (dòng chữ đổi theo lời / theo cảnh) thì đó là NỘI DUNG CHÍNH của video gốc: chép lại từng dòng (đúng chữ gốc, kèm giây
+   khung hình đầu tiên thấy dòng đó) vào `onscreen_text`, không lặp dòng trùng.
+2. Viết kịch bản BÁM SÁT phụ đề: đủ MỌI ý của phụ đề, đúng thứ tự (viết lại tự nhiên bằng ngôn ngữ đích, bản địa hóa,
+   không dịch từng chữ), KHÔNG bỏ ý → bài đọc dài tương ứng nội dung phụ đề; vẫn thiếu so với thời lượng mục tiêu thì
+   thêm chi tiết THẤY trong hình. Câu nói về ý của dòng phụ đề nào thì `shots` lấy đúng đoạn dòng đó hiện trên màn hình.
+3. Chữ chỉ là logo / watermark / tên kênh (không đổi theo nội dung) thì bỏ qua, `onscreen_text` để rỗng, viết theo hình."""
+ONSCREEN_NO = """KHÔNG có phụ đề trên hình → viết theo HÌNH ẢNH (và lời nói gốc nếu có): mỗi cảnh làm gì, có gì đáng nói,
+đủ chi tiết để bài đọc đạt thời lượng mục tiêu. `onscreen_text` để rỗng."""
+
+
 def _lines_text(previous) -> str:
     return "\n".join(f"{i}. [{ln.role}] {ln.text} ({ln.text_vi})" for i, ln in enumerate(previous.lines, 1))
 
@@ -107,7 +121,9 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     target = sell_target(cfg, sell_s)
     cps = sell_cps(cfg, u.language)
     title_max = int((cfg.get("title_max_chars") or {}).get(u.language, 12))
-    n = int(cfg.get("frames", 40))
+    subs = bool(u.burned_in_text.present)
+    # có chữ / phụ đề in trên hình → gửi DÀY khung (ghép ảnh lưới nên không tốn) để AI đọc đủ từng dòng phụ đề
+    n = int(cfg.get("subtitle_frames", 70) if subs else cfg.get("frames", 40))
     firsts = {min(a["frames"], key=lambda f, t=s["start"]: abs(f["t"] - t))["file"]: None for s in scenes} \
         if a["frames"] else {}
     chosen = {f["file"]: f for f in a["frames"] if f["file"] in firsts}
@@ -126,6 +142,8 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
                  "source_s": f"{duration:.0f}", "target_s": f"{target:.0f}", "cps": f"{cps:.1f}",
                  "target_chars": f"{int(lo * (target - gap * 12) * cps)}–{int(hi * target * cps)}",
                  "title_max": title_max,
+                 "onscreen": (ONSCREEN_YES.format(regions=", ".join(u.burned_in_text.regions) or "không rõ",
+                                                  note=u.burned_in_text.note_vi or "") if subs else ONSCREEN_NO),
                  "brief": (f"Chủ dự án có ghi thêm (ưu tiên làm theo): {brief.strip()}" if (brief or "").strip()
                            else "Chủ dự án không ghi gì thêm — bạn tự quyết hoàn toàn theo nội dung gốc."),
                  "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
@@ -179,3 +197,26 @@ def sell_plan(r, default_ratio: str = "16:9"):
              for ln in r.lines for s in ln.shots]
     return EditPlan(video_index=r.video_index, titles_top=r.titles_top[:2], default_ratio=default_ratio, clips=clips,
                     music=r.music, editor_notes=r.editor_notes)
+
+
+def short_voice(job_dir: Path, scripts: dict, sell_s: float | int = 0) -> dict[int, dict]:
+    """Chủ dự án 15/10 ("voice thiếu, không đủ ý"): video nào có voice cả bài ngắn hơn short_voice_ratio × min_s →
+    {video: {voice_s, need_s, target_s, rate, extra_chars}}. Còn thiếu file / không đọc được độ dài thì bỏ qua."""
+    from app.planner import dub_io
+
+    cfg = sell_cfg()
+    need = float(cfg.get("min_s", 60.5))
+    target = sell_target(cfg, sell_s)
+    gap = float(cfg.get("voice_gap_s", 0.08))
+    out = {}
+    for i, script in scripts.items():
+        secs = [dub_io.voice_seconds(f) if (f := dub_io.find_line_voice(job_dir, i, n)) else None
+                for n in range(1, len(script.lines) + 1)]
+        if not secs or any(x is None for x in secs):
+            continue
+        total = sum(secs) + gap * (len(secs) - 1)
+        if total < need * float(cfg.get("short_voice_ratio", 0.95)):
+            rate = dub_io.voice_rate(job_dir, i, script, min_lines=1) or 0.0
+            out[i] = {"voice_s": total, "need_s": need, "target_s": target, "rate": rate,
+                      "extra_chars": int(max(0.0, target - total) * rate) if rate else 0}
+    return out

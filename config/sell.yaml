@@ -8,9 +8,16 @@
 default_s: 65                 # thời lượng mục tiêu mặc định (giây)
 durations: [62, 65, 70, 75]   # các lựa chọn trên trang chủ
 min_s: 60.5                   # video luôn DÀI HƠN 60 giây: thiếu thì kéo dài cảnh cuối (nhạc chạy tiếp)
-script_fill: [0.92, 1.03]     # bài đọc dài 92–103% thời lượng mục tiêu (theo tốc độ giọng)
+script_fill: [0.97, 1.08]     # bài đọc dài 97–108% thời lượng mục tiêu (theo tốc độ giọng) — voice phải phủ kín video
 frames: 40                    # số khung hình gửi AI xem (khung đầu mỗi cảnh + rải đều)
-voice_cps: {}                 # tốc độ đọc riêng (chữ/giây); rỗng = theo max_cps của config/dub.yaml
+subtitle_frames: 70           # video có phụ đề in trên hình: gửi dày hơn để AI đọc đủ từng dòng
+analysis_frames: 70           # bước phân tích: trích tối đa chừng này khung…
+frame_every_s: 1.0            # …mỗi 1 giây một khung (phụ đề đổi mỗi 2–3 giây)
+# Tốc độ đọc (chữ/giây, không tính dấu cách / dấu câu) để tính độ dài bài. Chủ dự án 15/10: voice đang THIẾU (giọng đọc
+# nhanh hơn 7 chữ/giây cũ) → mặc định như giọng review; sau lần thu đầu tool dùng ĐÚNG tốc độ đo thật
+# (config/local.yaml → sell_voice_cps).
+voice_cps: {ko: 10.0, ja: 9.0, en: 16.0}
+short_voice_ratio: 0.95       # voice thật (cả bài) ngắn hơn 95% của 60.5s → dừng hỏi viết thêm thay vì chèn cảnh câm
 # Dựng theo voice
 voice_gap_s: 0.08             # nghỉ giữa 2 câu voice
 cut_s: 2.2                    # mỗi cảnh trên màn hình dài khoảng chừng này

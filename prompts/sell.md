@@ -15,6 +15,9 @@ Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây). BẠN 
 - Video kể chuyện / khoảnh khắc / mẹo / kiến thức → kể lại cuốn hơn, rõ ý hơn bản gốc.
 - Viết góc kể đã chọn vào đầu `outline_vi` (vd "Góc kể: giới thiệu quán mì — nhấn nước dùng, sợi mì kéo tay").
 
+## Phụ đề / chữ trên màn hình của video gốc
+{{onscreen}}
+
 ## Cấu trúc kịch bản
 1. Viết `outline_vi` (tiếng Việt) TRƯỚC: mở đầu thu hút → nội dung chính (2–4 ý, nối nhau mạch lạc) → kết / kêu gọi hành
    động (nếu cần).
@@ -33,7 +36,8 @@ Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây). BẠN 
 - ĐÚNG SỰ THẬT: chỉ nói điều thấy trong khung hình hoặc nghe trong lời nói gốc. Không bịa tên quán / thương hiệu, công
   dụng, giá, địa chỉ, số liệu, cam kết ("chữa khỏi", "100%", "rẻ nhất"…) mà video gốc không có. Không chửi thề.
 - Độ dài: cả bài đọc khoảng **{{target_s}} giây** ở tốc độ giọng ~{{cps}} chữ/giây → khoảng **{{target_chars}} chữ**
-  (không tính dấu cách, dấu câu). Tool đếm và bắt viết lại nếu thiếu / thừa. Mỗi phần tử `lines` là 1 câu (hoặc 2 câu
+  (không tính dấu cách, dấu câu). Tool đếm và bắt viết lại nếu thiếu / thừa. Giọng đọc phải PHỦ KÍN video từ đầu tới
+  cuối — thiếu chữ là video có khoảng chỉ còn nhạc, rất dở: thà đủ ý, đủ chi tiết còn hơn viết cụt. Mỗi phần tử `lines` là 1 câu (hoặc 2 câu
   rất ngắn), đọc khoảng 2–7 giây.
 - `text_vi` = nghĩa tiếng Việt; `shots_vi` = các cảnh dưới câu có gì (tiếng Việt, ngắn).
 

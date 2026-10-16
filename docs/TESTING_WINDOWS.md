@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 107 — Bán content: voice đủ dài + viết theo phụ đề trên hình `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Tạo job **mới** (job cũ đã phân tích với ít khung hình) với video có **phụ đề in trên hình**:
+   - nhật ký bước phân tích: trích khoảng 60–70 khung (mỗi giây một khung);
+   - trang voice: kịch bản phải có đủ các ý của phụ đề gốc, đúng thứ tự (đối chiếu bằng dòng 🇻🇳).
+3. Thử với video **không có phụ đề**: kịch bản tả theo hình ảnh, đủ chi tiết.
+4. Đọc cả bài như bình thường. Nếu voice ngắn hơn ~57 giây, job **dừng ở trang voice** với khung ⚠️ "Voice mới dài …s":
+   - bấm **📏 Viết dài thêm cho đủ thời lượng** → AI viết lại dài hơn đúng theo tốc độ giọng bạn vừa đọc → đọc lại;
+   - hoặc **Vẫn dựng với voice này** nếu chấp nhận phần cuối chỉ có hình + nhạc.
+5. Mở CapCut: track voice phải kéo gần hết chiều dài video (không còn nửa sau chỉ có nhạc như ảnh bạn gửi).
+6. Từ lần thứ 2 trở đi, tool đã nhớ tốc độ giọng bạn → kịch bản viết ra đủ dài ngay, ít khi phải bấm 📏.
+
 ## Bước 106 — Bán content: có lại ô chọn video, bỏ ô định hướng (AI tự viết theo nội dung gốc) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

@@ -13,12 +13,12 @@ from tests.test_runner import make_runner as _make_runner, prepare
 
 FIX = json.loads((Path(__file__).parent / "fixtures" / "director" / "sell.json").read_text(encoding="utf-8"))
 CFG = {"voice_gap_s": 0.08, "cut_s": 2.2, "min_cut_s": 1.0, "max_cut_s": 4.0, "min_speed": 0.85, "min_s": 60.5,
-       "reuse_gap": 2, "reuse_mirror": True, "script_fill": [0.92, 1.03]}
+       "reuse_gap": 2, "reuse_mirror": True, "script_fill": [0.97, 1.08]}
 SCENES = [{"start": 0.0, "end": 60.0}]
 
 
 def _check(r, **kw):
-    args = {"duration": 60.0, "scenes": SCENES, "cps": 7.0, "target_s": 65.0, "cfg": CFG, "title_max": 12}
+    args = {"duration": 60.0, "scenes": SCENES, "cps": 10.0, "target_s": 65.0, "cfg": CFG, "title_max": 12}
     return check_sell_script(r, "ko", **{**args, **kw})
 
 
@@ -98,7 +98,7 @@ def test_full_sell_job_packs_media_and_separate_audio_tracks(tmp_path):
     script = (jobs / "j1" / "dub_scripts.txt").read_text(encoding="utf-8")
     assert "BÀI LỜI ĐỌC" in script and "video01_dub12.wav" in script
     vdir = jobs / "j1" / "voice"
-    for n in range(1, 13):
+    for n in range(1, 19):
         (vdir / f"video01_dub{n:02d}.wav").write_bytes(b"RIFF")
     job = r.resume(job)
     assert job.status == Status.done, job.message
@@ -107,7 +107,7 @@ def test_full_sell_job_packs_media_and_separate_audio_tracks(tmp_path):
     content = json.loads((draft / "draft_content.json").read_text(encoding="utf-8"))
     audios = {m["id"]: m for m in content["materials"]["audios"]}
     voice_paths = [m["path"] for m in audios.values() if "video01_dub" in m.get("name", "")]
-    assert len(voice_paths) == 12
+    assert len(voice_paths) == 18
     assert all(Path(p).parent == draft / "media" for p in voice_paths)  # voice đã chép vào thư mục dự án
     assert (draft / "media" / "video01_dub01.wav").is_file()
     tracks = [t for t in content["tracks"] if t["type"] == "audio"]
@@ -174,3 +174,60 @@ def test_home_sell_mode(tmp_path):
     assert "Chưa chọn ngôn ngữ" in client.post("/jobs", data={"footage": str(f), "mode": "sell"}).text
     page = client.get(r.headers["location"]).text
     assert "💰 Bán content" in page and "1:10" in page
+
+
+def _wav(path, secs):
+    import wave
+
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(8000)
+        w.writeframes(b"\x00\x00" * int(8000 * secs))
+
+
+def test_short_voice_stops_and_lengthen_rewrites(tmp_path, monkeypatch):
+    """Chủ dự án 15/10: voice thiếu (chỉ phủ nửa video) → không chèn cảnh câm im lặng, dừng hỏi viết dài thêm."""
+    from app import settings
+
+    saved = {}
+    monkeypatch.setattr(settings, "load", lambda: dict(saved))
+    monkeypatch.setattr(settings, "save", lambda upd: saved.update(upd))
+    jobs, job = prepare(tmp_path, JobOptions(sell=True, target_language="ko", client_id="k"))
+    r = make_runner(tmp_path, jobs)
+    job = r.run(job)
+    vdir = jobs / "j1" / "voice"
+    for n in range(1, 19):
+        _wav(vdir / f"video01_dub{n:02d}.wav", 1.8)  # cả bài ~33s, giọng đọc nhanh hơn dự tính
+    job = r.resume(job)
+    assert job.status == Status.waiting and job.step == "dub_voice" and "Voice chưa đủ dài" in job.message
+    short = r.sell_short_voice(job)[1]
+    assert 30 < short["voice_s"] < 36 and short["rate"] > 15 and short["extra_chars"] > 300
+    from app.director import sell as sell_mod
+
+    monkeypatch.setattr(sell_mod, "check_sell_script", lambda *a, **k: [])  # độ dài đã có test riêng
+    r.sell_lengthen(job, 1)
+    assert saved["sell_voice_cps"]["ko"] > 15  # nhớ tốc độ giọng thật → lần viết sau đủ chữ
+    sell_prompts = [c["prompt"] for c in r.director.calls if c["task"] == "sell"]
+    assert len(sell_prompts) == 2 and "Viết DÀI HƠN" in sell_prompts[1] and "cần viết THÊM khoảng" in sell_prompts[1]
+    assert (vdir / "video01_dub01_cu.wav").is_file() and not (vdir / "video01_dub01.wav").exists()
+    for n in range(1, 19):
+        _wav(vdir / f"video01_dub{n:02d}.wav", 1.8)
+    job.data["sell_accept_short"] = True  # nút "Vẫn dựng với voice này"
+    job = r.resume(job)
+    assert job.status == Status.done, job.message
+
+
+def test_subtitles_on_screen_prompt(tmp_path):
+    """Có phụ đề in trên hình → AI đọc từng dòng, viết bám sát; không có → viết theo hình ảnh."""
+    from app.director.schemas import Understanding
+    from app.director.sell import make_sell_script
+    from tests.test_director import GOOD, make_analysis
+
+    a = make_analysis(tmp_path)
+    for subs, want in ((True, "BÁM SÁT phụ đề"), (False, "viết theo HÌNH ẢNH")):
+        u = Understanding.model_validate({**GOOD, "burned_in_text": {"present": subs, "regions": ["bottom"]}}
+                                         ).dubbed_to("ko")
+        d = FakeDirector()
+        make_sell_script(d, a, u, brief="", music_items=[])
+        assert want in d.calls[0]["prompt"]

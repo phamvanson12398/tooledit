@@ -89,11 +89,15 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
                              else fr.get("max_frames", 40))
             if films:  # AI tìm cảnh bằng mắt → nhiều khung hình mỗi phim
                 max_frames = int(config.load("films").get("frames_per_film", 180))
+            every_s = None
+            if getattr(job.options, "sell", False):  # bán content (15/10): khung dày để AI đọc được phụ đề in trên hình
+                scfg = config.load("sell") or {}
+                max_frames, every_s = int(scfg.get("analysis_frames", 70)), float(scfg.get("frame_every_s", 1.0))
             o = job.options  # bỏ phần không cần cho chế độ này (chủ dự án 11/10: "chậm quá")
             need_scenes = not getattr(o, "vi_sub", False)             # phụ đề tiếng Việt: chỉ cần lời thoại
             need_faces = not (getattr(o, "vi_sub", False) or getattr(o, "voice_only", False) or films)  # giữ khung gốc
             video_job = _in_thread(pool, _video_part, src, i, tag, duration, info, out, cfg, workers, progress,
-                                   max_frames if need_scenes else 6, need_scenes, need_faces)
+                                   max_frames if need_scenes else 6, need_scenes, need_faces, every_s)
             if listen:
                 wav_job.result()
                 tr, events = _audio_part(job, whisper_wav, transcribe_fn, cfg, progress)
@@ -145,7 +149,7 @@ def _audio_part(job: Job, whisper_wav: Path, transcribe_fn: Callable, cfg: dict,
 
 
 def _video_part(src: Path, i: int, tag: str, duration: float, info, out: Path, cfg: dict, workers: int, progress,
-                max_frames: int = 40, need_scenes: bool = True, need_faces: bool = True):
+                max_frames: int = 40, need_scenes: bool = True, need_faces: bool = True, every_s: float | None = None):
     """Dò cảnh → trích khung (nhiều khung một lúc) → dò mặt. Chạy song song với nhận dạng thoại.
     need_scenes / need_faces = False: bỏ qua phần chế độ này không dùng (cả video là một cảnh / không dò mặt)."""
     from app.analysis.scenes import Scene
@@ -164,7 +168,7 @@ def _video_part(src: Path, i: int, tag: str, duration: float, info, out: Path, c
 
     progress("Trích khung hình")
     fr = cfg.get("frames", {})
-    times = frame_times(duration, scenes, fr.get("every_s", 4.0), max_frames)
+    times = frame_times(duration, scenes, every_s or fr.get("every_s", 4.0), max_frames)
 
     def grab(t: float):
         dst = out / "frames" / f"{tag}_{t:08.2f}.jpg"

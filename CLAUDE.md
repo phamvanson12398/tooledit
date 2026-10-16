@@ -213,6 +213,15 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - **Cập nhật 15/10 (chủ dự án): bỏ ô "Định hướng nội dung"** — AI tự xem nội dung gốc (khung hình + lời nói gốc) rồi tự
   chọn góc kể và viết; `sell_brief` chỉ còn cho job cũ đã nhập. Ô chọn file hiện cho mọi chế độ trừ Content nhiều phim
   (test chặn lỗi gộp nhánh làm mất ô).
+- **Cập nhật 16/10 (chủ dự án: "voice thiếu, không đủ ý"; "có sub trên màn thì dựa vào đó, không có thì dựa vào hình"):**
+  (1) **phụ đề in trên hình** (`burned_in_text.present`): phân tích trích khung DÀY (`frame_every_s` 1s, tối đa
+  `analysis_frames` 70), gửi AI `subtitle_frames` 70 khung (ghép ảnh lưới); AI chép từng dòng vào `onscreen_text`, viết
+  BÁM SÁT đủ mọi ý phụ đề theo thứ tự, cảnh của câu = đoạn dòng đó hiện (`ONSCREEN_YES`); không có phụ đề → viết theo
+  hình (`ONSCREEN_NO`). (2) **voice phủ kín video**: tốc độ đọc mặc định như giọng review (`voice_cps` ko 10), sau đó dùng
+  ĐÚNG tốc độ đo thật (`config/local.yaml → sell_voice_cps`, `sell_cps`), `script_fill` 0.97–1.08; đọc xong mà cả bài
+  < `short_voice_ratio` × 60.5s thì job DỪNG ở trang voice (`short_voice`), nút "📏 Viết dài thêm cho đủ thời lượng"
+  (`Runner.sell_lengthen`: lưu tốc độ thật, AI viết lại dài hơn kèm số chữ cần thêm, voice cũ → *_cu) hoặc "Vẫn dựng với
+  voice này" (`job.data.sell_accept_short`).
 - Thẻ "💰 Bán content" ở trang chủ (`JobOptions.sell`, `sell_brief` = định hướng nội dung, `sell_s` = thời lượng;
   `config/sell.yaml`), MỘT video gốc ~55–60 giây, cần chọn ngôn ngữ giọng đọc (Hàn / Nhật / Anh). Không hook riêng, không
   chia video, không ⚡.

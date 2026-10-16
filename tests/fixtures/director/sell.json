@@ -156,6 +156,78 @@
       "shots_vi": "cảnh nấu ăn"
     },
     {
+      "role": "body",
+      "text": "재료는 매일 새벽 시장에서 직접 사 온다고 하는데요, 그래서 늘 신선한 맛이 그대로 살아 있는 거래요.",
+      "text_vi": "Nguyên liệu được mua ở chợ mỗi sáng sớm, nên lúc nào cũng tươi.",
+      "shots": [
+        {
+          "start": 0,
+          "end": 2
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "body",
+      "text": "주방은 작지만 정말 깔끔하게 정리되어 있어서, 보는 것만으로도 믿음이 가는 곳이에요. 위생도 최고예요.",
+      "text_vi": "Bếp nhỏ nhưng rất gọn gàng sạch sẽ, nhìn thôi đã thấy yên tâm.",
+      "shots": [
+        {
+          "start": 11,
+          "end": 12
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "body",
+      "text": "국물 한 숟가락을 떠먹는 순간, 진하면서도 깔끔한 맛에 다들 감탄을 멈추지 못한다고 해요. 정말 궁금하죠.",
+      "text_vi": "Húp một thìa nước dùng là ai cũng trầm trồ vì vừa đậm vừa thanh.",
+      "shots": [
+        {
+          "start": 16,
+          "end": 18
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "body",
+      "text": "면발은 끝까지 퍼지지 않고 탱탱해서, 마지막 한 젓가락까지 처음 그 식감 그대로 즐길 수 있어요.",
+      "text_vi": "Sợi mì không bị nở, dai tới đũa cuối cùng.",
+      "shots": [
+        {
+          "start": 22,
+          "end": 23
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "body",
+      "text": "반찬도 직접 담근 김치를 내주는데요, 이 김치랑 같이 먹으면 국물 맛이 훨씬 더 살아난다고 해요.",
+      "text_vi": "Món kèm là kim chi tự muối, ăn cùng thì nước dùng càng ngon.",
+      "shots": [
+        {
+          "start": 33,
+          "end": 35
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "body",
+      "text": "그래서인지 혼자 오는 손님도 많고, 가족끼리 와서 한 그릇씩 비우고 가는 모습도 자주 볼 수 있어요.",
+      "text_vi": "Vì vậy có nhiều khách đi một mình, cả gia đình cũng hay tới ăn.",
+      "shots": [
+        {
+          "start": 46,
+          "end": 47
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
       "role": "cta",
       "text": "이런 맛집 정보 더 보고 싶다면 팔로우하고, 가 보고 싶은 사람은 댓글로 친구를 태그해 주세요!",
       "text_vi": "Muốn xem thêm quán ngon thì follow nhé, ai muốn đi thì tag bạn bè vào bình luận!",
