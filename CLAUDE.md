@@ -222,6 +222,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   < `short_voice_ratio` × 60.5s thì job DỪNG ở trang voice (`short_voice`), nút "📏 Viết dài thêm cho đủ thời lượng"
   (`Runner.sell_lengthen`: lưu tốc độ thật, AI viết lại dài hơn kèm số chữ cần thêm, voice cũ → *_cu) hoặc "Vẫn dựng với
   voice này" (`job.data.sell_accept_short`).
+- **Cập nhật 17/10 ("Lỗi ở bước plan: division by zero" — video game cắt cảnh ~1 giây):** `pick_evenly(n ≤ 0)` trả rỗng
+  (trước chia cho 0); khung đầu cảnh nhiều hơn số khung gửi AI thì lấy rải đều cả video (không cắt cụt phần cuối); cảnh
+  AI chọn chỉ bị cấm vắt qua điểm cắt khi cảnh gốc dài ≥ `strict_scene_s` 2.5s (video cắt dày thì cho vắt).
 - Thẻ "💰 Bán content" ở trang chủ (`JobOptions.sell`, `sell_brief` = định hướng nội dung, `sell_s` = thời lượng;
   `config/sell.yaml`), MỘT video gốc ~55–60 giây, cần chọn ngôn ngữ giọng đọc (Hàn / Nhật / Anh). Không hook riêng, không
   chia video, không ⚡.

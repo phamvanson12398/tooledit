@@ -1,5 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 109 — Sửa "Lỗi ở bước plan: division by zero" (Bán content, video cắt cảnh dày) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Mở job đang báo lỗi → bấm **Chạy lại bước này** (không cần tạo job mới, phần phân tích giữ nguyên).
+3. Bước "AI viết kịch bản mới + chọn cảnh" phải chạy qua, tới trang chờ đọc cả bài.
+4. Vẫn lỗi: chụp nhật ký (log) gửi mình.
+
 ## Bước 108 — Tab "🎙️ Voice Studio" (OmniVoice như tool TTS + thư viện giọng mẫu) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat` (cần OmniVoice đã cài như Bước 95 — 🔎 Kiểm tra OmniVoice phải ✅).

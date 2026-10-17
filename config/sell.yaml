@@ -22,6 +22,8 @@ short_voice_ratio: 0.95       # voice thật (cả bài) ngắn hơn 95% của 6
 voice_gap_s: 0.08             # nghỉ giữa 2 câu voice
 cut_s: 2.2                    # mỗi cảnh trên màn hình dài khoảng chừng này
 min_cut_s: 1.0                # cảnh ngắn nhất (giây)
+strict_scene_s: 2.5           # cảnh gốc dài từ chừng này giây thì AI không được lấy cảnh vắt qua điểm cắt (video
+                              # cắt cảnh dày như game: cảnh ~1s → cho vắt, tránh AI sai mãi không sửa được)
 max_cut_s: 4.0                # cảnh dài nhất ở tốc độ thường
 min_speed: 0.85               # làm chậm nhẹ tối đa (0.85x) khi cảnh AI chọn ngắn hơn câu đọc
 reuse_mirror: true            # dùng lại một cảnh lần nữa thì phản chiếu ngang + lấy khúc khác cho khỏi lộ lặp

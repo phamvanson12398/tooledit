@@ -69,7 +69,9 @@ def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], 
             if s.end - s.start < min_cut - 0.05:
                 errors.append(f"câu {i}: cảnh {s.start}-{s.end} ngắn hơn {min_cut:.0f} giây")
             sc = _scene_of((s.start + s.end) / 2, scenes)
-            if sc and (s.start < sc["start"] - 0.3 or s.end > sc["end"] + 0.3):
+            # video gốc cắt cảnh dày (game, montage: cảnh ~1s) thì cảnh vắt qua điểm cắt là tự nhiên — chỉ chặn ở cảnh dài
+            if sc and sc["end"] - sc["start"] >= float(cfg.get("strict_scene_s", 2.5)) and \
+                    (s.start < sc["start"] - 0.3 or s.end > sc["end"] + 0.3):
                 errors.append(f"câu {i}: cảnh {s.start}-{s.end} vắt qua điểm đổi cảnh ({sc['start']:.1f}–{sc['end']:.1f}s) "
                               "— lấy gọn trong MỘT cảnh")
             if banned and overlap_s(s.start, s.end, banned) > 0.05:
@@ -129,7 +131,8 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     chosen = {f["file"]: f for f in a["frames"] if f["file"] in firsts}
     for f in pick_evenly(a["frames"], max(0, n - len(chosen))):
         chosen.setdefault(f["file"], f)
-    frames = sorted(chosen.values(), key=lambda f: f["t"])[: max(n, 1)]
+    # video cắt cảnh dày (game, montage) → khung đầu cảnh nhiều hơn n: lấy rải đều CẢ video, không cắt cụt phần cuối
+    frames = pick_evenly(sorted(chosen.values(), key=lambda f: f["t"]), max(n, 1))
     segs = _segments_in(a["transcript"].get("segments", []), 0.0, duration)
     gap = float(cfg.get("voice_gap_s", 0.08))
     lo, hi = (cfg.get("script_fill") or [0.92, 1.03])[:2]

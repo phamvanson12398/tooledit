@@ -231,3 +231,23 @@ def test_subtitles_on_screen_prompt(tmp_path):
         d = FakeDirector()
         make_sell_script(d, a, u, brief="", music_items=[])
         assert want in d.calls[0]["prompt"]
+
+
+def test_many_scenes_no_division_by_zero(tmp_path):
+    """Chủ dự án 17/10: "Lỗi ở bước plan: division by zero" — video game cắt cảnh gần như mỗi giây: khung đầu mỗi cảnh đã
+    nhiều hơn số khung gửi AI → trước đây xin thêm 0 khung và chia cho 0."""
+    from app.director.schemas import Understanding
+    from app.director.sell import make_sell_script
+    from app.director.tasks import pick_evenly
+    from tests.test_director import GOOD, make_analysis
+
+    assert pick_evenly([1, 2, 3], 0) == [] and pick_evenly([1, 2, 3], -2) == []
+    a = make_analysis(tmp_path)
+    sc = json.loads((a / "scenes.json").read_text(encoding="utf-8"))
+    sc[0]["scenes"] = [{"index": i, "start": i * 1.0, "end": i + 1.0} for i in range(60)]  # 60 cảnh / 60 giây
+    (a / "scenes.json").write_text(json.dumps(sc), encoding="utf-8")
+    u = Understanding.model_validate(GOOD).dubbed_to("ko")
+    d = FakeDirector()
+    make_sell_script(d, a, u, brief="", music_items=[])
+    times = [float(Path(p).stem.split("_")[1]) for p in d.calls[0]["images"]]
+    assert len(times) <= 40 and max(times) > 50  # rải đều tới cuối video, không chỉ phần đầu

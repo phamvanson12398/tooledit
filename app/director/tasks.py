@@ -43,6 +43,8 @@ def format_transcript_spread(segments: list[dict], max_chars: int = 30000) -> st
 
 
 def pick_evenly(items: list, n: int) -> list:
+    if n <= 0:  # xin 0 phần tử (vd video cắt cảnh dày: khung đầu mỗi cảnh đã đủ số khung) → không lấy thêm
+        return []
     if len(items) <= n:
         return list(items)
     step = len(items) / n

@@ -43,7 +43,7 @@ Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây). BẠN 
 
 ## Chọn cảnh (`shots`)
 - Mỗi câu 1–3 cảnh, ghi giây GỐC `start`–`end`, nằm TRỌN trong một cảnh của danh sách "Các cảnh" bên dưới (không vắt qua
-  điểm đổi cảnh), mỗi cảnh ≥ 1 giây. Thứ tự trong `shots` = thứ tự hiện trên màn hình.
+  điểm đổi cảnh — trừ khi video gốc tự cắt cảnh rất dày, cảnh < 2–3 giây, như video game / montage), mỗi cảnh ≥ 1 giây. Thứ tự trong `shots` = thứ tự hiện trên màn hình.
 - Được lấy cảnh ở BẤT KỲ đâu trong video gốc và đảo thứ tự tùy ý cho khớp lời.
 - Tổng độ dài các cảnh của một câu nên ≥ thời gian đọc câu đó (thiếu thì tool làm chậm nhẹ / thêm cảnh khác).
 - Rải cảnh cho đều: cố dùng hết các cảnh đẹp của video; 2 câu liền nhau không dùng cùng một cảnh.
