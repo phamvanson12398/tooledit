@@ -1,0 +1,24 @@
+{
+  "shots": [
+    {
+      "start": 0,
+      "end": 20,
+      "desc_vi": "người dẫn nói trước ống kính trong phòng",
+      "tags": [
+        "con người"
+      ],
+      "quality": 2
+    },
+    {
+      "start": 20,
+      "end": 60,
+      "desc_vi": "phố ẩm thực, quầy mì, bát mì bốc khói",
+      "tags": [
+        "ẩm thực",
+        "đường phố"
+      ],
+      "quality": 5
+    }
+  ],
+  "editor_notes": "Phần này mạnh về ẩm thực đường phố."
+}

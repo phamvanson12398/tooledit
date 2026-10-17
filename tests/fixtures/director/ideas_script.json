@@ -1,0 +1,248 @@
+{
+  "video_index": 1,
+  "outline_vi": "Góc kể: phố ẩm thực — Mở: tiệm nhỏ bán hết trong một ngày → bí quyết: nguyên liệu, nước dùng, mì kéo tay, topping → giá mềm, ông chủ thân thiện → kêu gọi follow, tag bạn.",
+  "titles_top": [
+    "하루 만에 완판",
+    "이 집의 비밀"
+  ],
+  "music": {
+    "name": null,
+    "mood_vi": "ấm áp, vui",
+    "energy": "mid"
+  },
+  "lines": [
+    {
+      "role": "hook",
+      "text": "이 작은 가게가 하루 만에 완판된 이유, 알고 계셨나요? 비밀은 바로 이 한 그릇에 있었어요.",
+      "text_vi": "Tiệm nhỏ này bán hết sạch chỉ trong một ngày, bạn có biết vì sao không? Bí mật nằm ở chính bát này.",
+      "shots": [
+        {
+          "start": 30,
+          "end": 34
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn",
+      "keyword": "완판"
+    },
+    {
+      "role": "body",
+      "text": "아침 일찍부터 사장님은 직접 고른 재료만 손질하기 시작해요. 하나하나 정성이 정말 대단하죠.",
+      "text_vi": "Từ sáng sớm ông chủ đã bắt đầu sơ chế những nguyên liệu tự tay chọn. Tỉ mỉ từng chút một.",
+      "shots": [
+        {
+          "start": 22,
+          "end": 26
+        },
+        {
+          "start": 28,
+          "end": 31
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn"
+    },
+    {
+      "role": "body",
+      "text": "국물은 몇 시간 동안 천천히 끓여서 깊은 맛을 내는데요, 냄새만 맡아도 배가 고파질 정도예요.",
+      "text_vi": "Nước dùng được ninh chậm hàng giờ để ra vị đậm, chỉ ngửi thôi đã thấy đói.",
+      "shots": [
+        {
+          "start": 32,
+          "end": 36
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn",
+      "keyword": "몇 시간"
+    },
+    {
+      "role": "body",
+      "text": "면은 그 자리에서 바로 뽑아서 쫄깃함이 살아 있어요. 이 식감 때문에 단골이 계속 늘어난대요.",
+      "text_vi": "Sợi mì kéo ngay tại chỗ nên dai. Nhờ độ dai này mà khách quen ngày càng đông.",
+      "shots": [
+        {
+          "start": 38,
+          "end": 42
+        },
+        {
+          "start": 23,
+          "end": 26
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn"
+    },
+    {
+      "role": "body",
+      "text": "면을 삶는 시간도 초 단위로 맞춘다고 하니까, 그 정성이 그대로 맛으로 이어지는 거죠.",
+      "text_vi": "Thời gian luộc mì cũng canh từng giây, nên sự tận tâm ấy biến thành hương vị.",
+      "shots": [
+        {
+          "start": 26,
+          "end": 29
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn"
+    },
+    {
+      "role": "body",
+      "text": "토핑도 아낌없이 올려 주는데요, 한 입 먹으면 왜 줄을 서는지 바로 이해가 돼요. 진짜예요.",
+      "text_vi": "Topping cho rất hào phóng, ăn một miếng là hiểu ngay vì sao người ta xếp hàng.",
+      "shots": [
+        {
+          "start": 36,
+          "end": 40
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn",
+      "keyword": "토핑"
+    },
+    {
+      "role": "body",
+      "text": "특히 이 수제 고명은 다른 데서는 맛보기 힘든 맛이라서, 일부러 멀리서 찾아오는 손님도 많대요.",
+      "text_vi": "Đặc biệt phần topping tự làm này khó tìm ở nơi khác, nên nhiều khách cất công từ xa tới.",
+      "shots": [
+        {
+          "start": 40,
+          "end": 42
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn"
+    },
+    {
+      "role": "body",
+      "text": "가격도 착해서 학생들부터 직장인까지 점심시간마다 가게 앞이 꽉 찬다고 해요. 분위기도 따뜻하고요.",
+      "text_vi": "Giá lại mềm nên từ học sinh tới dân văn phòng, giờ trưa nào trước tiệm cũng kín người.",
+      "shots": [
+        {
+          "start": 42,
+          "end": 46
+        },
+        {
+          "start": 47,
+          "end": 50
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn"
+    },
+    {
+      "role": "body",
+      "text": "손님 한 분 한 분에게 먼저 인사를 건네는 사장님 덕분에, 처음 온 사람도 금방 단골이 된대요.",
+      "text_vi": "Nhờ ông chủ chào hỏi từng vị khách, người mới tới cũng nhanh chóng thành khách quen.",
+      "shots": [
+        {
+          "start": 50,
+          "end": 52
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn"
+    },
+    {
+      "role": "body",
+      "text": "마지막 한 그릇까지 똑같은 정성으로 만드는 모습, 이게 바로 이 가게가 사랑받는 진짜 이유예요.",
+      "text_vi": "Làm bát cuối cùng cũng tận tâm như bát đầu, đó mới là lý do thật sự tiệm được yêu thích.",
+      "shots": [
+        {
+          "start": 52,
+          "end": 57
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn"
+    },
+    {
+      "role": "body",
+      "text": "오늘도 문을 닫을 때까지 국물 냄새가 골목 가득 퍼지는 이곳, 한 번쯤은 꼭 가 볼 만하겠죠.",
+      "text_vi": "Hôm nay mùi nước dùng vẫn lan khắp ngõ tới lúc đóng cửa, đáng để ghé một lần.",
+      "shots": [
+        {
+          "start": 26,
+          "end": 28
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn"
+    },
+    {
+      "role": "body",
+      "text": "재료는 매일 새벽 시장에서 직접 사 온다고 하는데요, 그래서 늘 신선한 맛이 그대로 살아 있는 거래요.",
+      "text_vi": "Nguyên liệu được mua ở chợ mỗi sáng sớm, nên lúc nào cũng tươi.",
+      "shots": [
+        {
+          "start": 20,
+          "end": 22
+        }
+      ],
+      "shots_vi": "cảnh quán",
+      "keyword": "팔로우"
+    },
+    {
+      "role": "body",
+      "text": "주방은 작지만 정말 깔끔하게 정리되어 있어서, 보는 것만으로도 믿음이 가는 곳이에요. 위생도 최고예요.",
+      "text_vi": "Bếp nhỏ nhưng rất gọn gàng sạch sẽ, nhìn thôi đã thấy yên tâm.",
+      "shots": [
+        {
+          "start": 31,
+          "end": 32
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "body",
+      "text": "국물 한 숟가락을 떠먹는 순간, 진하면서도 깔끔한 맛에 다들 감탄을 멈추지 못한다고 해요. 정말 궁금하죠.",
+      "text_vi": "Húp một thìa nước dùng là ai cũng trầm trồ vì vừa đậm vừa thanh.",
+      "shots": [
+        {
+          "start": 36,
+          "end": 38
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "body",
+      "text": "면발은 끝까지 퍼지지 않고 탱탱해서, 마지막 한 젓가락까지 처음 그 식감 그대로 즐길 수 있어요.",
+      "text_vi": "Sợi mì không bị nở, dai tới đũa cuối cùng.",
+      "shots": [
+        {
+          "start": 22,
+          "end": 23
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "body",
+      "text": "반찬도 직접 담근 김치를 내주는데요, 이 김치랑 같이 먹으면 국물 맛이 훨씬 더 살아난다고 해요.",
+      "text_vi": "Món kèm là kim chi tự muối, ăn cùng thì nước dùng càng ngon.",
+      "shots": [
+        {
+          "start": 33,
+          "end": 35
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "body",
+      "text": "그래서인지 혼자 오는 손님도 많고, 가족끼리 와서 한 그릇씩 비우고 가는 모습도 자주 볼 수 있어요.",
+      "text_vi": "Vì vậy có nhiều khách đi một mình, cả gia đình cũng hay tới ăn.",
+      "shots": [
+        {
+          "start": 46,
+          "end": 47
+        }
+      ],
+      "shots_vi": "cảnh quán"
+    },
+    {
+      "role": "cta",
+      "text": "이런 맛집 정보 더 보고 싶다면 팔로우하고, 가 보고 싶은 사람은 댓글로 친구를 태그해 주세요!",
+      "text_vi": "Muốn xem thêm quán ngon thì follow nhé, ai muốn đi thì tag bạn bè vào bình luận!",
+      "shots": [
+        {
+          "start": 30,
+          "end": 33
+        }
+      ],
+      "shots_vi": "cảnh nấu ăn"
+    }
+  ],
+  "editor_notes": "Hook dùng cảnh bát mì đẹp nhất, các ý theo quy trình nấu, kết bằng kêu gọi follow."
+}

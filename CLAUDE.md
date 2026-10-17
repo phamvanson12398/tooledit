@@ -261,6 +261,26 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   vào đó; âm thanh thư viện CapCut KHÔNG chép (quy tắc mục 7). Voice và nhạc mỗi thứ một track âm thanh riêng (`lane`
   trong writer — áp dụng cho mọi chế độ).
 
+## 5g. Chế độ "Ý tưởng từ video dài" (chủ dự án yêu cầu 17/10)
+
+- Thẻ "💡 Ý tưởng từ video dài" (`JobOptions.ideas`, đi CÙNG `sell=True` để dùng chung mọi thứ của Bán content;
+  `config/ideas.yaml`, `app/director/ideas.py`). MỘT video dài (vlog, du lịch, lịch sử…) làm KHO CẢNH; ô "Gợi ý chủ đề /
+  khán giả" không bắt buộc (`ideas_brief`); thời lượng / giọng Voice Studio dùng chung `sell_s` / `sell_voice` (> 60s,
+  mặc định 65s). Phân tích trích khung rải cả video (`analysis_frames` 600, mỗi `frame_every_s` 5s), không dò mặt.
+- Bước segment: (1) **danh mục cảnh** — AI xem từng phần ~`chunk_s` 10 phút SONG SONG (prompt `ideas_catalog.md`), ghi
+  cảnh nào có gì (`CatalogShot`: giây, `desc_vi`, tags, quality), lưu `plan/catalog_parts/NN.json` + `plan/catalog.json`,
+  dùng lại cho mọi lần sau; (2) **ý tưởng** — AI đọc danh mục (mã S1, S2…) + khung cảnh đẹp, đề xuất `n_ideas` ý tưởng
+  KHÔNG cần theo câu chuyện gốc (prompt `ideas_list.md`); ý tưởng có < `min_footage_s` giây cảnh khác nhau thì tool bỏ, ghi
+  lý do (`screen_ideas`). Kết quả ở `plan/segments.json` (`ideas: true`).
+- Bảng duyệt = bảng TICK ý tưởng (`_ideas_panel`, `Runner.apply_ideas`); ô góp ý → "💡 Nghĩ lại ý tưởng"
+  (`Runner.redo_ideas`, giữ danh mục cảnh, không xem lại video).
+- Mỗi ý tưởng đã tick = một video: `make_sell_script(idea=…)` (prompt `ideas_script.md`) — chỉ dùng cảnh trong kho cảnh
+  của ý tưởng (`pool`; khung hình + lời gốc cũng chỉ lấy trong đó; cảnh ngoài kho là lỗi — `pool_only`), được dặn tránh
+  cảnh các short khác đã dùng (`used_text`); khi dựng, cảnh bù chỉ lấy trong kho của ý tưởng. Sau đó y như Bán content:
+  voice (thu tay / OmniVoice), cắt cảnh theo voice, chữ nhấn + tiếng động, đóng gói CapCut.
+- Đúng sự thật: chỉ nói điều thấy / nghe trong video; kiến thức chung chỉ khi phổ biến, chắc chắn; không bịa tên, giá, số
+  liệu, năm tháng.
+
 ## 5f. Tab "🎙️ Voice Studio" (chủ dự án yêu cầu 16/10)
 
 - Tab riêng trên thanh đầu trang (`/studio`, `app/web/studio_page.py`, logic `app/tts/studio.py`): dùng chính OmniVoice

@@ -37,7 +37,8 @@ def _scene_of(t: float, scenes: list[dict]) -> dict | None:
 
 def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], cps: float, target_s: float,
                       cfg: dict, banned: list[tuple[float, float]] | None = None, title_max: int = 12,
-                      video_index: int = 1) -> list[str]:
+                      video_index: int = 1, pool_only: bool = False) -> list[str]:
+    """pool_only (chế độ Ý tưởng từ video dài): `scenes` = các cảnh của ý tưởng — cảnh ngoài danh sách đó là lỗi."""
     from app.director.policy import find_forbidden, overlap_s
     from app.director.tasks import check_target_language, speech_chars
 
@@ -69,6 +70,10 @@ def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], 
             if s.end - s.start < min_cut - 0.05:
                 errors.append(f"câu {i}: cảnh {s.start}-{s.end} ngắn hơn {min_cut:.0f} giây")
             sc = _scene_of((s.start + s.end) / 2, scenes)
+            if pool_only and not sc:
+                errors.append(f"câu {i}: cảnh {s.start}-{s.end} không nằm trong các cảnh của ý tưởng — chỉ lấy cảnh trong "
+                              "danh sách \"Các cảnh dùng được\"")
+                continue
             # video gốc cắt cảnh dày (game, montage: cảnh ~1s) thì cảnh vắt qua điểm cắt là tự nhiên — chỉ chặn ở cảnh dài
             if sc and sc["end"] - sc["start"] >= float(cfg.get("strict_scene_s", 2.5)) and \
                     (s.start < sc["start"] - 0.3 or s.end > sc["end"] + 0.3):
@@ -126,11 +131,13 @@ def _lines_text(previous) -> str:
 
 def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, sell_s: float | int = 0,
                      music_items: list | None = None, video_index: int = 1, feedback: str = "", previous=None,
-                     variant: tuple[int, int] = (1, 1), others: list | None = None):
+                     variant: tuple[int, int] = (1, 1), others: list | None = None, idea: dict | None = None):
     """AI xem khung hình + lời nói gốc, TỰ chọn góc kể theo nội dung gốc (chủ dự án 15/10 bỏ ô định hướng; `brief` chỉ còn
     cho job cũ đã nhập) → SellScript (lời + cảnh từng câu + tiêu đề + nhạc).
     variant = (bản thứ i, tổng n) — chủ dự án 17/10: một video gốc ra 2–3 bản KHÁC NHAU; others = SellScript các bản đã
-    viết (bản này phải khác góc kể / câu mở đầu / thứ tự cảnh)."""
+    viết (bản này phải khác góc kể / câu mở đầu / thứ tự cảnh).
+    idea = video của chế độ Ý tưởng từ video dài (app/director/ideas.py: {idea, pool, …}) — chỉ dùng cảnh trong `pool`
+    (khung hình + lời nói gốc cũng chỉ lấy trong đó), others = short khác đã viết (tránh lặp cảnh)."""
     from app.director.policy import cut_ranges
     from app.director.schemas import SellScript
     from app.director.tasks import (LANGUAGE_NAMES, MARKETS, _segments_in, _shared_context, load_analysis,
@@ -141,20 +148,31 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     sc = a["scenes"]
     duration = float(sc["duration"])
     scenes = sc.get("scenes") or [{"start": 0.0, "end": duration}]
+    pool = [p for p in (idea or {}).get("pool") or [] if p["end"] > p["start"]]
+    if idea is not None and pool:  # ý tưởng từ video dài: kho cảnh = các cảnh của ý tưởng
+        scenes = [{"start": float(p["start"]), "end": float(p["end"]), "desc_vi": p.get("desc_vi", "")} for p in pool]
     target = sell_target(cfg, sell_s)
     cps = sell_cps(cfg, u.language)
     title_max = int((cfg.get("title_max_chars") or {}).get(u.language, 12))
     subs = bool(u.burned_in_text.present)
     # có chữ / phụ đề in trên hình → gửi DÀY khung (ghép ảnh lưới nên không tốn) để AI đọc đủ từng dòng phụ đề
     n = int(cfg.get("subtitle_frames", 70) if subs else cfg.get("frames", 40))
-    firsts = {min(a["frames"], key=lambda f, t=s["start"]: abs(f["t"] - t))["file"]: None for s in scenes} \
-        if a["frames"] else {}
-    chosen = {f["file"]: f for f in a["frames"] if f["file"] in firsts}
-    for f in pick_evenly(a["frames"], max(0, n - len(chosen))):
+    all_frames = a["frames"]
+    if idea is not None and pool:
+        from app.director.ideas import ideas_cfg
+
+        n = int(ideas_cfg().get("script_frames", 40))
+        all_frames = [f for f in all_frames if _scene_of(f["t"], scenes)] or all_frames
+    firsts = {min(all_frames, key=lambda f, t=s["start"]: abs(f["t"] - t))["file"]: None for s in scenes} \
+        if all_frames else {}
+    chosen = {f["file"]: f for f in all_frames if f["file"] in firsts}
+    for f in pick_evenly(all_frames, max(0, n - len(chosen))):
         chosen.setdefault(f["file"], f)
     # video cắt cảnh dày (game, montage) → khung đầu cảnh nhiều hơn n: lấy rải đều CẢ video, không cắt cụt phần cuối
     frames = pick_evenly(sorted(chosen.values(), key=lambda f: f["t"]), max(n, 1))
     segs = _segments_in(a["transcript"].get("segments", []), 0.0, duration)
+    if idea is not None and pool:
+        segs = [x for x in segs if any(x["end"] > p["start"] and x["start"] < p["end"] for p in scenes)]
     gap = float(cfg.get("voice_gap_s", 0.08))
     lo, hi = (cfg.get("script_fill") or [0.92, 1.03])[:2]
     music_lines = [f"- {m.name}{' (' + m.mood + ')' if m.mood else ''}, {m.material.get('duration', 0) / 1e6:.0f}s"
@@ -171,11 +189,19 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
                  "brief": (f"Chủ dự án có ghi thêm (ưu tiên làm theo): {brief.strip()}" if (brief or "").strip()
                            else "Chủ dự án không ghi gì thêm — bạn tự quyết hoàn toàn theo nội dung gốc."),
                  "music_list": "\n".join(music_lines) or "(không có bài nào — đặt name = null)",
-                 "scenes": "\n".join(f"- C{i}: {s['start']:.1f}–{s['end']:.1f}s" for i, s in enumerate(scenes, 1)),
+                 "scenes": "\n".join(f"- C{i}: {s['start']:.1f}–{s['end']:.1f}s"
+                                     + (f" — {s['desc_vi']}" if s.get("desc_vi") else "") for i, s in enumerate(scenes, 1)),
                  "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)",
                  "feedback": (f"Sửa ĐÚNG theo góp ý này, giữ cái hay của bản trước:\n{feedback.strip()}\n\nBản trước:\n"
                               f"{_lines_text(previous)}" if feedback.strip() and previous
                               else feedback.strip() or "(không có)")}
+    task = "sell"
+    if idea is not None:
+        from app.director.ideas import idea_brief, used_text
+
+        task = "ideas_script"
+        variables.update({"idea": idea_brief(idea, brief), "used": used_text(others or []),
+                          "footage_s": f"{sum(s['end'] - s['start'] for s in scenes):.0f}"})
     banned = cut_ranges(u)
     names = {m.name for m in (music_items or [])}
 
@@ -196,9 +222,10 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
 
     def extra(r) -> list[str]:
         return check_sell_script(r, u.language, duration=duration, scenes=scenes, cps=cps, target_s=target, cfg=cfg,
-                                 banned=banned, title_max=title_max, video_index=video_index)
+                                 banned=banned, title_max=title_max, video_index=video_index,
+                                 pool_only=idea is not None and bool(pool))
 
-    return director.run("sell", variables, SellScript, [analysis_dir / f["file"] for f in frames],
+    return director.run(task, variables, SellScript, [analysis_dir / f["file"] for f in frames],
                         extra_check=extra, repair=repair)
 
 

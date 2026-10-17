@@ -1,0 +1,37 @@
+{
+  "ideas": [
+    {
+      "title_vi": "Một ngày ăn sập phố ẩm thực",
+      "angle_vi": "đi dọc phố, từng món một",
+      "hook_vi": "Con phố này ăn cả ngày không hết",
+      "kind_vi": "top list",
+      "shots": [
+        "S1",
+        "S2"
+      ],
+      "why_vi": "đồ ăn hút mắt"
+    },
+    {
+      "title_vi": "Người dẫn kể chuyện",
+      "angle_vi": "chỉ người nói",
+      "hook_vi": "Tôi đã ...",
+      "kind_vi": "kể chuyện",
+      "shots": [
+        "S1",
+        "S9"
+      ],
+      "why_vi": "gần gũi"
+    },
+    {
+      "title_vi": "Bát mì bốc khói",
+      "angle_vi": "cận cảnh món mì",
+      "hook_vi": "Bát mì này có gì đặc biệt?",
+      "kind_vi": "cảm xúc",
+      "shots": [
+        "s2"
+      ],
+      "why_vi": "cận món ăn"
+    }
+  ],
+  "editor_notes": "Kho cảnh mạnh về ẩm thực; cảnh người dẫn ít, không đủ làm riêng."
+}

@@ -1,5 +1,24 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 112 — Chế độ mới "💡 Ý tưởng từ video dài" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Trang chủ → chọn MỘT video dài (vd vlog du lịch 20–60 phút) → thẻ **💡 Ý tưởng từ video dài** → ngôn ngữ (Hàn /
+   Nhật / Anh) → (không bắt buộc) ô **Gợi ý chủ đề / khán giả**, vd "khán giả Hàn thích du lịch Nhật" → thời lượng
+   (mặc định 65 giây) → giọng đọc (giọng Voice Studio để tự đọc, hoặc tự thu) → Bắt đầu.
+3. Phân tích video dài sẽ lâu hơn bình thường (nhận dạng lời + trích ~600 khung). Bước "AI xem kho cảnh + nghĩ ý tưởng":
+   nhật ký báo "AI xem video (… phút) theo N phần", rồi "Danh mục cảnh phần k/N: … cảnh" (các phần chạy song song).
+4. Job dừng ở trang **💡 Chọn ý tưởng muốn làm**: kiểm tra
+   - có ~8 ý tưởng, mỗi ý tưởng có tên, góc kể, câu mở đầu, bấm "🎞️ … cảnh" xem danh sách cảnh — mô tả cảnh có ĐÚNG với
+     video không;
+   - ý tưởng thiếu cảnh nằm ở mục "bị bỏ" kèm lý do.
+5. Thử ô góp ý (vd "thêm ý tưởng về ẩm thực") → **💡 Nghĩ lại ý tưởng**: lần này nhanh (không xem lại video).
+6. Tick 2 ý tưởng → **✅ Làm các ý tưởng đã tick** → mỗi ý tưởng một kịch bản → đọc voice (hoặc OmniVoice tự đọc) → job
+   ✅ Xong với 2 dự án CapCut `…_video01`, `…_video02`.
+7. Mở CapCut từng dự án: lời đọc nói gì thì hình thấy đúng thứ đó; video dài > 60 giây; 2 short ít trùng cảnh; hình
+   không lấy lung tung các đoạn không liên quan của video dài. Có lời nói sai sự thật (tên, số liệu bịa) thì ghi lại
+   gửi mình.
+
 ## Bước 111 — Bán content: thêm tiếng "click" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

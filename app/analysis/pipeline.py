@@ -93,9 +93,13 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
             if getattr(job.options, "sell", False):  # bán content (15/10): khung dày để AI đọc được phụ đề in trên hình
                 scfg = config.load("sell") or {}
                 max_frames, every_s = int(scfg.get("analysis_frames", 70)), float(scfg.get("frame_every_s", 1.0))
+                if getattr(job.options, "ideas", False):  # ý tưởng từ video dài (17/10): khung rải cả video dài
+                    icfg = config.load("ideas") or {}
+                    max_frames, every_s = int(icfg.get("analysis_frames", 600)), float(icfg.get("frame_every_s", 5.0))
             o = job.options  # bỏ phần không cần cho chế độ này (chủ dự án 11/10: "chậm quá")
             need_scenes = not getattr(o, "vi_sub", False)             # phụ đề tiếng Việt: chỉ cần lời thoại
-            need_faces = not (getattr(o, "vi_sub", False) or getattr(o, "voice_only", False) or films)  # giữ khung gốc
+            need_faces = not (getattr(o, "vi_sub", False) or getattr(o, "voice_only", False) or films
+                              or getattr(o, "ideas", False))  # giữ khung gốc
             video_job = _in_thread(pool, _video_part, src, i, tag, duration, info, out, cfg, workers, progress,
                                    max_frames if need_scenes else 6, need_scenes, need_faces, every_s)
             if listen:

@@ -409,7 +409,7 @@ class Runner:
         from app.director.tasks import for_video
 
         u = self._understanding(job)
-        if job.options.split or job.options.review or job.options.char_dub:
+        if job.options.split or job.options.review or job.options.char_dub or job.options.ideas:
             return for_video(u, video)
         if job.options.voice_only or job.data.get("montage_parts"):  # chỉ thay tiếng / ghép nhiều video: toàn bộ footage
             return for_video(u, {**video, "summary_vi": video.get("summary_vi") or u.summary_vi})
@@ -568,6 +568,9 @@ class Runner:
         if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
             self.log("Đã có kết quả chia video, dùng lại.")
             return
+        if job.options.ideas:  # ý tưởng từ video dài: danh mục cảnh (một lần) → AI nghĩ ý tưởng → chủ dự án tick
+            redo = job.data.get("ideas_redo") or {}
+            return self._make_ideas(job, redo.get("feedback", ""), redo.get("previous"))
         if job.options.cliff:  # review bỏ lửng: chia CẢ phim thành các phần liền nhau (không bỏ cảnh)
             from app.director.cliff import make_parts_long
 
@@ -594,6 +597,11 @@ class Runner:
     def step_review_segments(self, job: Job) -> None:
         _, _, plan_dir = self._paths(job)
         data = json.loads((plan_dir / "segments.json").read_text(encoding="utf-8"))
+        if not data.get("confirmed") and data.get("ideas"):
+            n = len((data.get("proposal") or {}).get("ideas", []))
+            job.wait(f"Chọn ý tưởng muốn làm: AI đề xuất {n} ý tưởng. Tick các ý tưởng muốn dựng (mỗi ý tưởng một short) "
+                     "rồi bấm Xác nhận — hoặc góp ý để AI nghĩ lại.")
+            return
         if not data.get("confirmed"):
             job.wait(f"Duyệt cách chia video: {len(data.get('videos', []))} video. Chỉnh điểm cắt, bỏ bớt hoặc "
                      "thêm đoạn bị bỏ rồi bấm Xác nhận.")
@@ -639,6 +647,66 @@ class Runner:
         if changed:  # chia khác đi → hook / kế hoạch cũ không còn đúng
             hook_io.hooks_path(d).unlink(missing_ok=True)
             self._clear_plans(d, plan_dir)
+        job.save(self.jobs_root)
+
+    # ---------- Ý tưởng từ video dài (chủ dự án yêu cầu 17/10) ----------
+
+    def _make_ideas(self, job: Job, feedback: str = "", previous: list[dict] | None = None) -> None:
+        from app.director.ideas import make_catalog, make_ideas, save_proposal
+
+        _, analysis, plan_dir = self._paths(job)
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        u = self._understanding(job)
+        cat = make_catalog(self.director, analysis, plan_dir, u, log=self.log)
+        self.log(f"Danh mục cảnh: {len(cat.shots)} cảnh. AI nghĩ ý tưởng short…")
+        lang = job.options.target_language or u.language
+        keep, drop, notes = make_ideas(self.director, analysis, cat, u, brief=job.options.ideas_brief, language=lang,
+                                       feedback=feedback, previous=previous)
+        save_proposal(plan_dir, keep, drop, notes)
+        job.data["videos"] = []
+        job.data.pop("ideas_redo", None)
+        self.log(f"AI đề xuất {len(keep)} ý tưởng" + (f", bỏ {len(drop)} ý tưởng thiếu cảnh" if drop else "") + ".")
+
+    def apply_ideas(self, job: Job, picks: list[int]) -> None:
+        """Chủ dự án tick ý tưởng (số thứ tự trong đề xuất, từ 1) → mỗi ý tưởng một video. Đổi lựa chọn → kịch bản / voice
+        cũ không còn đúng (voice cất thành *_cu)."""
+        from app.director.ideas import idea_videos
+        from app.director.tasks import load_analysis
+
+        d, analysis, plan_dir = self._paths(job)
+        path = plan_dir / "segments.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        ideas = (data.get("proposal") or {}).get("ideas", [])
+        chosen = [ideas[k - 1] for k in sorted(set(picks)) if 1 <= k <= len(ideas)]
+        if not chosen:
+            raise ValueError("Cần tick ít nhất một ý tưởng.")
+        videos = idea_videos(chosen, float(load_analysis(analysis)["scenes"]["duration"]))
+        changed = data.get("videos") != videos or not data.get("confirmed")
+        data.update({"videos": videos, "confirmed": True, "picked": sorted(set(picks))})
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        job.data["videos"] = videos
+        if changed:
+            self._clear_plans(d, plan_dir)
+            for f in [*plan_dir.glob("sell_video*.json"), *plan_dir.glob("dub_video*.json")]:
+                f.unlink()
+            for old in (d / "voice").glob("video*_dub*.*"):
+                if "_cu" not in old.stem:
+                    old.replace(old.with_name(f"{old.stem}_cu{old.suffix}"))
+            job.data.pop("ready_drafts", None)
+        job.save(self.jobs_root)
+
+    def redo_ideas(self, job: Job, feedback: str) -> None:
+        """Nút "💡 Nghĩ lại ý tưởng": AI nghĩ ý tưởng mới theo góp ý (danh mục cảnh giữ nguyên, không xem lại video)."""
+        _, _, plan_dir = self._paths(job)
+        path = plan_dir / "segments.json"
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+        job.data["ideas_redo"] = {"feedback": feedback.strip(),
+                                  "previous": (data.get("proposal") or {}).get("ideas", [])}
+        job.data.setdefault("ideas_feedback", []).append(feedback.strip())
+        path.unlink(missing_ok=True)
+        job.data.pop("videos", None)
+        job.step, job.status = "segment", Status.pending
+        job._log("người dùng góp ý — AI nghĩ lại ý tưởng")
         job.save(self.jobs_root)
 
     # ---------- Content nhiều phim từ bài TikTok ảnh (chủ dự án yêu cầu 14/10) ----------
@@ -1332,9 +1400,12 @@ class Runner:
                     others.append(SellScript.model_validate_json(f.read_text(encoding="utf-8")))
                 except ValueError:
                     pass
-        r = make_sell_script(self.director, analysis, self._u_for(job, v), brief=job.options.sell_brief,
+        ideas = job.options.ideas
+        r = make_sell_script(self.director, analysis, self._u_for(job, v),
+                             brief=job.options.ideas_brief if ideas else job.options.sell_brief,
                              sell_s=job.options.sell_s, music_items=chosen or music, video_index=i,
-                             feedback=feedback, previous=previous, variant=(i, n_var), others=others)
+                             feedback=feedback, previous=previous, variant=(1, 1) if ideas else (i, n_var),
+                             others=others, idea=v if ideas else None)
         ratio = job.data.get("default_ratio")
         plan = sell_plan(r, ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
         if chosen:
@@ -1938,8 +2009,10 @@ class Runner:
             scfg = sell_cfg()
             sc = a["scenes"]
             b = u_v.burned_in_text
+            # ý tưởng từ video dài: cảnh bù (khi thiếu) chỉ lấy trong các cảnh của ý tưởng, không lấy bừa cả video dài
+            pool = (v.get("pool") or None) if job.options.ideas else None
             clips, dub_windows, sync_notes = build_sell(
-                dub, {n: us / 1_000_000 for n, (_, us) in (dub_voices or {}).items()}, sc.get("scenes") or [],
+                dub, {n: us / 1_000_000 for n, (_, us) in (dub_voices or {}).items()}, pool or sc.get("scenes") or [],
                 float(sc["duration"]), cps=sell_cps(scfg, u_v.language), cfg=scfg,
                 allow_mirror=getattr(u_v, "mirror_ok", True) and not b.present)
             plan = plan.model_copy(update={"clips": clips, "transitions": [], "zooms": [], "emphasis": [], "sfx": [],

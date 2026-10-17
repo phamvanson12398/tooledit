@@ -64,6 +64,9 @@ class JobOptions(BaseModel):
                                       #   mỗi phần mở bằng short kịch tính giữ nguyên, kết bỏ lửng (config/cliff.yaml)
     films: bool = False               # Content nhiều phim từ bài TikTok ảnh (14/10): AI viết content mới, hình cắt từ
                                       #   các file phim chủ dự án đưa, xen dừng hình (config/films.yaml)
+    ideas: bool = False               # Ý tưởng từ video dài (17/10): đi CÙNG sell=True — video dài làm kho cảnh, AI nghĩ
+                                      #   nhiều ý tưởng short, chủ dự án tick cái muốn làm (config/ideas.yaml)
+    ideas_brief: str = ""             # Ý tưởng từ video dài: gợi ý chủ đề / khán giả (không bắt buộc)
     cliff_pov: str = ""               # Review bỏ lửng: ngôi kể "1" (người kể là nhân vật chính) | "3"; "" = default_pov
 
 
@@ -156,7 +159,7 @@ class Job(BaseModel):
     def picks_segments(self) -> bool:
         """Job có bước AI chọn / chia đoạn + bảng duyệt. Review phim KHÔNG (chủ dự án 11/10: tóm gọn cả phim thành MỘT
         video, không chia nhiều video); Review bỏ lửng CÓ (chia phim thành các phần liền nhau)."""
-        return self.options.split or self.options.char_dub or self.options.cliff
+        return self.options.split or self.options.char_dub or self.options.cliff or self.options.ideas
 
     def applies(self, step: str) -> bool:
         if self.options.films:

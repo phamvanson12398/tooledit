@@ -1,0 +1,22 @@
+# CHẾ ĐỘ "Ý TƯỞNG TỪ VIDEO DÀI" (chủ dự án yêu cầu 17/10)
+# Đưa vào MỘT video dài (vlog, du lịch, lịch sử…) → tool coi đó là KHO CẢNH: AI xem từng phần, ghi danh mục cảnh (cảnh
+# nào có gì), rồi nghĩ ra nhiều ý tưởng short hấp dẫn — không cần bám câu chuyện gốc (vd vlog du lịch Nhật → "Nhật Bản
+# có gì đẹp?"). Chủ dự án tick ý tưởng muốn làm; mỗi ý tưởng thành một short dựng như "Bán content" (kịch bản mới, cảnh
+# đảo theo lời, voice + nhạc mới, chữ nhấn + tiếng động, dự án CapCut đóng gói). Thời lượng / giọng đọc dùng chung
+# config/sell.yaml.
+
+# Phân tích: video dài → trích nhiều khung (khung đầu mỗi cảnh + rải đều) để AI biết hết các cảnh
+analysis_frames: 600          # tối đa chừng này khung cho cả video
+frame_every_s: 5.0            # rải đều mỗi 5 giây một khung
+# Danh mục cảnh: AI xem từng phần video song song (mỗi phần ~10 phút), ghi cảnh nào có gì — lưu plan/catalog.json,
+# dùng lại cho mọi lần nghĩ ý tưởng / viết kịch bản (chỉ tốn lượt AI một lần)
+chunk_s: 600
+catalog_frames: 80            # số khung gửi AI cho mỗi phần
+min_shot_s: 1.0               # cảnh trong danh mục dài ít nhất chừng này giây
+# Ý tưởng
+n_ideas: 8                    # AI đề xuất chừng này ý tưởng (chủ dự án tick cái muốn làm)
+idea_frames: 36               # số khung (cảnh đẹp nhất rải đều) gửi AI lúc nghĩ ý tưởng
+min_footage_s: 30             # ý tưởng phải có ít nhất chừng này giây cảnh KHÁC NHAU — thiếu thì tool bỏ (ghi lý do)
+min_quality: 2                # cảnh chất lượng thấp hơn thì không cho vào ý tưởng
+# Kịch bản từng ý tưởng
+script_frames: 40             # số khung (trong các cảnh của ý tưởng) gửi AI lúc viết kịch bản

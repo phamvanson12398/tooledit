@@ -736,6 +736,35 @@ class SellScript(BaseModel):
     editor_notes: str
 
 
+# ---------------- Ý tưởng từ video dài (chủ dự án yêu cầu 17/10) ----------------
+
+class CatalogShot(BaseModel):
+    start: float = Field(ge=0, description="giây GỐC bắt đầu cảnh")
+    end: float = Field(gt=0, description="giây GỐC kết thúc cảnh")
+    desc_vi: str = Field(description="cảnh THẤY gì (tiếng Việt, ngắn, cụ thể: nơi chốn, vật, người, hành động)")
+    tags: list[str] = Field(default_factory=list, description="vài nhãn ngắn tiếng Việt: địa điểm, chủ đề, không khí")
+    quality: int = Field(default=3, ge=1, le=5, description="độ đẹp / dùng được để dựng short: 1 (mờ, rung) .. 5 (rất đẹp)")
+
+
+class Catalog(BaseModel):
+    shots: list[CatalogShot] = Field(min_length=1)
+    editor_notes: str = ""
+
+
+class IdeaItem(BaseModel):
+    title_vi: str = Field(description="tên ý tưởng (tiếng Việt), vd \"Nhật Bản có gì đẹp?\"")
+    angle_vi: str = Field(description="góc kể / video nói gì, vì sao người xem muốn xem hết (tiếng Việt)")
+    hook_vi: str = Field(description="câu mở đầu gợi ý (tiếng Việt)")
+    kind_vi: str = Field(default="", description="kiểu video: top list, mẹo, cảm xúc, kiến thức, so sánh…")
+    shots: list[str] = Field(min_length=1, description="mã cảnh trong danh mục (S1, S2…) dùng cho video này")
+    why_vi: str = Field(default="", description="vì sao ý tưởng này hút người xem TikTok")
+
+
+class IdeaList(BaseModel):
+    ideas: list[IdeaItem] = Field(min_length=1)
+    editor_notes: str
+
+
 # ---------------- Phụ đề tiếng Việt (chế độ "xem hiểu video nước ngoài") ----------------
 
 class ViLine(BaseModel):
