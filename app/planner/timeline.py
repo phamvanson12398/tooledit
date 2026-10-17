@@ -13,6 +13,7 @@ class Placed:
     source_end: float
     speed: float
     out_start: int  # µs trên timeline
+    lib: bool = False  # clip lấy từ kho cảnh chung (giây tính trong file kho, không phải giây gốc)
 
     @property
     def out_duration(self) -> int:
@@ -29,7 +30,7 @@ class TimeMap:
         self.placed: list[Placed] = []
         t = int(offset_us)
         for c in clips:
-            p = Placed(c.source_start, c.source_end, c.speed, t)
+            p = Placed(c.source_start, c.source_end, c.speed, t, bool(getattr(c, "lib", "")))
             self.placed.append(p)
             t = p.out_end
         self.end = t
@@ -37,19 +38,19 @@ class TimeMap:
     def to_out(self, source_t: float) -> int | None:
         """Giây gốc → µs trên timeline; None nếu thời điểm đó bị cắt bỏ."""
         for p in self.placed:
-            if p.source_start - 1e-6 <= source_t <= p.source_end + 1e-6:
+            if not p.lib and p.source_start - 1e-6 <= source_t <= p.source_end + 1e-6:
                 return p.out_start + round((source_t - p.source_start) / p.speed * SEC)
         return None
 
     def clip_at(self, source_t: float) -> Placed | None:
         for p in self.placed:
-            if p.source_start - 0.05 <= source_t <= p.source_end + 0.05:
+            if not p.lib and p.source_start - 0.05 <= source_t <= p.source_end + 0.05:
                 return p
         return None
 
     def clip_containing(self, source_t: float) -> Placed | None:
         """Clip chứa đúng thời điểm (không nới biên)."""
         for p in self.placed:
-            if p.source_start <= source_t <= p.source_end:
+            if not p.lib and p.source_start <= source_t <= p.source_end:
                 return p
         return None

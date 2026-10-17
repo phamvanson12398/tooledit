@@ -15,6 +15,7 @@ không nhất thiết theo câu chuyện gốc (vd vlog du lịch Nhật → sho
 - `tags`: vài nhãn ngắn (địa điểm, chủ đề: ẩm thực / phong cảnh / đường phố / con người / lịch sử…, không khí).
 - `quality` 1–5: cảnh đẹp, rõ, dùng làm short được thì cao; mờ, rung mạnh, tối, che ống kính, chỉ người nói trước máy
   không có gì để xem thì thấp.
+- `text`: true nếu trên hình có chữ / phụ đề / logo / watermark in sẵn (cảnh có chữ không được lưu vào kho cảnh chung).
 - Phủ hết phần này (không bỏ sót đoạn nào có hình dùng được); đoạn đen / lỗi hình thì bỏ qua.
 - `editor_notes`: 1–2 câu về phần này có gì đáng chú ý.
 

@@ -226,10 +226,12 @@ def idea_brief(v: dict, user_brief: str = "") -> str:
 
 def used_text(others: list) -> str:
     """Cảnh các short khác (cùng job) đã dùng → short này tránh lặp."""
-    ranges = sorted({(s.start, s.end) for o in others for ln in o.lines for s in ln.shots})
-    if not ranges:
+    ranges = sorted({(s.start, s.end) for o in others for ln in o.lines for s in ln.shots if not s.lib})
+    libs = sorted({s.lib for o in others for ln in o.lines for s in ln.shots if s.lib})
+    if not ranges and not libs:
         return "(chưa short nào — dùng thoải mái)"
-    return ", ".join(f"{a:.1f}–{b:.1f}s" for a, b in ranges[:120])
+    return ", ".join(f"{a:.1f}–{b:.1f}s" for a, b in ranges[:120]) + \
+        (f"; cảnh kho chung {', '.join(libs)}" if libs else "")
 
 
 def save_proposal(plan_dir: Path, keep: list[dict], drop: list[dict], notes: str) -> dict:

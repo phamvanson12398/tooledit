@@ -12,3 +12,12 @@ def _isolated_local_settings(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "LOCAL", local)
     monkeypatch.setattr(settings.load, "__defaults__", (local,))
     monkeypatch.setattr(settings.save, "__defaults__", (local,))
+
+
+@pytest.fixture(autouse=True)
+def _isolated_scene_library(tmp_path, monkeypatch):
+    """Kho cảnh chung (library/) của test nằm trong thư mục tạm — không đụng kho thật của máy."""
+    from app import config, scene_library
+
+    real = config.load("library") or {}
+    monkeypatch.setattr(scene_library, "cfg", lambda: {**real, "root": str(tmp_path / "_library")})

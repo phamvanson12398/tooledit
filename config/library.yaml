@@ -1,0 +1,16 @@
+# KHO CẢNH CHUNG (chủ dự án yêu cầu 17/10)
+# Job "Ý tưởng từ video dài" xong → tool tự cắt các cảnh ĐẸP trong danh mục cảnh ra file nhỏ (H.264, không tiếng) lưu vào
+# kho chung. Khi job "Bán content" / "Ý tưởng từ video dài" thiếu cảnh khớp lời, AI được lấy cảnh trong kho (đúng thứ câu
+# đó nói); không có cảnh phù hợp thì dựng như cũ (làm chậm nhẹ / dùng lại cảnh + lật ngang).
+enabled: true
+root: library                 # thư mục kho (tính từ thư mục tool) — bị .gitignore, không đưa lên git
+# Cảnh được lưu
+min_quality: 4                # chỉ lưu cảnh AI chấm đẹp ≥ 4/5
+min_s: 2.0                    # cảnh ngắn hơn thì bỏ
+max_s: 12.0                   # cảnh dài hơn thì chỉ lấy đoạn giữa dài chừng này
+max_gb: 10                    # kho đầy (GB) thì ngừng lưu thêm, ghi nhật ký
+crf: 20                       # chất lượng nén (càng nhỏ càng đẹp, file càng nặng)
+# Dùng cảnh trong kho
+prompt_max: 60                # gửi AI tối đa chừng này cảnh kho hợp chủ đề nhất (cùng tỉ lệ khung với video đang dựng)
+max_share: 0.35               # cảnh kho chiếm tối đa 35% tổng cảnh của video
+max_uses: 3                   # mỗi cảnh kho dùng tối đa chừng này video (tránh TikTok coi là nội dung trùng lặp)

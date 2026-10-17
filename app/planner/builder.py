@@ -247,7 +247,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
           dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False,
           bgm_audio: Path | None = None, vocals_audio: Path | None = None,
           cold_clip: tuple[float, float] | None = None, cold_subs: list[dict] | None = None,
-          dub_windows: list | None = None, timed_fx: dict | None = None) -> BuildResult:
+          dub_windows: list | None = None, timed_fx: dict | None = None,
+          extra_sources: dict[str, dict] | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
     bgm_audio: nhạc nền gốc đã tách giọng nói (chỉ thay tiếng + giữ nhạc nền) — thay cho nhạc AI chọn.
@@ -261,7 +262,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     dub_windows (bán content): vị trí từng câu voice do tool tính sẵn [(µs bắt đầu, giây, giây)] — cảnh đã đảo thứ tự /
     dùng lại nên không suy từ giây gốc được.
     timed_fx (bán content): {"emphasis": [(µs, µs, chữ)], "sfx": [(µs, loại)]} đặt thẳng theo giờ trên timeline.
-    style["no_titles"] / ["no_subtitles"]: không thêm tiêu đề / phụ đề (video gốc đã có chữ in sẵn ở đó)."""
+    style["no_titles"] / ["no_subtitles"]: không thêm tiêu đề / phụ đề (video gốc đã có chữ in sẵn ở đó).
+    extra_sources: {mã cảnh kho chung: {path, width, height, duration}} — clip có `lib` lấy hình từ file kho (cùng tỉ lệ
+    khung với video gốc, không cắt, không tiếng)."""
     safe = config.load("safe_area")
     sub_cfg = config.load("subtitles")
     sc, tr, subjects = analysis["scenes"], analysis["transcript"], analysis["subjects"]
@@ -550,6 +553,12 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                             flip_horizontal=flip_of(sh.start, idx), **bg_kwargs(ratio))
                 n_mirror += flip_of(sh.start, idx)
                 shot_count[sh.kind] += 1
+        elif clip.lib and (extra_sources or {}).get(clip.lib):  # cảnh kho chung: nguồn video riêng
+            x = extra_sources[clip.lib]
+            lsrc = VideoSource(Path(x["path"]), int(x["width"]), int(x["height"]), round(float(x["duration"]) * SEC))
+            w.add_video(lsrc, target_start=p.out_start, duration=p.out_duration,
+                        source_start=round(clip.source_start * SEC), speed=clip.speed, crop=None, volume=0.0,
+                        transition=last_trans, flip_horizontal=bool(clip.mirror), **bg_kwargs(ratio))
         else:
             kfs = [] if keep else zoom_keyframes(plan.zooms, p, style.get("zoom", {})) if not clip.replay else \
                 [Keyframe("scale", 0, 1.0), Keyframe("scale", p.out_duration, style.get("zoom", {}).get("slow_scale", 1.12))]

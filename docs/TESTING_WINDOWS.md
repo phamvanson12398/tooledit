@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 113 — Kho cảnh chung (cảnh đẹp từ "Ý tưởng từ video dài" bù cho Bán content / Ý tưởng) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Chạy một job **💡 Ý tưởng từ video dài** MỚI tới ✅ Xong (job đã xong trước bản cập nhật này chưa có cảnh trong kho).
+   Nhật ký cuối job: "📦 Đã lưu N cảnh đẹp vào kho cảnh chung". Mở thư mục `library\clips` trong thư mục tool:
+   có các file `L1_<mã job>.mp4`… — mở xem vài file: cảnh đẹp, không có chữ / logo, dài 2–12 giây.
+3. Tạo job **💰 Bán content** với video ngắn CÙNG kiểu khung (ngang thì ngang, dọc thì dọc) và cùng chủ đề (vd video
+   ngắn về đồ ăn Nhật, kho có cảnh ẩm thực). Nhật ký: "Kho cảnh chung: … cảnh cùng khung AI được bù…".
+4. Sau khi dựng: nhật ký "Dùng … cảnh từ kho cảnh chung: L…" (nếu AI thấy cần). Mở CapCut: cảnh kho phải ĐÚNG thứ lời đang
+   nói; thư mục `media` của dự án có file `L…mp4` (đóng gói đủ, xóa kho cũng không hỏng dự án).
+5. Video gốc đủ cảnh / kho không có cảnh hợp → không dùng cảnh kho, dựng như cũ (làm chậm nhẹ / dùng lại cảnh lật ngang).
+6. Đổi giới hạn trong `config\library.yaml` nếu cần: `max_gb` (dung lượng kho), `max_uses` (mỗi cảnh dùng tối đa mấy
+   video), `max_share` (cảnh kho chiếm tối đa bao nhiêu % video), `enabled: false` để tắt hẳn.
+
 ## Bước 112 — Chế độ mới "💡 Ý tưởng từ video dài" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

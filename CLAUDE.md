@@ -281,6 +281,16 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - Đúng sự thật: chỉ nói điều thấy / nghe trong video; kiến thức chung chỉ khi phổ biến, chắc chắn; không bịa tên, giá, số
   liệu, năm tháng.
 
+- **Kho cảnh chung (chủ dự án chốt 17/10: kho CHUNG mọi khách, chỉ cho Bán content + Ý tưởng, TỰ lưu, cắt ra file riêng):**
+  job Ý tưởng xong (cuối bước captions) → cảnh trong danh mục đẹp ≥ `min_quality` 4, không có chữ in sẵn
+  (`CatalogShot.text`), dài ≥ `min_s`, không chạm đoạn vi phạm chính sách được cắt ra `library/clips/Lnn_<job>.mp4` (H.264
+  không tiếng, cảnh dài lấy đoạn giữa ≤ `max_s`), ghi `library/index.json` (`app/scene_library.py`, `config/library.yaml`,
+  `library/` bị .gitignore; đầy `max_gb` thì ngừng lưu). Khi viết kịch bản Bán content / Ý tưởng, AI được xem tối đa
+  `prompt_max` cảnh kho CÙNG tỉ lệ khung, hợp chủ đề, chưa dùng quá `max_uses` video (`candidates`), chỉ lấy khi video gốc
+  KHÔNG có cảnh khớp lời (`Shot.lib`, giây tính trong file kho, ≤ `max_share` tổng cảnh — `check_sell_script`); dựng thì
+  builder thêm nguồn video riêng (`extra_sources`, `PlanClip.lib`), file kho được chép vào dự án khi đóng gói, ghi
+  `used_by`. Không có cảnh hợp / file kho bị xóa → dựng như cũ.
+
 ## 5f. Tab "🎙️ Voice Studio" (chủ dự án yêu cầu 16/10)
 
 - Tab riêng trên thanh đầu trang (`/studio`, `app/web/studio_page.py`, logic `app/tts/studio.py`): dùng chính OmniVoice

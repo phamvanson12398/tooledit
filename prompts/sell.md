@@ -55,6 +55,13 @@ Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây). BẠN 
 - Rải cảnh cho đều: cố dùng hết các cảnh đẹp của video; 2 câu liền nhau không dùng cùng một cảnh.
 - Tránh cảnh mờ, rung, có chữ / logo của người khác, đoạn vi phạm chính sách (xem "Điều cấm").
 
+## Kho cảnh chung (CHỈ dùng khi video gốc thiếu cảnh khớp lời)
+Các cảnh đẹp tool đã lưu từ video khác (mã, độ dài, mô tả). Câu nào video gốc KHÔNG có cảnh đúng thứ câu đó nói (hoặc
+cảnh quá ít, phải lặp nhiều) thì được lấy cảnh kho: trong `shots` ghi `lib` = mã (vd "L12"), `start`–`end` tính TRONG
+cảnh kho (0 → độ dài cảnh). Cảnh kho phải THỂ HIỆN ĐÚNG điều câu nói (không lấy cảnh "na ná"); không có cảnh khớp thì
+thôi — dùng cảnh video gốc, tool tự bù. Cảnh kho chiếm tối đa {{lib_share}} tổng cảnh; cảnh video gốc để `lib` rỗng.
+{{library}}
+
 ## Tiêu đề và nhạc
 - `titles_top`: 2 dòng tiêu đề CHỮ RẤT TO cố định phía trên video, ngôn ngữ đích, mỗi dòng ≤ {{title_max}} ký tự, gây tò
   mò, đúng nội dung (không spoil hết, không nhắc nền tảng khác).

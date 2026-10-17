@@ -340,6 +340,8 @@ class PlanClip(BaseModel):
     highlight: bool = Field(default=False, description="true = cảnh GAY CẤN / đắt giá (kiểu chuyển cảnh liên tục: "
                                                        "code xếp các cảnh này lên đầu video)")
     mirror: bool | None = Field(default=None, description="(tool đặt) phản chiếu ngang clip này; null = theo kiểu dựng")
+    lib: str = Field(default="", description="(tool đặt) mã cảnh kho chung — clip lấy từ file trong kho, giây tính trong "
+                                             "file đó; rỗng = video gốc")
     purpose_vi: str = ""
 
 
@@ -661,6 +663,8 @@ def check_captions(c: Captions) -> list[str]:
 class Shot(BaseModel):
     start: float = Field(ge=0, description="giây GỐC bắt đầu cảnh")
     end: float = Field(gt=0, description="giây GỐC kết thúc cảnh")
+    lib: str = Field(default="", description="mã cảnh trong KHO CẢNH CHUNG (L1, L2…) khi lấy cảnh từ kho; khi đó start / "
+                                             "end tính TRONG cảnh kho (0 → độ dài cảnh). Rỗng = cảnh trong video gốc")
 
 
 class DubLine(BaseModel):
@@ -744,6 +748,7 @@ class CatalogShot(BaseModel):
     desc_vi: str = Field(description="cảnh THẤY gì (tiếng Việt, ngắn, cụ thể: nơi chốn, vật, người, hành động)")
     tags: list[str] = Field(default_factory=list, description="vài nhãn ngắn tiếng Việt: địa điểm, chủ đề, không khí")
     quality: int = Field(default=3, ge=1, le=5, description="độ đẹp / dùng được để dựng short: 1 (mờ, rung) .. 5 (rất đẹp)")
+    text: bool = Field(default=False, description="true = trên hình có chữ / phụ đề / logo / watermark in sẵn")
 
 
 class Catalog(BaseModel):

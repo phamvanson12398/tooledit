@@ -37,8 +37,10 @@ def _scene_of(t: float, scenes: list[dict]) -> dict | None:
 
 def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], cps: float, target_s: float,
                       cfg: dict, banned: list[tuple[float, float]] | None = None, title_max: int = 12,
-                      video_index: int = 1, pool_only: bool = False) -> list[str]:
-    """pool_only (chế độ Ý tưởng từ video dài): `scenes` = các cảnh của ý tưởng — cảnh ngoài danh sách đó là lỗi."""
+                      video_index: int = 1, pool_only: bool = False,
+                      library: dict[str, float] | None = None, lib_share: float = 0.35) -> list[str]:
+    """pool_only (chế độ Ý tưởng từ video dài): `scenes` = các cảnh của ý tưởng — cảnh ngoài danh sách đó là lỗi.
+    library = {mã cảnh kho chung: độ dài} AI được dùng (shot.lib); cảnh kho chiếm tối đa lib_share tổng cảnh."""
     from app.director.policy import find_forbidden, overlap_s
     from app.director.tasks import check_target_language, speech_chars
 
@@ -59,10 +61,22 @@ def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], 
                       f"video dài ~{target_s:.0f}s ở tốc độ ~{cps:.1f} chữ/giây: "
                       + ("viết thêm ý / câu" if chars < lo * want else "viết gọn bớt"))
     min_cut = float(cfg.get("min_cut_s", 1.0))
+    lib_s = all_s = 0.0
     for i, ln in enumerate(r.lines, 1):
         for s in ln.shots:
             if s.end <= s.start:
                 errors.append(f"câu {i}: cảnh {s.start}-{s.end} có end ≤ start")
+                continue
+            all_s += s.end - s.start
+            if s.lib:  # cảnh lấy từ kho cảnh chung: giây tính trong cảnh kho
+                lib_s += s.end - s.start
+                if s.lib not in (library or {}):
+                    errors.append(f"câu {i}: không có cảnh kho {s.lib} — chỉ dùng mã trong \"Kho cảnh chung\" (hoặc để "
+                                  "lib rỗng, lấy cảnh video gốc)")
+                elif s.end > library[s.lib] + 0.3:
+                    errors.append(f"câu {i}: cảnh kho {s.lib} chỉ dài {library[s.lib]:.1f}s — {s.start}-{s.end} lố")
+                elif s.end - s.start < min_cut - 0.05:
+                    errors.append(f"câu {i}: cảnh kho {s.lib} {s.start}-{s.end} ngắn hơn {min_cut:.0f} giây")
                 continue
             if s.end > duration + 0.3 or s.start < 0:
                 errors.append(f"câu {i}: cảnh {s.start}-{s.end} nằm ngoài video gốc (0–{duration:.1f}s)")
@@ -84,6 +98,9 @@ def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], 
         bad = find_forbidden(ln.text, language)
         if bad:
             errors.append(f"câu {i} có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
+    if all_s and lib_s / all_s > lib_share + 1e-6:
+        errors.append(f"cảnh từ kho chung chiếm {lib_s / all_s:.0%} tổng cảnh — tối đa {lib_share:.0%}: ưu tiên cảnh video "
+                      "gốc, kho chỉ bù chỗ video gốc KHÔNG có cảnh khớp lời")
     for t in r.titles_top:
         if len(t) > title_max:
             errors.append(f"tiêu đề '{t}' dài {len(t)} ký tự — tối đa {title_max}")
@@ -131,13 +148,15 @@ def _lines_text(previous) -> str:
 
 def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, sell_s: float | int = 0,
                      music_items: list | None = None, video_index: int = 1, feedback: str = "", previous=None,
-                     variant: tuple[int, int] = (1, 1), others: list | None = None, idea: dict | None = None):
+                     variant: tuple[int, int] = (1, 1), others: list | None = None, idea: dict | None = None,
+                     library: list[dict] | None = None):
     """AI xem khung hình + lời nói gốc, TỰ chọn góc kể theo nội dung gốc (chủ dự án 15/10 bỏ ô định hướng; `brief` chỉ còn
     cho job cũ đã nhập) → SellScript (lời + cảnh từng câu + tiêu đề + nhạc).
     variant = (bản thứ i, tổng n) — chủ dự án 17/10: một video gốc ra 2–3 bản KHÁC NHAU; others = SellScript các bản đã
     viết (bản này phải khác góc kể / câu mở đầu / thứ tự cảnh).
     idea = video của chế độ Ý tưởng từ video dài (app/director/ideas.py: {idea, pool, …}) — chỉ dùng cảnh trong `pool`
-    (khung hình + lời nói gốc cũng chỉ lấy trong đó), others = short khác đã viết (tránh lặp cảnh)."""
+    (khung hình + lời nói gốc cũng chỉ lấy trong đó), others = short khác đã viết (tránh lặp cảnh).
+    library = cảnh kho chung AI được bù khi video gốc thiếu cảnh khớp lời (app/scene_library.candidates)."""
     from app.director.policy import cut_ranges
     from app.director.schemas import SellScript
     from app.director.tasks import (LANGUAGE_NAMES, MARKETS, _segments_in, _shared_context, load_analysis,
@@ -195,6 +214,11 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
                  "feedback": (f"Sửa ĐÚNG theo góp ý này, giữ cái hay của bản trước:\n{feedback.strip()}\n\nBản trước:\n"
                               f"{_lines_text(previous)}" if feedback.strip() and previous
                               else feedback.strip() or "(không có)")}
+    from app.scene_library import cfg as lib_cfg, prompt_text
+
+    lib_map = {it["id"]: float(it["duration"]) for it in library or []}
+    lib_share = float(lib_cfg().get("max_share", 0.35))
+    variables.update({"library": prompt_text(library or []), "lib_share": f"{lib_share:.0%}"})
     task = "sell"
     if idea is not None:
         from app.director.ideas import idea_brief, used_text
@@ -214,7 +238,13 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
             r = r.model_copy(update={"music": r.music.model_copy(update={"name": None})})
         lines = []
         for i, ln in enumerate(r.lines, 1):  # cảnh lố đuôi video vài phần giây → cắt về hết video
-            shots = [s.model_copy(update={"end": min(s.end, duration)}) for s in ln.shots if s.start < duration - 0.3]
+            shots = []
+            for s in ln.shots:
+                lib = s.lib.strip().upper()
+                if lib:  # cảnh kho: lố đuôi cảnh kho vài phần giây → cắt về hết cảnh
+                    shots.append(s.model_copy(update={"lib": lib, "end": min(s.end, lib_map.get(lib, s.end))}))
+                elif s.start < duration - 0.3:
+                    shots.append(s.model_copy(update={"end": min(s.end, duration)}))
             if len(shots) != len(ln.shots) or any(s.end != o.end for s, o in zip(shots, ln.shots)):
                 fixes.append(f"câu {i}: cắt cảnh lố đuôi video về {duration:.1f}s")
             lines.append(ln.model_copy(update={"shots": shots or ln.shots}))
@@ -223,7 +253,7 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     def extra(r) -> list[str]:
         return check_sell_script(r, u.language, duration=duration, scenes=scenes, cps=cps, target_s=target, cfg=cfg,
                                  banned=banned, title_max=title_max, video_index=video_index,
-                                 pool_only=idea is not None and bool(pool))
+                                 pool_only=idea is not None and bool(pool), library=lib_map, lib_share=lib_share)
 
     return director.run(task, variables, SellScript, [analysis_dir / f["file"] for f in frames],
                         extra_check=extra, repair=repair)
@@ -234,8 +264,11 @@ def sell_to_dub(r):
     story_vi = dàn ý → trang voice hiện cả bài để đọc liền một mạch (như review)."""
     from app.director.schemas import DubLine, DubScript
 
-    lines = [DubLine(kind="narration", source_start=min(s.start for s in ln.shots),
-                     source_end=max(s.end for s in ln.shots), text=ln.text, text_vi=ln.text_vi,
+    def own(ln):  # giây gốc chỉ tính cảnh của video gốc (cảnh kho chung có giây riêng)
+        return [s for s in ln.shots if not s.lib] or ln.shots
+
+    lines = [DubLine(kind="narration", source_start=min(s.start for s in own(ln)),
+                     source_end=max(s.end for s in own(ln)), text=ln.text, text_vi=ln.text_vi,
                      action_vi=ln.shots_vi, role=ln.role, shots=ln.shots, keyword=ln.keyword.strip())
              for ln in r.lines]
     return DubScript(video_index=r.video_index, lines=lines, editor_notes=r.editor_notes,
@@ -247,7 +280,7 @@ def sell_plan(r, default_ratio: str = "16:9"):
     theo thứ tự câu (tool dựng lại theo voice khi ghi CapCut)."""
     from app.director.schemas import EditPlan, PlanClip
 
-    clips = [PlanClip(source_start=s.start, source_end=s.end, repeat=True, purpose_vi=ln.shots_vi)
+    clips = [PlanClip(source_start=s.start, source_end=s.end, repeat=True, lib=s.lib, purpose_vi=ln.shots_vi)
              for ln in r.lines for s in ln.shots]
     return EditPlan(video_index=r.video_index, titles_top=r.titles_top[:2], default_ratio=default_ratio, clips=clips,
                     music=r.music, editor_notes=r.editor_notes)

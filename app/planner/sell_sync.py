@@ -7,6 +7,8 @@ cho dài đúng bằng câu + khoảng nghỉ:
 - thiếu nhiều: thêm cảnh khác — ưu tiên phần footage CHƯA dùng; phải dùng lại thì lấy khúc khác của cảnh và phản chiếu
   ngang (nếu được phép) cho khỏi lộ lặp, không đặt lại một cảnh trong vòng `reuse_gap` cảnh liền kề.
 Video luôn dài ≥ `min_s` (> 60 giây): thiếu thì thêm cảnh sau câu cuối (nhạc chạy tiếp).
+Cảnh AI lấy từ KHO CẢNH CHUNG (shot.lib, giây tính trong file kho — chủ dự án 17/10) đặt như cảnh thường nhưng không tính
+vào phần footage gốc đã dùng; cảnh bù khi thiếu vẫn chỉ lấy trong video gốc.
 """
 
 from __future__ import annotations
@@ -73,9 +75,16 @@ def build_sell(script, voice_s: dict[int, float], scenes: list[dict], duration: 
     est_n = n_slow = n_fill = n_reuse = 0
     t = 0.0
 
-    def put(a: float, b: float, speed: float, purpose: str) -> float:
+    lib_usage: dict[str, _Usage] = {}
+
+    def put(a: float, b: float, speed: float, purpose: str, lib: str = "") -> float:
         """Đặt một khúc; dùng lại phần đã dùng → phản chiếu ngang. Trả thời lượng trên màn hình."""
         nonlocal n_reuse
+        if lib:  # cảnh kho chung: file riêng, không đụng phần footage gốc đã dùng
+            clips.append(PlanClip(source_start=round(a, 3), source_end=round(b, 3), speed=round(speed, 3), repeat=True,
+                                  lib=lib, purpose_vi=purpose))
+            lib_usage.setdefault(lib, _Usage([(a, b)])).used.append((a, b))
+            return (b - a) / speed
         reused = usage.overlap(a, b) > 0.5 * (b - a)
         n_reuse += reused
         clips.append(PlanClip(source_start=round(a, 3), source_end=round(b, 3), speed=round(speed, 3), repeat=True,
@@ -83,11 +92,11 @@ def build_sell(script, voice_s: dict[int, float], scenes: list[dict], duration: 
         usage.add(a, b)
         return (b - a) / speed
 
-    def put_span(a: float, b: float, speed: float, purpose: str) -> float:
+    def put_span(a: float, b: float, speed: float, purpose: str, lib: str = "") -> float:
         """Một cảnh dài → chia thành nhiều khúc ~cut_s trên màn hình (không để một cảnh đứng quá max_cut)."""
         k = max(1, round((b - a) / speed / cut_s))
         w = (b - a) / k
-        return sum(put(a + j * w, a + (j + 1) * w, speed, purpose) for j in range(k))
+        return sum(put(a + j * w, a + (j + 1) * w, speed, purpose, lib) for j in range(k))
 
     def filler(need: float, avoid: set[int], purpose: str) -> float:
         """Thêm cảnh khác cho đủ `need` giây: phần chưa dùng nhiều nhất trước, không lặp cảnh vừa đặt."""
@@ -125,32 +134,34 @@ def build_sell(script, voice_s: dict[int, float], scenes: list[dict], duration: 
             est_n += 1
         slot = v + gap
         windows.append((round(t * SEC), v, v))
-        shots = [(max(0.0, s.start), min(duration, s.end)) for s in (ln.shots or [])]
-        shots = [(a, b) for a, b in shots if b - a >= 0.3] or [(max(0.0, ln.source_start), min(duration, ln.source_end))]
-        shots = [(a, b) for a, b in shots if b - a >= 0.3]
-        total_src = sum(b - a for a, b in shots)
+        shots = [(max(0.0, s.start), s.end if getattr(s, "lib", "") else min(duration, s.end), getattr(s, "lib", ""))
+                 for s in (ln.shots or [])]
+        shots = [x for x in shots if x[1] - x[0] >= 0.3] or \
+            [(max(0.0, ln.source_start), min(duration, ln.source_end), "")]
+        shots = [x for x in shots if x[1] - x[0] >= 0.3]
+        total_src = sum(b - a for a, b, _ in shots)
         purpose = (ln.action_vi or ln.text_vi)[:60]
         got = 0.0
         if total_src >= slot:  # đủ phim: lấy khúc theo tỉ lệ từng cảnh, mỗi khúc ~cut_s
-            for a, b in shots:
+            for a, b, lib in shots:
                 take = slot * (b - a) / total_src
                 k = max(1, min(round(take / cut_s), int(take / min_cut) or 1))
                 piece = take / k
                 win = (b - a) / k
                 for j in range(k):
                     lo, hi = a + j * win, a + (j + 1) * win
-                    s = _best_start(lo, hi, piece, usage)
-                    got += put(s, s + piece, 1.0, purpose)
+                    s = _best_start(lo, hi, piece, lib_usage.get(lib) or _Usage([]) if lib else usage)
+                    got += put(s, s + piece, 1.0, purpose, lib)
         elif total_src / min_speed >= slot:  # thiếu ít: chậm nhẹ cả câu
             speed = total_src / slot
             n_slow += 1
-            for a, b in shots:
-                got += put_span(a, b, speed, purpose)
+            for a, b, lib in shots:
+                got += put_span(a, b, speed, purpose, lib)
         else:  # thiếu nhiều: cảnh của câu ở tốc độ chậm nhẹ + thêm cảnh khác
             n_slow += 1
-            for a, b in shots:
-                got += put_span(a, b, min_speed, purpose)
-            avoid = {usage.scene_id((a + b) / 2) for a, b in shots}
+            for a, b, lib in shots:
+                got += put_span(a, b, min_speed, purpose, lib)
+            avoid = {usage.scene_id((a + b) / 2) for a, b, lib in shots if not lib}
             got += filler(slot - got, avoid, purpose)
         t += got
     if t < min_total:  # luôn dài hơn 60 giây: thêm cảnh sau câu cuối (nhạc chạy tiếp)

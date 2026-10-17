@@ -1401,11 +1401,14 @@ class Runner:
                 except ValueError:
                     pass
         ideas = job.options.ideas
+        library = self._library_for(job, v, analysis)
+        if library:
+            self.log(f"Kho cảnh chung: {len(library)} cảnh cùng khung AI được bù khi video gốc thiếu cảnh khớp lời.")
         r = make_sell_script(self.director, analysis, self._u_for(job, v),
                              brief=job.options.ideas_brief if ideas else job.options.sell_brief,
                              sell_s=job.options.sell_s, music_items=chosen or music, video_index=i,
                              feedback=feedback, previous=previous, variant=(1, 1) if ideas else (i, n_var),
-                             others=others, idea=v if ideas else None)
+                             others=others, idea=v if ideas else None, library=library)
         ratio = job.data.get("default_ratio")
         plan = sell_plan(r, ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
         if chosen:
@@ -2001,14 +2004,23 @@ class Runner:
                 min_cut_s=float(rcfg.get("min_cut_s", 1.0)))
             for n in sync_notes:
                 self.log(f"[video {i:02d}] {n}")
-        dub_windows, timed_fx = None, None
+        dub_windows, timed_fx, extra_sources = None, None, None
         if job.options.sell and dub is not None:  # bán content: cảnh cắt / đảo / dùng lại theo voice thật
             from app.director.sell import sell_cfg, sell_cps
             from app.planner.sell_sync import build_sell
 
+            from app import scene_library
+
             scfg = sell_cfg()
             sc = a["scenes"]
             b = u_v.burned_in_text
+            want = {s.lib for ln in dub.lines for s in (ln.shots or []) if s.lib}
+            extra_sources = scene_library.sources(want) if want else {}
+            if want - set(extra_sources):  # cảnh kho đã bị xóa → bỏ, tool bù bằng cảnh video gốc như cũ
+                self.log(f"[video {i:02d}] ⚠️ Không thấy cảnh kho {', '.join(sorted(want - set(extra_sources)))} — dùng "
+                         "cảnh video gốc thay.")
+                dub = dub.model_copy(update={"lines": [ln.model_copy(update={"shots": [
+                    s for s in ln.shots if not s.lib or s.lib in extra_sources]}) for ln in dub.lines]})
             # ý tưởng từ video dài: cảnh bù (khi thiếu) chỉ lấy trong các cảnh của ý tưởng, không lấy bừa cả video dài
             pool = (v.get("pool") or None) if job.options.ideas else None
             clips, dub_windows, sync_notes = build_sell(
@@ -2033,11 +2045,17 @@ class Runner:
                     bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm),
                     cold_clip=self._cliff_hook(v) if job.options.cliff else None,
                     cold_subs=self._cliff_hook_subs(job, v) if job.options.cliff else None, dub_windows=dub_windows,
-                    timed_fx=timed_fx)
+                    timed_fx=timed_fx, extra_sources=extra_sources)
         if job.options.sell:
             from app.director.sell import sell_cfg
 
             res.writer.pack_media = bool(sell_cfg().get("pack_media", True))
+            used_lib = sorted({c.lib for c in plan.clips if c.lib and c.lib in (extra_sources or {})})
+            if used_lib:
+                from app import scene_library
+
+                scene_library.mark_used(used_lib, job.job_id)
+                self.log(f"[video {i:02d}] Dùng {len(used_lib)} cảnh từ kho cảnh chung: {', '.join(used_lib)}.")
         out = res.writer.save(overwrite=True)
         if res.writer.packed_files():
             self.log(f"[video {i:02d}] Đã đóng gói {len(res.writer.packed_files())} file (video nguồn, voice, nhạc) vào "
@@ -2248,3 +2266,43 @@ class Runner:
             out.write_text(text, encoding="utf-8")
             self.log(f"Đã xuất caption: {out}")
         job.data["captions"] = str(d / "deliver")
+        if job.options.ideas:  # chủ dự án 17/10: job xong → cảnh đẹp của video dài vào kho cảnh chung
+            self._harvest_library(job)
+
+    def _harvest_library(self, job: Job) -> int:
+        """Cắt cảnh đẹp (danh mục cảnh của job Ý tưởng) vào kho cảnh chung. Lỗi chỉ ghi nhật ký, không làm hỏng job."""
+        from app import scene_library
+        from app.director.policy import cut_ranges
+        from app.director.schemas import Catalog
+        from app.director.tasks import load_analysis
+
+        _, analysis, plan_dir = self._paths(job)
+        try:
+            cat = Catalog.model_validate_json((plan_dir / "catalog.json").read_text(encoding="utf-8"))
+            sc = load_analysis(analysis)["scenes"]
+            n = scene_library.harvest(job.job_id, Path(sc["path"]), (int(sc["width"]), int(sc["height"])), cat,
+                                      banned=cut_ranges(self._understanding(job)), log=self.log)
+        except Exception as exc:
+            self.log(f"⚠️ Chưa lưu được cảnh vào kho cảnh chung: {exc}")
+            return 0
+        job.data["library_added"] = job.data.get("library_added", 0) + n
+        self.log(f"📦 Đã lưu {n} cảnh đẹp vào kho cảnh chung (thư mục library) — job Bán content / Ý tưởng sau thiếu "
+                 "cảnh sẽ lấy từ kho." if n else "📦 Kho cảnh chung: không có cảnh mới để lưu.")
+        return n
+
+    def _library_for(self, job: Job, v: dict, analysis: Path) -> list[dict]:
+        """Cảnh kho chung AI được bù cho video này (cùng tỉ lệ khung, hợp chủ đề)."""
+        from app import scene_library
+        from app.capcut_writer.layout import nearest_ratio
+        from app.director.tasks import load_analysis
+
+        try:
+            sc = load_analysis(analysis)["scenes"]
+            it = v.get("idea") or {}
+            query = " ".join([self._understanding(job).summary_vi, v.get("title_vi", ""), v.get("summary_vi", ""),
+                              it.get("angle_vi", "")])
+            return scene_library.candidates(nearest_ratio(int(sc["width"]), int(sc["height"])), query,
+                                            exclude_job=job.job_id)
+        except Exception as exc:
+            self.log(f"⚠️ Không đọc được kho cảnh chung: {exc}")
+            return []

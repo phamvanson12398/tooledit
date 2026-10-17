@@ -54,3 +54,4 @@ assets/.imports/
 
 # Voice Studio: thư viện giọng mẫu + file đã đọc (giọng / âm thanh không bao giờ commit)
 /studio/
+/library/
