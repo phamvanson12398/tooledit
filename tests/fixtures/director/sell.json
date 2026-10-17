@@ -21,7 +21,8 @@
           "end": 34
         }
       ],
-      "shots_vi": "cảnh nấu ăn"
+      "shots_vi": "cảnh nấu ăn",
+      "keyword": "완판"
     },
     {
       "role": "body",
@@ -49,7 +50,8 @@
           "end": 16
         }
       ],
-      "shots_vi": "cảnh nấu ăn"
+      "shots_vi": "cảnh nấu ăn",
+      "keyword": "몇 시간"
     },
     {
       "role": "body",
@@ -89,7 +91,8 @@
           "end": 40
         }
       ],
-      "shots_vi": "cảnh nấu ăn"
+      "shots_vi": "cảnh nấu ăn",
+      "keyword": "토핑"
     },
     {
       "role": "body",
@@ -165,7 +168,8 @@
           "end": 2
         }
       ],
-      "shots_vi": "cảnh quán"
+      "shots_vi": "cảnh quán",
+      "keyword": "팔로우"
     },
     {
       "role": "body",

@@ -192,7 +192,9 @@ def review_len(job) -> str:
         from app.director.sell import sell_cfg, sell_target
 
         sec = int(sell_target(sell_cfg(), job.options.sell_s))
-        return f" · {sec // 60}:{sec % 60:02d}"
+        n = int(job.options.sell_variants or 1)
+        return f" · {sec // 60}:{sec % 60:02d}" + (f" · {n} bản" if n > 1 else "") + \
+            (" · 🎙️ giọng Voice Studio" if job.options.sell_voice else "")
     if job.options.cliff:  # review bỏ lửng: ngôi kể
         pov = job.options.cliff_pov or str(app_config.load("cliff").get("default_pov", "3"))
         return " · ngôi thứ 1" if pov == "1" else " · ngôi thứ 3"
@@ -478,6 +480,16 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         sell_opts = "".join(f"<option value='{v}' {'selected' if int(v) == sell_default else ''}>{int(v)} giây"
                             f"{' (mặc định)' if int(v) == sell_default else ''}</option>"
                             for v in scfg.get("durations") or [62, 65, 70, 75])
+        from app.tts import studio as _studio
+
+        studio_voices = _studio.list_voices()
+        sell_voice_opts = "<option value=''>🎤 Tôi tự thu voice (hoặc bấm 🤖 OmniVoice ở trang voice)</option>" + "".join(
+            f"<option value='{html.escape(v['slug'])}'>🎙️ {html.escape(v['name'])} — "
+            f"{'giọng mẫu' if v.get('mode') == 'clone' else 'mô tả giọng'}"
+            f"{'' if v.get('mode') != 'clone' or v.get('consent') else ' (chưa xác nhận quyền)'}</option>"
+            for v in studio_voices)
+        variant_opts = "".join(f"<option value='{n}'>{n} bản{' (mặc định)' if n == 1 else ' khác nhau'}</option>"
+                               for n in range(1, int(scfg.get("max_variants", 3)) + 1))
         # chủ dự án 11/10: chỉ để "AI tự chọn" (các kiểu dựng vẫn còn trong styles/, AI tự chọn theo nội dung)
         # chủ dự án 11/10: bỏ "Kho tài nguyên" + "So sánh video" khỏi trang chủ; làm lại form theo 3 bước dễ dùng
         lib, _ = _load_library()
@@ -538,6 +550,13 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <div data-modes="sell">
                 <label style="margin-top:10px">⏱️ Thời lượng video</label>
                 <select name="sell_s">{sell_opts}</select>
+                <label style="margin-top:10px">🎞️ Số bản làm từ video này</label>
+                <select name="sell_variants">{variant_opts}</select>
+                <div class="muted">Mỗi bản một góc kể, câu mở đầu, thứ tự cảnh, tiêu đề khác nhau — đăng như video riêng.</div>
+                <label style="margin-top:10px">🎙️ Giọng đọc</label>
+                <select name="sell_voice">{sell_voice_opts}</select>
+                <div class="muted">Chọn giọng đã lưu ở tab <a href="/studio">🎙️ Voice Studio</a> → OmniVoice tự đọc, tự dựng,
+                khỏi ngồi canh (voice ngắn thì tự viết dài thêm một lần).</div>
                 <div class="muted">Luôn dài hơn 60 giây. Video gốc ngắn hơn thì tool làm chậm nhẹ / dùng lại cảnh (lấy khúc
                 khác, lật ngang) cho đủ, hạn chế lặp dễ nhận ra.</div></div>
               <div data-modes="cliff"><label style="margin-top:10px">🗣️ Ngôi kể</label>
@@ -714,7 +733,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ai: str = Form(""), mode: str = Form(""), review_s: int = Form(0), cliff_pov: str = Form(""),
                 post_title: str = Form(""),
                 post_images: list[UploadFile] | None = File(None), sell_brief: str = Form(""),
-                sell_s: int = Form(0)):
+                sell_s: int = Form(0), sell_variants: int = Form(1), sell_voice: str = Form("")):
         if mode == "films":  # content nhiều phim: chưa có file phim, bắt đầu từ bài TikTok ảnh
             return _new_films_job(Path(jobs_root), worker, target_language, post_title, post_images or [],
                                   client, ai)
@@ -772,6 +791,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         job = Job.create(Path(jobs_root), [p.resolve() for p in paths], JobOptions(
             sell=sell, sell_brief=sell_brief.strip()[:2000] if sell else "",
             sell_s=max(0, min(int(sell_s or 0), 180)) if sell else 0,
+            sell_variants=max(1, min(int(sell_variants or 1), 3)) if sell else 1,
+            sell_voice=sell_voice.strip() if sell else "",
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only and not review,
             reframe_per_scene=False,  # 15/10: khung video gốc → không đổi khung theo cảnh
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and not review and len(paths) == 1,

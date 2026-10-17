@@ -68,3 +68,23 @@ def extract_frame(src: Path, at_s: float, dst: Path, width: int = 480, quality: 
     if last_err is not None and at_s < 1.0:  # lỗi ngay từ đầu video → không phải do mốc cuối, báo thật
         raise last_err
     return False
+
+
+def video_codec(src: Path, exe: str | None = None) -> str:
+    """Tên codec hình của file (vd "h264", "av1", "hevc") đọc từ dòng "Video: …" của `ffmpeg -i` (không cần ffprobe).
+    Không đọc được → ""."""
+    import re
+
+    try:
+        r = subprocess.run([exe or ffmpeg_exe(), "-hide_banner", "-i", str(src)], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=60)
+    except (OSError, subprocess.SubprocessError, RuntimeError):
+        return ""
+    m = re.search(r"Stream #\S+.*?: Video: ([A-Za-z0-9_]+)", r.stderr or "")
+    return m.group(1).lower() if m else ""
+
+
+def h264_args(src: Path, dst: Path, crf: int = 18) -> list[str]:
+    """Đổi sang H.264 + AAC (CapCut nào cũng mở được), giữ nguyên khung / fps / độ dài."""
+    return ["-i", str(src), "-map", "0:v:0", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf",
+            str(crf), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(dst)]

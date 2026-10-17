@@ -58,6 +58,8 @@ class JobOptions(BaseModel):
     sell: bool = False                # Bán content (15/10): kịch bản mới + cảnh đảo theo lời, voice + nhạc mới, đóng gói CapCut
     sell_brief: str = ""              # Bán content: định hướng nội dung chủ dự án nhập
     sell_s: int = 0                   # Bán content: thời lượng mục tiêu (giây); 0 = default_s trong config/sell.yaml
+    sell_variants: int = 1            # Bán content (17/10): số bản KHÁC NHAU làm từ cùng video (1–3)
+    sell_voice: str = ""              # Bán content (17/10): giọng trong thư viện Voice Studio → OmniVoice tự đọc, khỏi thu tay
     cliff: bool = False               # Review bỏ lửng (14/10): đi CÙNG review=True — kể HẾT phim thành nhiều phần 1:30–2:00,
                                       #   mỗi phần mở bằng short kịch tính giữ nguyên, kết bỏ lửng (config/cliff.yaml)
     films: bool = False               # Content nhiều phim từ bài TikTok ảnh (14/10): AI viết content mới, hình cắt từ

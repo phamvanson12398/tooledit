@@ -674,6 +674,7 @@ class DubLine(BaseModel):
     adapt_vi: str = Field(default="", description="nếu câu được BẢN ĐỊA HÓA (đổi ví dụ, đơn vị, cách đùa…): đổi gì, vì sao")
     speaker: str = Field(default="", description="(lồng tiếng nhân vật) TÊN nhân vật nói câu này — viết thống nhất")
     role: str = Field(default="", description="(bán content) hook / body / cta")
+    keyword: str = Field(default="", description="(bán content) chữ nhấn của câu")
     shots: list["Shot"] = Field(default_factory=list, description="(bán content) các cảnh chạy dưới câu, theo thứ tự hiện")
 
 
@@ -714,6 +715,8 @@ class SellLine(BaseModel):
     shots: list[Shot] = Field(min_length=1, description="1–3 cảnh (giây gốc) chạy dưới câu này, theo thứ tự hiện trên "
                                                         "màn hình — được lấy cảnh ở BẤT KỲ đâu trong video gốc")
     shots_vi: str = Field(default="", description="các cảnh đó có gì (tiếng Việt, ngắn) — để chủ dự án đối chiếu")
+    keyword: str = Field(default="", description="CHỮ NHẤN: 1 từ / cụm ngắn đắt nhất của câu (ngôn ngữ đích, có trong câu), "
+                                                 "hiện chữ to giữa màn khi đọc câu; rỗng nếu câu không cần nhấn")
 
 
 class OnscreenLine(BaseModel):

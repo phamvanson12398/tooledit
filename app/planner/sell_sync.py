@@ -163,3 +163,32 @@ def build_sell(script, voice_s: dict[int, float], scenes: list[dict], duration: 
                     + (f"; {n_reuse} cảnh dùng lại" + (" (đã phản chiếu ngang)" if mirror_ok else "") if n_reuse else "")
                     + (f" ({est_n} câu chưa có voice — tạm tính theo số chữ, thu xong dựng lại)" if est_n else "") + ".")
     return clips, windows, notes
+
+
+def sell_fx(script, windows: list, cfg: dict | None = None, *, emphasis: bool = True) -> dict:
+    """Chữ nhấn + tiếng động theo voice (chủ dự án 17/10: video bớt "trơn", không zoom / cắt khung):
+    - chữ nhấn `keyword` của câu hiện to giữa màn ngay sau khi câu bắt đầu (`emphasis_delay_s`), dài ~`emphasis_s`;
+    - tiếng "pop" ở câu mở đầu, whoosh / swoosh luân phiên mỗi lần đổi câu (bỏ các câu quá ngắn để khỏi dồn dập).
+    windows = [(µs bắt đầu câu, giây đọc, …)] từ build_sell. Trả {"emphasis": [(µs, µs, chữ)], "sfx": [(µs, loại)]}."""
+    cfg = cfg or {}
+    fx = cfg.get("fx") or {}
+    delay = round(float(fx.get("emphasis_delay_s", 0.15)) * SEC)
+    em_s = float(fx.get("emphasis_s", 1.4))
+    kinds = list(fx.get("line_sfx") or ["whoosh", "swoosh"])
+    min_gap = round(float(fx.get("sfx_min_gap_s", 2.5)) * SEC)
+    out = {"emphasis": [], "sfx": []}
+    last_sfx = None
+    for no, (ln, win) in enumerate(zip(script.lines, windows), 1):
+        if not win:
+            continue
+        start, secs = int(win[0]), float(win[1])
+        kw = (getattr(ln, "keyword", "") or "").strip()
+        if emphasis and kw:
+            out["emphasis"].append((start + delay, round(min(em_s, max(0.6, secs - 0.2)) * SEC), kw))
+        if no == 1 and fx.get("opening_sfx", "pop"):
+            out["sfx"].append((start, fx.get("opening_sfx", "pop")))
+            last_sfx = start
+        elif kinds and (last_sfx is None or start - last_sfx >= min_gap):
+            out["sfx"].append((max(0, start - round(0.12 * SEC)), kinds[len(out["sfx"]) % len(kinds)]))
+            last_sfx = start
+    return out

@@ -32,3 +32,17 @@ reuse_gap: 2                  # một cảnh không xuất hiện lại trong v�
 music_base_db: -14            # nhạc nền nằm dưới giọng đọc
 pack_media: true              # chép video nguồn + voice + nhạc (file trên máy) vào thư mục dự án CapCut
 title_max_chars: {ko: 12, ja: 12, en: 22}
+# Chữ nhấn + tiếng động theo voice (chủ dự án 17/10): video bớt "trơn" mà không zoom / cắt khung
+fx:
+  emphasis: true              # chữ nhấn (keyword của từng câu) to giữa màn
+  emphasis_s: 1.4             # chữ nhấn hiện chừng này giây
+  emphasis_delay_s: 0.15      # hiện sau khi câu bắt đầu chừng này giây
+  opening_sfx: pop            # tiếng ở câu mở đầu ("" = không)
+  line_sfx: [whoosh, swoosh]  # tiếng khi đổi câu, luân phiên ([] = không)
+  sfx_min_gap_s: 2.5          # 2 tiếng đổi câu cách nhau ít nhất chừng này giây (câu ngắn liền nhau thì bỏ bớt)
+  sfx_volume: 0.6
+# Video gốc có chữ / phụ đề in sẵn (chủ dự án 17/10: không đè chữ mới lên chữ cũ): chữ in ở trên → bỏ tiêu đề của tool;
+# ở dưới → bỏ phụ đề của tool; ở giữa → bỏ chữ nhấn. Không rõ vùng → bỏ cả tiêu đề + phụ đề.
+burned_in_skip: true
+# Nhiều bản từ cùng một video (chủ dự án 17/10): lựa chọn trên trang chủ
+max_variants: 3

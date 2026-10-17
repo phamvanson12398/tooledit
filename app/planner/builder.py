@@ -247,7 +247,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
           dub_voices: dict[int, tuple[Path, int]] | None = None, vi_subtitles: bool = False,
           bgm_audio: Path | None = None, vocals_audio: Path | None = None,
           cold_clip: tuple[float, float] | None = None, cold_subs: list[dict] | None = None,
-          dub_windows: list | None = None) -> BuildResult:
+          dub_windows: list | None = None, timed_fx: dict | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
     bgm_audio: nhạc nền gốc đã tách giọng nói (chỉ thay tiếng + giữ nhạc nền) — thay cho nhạc AI chọn.
@@ -259,7 +259,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     tiếng gốc — không zoom, không nhạc, không lật; tiêu đề / nhạc / lời review bắt đầu ngay sau short.
     cold_subs: phụ đề của short [{start, end (giây gốc), text (ngôn ngữ đích), text_vi}] — chữ duy nhất trên short.
     dub_windows (bán content): vị trí từng câu voice do tool tính sẵn [(µs bắt đầu, giây, giây)] — cảnh đã đảo thứ tự /
-    dùng lại nên không suy từ giây gốc được."""
+    dùng lại nên không suy từ giây gốc được.
+    timed_fx (bán content): {"emphasis": [(µs, µs, chữ)], "sfx": [(µs, loại)]} đặt thẳng theo giờ trên timeline.
+    style["no_titles"] / ["no_subtitles"]: không thêm tiêu đề / phụ đề (video gốc đã có chữ in sẵn ở đó)."""
     safe = config.load("safe_area")
     sub_cfg = config.load("subtitles")
     sc, tr, subjects = analysis["scenes"], analysis["transcript"], analysis["subjects"]
@@ -654,7 +656,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     else:
         cues = build_cues(tr.get("segments", []), tmap, lang, max_chars, min_cue_s=sub_cfg.get("min_cue_s", 0.35),
                           gap_merge_s=sub_cfg.get("gap_merge_s", 0.15), corrections=u.name_corrections)
-    for c in cues:
+    for c in ([] if style.get("no_subtitles") else cues):  # cues vẫn dùng để hạ nhạc dưới giọng
         w.add_text(c.text, start=c.start, duration=c.end - c.start, x=pos["x"], y=pos["bottom"],
                    style=subtitle_style)
     if dub is not None and vi_subtitles:  # phụ đề tiếng Việt để kiểm tra (không dùng khi đăng)
@@ -712,6 +714,12 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         colored = dataclasses.replace(emph_style, color=palette[i % len(palette)])
         w.add_text(e.text, start=t, duration=dur, x=pos["x"], y=pos["center"] if e.position == "center"
                    else pos["top"], style=colored, animations=emph_anims)
+    for i, (t, dur, text) in enumerate((timed_fx or {}).get("emphasis") or []):
+        if t >= tmap.end:
+            continue
+        colored = dataclasses.replace(emph_style, color=palette[i % len(palette)])
+        w.add_text(text, start=int(t), duration=int(min(dur, tmap.end - t)), x=pos["x"], y=pos["center"], style=colored,
+                   animations=emph_anims)
 
     # ---------- trang trí: hiệu ứng hình, sticker, filter ----------
     corners = {"top_left": (-0.55, 0.55), "top_right": (0.45, 0.55), "center": (0.0, 0.25),
@@ -753,7 +761,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
 
     if plan.filter and lib.get(("filter", plan.filter)):
         w.add_filter(lib[("filter", plan.filter)], start=hook_us, duration=tmap.end - hook_us)
-    if four and four.get("titles"):
+    if style.get("no_titles"):
+        notes.append("Video gốc đã có chữ in sẵn ở phía trên — không thêm tiêu đề để khỏi đè chữ.")
+    elif four and four.get("titles"):
         need = 4 if four.get("bottom_titles", True) else 2
         if add_title_lines(w, plan, four, hook_us if cold_clip else 0, tmap.end) < need:
             notes.append("Kế hoạch dựng thiếu dòng tiêu đề (cần 2 dòng trên" +
@@ -781,6 +791,21 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         else:
             missing.append({"kind": "sfx", "what": s.kind, "video": video_index, "at_s": round(t / SEC, 2),
                             "purpose_vi": s.reason_vi})
+
+    sfx_vol = float(((style.get("sell") or {}).get("fx") or {}).get("sfx_volume", 0.6)) if isinstance(
+        style.get("sell"), dict) else 0.6
+    for t, kind in (timed_fx or {}).get("sfx") or []:
+        if t >= tmap.end:
+            continue
+        item = _fallback_sfx(template.library, kind)
+        if item is None:
+            missing.append({"kind": "sfx", "what": kind, "video": video_index, "at_s": round(t / SEC, 2),
+                            "purpose_vi": "tiếng động đổi câu / mở đầu (bán content)"})
+            continue
+        length = min(item.material.get("duration", SEC), 2 * SEC, max(1, tmap.end - int(t)))
+        _add_audio_item(w, item, target_start=int(t), duration=length, volume=sfx_vol, lane="sfx")
+        if item.material.get("local"):
+            used_local.append(item.material["path"])
 
     # ---------- nhạc nền + ducking ----------
     if bgm_audio:

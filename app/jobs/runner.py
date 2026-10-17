@@ -221,6 +221,7 @@ class Runner:
                      "beat_sync": {"enabled": False},  # điểm cắt theo voice, không dời theo nhịp nhạc
                      "motion": dcfg.get("motion") or {"every_clip": True, "max_scale": 1.2},
                      "music": {**(style.get("music") or {}), "base_db": scfg.get("music_base_db", -14)}}
+            style.update(self._burned_in_skip(job, scfg))
         if job.options.voice_only:  # chỉ thay tiếng: giữ nguyên hình, khung = đúng tỉ lệ video gốc
             vcfg = config.load("dub").get("voice_only") or {}
             style = {**style, **(vcfg.get("style_override") or {})}
@@ -243,6 +244,24 @@ class Runner:
         w, h, _ = self._footage_size(job)
         r = nearest_ratio(w, h) if w and h else style.get("block_ratio") or "16:9"
         return {**style, "keep_frame": True, "block_ratio": r, "crop_ratio": None, "motion": {}, "camera": {}}
+
+    def _burned_in_skip(self, job: Job, scfg: dict) -> dict:
+        """Bán content (chủ dự án 17/10): video gốc đã có chữ / phụ đề in sẵn → không đè chữ của tool lên: dải chữ trên →
+        bỏ tiêu đề, dải dưới → bỏ phụ đề, ở giữa → bỏ chữ nhấn; chữ ở góc (logo) không tính; không rõ vùng → bỏ tiêu đề +
+        phụ đề."""
+        if not scfg.get("burned_in_skip", True):
+            return {}
+        try:
+            b = self._understanding(job).burned_in_text
+        except (OSError, ValueError):
+            return {}
+        if not b.present:
+            return {}
+        regions = set(b.regions or [])
+        if not regions:
+            return {"no_titles": True, "no_subtitles": True}
+        # chỉ dải chữ chạy ngang cả khung (top / bottom) mới đè tiêu đề / phụ đề; chữ ở góc (logo, tên kênh) thì không
+        return {"no_titles": "top" in regions, "no_subtitles": "bottom" in regions, "no_emphasis": "center" in regions}
 
     def _template(self):
         from app.capcut_writer import DraftTemplate
@@ -378,6 +397,11 @@ class Runner:
         if job.data.get("videos"):
             return job.data["videos"]
         u = self._understanding(job)
+        n = max(1, min(int(job.options.sell_variants or 1), int(config.load("sell").get("max_variants", 3)))) \
+            if job.options.sell else 1
+        if n > 1:  # bán content: nhiều bản khác nhau từ CÙNG video (chủ dự án 17/10)
+            return [{"index": i, "start": u.usable_range.start, "end": u.usable_range.end, "title_vi": f"Bản {i}",
+                     "summary_vi": u.summary_vi} for i in range(1, n + 1)]
         return [{"index": 1, "start": u.usable_range.start, "end": u.usable_range.end, "title_vi": "",
                  "summary_vi": u.summary_vi}]
 
@@ -534,6 +558,9 @@ class Runner:
             if job.options.voice_only or job.data.get("montage_parts"):  # giữ trọn footage từ giây 0 tới hết
                 start, end = 0.0, self._footage_size(job)[2] or end
             videos = [{"index": 1, "start": start, "end": end, "title_vi": "", "summary_vi": u.summary_vi}]
+            if job.options.sell:  # bán content: 1–3 bản khác nhau từ CÙNG video (chủ dự án 17/10)
+                n = max(1, min(int(job.options.sell_variants or 1), int(config.load("sell").get("max_variants", 3))))
+                videos = [{**videos[0], "index": i, "title_vi": f"Bản {i}" if n > 1 else ""} for i in range(1, n + 1)]
             path.write_text(json.dumps({"videos": videos, "confirmed": True}, ensure_ascii=False, indent=2),
                             encoding="utf-8")
             job.data["videos"] = videos
@@ -1255,6 +1282,9 @@ class Runner:
             req_voices[name] = v
         request = {"model": cfg.get("model", "k2-fsa/OmniVoice"), "device": str(cfg.get("device", "auto")),
                    "num_step": int(cfg.get("num_step", 32)), "voices": req_voices, "items": items}
+        gen = (job.data.get("tts") or {}).get("gen")
+        if gen:  # thông số Voice Studio (tốc độ, seed…) — bán content dùng giọng thư viện
+            request["gen"] = dict(gen)
         self.log(f"🤖 OmniVoice đọc {len(items)} câu ({len(used)} giọng)… lần đầu tải model có thể lâu.")
         run = getattr(self, "_tts_run", None) or ov.run_worker
         from app.jobs.limits import group_slot
@@ -1291,9 +1321,20 @@ class Runner:
         chosen = [m for m in tpl.library if m.kind == "music" and m.name == choice] if choice else []
         i = v["index"]
         self.log(f"AI viết kịch bản bán content + chọn cảnh video {i:02d}…")
+        from app.director.schemas import SellScript
+
+        n_var = len(self.videos(job))
+        others = []
+        for k in range(1, n_var + 1):  # các bản khác đã viết → bản này phải khác hẳn
+            f = plan_dir / f"sell_video{k:02d}.json"
+            if k != i and f.is_file():
+                try:
+                    others.append(SellScript.model_validate_json(f.read_text(encoding="utf-8")))
+                except ValueError:
+                    pass
         r = make_sell_script(self.director, analysis, self._u_for(job, v), brief=job.options.sell_brief,
                              sell_s=job.options.sell_s, music_items=chosen or music, video_index=i,
-                             feedback=feedback, previous=previous)
+                             feedback=feedback, previous=previous, variant=(i, n_var), others=others)
         ratio = job.data.get("default_ratio")
         plan = sell_plan(r, ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
         if chosen:
@@ -1305,6 +1346,42 @@ class Runner:
         dub_io.dub_path(d, i).write_text(script.model_dump_json(indent=2), encoding="utf-8")
         dub_io.pending_path(d, i).unlink(missing_ok=True)
         return script
+
+    def _sell_auto_voice(self, job: Job) -> bool:
+        """Bán content (chủ dự án 17/10): giọng chọn sẵn trong thư viện Voice Studio → OmniVoice tự đọc các câu còn thiếu
+        (giọng mẫu thì clone — chỉ khi giọng đó đã được xác nhận quyền; giọng mô tả thì đọc theo mô tả), dùng thông số
+        mặc định của Voice Studio. Trả True nếu đã đọc được câu nào. Lỗi → ghi nhật ký, chuyển sang chờ bạn thu tay."""
+        from app.tts import studio
+        from app.tts.voices import NARRATOR
+
+        v = studio.get_voice(job.options.sell_voice)
+        if v is None:
+            job.data["auto_tts_error"] = "không thấy giọng"
+            self.log(f"⚠️ Không thấy giọng '{job.options.sell_voice}' trong thư viện Voice Studio — chờ bạn thu voice.")
+            return False
+        if v.get("mode") == "clone" and v.get("sample_path"):
+            if not v.get("consent"):
+                job.data["auto_tts_error"] = "chưa xác nhận quyền"
+                self.log(f"⚠️ Giọng '{v['name']}' chưa được xác nhận quyền dùng — không clone, chờ bạn thu voice.")
+                return False
+            params = studio.load_params()
+            spec = {"mode": "clone", "ref_audio": v["sample_path"], "ref_text": v.get("ref_text") or "",
+                    "preprocess_prompt": bool(params.get("preprocess_prompt", True)),
+                    "prompt_cache": str(Path(v["sample_path"]).parent / (
+                        "prompt.pt" if params.get("preprocess_prompt", True) else "prompt_raw.pt"))}
+        else:
+            spec = {"mode": "design", "instruct": v.get("instruct", "")}
+        tts = job.data.setdefault("tts", {})
+        tts["voices"] = {NARRATOR: spec}
+        tts["gen"] = {k: val for k, val in studio.load_params().items() if k in studio.WORKER_KEYS}
+        self.log(f"🎙️ Giọng Voice Studio '{v['name']}' — OmniVoice tự đọc cả bài…")
+        try:
+            return self.tts_generate(job) > 0
+        except Exception as exc:
+            job.data["auto_tts_error"] = str(exc)
+            job.save(self.jobs_root)
+            self.log(f"⚠️ OmniVoice không đọc được ({exc}) — chờ bạn thu voice hoặc bấm 🤖 Cho OmniVoice đọc.")
+            return False
 
     def sell_short_voice(self, job: Job) -> dict[int, dict]:
         from app.director.sell import short_voice
@@ -1407,6 +1484,10 @@ class Runner:
             return
         d, _, _ = self._paths(job)
         missing = dub_io.missing_lines(d, self._dub_scripts(job))
+        if missing and job.options.sell and job.options.sell_voice and not job.data.get("auto_tts_error"):
+            if self._sell_auto_voice(job):  # OmniVoice đã đọc → bước này chạy lại để kiểm tra
+                return
+            missing = dub_io.missing_lines(d, self._dub_scripts(job))
         if missing:
             try:
                 self.write_ready_videos(job)  # voice đến đâu ghi CapCut đến đấy
@@ -1417,6 +1498,13 @@ class Runner:
             return
         if job.options.sell and not job.data.get("sell_accept_short"):  # chủ dự án 15/10: voice phải phủ kín video
             short = self.sell_short_voice(job)
+            if short and job.options.sell_voice and not job.data.get("auto_lengthened"):
+                # giọng AI tự đọc → tự viết dài thêm MỘT lần (lưu tốc độ thật), đọc lại; vẫn ngắn thì mới hỏi bạn
+                job.data["auto_lengthened"] = True
+                self.log("Voice AI đọc ngắn hơn video — tự viết dài thêm theo đúng tốc độ giọng rồi đọc lại (một lần).")
+                for i in short:
+                    self.sell_lengthen(job, i)
+                return
             if short:
                 job.wait("⚠️ Voice chưa đủ dài: " + "; ".join(
                     f"video {i:02d} đọc {x['voice_s']:.0f}s, cần ≥ {x['need_s']:.0f}s" for i, x in short.items())
@@ -1747,6 +1835,9 @@ class Runner:
         style = self._style(job)
         a = load_analysis(analysis)
         a["text_boxes"] = self._text_boxes(job, analysis, a)
+        src = self._capcut_source(analysis, Path(a["scenes"].get("path") or ""))
+        if src is not None:
+            a["scenes"] = {**a["scenes"], "path": src.as_posix()}
         clean = analysis / "audio" / "clean_00.wav"
         if (style.get("audio") or {}).get("clean") == "light":  # vlog: lọc ồn nhẹ, giữ âm thanh hiện trường
             light = analysis / "audio" / "light_00.wav"
@@ -1756,6 +1847,31 @@ class Runner:
                 self.log("Job phân tích trước khi có bản lọc ồn nhẹ — dùng bản lọc ồn thường (tạo job mới để có).")
         return {"d": d, "analysis": analysis, "plan_dir": plan_dir, "tpl": self._template(), "style": style, "a": a,
                 "clean": clean}
+
+    def _capcut_source(self, analysis: Path, src: Path) -> Path | None:
+        """Video gốc nén bằng codec CapCut có thể không mở được (AV1 — hay gặp ở video tải từ YouTube; chủ dự án 17/10) →
+        đổi một lần sang H.264 (analysis/capcut_src_00.mp4), draft trỏ vào bản này. Codec khác / lỗi → None (dùng file gốc)."""
+        from app.analysis import ffmpeg
+
+        codecs = [c.lower() for c in (config.load("capcut").get("transcode_codecs") or ["av1"])]
+        if not codecs or not src.is_file():
+            return None
+        out = analysis / "capcut_src_00.mp4"
+        if out.is_file() and out.stat().st_mtime >= src.stat().st_mtime:
+            return out.resolve()
+        codec = ffmpeg.video_codec(src)
+        if codec not in codecs:
+            return None
+        self.log(f"Video gốc nén bằng {codec.upper()} — CapCut có thể không mở được, đổi sang H.264 (làm một lần)…")
+        tmp = out.with_name("capcut_src_00.part.mp4")
+        try:
+            ffmpeg.run(ffmpeg.h264_args(src, tmp))
+            tmp.replace(out)
+        except Exception as exc:
+            tmp.unlink(missing_ok=True)
+            self.log(f"⚠️ Không đổi được sang H.264 ({exc}) — dùng file gốc.")
+            return None
+        return out.resolve()
 
     def _write_video(self, job: Job, v: dict, ctx: dict) -> tuple[dict, list]:
         """Ghi draft CapCut cho MỘT video; trả (thông tin draft, tài nguyên còn thiếu)."""
@@ -1814,7 +1930,7 @@ class Runner:
                 min_cut_s=float(rcfg.get("min_cut_s", 1.0)))
             for n in sync_notes:
                 self.log(f"[video {i:02d}] {n}")
-        dub_windows = None
+        dub_windows, timed_fx = None, None
         if job.options.sell and dub is not None:  # bán content: cảnh cắt / đảo / dùng lại theo voice thật
             from app.director.sell import sell_cfg, sell_cps
             from app.planner.sell_sync import build_sell
@@ -1828,6 +1944,11 @@ class Runner:
                 allow_mirror=getattr(u_v, "mirror_ok", True) and not b.present)
             plan = plan.model_copy(update={"clips": clips, "transitions": [], "zooms": [], "emphasis": [], "sfx": [],
                                            "effects": [], "stickers": [], "arrows": []})
+            from app.planner.sell_sync import sell_fx
+
+            fcfg = scfg.get("fx") or {}
+            timed_fx = sell_fx(dub, dub_windows, scfg,
+                               emphasis=bool(fcfg.get("emphasis", True)) and not style.get("no_emphasis"))
             for n in sync_notes:
                 self.log(f"[video {i:02d}] {n}")
         bgm = self._bgm(job, analysis) if (job.options.voice_only and job.options.keep_bgm) or job.options.char_dub \
@@ -1838,7 +1959,8 @@ class Runner:
                     video_index=i, dub=dub, dub_voices=dub_voices, vi_subtitles=self.vi_subtitles(job),
                     bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm),
                     cold_clip=self._cliff_hook(v) if job.options.cliff else None,
-                    cold_subs=self._cliff_hook_subs(job, v) if job.options.cliff else None, dub_windows=dub_windows)
+                    cold_subs=self._cliff_hook_subs(job, v) if job.options.cliff else None, dub_windows=dub_windows,
+                    timed_fx=timed_fx)
         if job.options.sell:
             from app.director.sell import sell_cfg
 

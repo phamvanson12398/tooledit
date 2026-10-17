@@ -225,6 +225,18 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - **Cập nhật 17/10 ("Lỗi ở bước plan: division by zero" — video game cắt cảnh ~1 giây):** `pick_evenly(n ≤ 0)` trả rỗng
   (trước chia cho 0); khung đầu cảnh nhiều hơn số khung gửi AI thì lấy rải đều cả video (không cắt cụt phần cuối); cảnh
   AI chọn chỉ bị cấm vắt qua điểm cắt khi cảnh gốc dài ≥ `strict_scene_s` 2.5s (video cắt dày thì cho vắt).
+- **Cập nhật 17/10 (chủ dự án chọn 5 cải tiến):** (1) **giọng Voice Studio** chọn khi tạo job (`JobOptions.sell_voice`) →
+  ở bước chờ voice OmniVoice tự đọc (`Runner._sell_auto_voice`: giọng mẫu thì clone kèm `prompt_cache` — chỉ khi giọng đã
+  xác nhận quyền; giọng mô tả thì instruct; thông số = mặc định Voice Studio → `request["gen"]`), voice ngắn thì tự viết dài
+  thêm MỘT lần (`job.data.auto_lengthened`) rồi đọc lại, vẫn ngắn mới hỏi; lỗi → chờ thu tay. (2) **nhiều bản**
+  (`sell_variants` 1–3, `max_variants`): mỗi bản một video (`step_segment` tạo videos), AI viết lần lượt, bản sau nhận dàn ý
+  / câu mở đầu các bản trước + kiểu mở đầu khác (`variant_brief`, `HOOK_STYLES`), tool tự sửa video_index. (3) **chữ nhấn +
+  tiếng động** (`SellLine.keyword`, `sell_fx`, `config/sell.yaml → fx`): chữ nhấn to giữa màn đầu mỗi câu, "pop" câu mở
+  đầu, whoosh / swoosh luân phiên khi đổi câu (cách ≥ `sfx_min_gap_s`), track SFX riêng (`build(timed_fx=…)`). (4) **không
+  đè chữ in sẵn** (`_burned_in_skip`, `burned_in_skip`): dải chữ trên → bỏ tiêu đề, dải dưới → bỏ phụ đề, giữa → bỏ chữ
+  nhấn; chữ ở góc (logo) không tính; không rõ vùng → bỏ tiêu đề + phụ đề (style `no_titles` / `no_subtitles` /
+  `no_emphasis`). (5) **AV1 → H.264** (`Runner._capcut_source`, `config/capcut.yaml → transcode_codecs`, mọi chế độ): đổi
+  một lần ra `analysis/capcut_src_00.mp4`, draft trỏ vào đó (`ffmpeg.video_codec` đọc `ffmpeg -i`, không cần ffprobe).
 - Thẻ "💰 Bán content" ở trang chủ (`JobOptions.sell`, `sell_brief` = định hướng nội dung, `sell_s` = thời lượng;
   `config/sell.yaml`), MỘT video gốc ~55–60 giây, cần chọn ngôn ngữ giọng đọc (Hàn / Nhật / Anh). Không hook riêng, không
   chia video, không ⚡.

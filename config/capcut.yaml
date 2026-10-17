@@ -13,3 +13,6 @@ background: {type: blur, blur: 0.375, color: "#000000FF"}
 # sticker / animation chữ từng dùng (chỉ giữ cái còn trong cache của CapCut). Âm thanh < 6 giây coi là SFX.
 # Muốn kho phong phú: cứ dùng thử nhạc/hiệu ứng trong CapCut ở bất kỳ dự án nào (hoặc gom vào một dự án riêng).
 library_scan: true
+# Video gốc nén bằng các codec này → tool tự đổi sang H.264 (một lần, lưu analysis/capcut_src_00.mp4) trước khi ghi
+# draft, vì CapCut có thể không mở được (chủ dự án 17/10: video tải từ YouTube hay là AV1). [] = không đổi.
+transcode_codecs: [av1]

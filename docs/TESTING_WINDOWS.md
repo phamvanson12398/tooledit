@@ -1,5 +1,22 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 110 — Bán content: giọng Voice Studio tự đọc, nhiều bản, chữ nhấn + tiếng động, không đè chữ, AV1 `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. (Một lần) Tab **🎙️ Voice Studio** → lưu một giọng mẫu (tick xác nhận quyền) hoặc một giọng mô tả.
+3. Trang chủ → **💰 Bán content** → chọn video (vd video game tiếng Nhật) → ngôn ngữ → **🎞️ Số bản: 2** →
+   **🎙️ Giọng đọc: giọng vừa lưu** → Bắt đầu. Không cần làm gì thêm:
+   - nhật ký: "🎙️ Giọng Voice Studio … OmniVoice tự đọc cả bài", nếu voice ngắn thì "tự viết dài thêm … (một lần)";
+   - job tự tới ✅ Xong với 2 dự án CapCut `…_video01`, `…_video02`.
+4. Mở 2 dự án trong CapCut:
+   - 2 bản có câu mở đầu, tiêu đề, thứ tự cảnh KHÁC nhau;
+   - có chữ to giữa màn (chữ nhấn) ở nhiều câu, tiếng "pop" ở đầu, tiếng whoosh khi đổi câu (track âm thanh riêng);
+   - video game có sẵn tiêu đề / phụ đề Nhật in trên hình → tool KHÔNG thêm tiêu đề / phụ đề đè lên nữa.
+5. Video AV1 (tải từ YouTube): nhật ký "Video gốc nén bằng AV1 … đổi sang H.264"; CapCut mở dự án phát hình bình thường
+   (thư mục `media` của dự án chứa `capcut_src_00.mp4`).
+6. Không thấy tiếng động: kho chưa có SFX whoosh / pop → thả file vào `assets\sfx\whoosh\`, `assets\sfx\pop\` (hoặc
+   dùng thử các tiếng đó trong CapCut một lần để tool tự quét được).
+
 ## Bước 109 — Sửa "Lỗi ở bước plan: division by zero" (Bán content, video cắt cảnh dày) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

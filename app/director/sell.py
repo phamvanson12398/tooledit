@@ -102,14 +102,35 @@ ONSCREEN_NO = """KHÔNG có phụ đề trên hình → viết theo HÌNH ẢNH 
 đủ chi tiết để bài đọc đạt thời lượng mục tiêu. `onscreen_text` để rỗng."""
 
 
+HOOK_STYLES = ["câu hỏi gây tò mò (người xem phải xem tiếp mới biết đáp án)",
+               "con số / chi tiết lạ, gây sốc nhẹ ngay câu đầu",
+               "tương phản / hé lộ kết quả trước rồi quay lại kể vì sao"]
+
+
+def variant_brief(variant: tuple[int, int], others: list) -> str:
+    i, n = variant
+    if n <= 1:
+        return "(chỉ làm một bản)"
+    out = [f"Đây là BẢN {i}/{n} làm từ CÙNG video gốc — mỗi bản đăng riêng như một video khác, nên bản này phải KHÁC HẲN "
+           f"các bản kia: góc kể khác, câu mở đầu kiểu khác, thứ tự cảnh khác, tiêu đề khác (vẫn đúng sự thật).",
+           f"- Câu mở đầu bản này nên theo kiểu: {HOOK_STYLES[(i - 1) % len(HOOK_STYLES)]}."]
+    for k, o in enumerate(others, 1):
+        out.append(f"- Bản đã viết #{k}: mở đầu \"{o.lines[0].text}\" · tiêu đề {' / '.join(o.titles_top)} · dàn ý: "
+                   f"{o.outline_vi[:160]} → KHÔNG lặp lại.")
+    return "\n".join(out)
+
+
 def _lines_text(previous) -> str:
     return "\n".join(f"{i}. [{ln.role}] {ln.text} ({ln.text_vi})" for i, ln in enumerate(previous.lines, 1))
 
 
 def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, sell_s: float | int = 0,
-                     music_items: list | None = None, video_index: int = 1, feedback: str = "", previous=None):
+                     music_items: list | None = None, video_index: int = 1, feedback: str = "", previous=None,
+                     variant: tuple[int, int] = (1, 1), others: list | None = None):
     """AI xem khung hình + lời nói gốc, TỰ chọn góc kể theo nội dung gốc (chủ dự án 15/10 bỏ ô định hướng; `brief` chỉ còn
-    cho job cũ đã nhập) → SellScript (lời + cảnh từng câu + tiêu đề + nhạc)."""
+    cho job cũ đã nhập) → SellScript (lời + cảnh từng câu + tiêu đề + nhạc).
+    variant = (bản thứ i, tổng n) — chủ dự án 17/10: một video gốc ra 2–3 bản KHÁC NHAU; others = SellScript các bản đã
+    viết (bản này phải khác góc kể / câu mở đầu / thứ tự cảnh)."""
     from app.director.policy import cut_ranges
     from app.director.schemas import SellScript
     from app.director.tasks import (LANGUAGE_NAMES, MARKETS, _segments_in, _shared_context, load_analysis,
@@ -144,7 +165,7 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
                  "market": MARKETS.get(u.language, "TikTok"), "localize_brief": localize_brief(u),
                  "source_s": f"{duration:.0f}", "target_s": f"{target:.0f}", "cps": f"{cps:.1f}",
                  "target_chars": f"{int(lo * (target - gap * 12) * cps)}–{int(hi * target * cps)}",
-                 "title_max": title_max,
+                 "title_max": title_max, "variants": variant_brief(variant, others or []),
                  "onscreen": (ONSCREEN_YES.format(regions=", ".join(u.burned_in_text.regions) or "không rõ",
                                                   note=u.burned_in_text.note_vi or "") if subs else ONSCREEN_NO),
                  "brief": (f"Chủ dự án có ghi thêm (ưu tiên làm theo): {brief.strip()}" if (brief or "").strip()
@@ -160,6 +181,8 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
 
     def repair(r):
         fixes = []
+        if r.video_index != video_index:  # AI ghi nhầm số bản → tool sửa (không bắt hỏi lại)
+            r = r.model_copy(update={"video_index": video_index})
         if r.music.name and r.music.name not in names:
             fixes.append(f"bài nhạc '{r.music.name}' không có trong kho → để tool chọn theo không khí")
             r = r.model_copy(update={"music": r.music.model_copy(update={"name": None})})
@@ -186,7 +209,8 @@ def sell_to_dub(r):
 
     lines = [DubLine(kind="narration", source_start=min(s.start for s in ln.shots),
                      source_end=max(s.end for s in ln.shots), text=ln.text, text_vi=ln.text_vi,
-                     action_vi=ln.shots_vi, role=ln.role, shots=ln.shots) for ln in r.lines]
+                     action_vi=ln.shots_vi, role=ln.role, shots=ln.shots, keyword=ln.keyword.strip())
+             for ln in r.lines]
     return DubScript(video_index=r.video_index, lines=lines, editor_notes=r.editor_notes,
                      story_vi=r.outline_vi.strip() or "Bán content")
 

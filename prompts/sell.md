@@ -15,6 +15,9 @@ Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây). BẠN 
 - Video kể chuyện / khoảnh khắc / mẹo / kiến thức → kể lại cuốn hơn, rõ ý hơn bản gốc.
 - Viết góc kể đã chọn vào đầu `outline_vi` (vd "Góc kể: giới thiệu quán mì — nhấn nước dùng, sợi mì kéo tay").
 
+## Nhiều bản từ cùng một video
+{{variants}}
+
 ## Phụ đề / chữ trên màn hình của video gốc
 {{onscreen}}
 
@@ -39,6 +42,9 @@ Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây). BẠN 
   (không tính dấu cách, dấu câu). Tool đếm và bắt viết lại nếu thiếu / thừa. Giọng đọc phải PHỦ KÍN video từ đầu tới
   cuối — thiếu chữ là video có khoảng chỉ còn nhạc, rất dở: thà đủ ý, đủ chi tiết còn hơn viết cụt. Mỗi phần tử `lines` là 1 câu (hoặc 2 câu
   rất ngắn), đọc khoảng 2–7 giây.
+- `keyword` = CHỮ NHẤN của câu: 1 từ / cụm ngắn đắt nhất (≤ {{title_max}} ký tự, ngôn ngữ đích, lấy đúng chữ có trong câu
+  — con số, tên món, tính từ mạnh…); tool hiện chữ to giữa màn lúc đọc câu đó. Khoảng một nửa số câu có, câu mở đầu nên có;
+  câu không cần nhấn thì để rỗng.
 - `text_vi` = nghĩa tiếng Việt; `shots_vi` = các cảnh dưới câu có gì (tiếng Việt, ngắn).
 
 ## Chọn cảnh (`shots`)
