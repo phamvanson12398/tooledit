@@ -14,6 +14,7 @@ sfx_queries:
   laugh: "audience laugh"
   swoosh: "swoosh transition"
   record_scratch: "record scratch"
+  click: "click ui button tap"
 # Nhạc nền theo mức năng lượng (low / mid / high)
 music_queries:
   low: "calm acoustic music loop"

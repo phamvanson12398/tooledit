@@ -38,7 +38,8 @@ fx:
   emphasis_s: 1.4             # chữ nhấn hiện chừng này giây
   emphasis_delay_s: 0.15      # hiện sau khi câu bắt đầu chừng này giây
   opening_sfx: pop            # tiếng ở câu mở đầu ("" = không)
-  line_sfx: [whoosh, swoosh]  # tiếng khi đổi câu, luân phiên ([] = không)
+  line_sfx: [whoosh, click, swoosh]  # tiếng khi đổi câu, luân phiên ([] = không)
+  emphasis_sfx: click         # tiếng khi chữ nhấn bật lên ("" = không); bỏ nếu sát một tiếng khác (< 0.6s)
   sfx_min_gap_s: 2.5          # 2 tiếng đổi câu cách nhau ít nhất chừng này giây (câu ngắn liền nhau thì bỏ bớt)
   sfx_volume: 0.6
 # Video gốc có chữ / phụ đề in sẵn (chủ dự án 17/10: không đè chữ mới lên chữ cũ): chữ in ở trên → bỏ tiêu đề của tool;

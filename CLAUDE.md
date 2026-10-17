@@ -232,7 +232,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   (`sell_variants` 1–3, `max_variants`): mỗi bản một video (`step_segment` tạo videos), AI viết lần lượt, bản sau nhận dàn ý
   / câu mở đầu các bản trước + kiểu mở đầu khác (`variant_brief`, `HOOK_STYLES`), tool tự sửa video_index. (3) **chữ nhấn +
   tiếng động** (`SellLine.keyword`, `sell_fx`, `config/sell.yaml → fx`): chữ nhấn to giữa màn đầu mỗi câu, "pop" câu mở
-  đầu, whoosh / swoosh luân phiên khi đổi câu (cách ≥ `sfx_min_gap_s`), track SFX riêng (`build(timed_fx=…)`). (4) **không
+  đầu, whoosh / click / swoosh luân phiên khi đổi câu (cách ≥ `sfx_min_gap_s`), "click" khi chữ nhấn bật lên lúc không có
+  tiếng khác (`emphasis_sfx`, chủ dự án 17/10), track SFX riêng (`build(timed_fx=…)`); loại SFX `click` có từ khóa tìm kho
+  (`SFX_KEYWORDS`) + thư mục `assets/sfx/click/`. (4) **không
   đè chữ in sẵn** (`_burned_in_skip`, `burned_in_skip`): dải chữ trên → bỏ tiêu đề, dải dưới → bỏ phụ đề, giữa → bỏ chữ
   nhấn; chữ ở góc (logo) không tính; không rõ vùng → bỏ tiêu đề + phụ đề (style `no_titles` / `no_subtitles` /
   `no_emphasis`). (5) **AV1 → H.264** (`Runner._capcut_source`, `config/capcut.yaml → transcode_codecs`, mọi chế độ): đổi

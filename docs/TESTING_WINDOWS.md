@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 111 — Bán content: thêm tiếng "click" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Thả vài file tiếng click vào `assets\sfx\click\` (hoặc dùng thử một tiếng click trong thư viện âm thanh CapCut ở bất kỳ
+   dự án nào để tool tự quét được).
+3. Job Bán content có sẵn: trang job → 🛠️ **🔁 Dựng lại draft** (không phải hỏi lại AI); job mới thì chạy như thường.
+4. Mở CapCut: track tiếng động có whoosh → click → swoosh luân phiên khi đổi câu, và click lúc chữ nhấn bật lên (chỗ
+   không có tiếng khác). Thiếu tiếng click thì danh sách "cần bổ sung" của job ghi "click".
+
 ## Bước 110 — Bán content: giọng Voice Studio tự đọc, nhiều bản, chữ nhấn + tiếng động, không đè chữ, AV1 `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

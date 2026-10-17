@@ -65,7 +65,8 @@ def test_sell_fx_keywords_and_sfx():
     fx = sell_fx(s, windows, {"fx": {"sfx_min_gap_s": 2.5}})
     assert [e[2] for e in fx["emphasis"]] == ["완판", "몇 시간", "토핑", "팔로우"]
     assert fx["emphasis"][0][0] == 150_000  # hiện ngay sau khi câu bắt đầu
-    assert fx["sfx"][0] == (0, "pop") and {k for _, k in fx["sfx"][1:]} == {"whoosh", "swoosh"}
+    assert fx["sfx"][0] == (0, "pop") and {k for _, k in fx["sfx"][1:]} == {"whoosh", "click", "swoosh"}
+    assert [k for _, k in fx["sfx"][1:4]] == ["whoosh", "click", "swoosh"]  # đổi câu: luân phiên có cả click
     assert len(fx["sfx"]) == N  # mỗi lần đổi câu (cách ≥ 2.5s) một tiếng
     dense = sell_fx(s, [(i * 1_000_000, 0.9, 0.9) for i in range(N)], {"fx": {"sfx_min_gap_s": 2.5}})
     assert len(dense["sfx"]) < N  # câu ngắn liền nhau → bỏ bớt tiếng, không dồn dập
@@ -245,3 +246,27 @@ def test_home_sell_variants_and_voice(tmp_path, monkeypatch):
     o = Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1]).options
     assert o.sell_variants == 3 and o.sell_voice == v["slug"]
     assert "3 bản" in c.get(r.headers["location"]).text
+
+
+def test_click_when_keyword_pops_alone():
+    """Chủ dự án 17/10: "thêm cả âm thanh click" — chữ nhấn bật lên lúc không có tiếng nào khác thì kêu click."""
+    s = sell_to_dub(SellScript.model_validate(FIX))
+    dense = sell_fx(s, [(i * 1_000_000, 0.9, 0.9) for i in range(N)], {"fx": {"sfx_min_gap_s": 2.5}})
+    clicks = [t for t, k in dense["sfx"] if k == "click"]
+    em_times = {e[0] for e in dense["emphasis"]}
+    assert any(t in em_times for t in clicks)  # click đúng lúc chữ nhấn hiện
+    times = [t for t, _ in dense["sfx"]]
+    assert times == sorted(times) and all(b - a >= 500_000 for a, b in zip(times, times[1:]))  # không chồng tiếng
+    none = sell_fx(s, [(i * 1_000_000, 0.9, 0.9) for i in range(N)], {"fx": {"emphasis_sfx": "", "line_sfx": []}})
+    assert [k for _, k in none["sfx"]] == ["pop"]
+
+
+def test_fallback_finds_click_sound():
+    from types import SimpleNamespace as NS
+
+    from app.planner.builder import _fallback_sfx
+
+    capcut = NS(kind="sfx", name="Mouse Click 2", mood="", material={})
+    local = NS(kind="sfx", name="tick.wav", mood="click", material={"local": True})
+    assert _fallback_sfx([capcut], "click") is capcut
+    assert _fallback_sfx([capcut, local], "click") is local  # file trong assets/sfx/click/ được ưu tiên

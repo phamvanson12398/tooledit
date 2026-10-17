@@ -358,7 +358,7 @@ class Zoom(BaseModel):
 
 class Sfx(BaseModel):
     source_time: float = Field(ge=0)
-    kind: Literal["pop", "whoosh", "ding", "boom", "laugh", "swoosh", "record_scratch"]
+    kind: Literal["pop", "whoosh", "ding", "boom", "laugh", "swoosh", "record_scratch", "click"]
     name: str | None = Field(default=None, description="tên SFX trong kho có sẵn (nếu có bài hợp), hoặc null")
     reason_vi: str = ""
 

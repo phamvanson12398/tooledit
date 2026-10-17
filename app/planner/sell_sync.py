@@ -168,13 +168,15 @@ def build_sell(script, voice_s: dict[int, float], scenes: list[dict], duration: 
 def sell_fx(script, windows: list, cfg: dict | None = None, *, emphasis: bool = True) -> dict:
     """Chữ nhấn + tiếng động theo voice (chủ dự án 17/10: video bớt "trơn", không zoom / cắt khung):
     - chữ nhấn `keyword` của câu hiện to giữa màn ngay sau khi câu bắt đầu (`emphasis_delay_s`), dài ~`emphasis_s`;
-    - tiếng "pop" ở câu mở đầu, whoosh / swoosh luân phiên mỗi lần đổi câu (bỏ các câu quá ngắn để khỏi dồn dập).
+    - tiếng "pop" ở câu mở đầu, whoosh / click / swoosh luân phiên mỗi lần đổi câu (bỏ các câu quá ngắn để khỏi dồn dập);
+    - "click" khi chữ nhấn bật lên nếu lúc đó không có tiếng nào khác (chủ dự án 17/10: "thêm cả âm thanh click").
     windows = [(µs bắt đầu câu, giây đọc, …)] từ build_sell. Trả {"emphasis": [(µs, µs, chữ)], "sfx": [(µs, loại)]}."""
     cfg = cfg or {}
     fx = cfg.get("fx") or {}
     delay = round(float(fx.get("emphasis_delay_s", 0.15)) * SEC)
     em_s = float(fx.get("emphasis_s", 1.4))
-    kinds = list(fx.get("line_sfx") or ["whoosh", "swoosh"])
+    kinds = list(fx.get("line_sfx") if fx.get("line_sfx") is not None else ["whoosh", "click", "swoosh"])
+    em_sfx = fx.get("emphasis_sfx", "click")
     min_gap = round(float(fx.get("sfx_min_gap_s", 2.5)) * SEC)
     out = {"emphasis": [], "sfx": []}
     last_sfx = None
@@ -189,6 +191,12 @@ def sell_fx(script, windows: list, cfg: dict | None = None, *, emphasis: bool = 
             out["sfx"].append((start, fx.get("opening_sfx", "pop")))
             last_sfx = start
         elif kinds and (last_sfx is None or start - last_sfx >= min_gap):
-            out["sfx"].append((max(0, start - round(0.12 * SEC)), kinds[len(out["sfx"]) % len(kinds)]))
+            out["sfx"].append((max(0, start - round(0.12 * SEC)), kinds[(len(out["sfx"]) - 1) % len(kinds)]))
             last_sfx = start
+    if em_sfx:  # "click" khi chữ nhấn bật lên — trừ khi sát một tiếng khác (khỏi chồng tiếng)
+        near = round(0.6 * SEC)
+        for t, _, _ in out["emphasis"]:
+            if all(abs(t - s0) >= near for s0, _ in out["sfx"]):
+                out["sfx"].append((t, em_sfx))
+        out["sfx"].sort()
     return out

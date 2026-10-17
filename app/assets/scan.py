@@ -20,7 +20,7 @@ from .local import scan_local
 SFX_KEYWORDS = {
     "pop": ("pop", "bubble", "ポン"), "whoosh": ("whoosh", "woosh"), "ding": ("ding", "bell", "chime"),
     "boom": ("boom", "impact", "hit"), "laugh": ("laugh", "haha", "笑"), "swoosh": ("swoosh", "swish"),
-    "record_scratch": ("scratch",),
+    "record_scratch": ("scratch",), "click": ("click", "tap", "クリック", "カチ", "클릭", "딸깍"),
 }
 ENERGY_VI = {"low": "nhẹ nhàng", "mid": "vừa", "high": "sôi động"}
 
