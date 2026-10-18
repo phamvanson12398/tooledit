@@ -262,7 +262,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     dub_windows (bán content): vị trí từng câu voice do tool tính sẵn [(µs bắt đầu, giây, giây)] — cảnh đã đảo thứ tự /
     dùng lại nên không suy từ giây gốc được.
     timed_fx (bán content): {"emphasis": [(µs, µs, chữ)], "sfx": [(µs, loại)]} đặt thẳng theo giờ trên timeline.
-    style["no_titles"] / ["no_subtitles"]: không thêm tiêu đề / phụ đề (video gốc đã có chữ in sẵn ở đó).
+    style["no_titles"] / ["no_subtitles"]: không thêm tiêu đề / phụ đề (video gốc đã có chữ in sẵn ở đó);
+    style["sub_cover"]: phụ đề có nền tối che phụ đề in sẵn của video gốc (bán content).
     extra_sources: {mã cảnh kho chung: {path, width, height, duration}} — clip có `lib` lấy hình từ file kho (cùng tỉ lệ
     khung với video gốc, không cắt, không tiếng)."""
     safe = config.load("safe_area")
@@ -665,6 +666,13 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     else:
         cues = build_cues(tr.get("segments", []), tmap, lang, max_chars, min_cue_s=sub_cfg.get("min_cue_s", 0.35),
                           gap_merge_s=sub_cfg.get("gap_merge_s", 0.15), corrections=u.name_corrections)
+    if style.get("sub_cover"):  # video gốc có phụ đề in sẵn ở dưới → phụ đề mới có nền tối che phụ đề cũ (18/10)
+        sc_cfg = ((style.get("sell") or {}).get("sub_cover") or {}) if isinstance(style.get("sell"), dict) else {}
+        subtitle_style = dataclasses.replace(subtitle_style, background=TextBackground(
+            color=str(sc_cfg.get("color", "#000000")), alpha=float(sc_cfg.get("alpha", 0.8)),
+            round_radius=float(sc_cfg.get("round_radius", 0.15)), width=float(sc_cfg.get("pad_w", 0.3)),
+            height=float(sc_cfg.get("pad_h", 0.35))))
+        notes.append("Video gốc có phụ đề in sẵn ở dưới → phụ đề mới có nền tối che lên phụ đề cũ.")
     for c in ([] if style.get("no_subtitles") else cues):  # cues vẫn dùng để hạ nhạc dưới giọng
         w.add_text(c.text, start=c.start, duration=c.end - c.start, x=pos["x"], y=pos["bottom"],
                    style=subtitle_style)

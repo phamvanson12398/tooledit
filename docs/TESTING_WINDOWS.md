@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 114 — Bán content: phụ đề ngôn ngữ đích luôn có (nền tối che phụ đề cũ) `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Job Bán content đã xong mà thiếu phụ đề: trang job → 🛠️ **🔁 Dựng lại draft** (không phải hỏi lại AI, voice giữ nguyên).
+3. Mở CapCut: có phụ đề ngôn ngữ đích (Hàn / Nhật / Anh) ở dưới; video gốc có phụ đề in sẵn thì phụ đề mới có nền đen mờ
+   che lên phụ đề cũ. Phụ đề tiếng Việt (chữ vàng nhỏ) vẫn như trước — tắt ở trang job trước khi xuất video đăng.
+4. Nền chưa che hết phụ đề cũ: tăng `pad_w` / `pad_h` (hoặc `alpha` lên 1 = đen đặc) trong `config\sell.yaml → sub_cover`
+   rồi dựng lại draft.
+
 ## Bước 113 — Kho cảnh chung (cảnh đẹp từ "Ý tưởng từ video dài" bù cho Bán content / Ý tưởng) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

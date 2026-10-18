@@ -247,8 +247,9 @@ class Runner:
 
     def _burned_in_skip(self, job: Job, scfg: dict) -> dict:
         """Bán content (chủ dự án 17/10): video gốc đã có chữ / phụ đề in sẵn → không đè chữ của tool lên: dải chữ trên →
-        bỏ tiêu đề, dải dưới → bỏ phụ đề, ở giữa → bỏ chữ nhấn; chữ ở góc (logo) không tính; không rõ vùng → bỏ tiêu đề +
-        phụ đề."""
+        bỏ tiêu đề, ở giữa → bỏ chữ nhấn; chữ ở góc (logo) không tính. Chủ dự án 18/10 ("bán content không có sub ngôn ngữ
+        muốn chuyển sang nữa"): phụ đề ngôn ngữ đích LUÔN có — dải chữ dưới / không rõ vùng thì phụ đề có NỀN TỐI che phụ
+        đề cũ (`sub_cover`), không bỏ phụ đề nữa."""
         if not scfg.get("burned_in_skip", True):
             return {}
         try:
@@ -259,9 +260,9 @@ class Runner:
             return {}
         regions = set(b.regions or [])
         if not regions:
-            return {"no_titles": True, "no_subtitles": True}
+            return {"no_titles": True, "sub_cover": True}
         # chỉ dải chữ chạy ngang cả khung (top / bottom) mới đè tiêu đề / phụ đề; chữ ở góc (logo, tên kênh) thì không
-        return {"no_titles": "top" in regions, "no_subtitles": "bottom" in regions, "no_emphasis": "center" in regions}
+        return {"no_titles": "top" in regions, "sub_cover": "bottom" in regions, "no_emphasis": "center" in regions}
 
     def _template(self):
         from app.capcut_writer import DraftTemplate

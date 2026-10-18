@@ -98,7 +98,7 @@ def test_two_variants_two_drafts_with_keyword_text(tmp_path):
     assert any("하루 만에 완판" in t for t in texts)  # có tiêu đề (video không có chữ in sẵn)
 
 
-def test_burned_in_text_skips_titles_and_subtitles(tmp_path):
+def test_burned_in_text_skips_titles_keeps_covered_subtitles(tmp_path):
     und = {**GOOD, "burned_in_text": {"present": True, "regions": ["top", "bottom"], "note_vi": "tiêu đề + phụ đề"}}
     jobs, job = prepare(tmp_path, JobOptions(sell=True, target_language="ko", client_id="k"))
     r = make_runner(tmp_path, jobs, understand=und)
@@ -109,7 +109,10 @@ def test_burned_in_text_skips_titles_and_subtitles(tmp_path):
     assert job.status == Status.done, job.message
     texts = _texts(Path(job.data["draft"]))
     assert not any("하루 만에 완판" in t for t in texts)  # không tiêu đề
-    assert not any(FIX["lines"][1]["text"][:6] in t for t in texts)  # không phụ đề
+    # chủ dự án 18/10: phụ đề ngôn ngữ đích LUÔN có — có nền tối che phụ đề in sẵn của video gốc
+    c = json.loads((Path(job.data["draft"]) / "draft_content.json").read_text(encoding="utf-8"))
+    subs = [m for m in c["materials"]["texts"] if FIX["lines"][1]["text"][:6] in m.get("content", "")]
+    assert subs and all(m.get("background_alpha") == 0.8 and m.get("background_color") == "#000000" for m in subs)
     assert "완판" in texts  # chữ nhấn vẫn còn (chữ in sẵn ở trên / dưới, không ở giữa)
 
 
@@ -217,9 +220,10 @@ def test_burned_in_corner_logo_keeps_titles(tmp_path):
     class U:
         def __init__(self, present, regions):
             self.burned_in_text = type("B", (), {"present": present, "regions": regions})()
-    for regions, want in ((["top_left"], {"no_titles": False, "no_subtitles": False, "no_emphasis": False}),
-                          (["top", "bottom"], {"no_titles": True, "no_subtitles": True, "no_emphasis": False}),
-                          ([], {"no_titles": True, "no_subtitles": True})):
+    # chủ dự án 18/10: phụ đề ngôn ngữ đích LUÔN có — chữ in sẵn ở dưới thì phụ đề có nền tối che (sub_cover)
+    for regions, want in ((["top_left"], {"no_titles": False, "sub_cover": False, "no_emphasis": False}),
+                          (["top", "bottom"], {"no_titles": True, "sub_cover": True, "no_emphasis": False}),
+                          ([], {"no_titles": True, "sub_cover": True})):
         r._understanding = lambda job, rg=regions: U(True, rg)
         assert r._burned_in_skip(None, {}) == want
     r._understanding = lambda job: U(False, ["top"])

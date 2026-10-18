@@ -43,7 +43,14 @@ fx:
   sfx_min_gap_s: 2.5          # 2 tiếng đổi câu cách nhau ít nhất chừng này giây (câu ngắn liền nhau thì bỏ bớt)
   sfx_volume: 0.6
 # Video gốc có chữ / phụ đề in sẵn (chủ dự án 17/10: không đè chữ mới lên chữ cũ): chữ in ở trên → bỏ tiêu đề của tool;
-# ở dưới → bỏ phụ đề của tool; ở giữa → bỏ chữ nhấn. Không rõ vùng → bỏ cả tiêu đề + phụ đề.
+# ở dưới → phụ đề của tool có nền tối che lên (18/10); ở giữa → bỏ chữ nhấn. Không rõ vùng → bỏ tiêu đề, phụ đề có nền tối.
 burned_in_skip: true
+# Chủ dự án 18/10: phụ đề ngôn ngữ đích LUÔN có. Video gốc có phụ đề in sẵn ở dưới → phụ đề mới có nền tối che phụ đề cũ
+sub_cover:
+  color: "#000000"
+  alpha: 0.8                  # 0 = trong suốt, 1 = đen đặc
+  round_radius: 0.15
+  pad_w: 0.3                  # đệm nền quanh chữ (0..1) — tăng nếu phụ đề cũ lộ ra hai bên
+  pad_h: 0.35
 # Nhiều bản từ cùng một video (chủ dự án 17/10): lựa chọn trên trang chủ
 max_variants: 3

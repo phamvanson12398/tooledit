@@ -235,9 +235,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   đầu, whoosh / click / swoosh luân phiên khi đổi câu (cách ≥ `sfx_min_gap_s`), "click" khi chữ nhấn bật lên lúc không có
   tiếng khác (`emphasis_sfx`, chủ dự án 17/10), track SFX riêng (`build(timed_fx=…)`); loại SFX `click` có từ khóa tìm kho
   (`SFX_KEYWORDS`) + thư mục `assets/sfx/click/`. (4) **không
-  đè chữ in sẵn** (`_burned_in_skip`, `burned_in_skip`): dải chữ trên → bỏ tiêu đề, dải dưới → bỏ phụ đề, giữa → bỏ chữ
-  nhấn; chữ ở góc (logo) không tính; không rõ vùng → bỏ tiêu đề + phụ đề (style `no_titles` / `no_subtitles` /
-  `no_emphasis`). (5) **AV1 → H.264** (`Runner._capcut_source`, `config/capcut.yaml → transcode_codecs`, mọi chế độ): đổi
+  đè chữ in sẵn** (`_burned_in_skip`, `burned_in_skip`): dải chữ trên → bỏ tiêu đề, giữa → bỏ chữ nhấn; chữ ở góc (logo)
+  không tính (style `no_titles` / `no_emphasis`). **Cập nhật 18/10 (chủ dự án: "bán content không có sub ngôn ngữ muốn
+  chuyển sang"): phụ đề ngôn ngữ đích LUÔN có** — dải chữ dưới / không rõ vùng thì phụ đề có NỀN TỐI che phụ đề cũ (style
+  `sub_cover`, `config/sell.yaml → sub_cover`), không bỏ phụ đề nữa. (5) **AV1 → H.264** (`Runner._capcut_source`, `config/capcut.yaml → transcode_codecs`, mọi chế độ): đổi
   một lần ra `analysis/capcut_src_00.mp4`, draft trỏ vào đó (`ffmpeg.video_codec` đọc `ffmpeg -i`, không cần ffprobe).
 - Thẻ "💰 Bán content" ở trang chủ (`JobOptions.sell`, `sell_brief` = định hướng nội dung, `sell_s` = thời lượng;
   `config/sell.yaml`), MỘT video gốc ~55–60 giây, cần chọn ngôn ngữ giọng đọc (Hàn / Nhật / Anh). Không hook riêng, không
