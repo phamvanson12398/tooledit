@@ -11,7 +11,7 @@ beam_size: 5
 batched: true
 batch_size: 8
 word_timestamps: true
-languages: [ko, ja, en, zh] # tự nhận; zh (tiếng Trung) chỉ dùng làm tiếng gốc ở chế độ Đổi ngôn ngữ
+languages: [ko, ja, en, de, zh] # tự nhận; zh (tiếng Trung) chỉ dùng làm tiếng gốc ở chế độ Đổi ngôn ngữ
 
 # Dự phòng khi không chạy được GPU (thiếu CUDA 12 / cuDNN 9, hết VRAM...)
 fallback:

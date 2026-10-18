@@ -16,7 +16,7 @@ frame_every_s: 1.0            # …mỗi 1 giây một khung (phụ đề đổi
 # Tốc độ đọc (chữ/giây, không tính dấu cách / dấu câu) để tính độ dài bài. Chủ dự án 15/10: voice đang THIẾU (giọng đọc
 # nhanh hơn 7 chữ/giây cũ) → mặc định như giọng review; sau lần thu đầu tool dùng ĐÚNG tốc độ đo thật
 # (config/local.yaml → sell_voice_cps).
-voice_cps: {ko: 10.0, ja: 9.0, en: 16.0}
+voice_cps: {ko: 10.0, ja: 9.0, en: 16.0, de: 15.0}
 short_voice_ratio: 0.95       # voice thật (cả bài) ngắn hơn 95% của 60.5s → dừng hỏi viết thêm thay vì chèn cảnh câm
 # Dựng theo voice
 voice_gap_s: 0.08             # nghỉ giữa 2 câu voice
@@ -31,7 +31,7 @@ reuse_gap: 2                  # một cảnh không xuất hiện lại trong v�
 # Âm thanh
 music_base_db: -14            # nhạc nền nằm dưới giọng đọc
 pack_media: true              # chép video nguồn + voice + nhạc (file trên máy) vào thư mục dự án CapCut
-title_max_chars: {ko: 12, ja: 12, en: 22}
+title_max_chars: {ko: 12, ja: 12, en: 22, de: 24}
 # Chữ nhấn + tiếng động theo voice (chủ dự án 17/10): video bớt "trơn" mà không zoom / cắt khung
 fx:
   emphasis: true              # chữ nhấn (keyword của từng câu) to giữa màn

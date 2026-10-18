@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-Language = Literal["ko", "ja", "en", "zh"]  # zh: chỉ làm tiếng GỐC ở chế độ Đổi ngôn ngữ
+Language = Literal["ko", "ja", "en", "de", "zh"]  # zh: chỉ làm tiếng GỐC ở chế độ Đổi ngôn ngữ; de: thêm 18/10
 
 
 class TimeRange(BaseModel):

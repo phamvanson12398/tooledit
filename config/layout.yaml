@@ -36,7 +36,7 @@ four_titles:
   subtitle: {size: 11, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.16}
   topic: {size: 7, color: [1, 1, 1], stroke_color: [0.1, 0.25, 0.85], stroke_width: 0.2}
   # giới hạn ký tự mỗi dòng tiêu đề (đạo diễn phải viết ngắn để chữ to)
-  title_max_chars: {ja: 12, ko: 12, en: 22}
+  title_max_chars: {ja: 12, ko: 12, en: 22, de: 24}
   # Video kín màn hình (footage dọc 9:16 ở chế độ chỉ thay tiếng): chữ đè lên hình ở các hàng này.
   # ƯỚC LƯỢNG [CẦN KIỂM TRA TRÊN MÁY]: dòng dưới cùng không được lấn vào caption / tên tài khoản TikTok (~0.80 trở xuống).
   overlay:
@@ -69,9 +69,9 @@ review_story:
     - {color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.12}
     - {color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.12}
   subtitle: {size: 11, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.18}
-  subtitle_max_chars: {ja: 9, ko: 10, en: 18}   # cụm ngắn ~1 nhịp nói như video mẫu
+  subtitle_max_chars: {ja: 9, ko: 10, en: 18, de: 20}   # cụm ngắn ~1 nhịp nói như video mẫu
   topic: {size: 7, color: [1, 1, 1], stroke_color: [0.1, 0.25, 0.85], stroke_width: 0.2}
-  title_max_chars: {ja: 10, ko: 10, en: 20}
+  title_max_chars: {ja: 10, ko: 10, en: 20, de: 22}
 
 # Thể thao / boxing (video mẫu 25/09): nền đen · khối video gần vuông 9:10 phóng to vào pha đấu, bám theo người ·
 # KHÔNG có dòng tiêu đề · phụ đề cụm ngắn chữ vàng viền đen ở 2/3 khối video · mũi tên xanh lá chỉ vào chi tiết
@@ -84,7 +84,7 @@ sports_focus:
   emphasis_row: 0.5
   topic_row: 0.24              # chữ nhấn "top" / nhãn REPLAY: gần mép trên khối video
   subtitle: {size: 13, color: [1, 0.92, 0.1], stroke_color: [0, 0, 0], stroke_width: 0.2}
-  subtitle_max_chars: {ja: 7, ko: 8, en: 14}   # cụm rất ngắn, nhảy theo lời nói như video mẫu
+  subtitle_max_chars: {ja: 7, ko: 8, en: 14, de: 16}   # cụm rất ngắn, nhảy theo lời nói như video mẫu
   arrow:
     glyph: "→"                 # ký tự mũi tên (xoay theo hướng). [CẦN KIỂM TRA TRÊN MÁY] font CapCut có hiện không
     size: 40

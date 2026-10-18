@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 115 — Thêm tiếng Đức `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Ô **🌐 Ngôn ngữ video mới** có thêm **Đổi sang tiếng Đức (Deutsch)**.
+3. Thử một job ngắn (vd **💰 Bán content** hoặc **🌐 Đổi ngôn ngữ**) chọn tiếng Đức:
+   - kịch bản trên trang voice viết bằng tiếng Đức, nghĩa tiếng Việt bên dưới;
+   - phụ đề, tiêu đề, chữ nhấn, caption bằng tiếng Đức.
+4. Cho **🤖 OmniVoice** đọc (hoặc giọng Voice Studio): nghe xem đọc tiếng Đức có chuẩn không — tool gửi mã ngôn ngữ
+   `de` cho OmniVoice; nếu đọc sai giọng / sai ngôn ngữ thì báo mình.
+5. Sau lần thu voice đầu, tool tự đo tốc độ đọc thật của giọng Đức (lần sau viết bài vừa giọng hơn).
+
 ## Bước 114 — Bán content: phụ đề ngôn ngữ đích luôn có (nền tối che phụ đề cũ) `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

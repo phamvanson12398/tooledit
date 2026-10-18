@@ -4,9 +4,11 @@ limits:
   ja: {max_chars_per_line: 13, max_chars_per_second: 4, max_lines: 2}
   ko: {max_chars_per_line: 16, max_chars_per_second: 12, max_lines: 2}
   en: {max_chars_per_line: 42, max_chars_per_second: 20, max_lines: 2}
+  de: {max_chars_per_line: 42, max_chars_per_second: 20, max_lines: 2}   # tiếng Đức (18/10): như tiếng Anh
 min_cue_s: 0.35      # cụm phụ đề ngắn nhất
 gap_merge_s: 0.15    # hai cụm cách nhau ít hơn → nối liền để khỏi nháy
 fonts:               # font hỗ trợ Hangul/Kana/Kanji (cần có trên máy/CapCut)
   ja: Noto Sans JP
   ko: Noto Sans KR
   en: Noto Sans
+  de: Noto Sans

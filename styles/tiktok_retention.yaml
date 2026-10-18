@@ -16,7 +16,7 @@ director_brief: |
 # Tham số cho bộ dựng (code dùng trực tiếp)
 subtitle:
   mode: chunk           # chunk = từng cụm ngắn nhảy liên tục
-  max_chars: {ja: 10, ko: 12, en: 22}
+  max_chars: {ja: 10, ko: 12, en: 22, de: 24}
   size: 13
   color: [1.0, 1.0, 1.0]
   stroke_color: [0.0, 0.0, 0.0]

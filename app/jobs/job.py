@@ -45,7 +45,7 @@ class JobOptions(BaseModel):
     reframe_per_scene: bool = False   # ☐ Đổi khung theo cảnh
     auto_download: bool = False       # ☐ Tự tải tài nguyên thiếu
     confirm_before_build: bool = False  # ☐ Xác nhận trước khi dựng
-    target_language: str = ""         # Đổi ngôn ngữ: "" = giữ nguyên; ko/ja/en = thuyết minh + phụ đề tiếng đó
+    target_language: str = ""         # Đổi ngôn ngữ: "" = giữ nguyên; ko/ja/en/de = thuyết minh + phụ đề tiếng đó
     voice_only: bool = False          # Chỉ thay tiếng (05/10): giữ nguyên hình, không cắt / đổi khung — cần target_language
     vi_sub: bool = False              # Phụ đề tiếng Việt (08/10): chỉ dịch lời sang tiếng Việt để xem hiểu, không dựng lại
     hype: bool = False                # Chuyển cảnh liên tục: cảnh gay cấn lên đầu (3–5s/cảnh), còn lại về sau (07/10)

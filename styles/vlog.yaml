@@ -12,7 +12,7 @@ director_brief: |
   - Nhạc nền nổi bật hơn các kiểu khác (acoustic/chill/pop nhẹ), chọn đúng tâm trạng; chỉ hạ khi có thoại.
   - SFX rất ít.
 
-subtitle: {mode: chunk, max_chars: {ja: 12, ko: 14, en: 28}, size: 12, color: [1, 1, 1], stroke_color: [0, 0, 0]}
+subtitle: {mode: chunk, max_chars: {ja: 12, ko: 14, en: 28, de: 30}, size: 12, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 hook_text: {size: 30, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.12, animations: [in]}
 emphasis: {size: 20, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.08}
 title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}

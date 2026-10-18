@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from app import config as app_config
 from app.config import ROOT
 from app.director import AI_NAMES
+from app.director.tasks import TARGET_LANGS
 from app.jobs.job import STEPS, Job, JobOptions, Status
 
 JOBS_ROOT = ROOT / "jobs"
@@ -508,7 +509,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             for k, ico, title, desc in (
                 ("normal", "✂️", "Dựng video TikTok", "AI cắt đoạn hay, thêm phụ đề, zoom, nhạc, hiệu ứng. Nhiều file = "
                  "<b>Ghép nhiều video</b> thành một câu chuyện ~2 phút"),
-                ("dub", "🌐", "Đổi ngôn ngữ", "Thuyết minh + phụ đề tiếng Hàn / Nhật / Anh, dựng lại khác bản gốc"),
+                ("dub", "🌐", "Đổi ngôn ngữ", "Thuyết minh + phụ đề tiếng Hàn / Nhật / Anh / Đức, dựng lại khác bản gốc"),
                 ("voice_only", "🎙️", "Chỉ thay tiếng", "Giữ NGUYÊN hình, chỉ thay voice + phụ đề ngôn ngữ mới"),
                 ("review", "🎬", "Review phim / hoạt hình",
                  "Tóm gọn CẢ phim thành MỘT video, chỉ kể ý chính — bạn chọn thời lượng"),
@@ -553,7 +554,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <label>🌐 Ngôn ngữ video mới</label>
               <select name="target_language" id="lang"><option value="">Giữ nguyên ngôn ngữ gốc</option>
                 <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
-                <option value="en">Đổi sang tiếng Anh (English)</option></select>
+                <option value="en">Đổi sang tiếng Anh (English)</option>
+                <option value="de">Đổi sang tiếng Đức (Deutsch)</option></select>
               <div class="muted" id="langhint"></div>
               <div data-modes="review"><label style="margin-top:10px">⏱️ Thời lượng video review</label>
                 <select name="review_s">{review_opts}</select>
@@ -626,13 +628,13 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               m.textContent=n>1?('Đã có '+n+' video — tool sẽ ghép thành một video.'):'Đã chọn 1 video.';}}
             else m.textContent=d.error||'Chưa chọn file.';}}catch(e){{m.textContent='Không mở được hộp thoại: '+e;}}
         }}
-        const HINT={{normal:'Video gốc tiếng Hàn / Nhật / Anh thì để Giữ nguyên. Tiếng khác (Trung, Việt…) thì chọn ngôn ngữ cho bản TikTok.', dub:'Bạn sẽ thu voice từng câu bằng Voice Studio (hoặc cho OmniVoice đọc).',
+        const HINT={{normal:'Video gốc tiếng Hàn / Nhật / Anh / Đức thì để Giữ nguyên. Tiếng khác (Trung, Việt…) thì chọn ngôn ngữ cho bản TikTok.', dub:'Bạn sẽ thu voice từng câu bằng Voice Studio (hoặc cho OmniVoice đọc).',
           voice_only:'Không cắt, không đổi khung — chỉ thay tiếng. Cần chọn ngôn ngữ mới.',
           review:'Không chọn ngôn ngữ = lời review bằng tiếng gốc của phim.',
-          films:'Chọn ngôn ngữ của video mới (Hàn / Nhật / Anh).',
-          cliff:'Lời review tiếng Hàn / Nhật / Anh. Không chọn ngôn ngữ = tiếng gốc của phim (phải là Hàn / Nhật / Anh).',
+          films:'Chọn ngôn ngữ của video mới (Hàn / Nhật / Anh / Đức).',
+          cliff:'Lời review tiếng Hàn / Nhật / Anh / Đức. Không chọn ngôn ngữ = tiếng gốc của phim (phải là Hàn / Nhật / Anh / Đức).',
           char_dub:'Cần chọn ngôn ngữ mới (vd phim Nhật → tiếng Hàn). Nên cài Demucs để giữ nhạc nền gốc.',
-          ideas:'Chọn ngôn ngữ của giọng đọc + phụ đề (Hàn / Nhật / Anh). Âm thanh gốc bị bỏ, mỗi short có voice + nhạc mới.',
+          ideas:'Chọn ngôn ngữ của giọng đọc + phụ đề (Hàn / Nhật / Anh / Đức). Âm thanh gốc bị bỏ, mỗi short có voice + nhạc mới.',
           sell:'AI tự xem nội dung gốc rồi viết kịch bản mới. Chọn ngôn ngữ của giọng đọc + phụ đề; âm thanh gốc bị bỏ hết, thay bằng voice + nhạc mới.',
           vi_sub:'Không dựng lại — chỉ dịch phụ đề tiếng Việt.'}};
         function syncMode(){{
@@ -763,10 +765,10 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                                                     for m in ("review", "char_dub", "vi_sub", "voice_only"))
             if mode == "vi_sub":
                 target_language = ""
-            if mode in ("sell", "ideas") and target_language not in ("ko", "ja", "en"):
+            if mode in ("sell", "ideas") and target_language not in TARGET_LANGS:
                 return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>"
                              + ("Ý tưởng từ video dài" if mode == "ideas" else "Bán content") + "</b> cần chọn "
-                             "ngôn ngữ của giọng đọc (Hàn / Nhật / Anh).</p><p><a class='btn light' href='/'>Quay lại</a>"
+                             "ngôn ngữ của giọng đọc (Hàn / Nhật / Anh / Đức).</p><p><a class='btn light' href='/'>Quay lại</a>"
                              "</p></div>")
             if mode in ("sell", "ideas") and len([x for x in footage.splitlines() if x.strip()]) > 1:
                 return _page("Lỗi", "<div class='card'><h2>"
@@ -774,9 +776,9 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                              "</h2><p>Chỉ chọn một file" + (" (video dài bao nhiêu cũng được)." if mode == "ideas"
                                                             else " (~55–60 giây).")
                              + "</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
-            if mode == "dub" and target_language not in ("ko", "ja", "en"):
+            if mode == "dub" and target_language not in TARGET_LANGS:
                 return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Đổi ngôn ngữ</b> cần chọn "
-                             "ngôn ngữ mới (Hàn / Nhật / Anh).</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
+                             "ngôn ngữ mới (Hàn / Nhật / Anh / Đức).</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
         paths = [Path(x.strip().strip('"')) for x in footage.splitlines() if x.strip().strip('"')]
         missing_files = [p for p in paths if not p.is_file()]
         if not paths or missing_files:
@@ -784,14 +786,14 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                          + html.escape(", ".join(str(p) for p in missing_files) or "(chưa chọn file)")
                          + "</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
         path = paths[0]
-        lang = target_language if target_language in ("ko", "ja", "en") else ""
+        lang = target_language if target_language in TARGET_LANGS else ""
         if voice_only and len(paths) > 1:
             return _page("Lỗi", "<div class='card'><h2>Chỉ thay tiếng dùng cho MỘT video</h2><p>Bỏ tick "
                          "<b>Chỉ thay tiếng</b> để ghép nhiều video, hoặc chỉ chọn một file.</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         if voice_only and not lang:
             return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Chỉ thay tiếng</b> cần chọn "
-                         "ngôn ngữ mới ở ô <b>🌐 Đổi ngôn ngữ video</b> (Hàn / Nhật / Anh).</p>"
+                         "ngôn ngữ mới ở ô <b>🌐 Đổi ngôn ngữ video</b> (Hàn / Nhật / Anh / Đức).</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         if char_dub and (review or voice_only or vi_sub or len(paths) > 1):
             return _page("Lỗi", "<div class='card'><h2>Chọn một chế độ thôi</h2><p><b>Lồng tiếng nhân vật</b> dùng cho MỘT "
@@ -1314,8 +1316,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
 
     @app.post("/jobs/{job_id}/language")
     def set_language(job_id: str, target_language: str = Form(...)):
-        """Video gốc không phải Hàn / Nhật / Anh: chọn ngôn ngữ bản TikTok rồi chạy tiếp từ bước hiểu nội dung."""
-        if target_language in ("ko", "ja", "en") and job_id not in worker.active:
+        """Video gốc không phải Hàn / Nhật / Anh / Đức: chọn ngôn ngữ bản TikTok rồi chạy tiếp từ bước hiểu nội dung."""
+        if target_language in TARGET_LANGS and job_id not in worker.active:
             job = Job.load(Path(jobs_root), job_id)
             job.options.target_language = target_language
             job.data["reuse_understanding"] = True
@@ -1722,10 +1724,10 @@ def _save_post_images(d: Path, files: list) -> int:
 def _new_films_job(jobs_root: Path, worker, target_language: str, post_title: str, images: list,
                    client: str, ai: str):
     """Tạo job Content nhiều phim: chưa có file phim — bắt đầu từ bài TikTok ảnh (link / ảnh / tiêu đề)."""
-    lang = target_language if target_language in ("ko", "ja", "en") else ""
+    lang = target_language if target_language in TARGET_LANGS else ""
     if not lang:
         return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p><b>Content nhiều phim</b> cần chọn ngôn ngữ "
-                     "của video mới (Hàn / Nhật / Anh).</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
+                     "của video mới (Hàn / Nhật / Anh / Đức).</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
     images = [f for f in images if getattr(f, "filename", "")]
     if not post_title.strip():
         return _page("Lỗi", "<div class='card'><h2>Chưa có tiêu đề</h2><p>Gõ tiêu đề / mô tả của bài TikTok vào ô "
@@ -2088,12 +2090,12 @@ def _pending_dub_html(job: Job, d: Path) -> str:
 def _step_panel(job: Job, d: Path) -> str:
     esc = html.escape
     if job.status == Status.error and job.data.get("need_language") and job.step == "understand":
-        # video gốc không phải Hàn / Nhật / Anh → chọn ngôn ngữ bản TikTok ngay tại đây rồi chạy tiếp (khỏi tạo job mới)
+        # video gốc không phải Hàn / Nhật / Anh / Đức → chọn ngôn ngữ bản TikTok ngay tại đây rồi chạy tiếp (khỏi tạo job mới)
         return (f"<div class='card'><h2>🌐 Chọn ngôn ngữ cho bản TikTok</h2><pre>{esc(job.message)}</pre>"
                 f"<form method='post' action='/jobs/{job.job_id}/language' class='row' style='align-items:center'>"
                 "<select name='target_language' style='width:auto'>"
                 "<option value='ko'>Tiếng Hàn (한국어)</option><option value='ja'>Tiếng Nhật (日本語)</option>"
-                "<option value='en'>Tiếng Anh (English)</option></select>"
+                "<option value='en'>Tiếng Anh (English)</option><option value='de'>Tiếng Đức (Deutsch)</option></select>"
                 "<button type='submit' class='btn'>▶️ Chạy tiếp với ngôn ngữ này</button></form>"
                 "<p class='muted'>Tool thuyết minh + phụ đề bằng ngôn ngữ đã chọn (như chế độ Đổi ngôn ngữ), "
                 "không phải hỏi lại AI phần hiểu nội dung.</p></div>")

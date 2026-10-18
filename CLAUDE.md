@@ -16,7 +16,11 @@ File này là bản thiết kế đã được chủ dự án chốt. Đọc to�
 ## 1. Bối cảnh sản phẩm
 
 - Chủ dự án nhận **edit video thuê** từ footage của chính khách (khách xác nhận sở hữu). Video chỉ đăng **TikTok**.
-- Ngôn ngữ video: **tiếng Hàn, tiếng Nhật, tiếng Anh**.
+- Ngôn ngữ video: **tiếng Hàn, tiếng Nhật, tiếng Anh**. **Cập nhật 18/10 (chủ dự án): thêm tiếng Đức** (`de`) làm ngôn
+  ngữ bản TikTok ở mọi chế độ có chọn ngôn ngữ (`TARGET_LANGS` trong `app/director/tasks.py`; bản địa hóa
+  `config/localize.yaml → de`, tốc độ đọc / giới hạn chữ / từ cấm / Whisper `languages` có thêm `de`); Anh và Đức cùng
+  chữ Latin nên tool phân biệt bằng từ chức năng + ä ö ü ß (`latin_language`) để chặn câu còn tiếng gốc
+  (`wrong_language`).
 - Footage đầu vào là **footage thô**: chỉ có thoại hoặc âm thanh hiện trường. Ưu tiên file gốc; có thể tải từ link của chính khách bằng `yt-dlp`.
 - Dựng **trong CapCut Desktop 9.5.0 bản quốc tế trên Windows** (đã tắt tự động cập nhật). Tool **ghi thẳng file dự án CapCut** (draft), KHÔNG điều khiển chuột/bàn phím.
 - "Đạo diễn" AI lúc chạy tool là **Claude Code chạy local trên máy chủ dự án** (gói Claude Pro, không có API key của bất kỳ AI nào).

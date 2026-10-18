@@ -13,7 +13,7 @@ director_brief: |
   - Nhạc nền rất nhỏ, không át lời (lofi/piano/ambient), có thể null nếu đoạn nói đã đủ cuốn.
   - SFX rất ít (chỉ ở câu chốt).
 
-subtitle: {mode: chunk, max_chars: {ja: 12, ko: 14, en: 28}, size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
+subtitle: {mode: chunk, max_chars: {ja: 12, ko: 14, en: 28, de: 30}, size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 hook_text: {size: 30, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.14, animations: [in],
             background: {color: "#1E88E5", round_radius: 0.3}}
 emphasis: {size: 20, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.1,

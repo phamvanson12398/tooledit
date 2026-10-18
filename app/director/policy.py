@@ -24,8 +24,8 @@ def _find(text: str, lists: dict, langs: list[str]) -> list[str]:
     for lang in langs:
         for w in lists.get(lang) or []:
             w = str(w).lower()
-            if lang == "en":  # khớp theo đầu từ: "fuck" bắt "fucking", "pushit" thì không
-                if re.search(rf"(?<![a-z0-9]){re.escape(w)}", low):
+            if lang in ("en", "de"):  # khớp theo đầu từ: "fuck" bắt "fucking", "pushit" thì không
+                if re.search(rf"(?<![a-z0-9äöüß]){re.escape(w)}", low):
                     hits.append(w)
             elif w in low:
                 hits.append(w)

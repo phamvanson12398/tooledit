@@ -29,3 +29,14 @@ markets:
       - Đơn vị: chi tiết đo lường quan trọng thì nói theo kiểu Mỹ (°F, pounds, inches) hoặc kèm cả hai; tiền quy ra khoảng USD.
       - Tránh: định kiến về châu Á, đùa giọng nói / phát âm, từ lóng xúc phạm.
     avoid_terms: []
+  de:  # chủ dự án 18/10: thêm tiếng Đức
+    audience: "khán giả TikTok nói tiếng Đức (Đức, Áo, Thụy Sĩ)"
+    brief: |
+      - Giọng: tiếng Đức nói hằng ngày, xưng "du" với người xem như creator TikTok Đức ("Okay, schau mal…",
+        "Wartet kurz…"); câu ngắn, rõ, không văn viết, không dịch từng chữ từ tiếng Anh.
+      - Tên riêng châu Á giữ dạng Latin thông dụng; món / phong tục lạ giải thích ngắn hoặc so với thứ quen ở Đức
+        (vd "so ähnlich wie ein Pfannkuchen").
+      - Đơn vị: mét, kg, độ C, gram, ml; tiền quy ra khoảng Euro (€) nếu là chi tiết quan trọng. Số thập phân dùng dấu phẩy.
+      - Tránh: định kiến về châu Á, đùa giọng nói / phát âm, chủ đề lịch sử nhạy cảm (Thế chiến, Đức Quốc xã), từ lóng
+        xúc phạm.
+    avoid_terms: [Meile, Meilen, Pfund, Fuß, Fahrenheit, Unze, Zoll]

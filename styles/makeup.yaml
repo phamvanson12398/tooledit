@@ -36,13 +36,13 @@ director_brief: |
   - SFX rất ít: "sparkle" / "ding" khi lộ kết quả, "whoosh" nhẹ khi chuyển bước lớn. Không SFX hài.
   KHUNG: khuôn mặt luôn nằm trọn trong khung (code bám mặt); cảnh cận tay swatch thì giữ màu trong khung.
 
-subtitle: {mode: chunk, max_chars: {ja: 11, ko: 13, en: 24}, size: 12, color: [1, 1, 1], stroke_color: [0.35, 0.1, 0.25]}
+subtitle: {mode: chunk, max_chars: {ja: 11, ko: 13, en: 24, de: 26}, size: 12, color: [1, 1, 1], stroke_color: [0.35, 0.1, 0.25]}
 hook_text: {size: 30, color: [1, 1, 1], stroke_color: [0.9, 0.3, 0.55], stroke_width: 0.14, animations: [in]}
 emphasis: {size: 20, color: [1, 1, 1], stroke_color: [0.9, 0.3, 0.55], stroke_width: 0.1,
            background: {color: "#F48FB1", alpha: 0.85, round_radius: 0.35}}
 replay_label: {size: 16, color: [1, 1, 1], stroke_color: [0.9, 0.3, 0.55], stroke_width: 0.1,
                background: {color: "#000000", alpha: 0.45, round_radius: 0.35},
-               text: {ja: "完成", ko: "완성", en: "FINAL LOOK"}}
+               text: {ja: "完成", ko: "완성", en: "FINAL LOOK", de: "ENDERGEBNIS"}}
 title: {size: 13, color: [1, 1, 1], stroke_color: [0.9, 0.3, 0.55]}
 zoom: {punch_scale: 1.08, punch_in_s: 0.25, slow_scale: 1.12}
 music: {duck_db: -10, fade_s: 0.4}   # nhạc -5 dB, có thoại hạ thêm 10 dB

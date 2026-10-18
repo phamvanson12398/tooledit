@@ -95,9 +95,11 @@ def apply_name_corrections(text: str, corrections) -> str:
 
 # ---------------- Hook và kế hoạch dựng ----------------
 
-LANGUAGE_NAMES = {"ja": "tiếng Nhật", "ko": "tiếng Hàn", "en": "tiếng Anh", "zh": "tiếng Trung"}
-HOOK_MAX_CHARS = {"ja": 32, "ko": 30, "en": 70}  # đọc được trong ~4 giây
-HOOK_INTRO_MAX_CHARS = {"ja": 45, "ko": 45, "en": 120}  # 1–2 câu đời thường dẫn vào (~4–5 giây)
+# Ngôn ngữ bản TikTok (chủ dự án 18/10: thêm tiếng Đức)
+TARGET_LANGS = ("ko", "ja", "en", "de")
+LANGUAGE_NAMES = {"ja": "tiếng Nhật", "ko": "tiếng Hàn", "en": "tiếng Anh", "de": "tiếng Đức", "zh": "tiếng Trung"}
+HOOK_MAX_CHARS = {"ja": 32, "ko": 30, "en": 70, "de": 75}  # đọc được trong ~4 giây
+HOOK_INTRO_MAX_CHARS = {"ja": 45, "ko": 45, "en": 120, "de": 130}  # 1–2 câu đời thường dẫn vào (~4–5 giây)
 
 
 def _segments_in(segments: list[dict], start: float, end: float) -> list[dict]:
@@ -834,7 +836,7 @@ ARROW_BRIEF = """- `arrows`: mũi tên chỉ ĐÚNG chi tiết mà lời nói / 
   chỉ tới. Chi tiết di chuyển nhanh → mũi tên ngắn (duration 0.8–1.5). Khung hình có sẵn:"""
 
 
-MARKETS = {"ja": "TikTok Nhật Bản", "ko": "TikTok Hàn Quốc", "en": "TikTok tiếng Anh"}
+MARKETS = {"ja": "TikTok Nhật Bản", "ko": "TikTok Hàn Quốc", "en": "TikTok tiếng Anh", "de": "TikTok tiếng Đức (Đức / Áo / Thụy Sĩ)"}
 
 
 def make_captions(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1,
@@ -1474,7 +1476,8 @@ def make_review_script(director: Director, analysis_dir: Path, u, *, hook=None, 
         return draft
 
 
-LANG_SCRIPT_VI = {"ko": "tiếng Hàn (Hangul)", "ja": "tiếng Nhật (kana / kanji)", "en": "tiếng Anh (chữ Latin)"}
+LANG_SCRIPT_VI = {"ko": "tiếng Hàn (Hangul)", "ja": "tiếng Nhật (kana / kanji)", "en": "tiếng Anh (chữ Latin)",
+                  "de": "tiếng Đức (chữ Latin)"}
 
 
 def _counts(text: str) -> dict:
@@ -1487,9 +1490,29 @@ def _counts(text: str) -> dict:
             c["kana"] += 1
         elif 0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF:
             c["cjk"] += 1
-        elif ch.isascii() and ch.isalpha():
+        elif ch.isalpha() and (ch.isascii() or ch in "äöüÄÖÜß"):
             c["latin"] += 1
     return c
+
+
+# Từ chức năng hay gặp — phân biệt tiếng Anh / tiếng Đức (cùng chữ Latin)
+_EN_WORDS = {"the", "and", "is", "are", "was", "you", "your", "this", "that", "it", "of", "to", "with", "for", "what",
+             "have", "has", "but", "not", "they", "we", "so", "just", "at", "be", "my", "on", "do", "can", "how"}
+_DE_WORDS = {"der", "die", "das", "und", "ist", "sind", "war", "nicht", "ich", "du", "sie", "es", "ein", "eine",
+             "einen", "mit", "zu", "auf", "für", "wir", "aber", "auch", "noch", "dass", "wie", "was", "hat", "haben",
+             "den", "dem", "des", "im", "von", "mal", "so", "schon", "jetzt", "hier", "kann", "man"}
+
+
+def latin_language(text: str) -> str | None:
+    """Câu chữ Latin là tiếng Anh hay tiếng Đức (đếm từ chức năng + chữ ä ö ü ß); không rõ → None."""
+    words = re.findall(r"[a-zäöüß]+", (text or "").lower())
+    en = sum(w in _EN_WORDS for w in words)
+    de = sum(w in _DE_WORDS for w in words) + 2 * len(re.findall(r"[äöüß]", (text or "").lower()))
+    if en >= 2 and en > de * 1.5:
+        return "en"
+    if de >= 2 and de > en * 1.5:
+        return "de"
+    return None
 
 
 def script_language(text: str, min_chars: int = 20) -> str | None:
@@ -1506,7 +1529,7 @@ def script_language(text: str, min_chars: int = 20) -> str | None:
     if c["cjk"] >= 0.6 * total and c["kana"] == 0:
         return "zh"
     if c["latin"] >= 0.8 * total:
-        return "en"
+        return latin_language(text) or "en"
     return None
 
 
@@ -1518,8 +1541,9 @@ def wrong_language(text: str, language: str) -> bool:
         return c["kana"] > 0 or c["cjk"] > 1 or (c["hangul"] == 0 and c["latin"] + c["cjk"] >= 3)
     if language == "ja":
         return c["hangul"] > 0 or (c["kana"] + c["cjk"] == 0 and c["latin"] >= 3)
-    if language == "en":
-        return c["hangul"] + c["kana"] + c["cjk"] > 0
+    if language in ("en", "de"):  # cùng chữ Latin: còn phân biệt Anh / Đức bằng từ chức năng
+        other = latin_language(text)
+        return c["hangul"] + c["kana"] + c["cjk"] > 0 or (other is not None and other != language)
     return False
 
 

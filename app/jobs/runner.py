@@ -510,7 +510,7 @@ class Runner:
         self.log("Đã ghép xong: " + ", ".join(f"video {p['index']} ({p['end'] - p['start']:.0f}s)" for p in parts))
 
     def step_understand(self, job: Job) -> None:
-        from app.director.tasks import understand
+        from app.director.tasks import TARGET_LANGS, understand
 
         _, analysis, plan_dir = self._paths(job)
         saved = plan_dir / "understanding.json"
@@ -534,10 +534,10 @@ class Runner:
         elif target:
             job.data.pop("dub_same", None)
             self.log(f"Đổi ngôn ngữ: {u.language} → {target} (thuyết minh + phụ đề {target}).")
-        elif u.language not in ("ko", "ja", "en"):
+        elif u.language not in TARGET_LANGS:
             job.data["need_language"] = u.language
             raise ValueError(f"Video gốc nói tiếng '{LANG_VI.get(u.language, u.language)}' — bản TikTok phải là tiếng "
-                             "Hàn / Nhật / Anh. Chọn ngôn ngữ ở ô bên dưới rồi bấm Chạy tiếp.")
+                             "Hàn / Nhật / Anh / Đức. Chọn ngôn ngữ ở ô bên dưới rồi bấm Chạy tiếp.")
         job.data.pop("need_language", None)
         if u.policy_issues:
             total = sum(x.end - x.start for x in u.policy_issues)

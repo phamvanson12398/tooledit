@@ -8,12 +8,13 @@ min_piece_s: 0.5     # mẩu clip còn lại sau khi cắt ngắn hơn mức nà
 merge_gap_s: 0.6     # hai đoạn vi phạm cách nhau ít hơn mức này thì gộp làm một
 
 # Từ tục máy tự dò trong transcript (có mốc giây từng từ) và trong chữ trên màn hình / hook / caption.
-# Tiếng Anh: khớp theo đầu từ ("fuck" bắt cả "fucking"). Tiếng Hàn / Nhật: khớp chuỗi con.
+# Tiếng Anh / Đức: khớp theo đầu từ ("fuck" bắt cả "fucking"). Tiếng Hàn / Nhật: khớp chuỗi con.
 # Danh sách cố ý ngắn để tránh cắt nhầm — thêm từ nếu cần. Đạo diễn AI vẫn tự phát hiện các trường hợp khác.
 bad_words:
   en: [fuck, motherfuck, shit, bitch, cunt, asshole, dickhead, bastard]
   ko: [씨발, 시발, 씨바, 개새끼, 개새기, 병신, 좆, 존나, 지랄, 미친놈, 미친년]
   ja: [死ね, ぶっ殺す, 殺すぞ, くたばれ]
+  de: [scheiße, scheisse, arschloch, fotze, wichser, hurensohn, missgeburt, fick]
 
 # Nhắc tới nền tảng khác ngoài TikTok (tên nền tảng, lời kêu gọi kiểu YouTube "subscribe / 구독 / チャンネル登録").
 # Không được có trong caption, hashtag, chữ trên màn hình, câu hook; trong lời thoại thì bị CẮT.
@@ -28,3 +29,4 @@ other_platforms:
        "구독과 좋아요", "구독 좋아요", "구독, 좋아요", 구독버튼, "구독 버튼", "채널 구독", "알림 설정"]
   ja: [ユーチューブ, ユーチューバー, インスタグラム, インスタライブ, フェイスブック, ツイッター, ツイキャス,
        ニコニコ動画, ニコ生, チャンネル登録, 高評価ボタン, 高評価お願い, "高評価と"]
+  de: [abonnieren, abonniert, "glocke aktivieren", "kanal abonnieren"]

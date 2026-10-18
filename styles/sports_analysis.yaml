@@ -19,12 +19,12 @@ director_brief: |
     mũi tên xanh chỉ đúng chi tiết đang được nói tới (găng tay tung đòn, chân bước, bóng) mỗi 2–5 giây khi lời bình nhắc tới;
     chuyển cảnh mờ nhẹ giữa các pha; quay chậm (replay) pha quyết định.
 
-subtitle: {mode: chunk, max_chars: {ja: 11, ko: 13, en: 24}, size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
+subtitle: {mode: chunk, max_chars: {ja: 11, ko: 13, en: 24, de: 26}, size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 hook_text: {size: 34, color: [1, 0.2, 0.2], stroke_color: [1, 1, 1], stroke_width: 0.16, animations: [in, loop]}
 emphasis: {size: 22, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.1,
            background: {color: "#D32F2F", round_radius: 0.15}}
 replay_label: {size: 18, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.1,
-               background: {color: "#000000", alpha: 0.7, round_radius: 0.1}, text: {ja: "リプレイ", ko: "리플레이", en: "REPLAY"}}
+               background: {color: "#000000", alpha: 0.7, round_radius: 0.1}, text: {ja: "リプレイ", ko: "리플레이", en: "REPLAY", de: "ZEITLUPE"}}
 title: {size: 13, color: [1, 1, 1], stroke_color: [0, 0, 0]}
 zoom: {punch_scale: 1.2, punch_in_s: 0.1, slow_scale: 1.12}
 music: {duck_db: -9, fade_s: 0.2}   # nhạc -5 dB, có thoại hạ thêm 9 dB

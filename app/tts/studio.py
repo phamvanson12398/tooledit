@@ -22,7 +22,7 @@ from pathlib import Path
 from app.config import ROOT
 
 STUDIO = ROOT / "studio"
-LANGS = {"auto": "Tự nhận (không chỉ định)", "ko": "Tiếng Hàn", "ja": "Tiếng Nhật", "en": "Tiếng Anh", "vi": "Tiếng Việt",
+LANGS = {"auto": "Tự nhận (không chỉ định)", "ko": "Tiếng Hàn", "ja": "Tiếng Nhật", "en": "Tiếng Anh", "de": "Tiếng Đức", "vi": "Tiếng Việt",
          "zh": "Tiếng Trung"}
 
 # (khóa, nhãn, kiểu, mặc định, min, max, bước, giải thích) — mặc định = OmniVoiceGenerationConfig bản 0.2.1

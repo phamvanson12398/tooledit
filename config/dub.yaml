@@ -54,7 +54,7 @@ narration:
   frames: 12                   # gửi tối đa 12 khung hình ở các khoảng lặng để AI thấy hành động
 
 # Tốc độ nói tối đa (ký tự / giây, không tính dấu cách, dấu câu) — để câu dịch đọc kịp trong chỗ trống.
-max_cps: {ja: 8.0, ko: 7.0, en: 16.0}
+max_cps: {ja: 8.0, ko: 7.0, en: 16.0, de: 15.0}
 
 # "Khác bản gốc ~80%": ghi đè lên phong cách đang chọn (không đảo thứ tự cảnh — chủ dự án chốt 01/10)
 style_override:
