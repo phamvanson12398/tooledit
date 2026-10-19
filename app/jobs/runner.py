@@ -378,6 +378,9 @@ class Runner:
             job.data.pop("dub_skip", None)
         if step in ("segment", "hooks", "choose_hook", "plan"):
             self._clear_plans(d, plan_dir)
+        if job.options.yt and step in ("segment", "plan", "dub"):  # bán content YouTube: viết lại lời các chương
+            for f in plan_dir.glob("yt_chapter_*.json"):
+                f.unlink()
         job.step = step
         job.status = Status.pending
         job._log(f"người dùng yêu cầu làm lại từ bước {step}")
@@ -487,6 +490,17 @@ class Runner:
         if (analysis / "frames.json").is_file():
             self.log("Đã phân tích trước đó, dùng lại kết quả.")
             return
+        if job.options.yt:  # bán content YouTube: video nguồn dưới 1h30 (chủ dự án 19/10) — báo ngay, khỏi phân tích phí
+            from app.director.youtube import yt_cfg
+
+            limit = float(yt_cfg().get("max_source_min", 90))
+            try:
+                secs = self._voice_duration(Path(job.footage[0])) / 1_000_000
+            except Exception:  # không đọc được độ dài thì để phân tích chạy như thường
+                secs = 0.0
+            if secs > limit * 60:
+                raise ValueError(f"Video nguồn dài {secs / 60:.0f} phút — Bán content YouTube nhận video dưới "
+                                 f"{limit:.0f} phút. Cắt bớt video rồi tạo job mới.")
         if len(job.footage) > 1 and not job.data.get("montage_parts") and not job.options.films:
             self._build_montage(job, d)  # content nhiều phim: mỗi phim phân tích riêng (footage 0, 1, 2…), không nối
         if self._analyze_fn is None:
@@ -569,6 +583,9 @@ class Runner:
         if path.is_file() and json.loads(path.read_text(encoding="utf-8")).get("proposal"):
             self.log("Đã có kết quả chia video, dùng lại.")
             return
+        if job.options.yt:  # bán content YouTube: danh mục cảnh → dàn ý chương (dừng duyệt nếu tick)
+            redo = job.data.get("yt_redo") or {}
+            return self._make_yt_outline(job, redo.get("feedback", ""))
         if job.options.ideas:  # ý tưởng từ video dài: danh mục cảnh (một lần) → AI nghĩ ý tưởng → chủ dự án tick
             redo = job.data.get("ideas_redo") or {}
             return self._make_ideas(job, redo.get("feedback", ""), redo.get("previous"))
@@ -598,6 +615,10 @@ class Runner:
     def step_review_segments(self, job: Job) -> None:
         _, _, plan_dir = self._paths(job)
         data = json.loads((plan_dir / "segments.json").read_text(encoding="utf-8"))
+        if not data.get("confirmed") and data.get("yt"):
+            job.wait("Duyệt dàn ý video YouTube: xem tiêu đề, các chương, thời lượng rồi bấm Duyệt — hoặc góp ý để AI lập "
+                     "lại dàn ý.")
+            return
         if not data.get("confirmed") and data.get("ideas"):
             n = len((data.get("proposal") or {}).get("ideas", []))
             job.wait(f"Chọn ý tưởng muốn làm: AI đề xuất {n} ý tưởng. Tick các ý tưởng muốn dựng (mỗi ý tưởng một short) "
@@ -709,6 +730,128 @@ class Runner:
         job.step, job.status = "segment", Status.pending
         job._log("người dùng góp ý — AI nghĩ lại ý tưởng")
         job.save(self.jobs_root)
+
+    # ---------- Bán content YouTube (chủ dự án yêu cầu 19/10) ----------
+
+    def yt_outline(self, job: Job):
+        from app.director.schemas import YtOutline
+
+        _, _, plan_dir = self._paths(job)
+        return YtOutline.model_validate_json((plan_dir / "yt_outline.json").read_text(encoding="utf-8"))
+
+    def _make_yt_outline(self, job: Job, feedback: str = "") -> None:
+        from app.director.ideas import make_catalog
+        from app.director.tasks import load_analysis
+        from app.director.youtube import make_outline, yt_cfg
+
+        d, analysis, plan_dir = self._paths(job)
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        u = self._understanding(job)
+        cat = make_catalog(self.director, analysis, plan_dir, u, log=self.log)
+        cfg = yt_cfg()
+        previous = None
+        if feedback and (plan_dir / "yt_outline.json").is_file():
+            previous = self.yt_outline(job)
+        self.log(f"Danh mục cảnh: {len(cat.shots)} cảnh. AI lập dàn ý video YouTube…")
+        o = make_outline(self.director, analysis, cat, u, language=job.options.target_language or u.language,
+                         minutes=job.options.yt_min, feedback=feedback, previous=previous)
+        (plan_dir / "yt_outline.json").write_text(o.model_dump_json(indent=2), encoding="utf-8")
+        total = sum(c.seconds for c in o.chapters)
+        usable = sum(s.end - s.start for s in cat.shots if s.quality >= 2)
+        if total > float(cfg.get("footage_ratio", 1.2)) * usable:
+            self.log(f"⚠️ Video {total / 60:.0f} phút nhưng chỉ có ~{usable / 60:.0f} phút cảnh dùng được — sẽ phải dùng lại "
+                     "cảnh (lấy khúc khác, lật ngang) / lấy kho cảnh chung. Nên chọn thời lượng ngắn hơn.")
+        duration = float(load_analysis(analysis)["scenes"]["duration"])
+        videos = [{"index": 1, "start": 0.0, "end": duration, "title_vi": (o.titles_vi or o.titles)[0],
+                   "summary_vi": o.angle_vi}]
+        data = {"yt": True, "videos": videos, "confirmed": not job.options.yt_pause}
+        (plan_dir / "segments.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        job.data["videos"] = videos
+        job.data["yt_target_s"] = round(total, 1)
+        job.data.pop("yt_redo", None)
+        self.log(f"Dàn ý: {len(o.chapters)} chương, {total / 60:.1f} phút — \"{o.titles[0]}\".")
+
+    def apply_yt_outline(self, job: Job) -> None:
+        """Chủ dự án bấm Duyệt dàn ý → viết lời các chương."""
+        _, _, plan_dir = self._paths(job)
+        path = plan_dir / "segments.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["confirmed"] = True
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        job.save(self.jobs_root)
+
+    def redo_yt_outline(self, job: Job, feedback: str) -> None:
+        """Góp ý dàn ý → AI lập lại (danh mục cảnh giữ nguyên); lời / voice cũ không còn đúng (voice cất *_cu)."""
+        d, _, plan_dir = self._paths(job)
+        job.data["yt_redo"] = {"feedback": feedback.strip()}
+        job.data.setdefault("yt_feedback", []).append(feedback.strip())
+        (plan_dir / "segments.json").unlink(missing_ok=True)
+        self._clear_yt_scripts(d, plan_dir)
+        job.data.pop("videos", None)
+        job.step, job.status = "segment", Status.pending
+        job._log("người dùng góp ý — AI lập lại dàn ý video YouTube")
+        job.save(self.jobs_root)
+
+    def _clear_yt_scripts(self, d: Path, plan_dir: Path) -> None:
+        self._clear_plans(d, plan_dir)
+        for f in [*plan_dir.glob("yt_chapter_*.json"), *plan_dir.glob("sell_video*.json"), *plan_dir.glob("dub_video*.json")]:
+            f.unlink()
+        for old in (d / "voice").glob("video*_dub*.*"):
+            if "_cu" not in old.stem:
+                old.replace(old.with_name(f"{old.stem}_cu{old.suffix}"))
+
+    def _yt_script(self, job: Job, v: dict, music: list, chosen: list, feedback: str = ""):
+        """Lời từng chương (song song, mỗi chương lưu riêng — lỗi giữa chừng chạy lại chỉ viết chương còn thiếu) → ghép
+        MỘT bài → kế hoạch dựng + kịch bản voice."""
+        from app.director.ideas import make_catalog
+        from app.director.schemas import SellScript
+        from app.director.sell import make_sell_script, sell_plan, sell_to_dub
+        from app.director.youtube import chapter_job, merge
+        from app.jobs.parallel import run_parallel
+        from app.planner import dub_io
+
+        d, analysis, plan_dir = self._paths(job)
+        o = self.yt_outline(job)
+        u = self._understanding(job)
+        cat = make_catalog(self.director, analysis, plan_dir, u, log=self.log)
+        library = self._library_for(job, v, analysis)
+        if feedback:
+            for f in plan_dir.glob("yt_chapter_*.json"):
+                f.unlink()
+        self.log(f"AI viết lời {len(o.chapters)} chương (song song)…")
+
+        def one(k: int):
+            f = plan_dir / f"yt_chapter_{k:02d}.json"
+            if f.is_file():
+                return SellScript.model_validate_json(f.read_text(encoding="utf-8"))
+            r = make_sell_script(self.director, analysis, u, brief=job.options.sell_brief, music_items=chosen or music,
+                                 video_index=1, feedback=feedback, idea=chapter_job(o, k, cat), library=library)
+            f.write_text(r.model_dump_json(indent=2), encoding="utf-8")
+            self.log(f"✍️ Xong lời chương {k}/{len(o.chapters)}: {o.chapters[k - 1].title_vi} ({len(r.lines)} câu).")
+            return r
+
+        scripts = run_parallel(one, list(range(1, len(o.chapters) + 1)))
+        r, starts = merge(scripts, o)
+        ratio = job.data.get("default_ratio")
+        plan = sell_plan(r, ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
+        if chosen:
+            plan = plan.model_copy(update={"music": plan.music.model_copy(update={"name": chosen[0].name})})
+        (plan_dir / "edit_plan_video01.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+        (plan_dir / "sell_video01.json").write_text(r.model_dump_json(indent=2), encoding="utf-8")
+        (plan_dir / "yt_chapters_video01.json").write_text(json.dumps(
+            [{"first_line": s0, "title": c.title, "title_vi": c.title_vi} for s0, c in zip(starts, o.chapters)],
+            ensure_ascii=False, indent=2), encoding="utf-8")
+        script = sell_to_dub(r)
+        dub_io.dub_path(d, 1).write_text(script.model_dump_json(indent=2), encoding="utf-8")
+        dub_io.pending_path(d, 1).unlink(missing_ok=True)
+        return script
+
+    def _yt_chapters(self, job: Job) -> list[dict]:
+        _, _, plan_dir = self._paths(job)
+        try:
+            return json.loads((plan_dir / "yt_chapters_video01.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
 
     # ---------- Content nhiều phim từ bài TikTok ảnh (chủ dự án yêu cầu 14/10) ----------
 
@@ -1389,6 +1532,8 @@ class Runner:
         choice = job.data.get("music_choice")
         chosen = [m for m in tpl.library if m.kind == "music" and m.name == choice] if choice else []
         i = v["index"]
+        if job.options.yt:  # bán content YouTube: lời từng chương theo dàn ý
+            return self._yt_script(job, v, music, chosen, feedback)
         self.log(f"AI viết kịch bản bán content + chọn cảnh video {i:02d}…")
         from app.director.schemas import SellScript
 
@@ -1462,6 +1607,12 @@ class Runner:
         from app.director.sell import short_voice
 
         d, _, _ = self._paths(job)
+        if job.options.yt:  # bán content YouTube: so với thời lượng dàn ý (không phải 60 giây)
+            from app.director.youtube import yt_cfg
+
+            target = float(job.data.get("yt_target_s") or 600)
+            return short_voice(d, self._dub_scripts(job), need_s=target, target_s=target,
+                               ratio=float(yt_cfg().get("short_voice_ratio", 0.85)))
         return short_voice(d, self._dub_scripts(job), job.options.sell_s)
 
     def sell_lengthen(self, job: Job, video_index: int) -> None:
@@ -2013,6 +2164,11 @@ class Runner:
             from app import scene_library
 
             scfg = sell_cfg()
+            if job.options.yt:  # YouTube: nhịp chậm hơn, cảnh dài hơn, tiếng động thưa, không ép tối thiểu 60 giây
+                from app.director.youtube import yt_cfg
+
+                ycfg = yt_cfg()
+                scfg = {**scfg, **(ycfg.get("build") or {}), "fx": {**(scfg.get("fx") or {}), **(ycfg.get("fx") or {})}}
             sc = a["scenes"]
             b = u_v.burned_in_text
             want = {s.lib for ln in dub.lines for s in (ln.shots or []) if s.lib}
@@ -2024,6 +2180,14 @@ class Runner:
                     s for s in ln.shots if not s.lib or s.lib in extra_sources]}) for ln in dub.lines]})
             # ý tưởng từ video dài: cảnh bù (khi thiếu) chỉ lấy trong các cảnh của ý tưởng, không lấy bừa cả video dài
             pool = (v.get("pool") or None) if job.options.ideas else None
+            if job.options.yt:  # YouTube: cảnh bù lấy trong danh mục cảnh (cảnh dùng được), không lấy đoạn đen / lỗi
+                from app.director.schemas import Catalog
+
+                try:
+                    cat = Catalog.model_validate_json((plan_dir / "catalog.json").read_text(encoding="utf-8"))
+                    pool = [{"start": x.start, "end": x.end} for x in cat.shots if x.quality >= 2] or None
+                except (OSError, ValueError):
+                    pool = None
             clips, dub_windows, sync_notes = build_sell(
                 dub, {n: us / 1_000_000 for n, (_, us) in (dub_voices or {}).items()}, pool or sc.get("scenes") or [],
                 float(sc["duration"]), cps=sell_cps(scfg, u_v.language), cfg=scfg,
@@ -2035,6 +2199,23 @@ class Runner:
             fcfg = scfg.get("fx") or {}
             timed_fx = sell_fx(dub, dub_windows, scfg,
                                emphasis=bool(fcfg.get("emphasis", True)) and not style.get("no_emphasis"))
+            if job.options.yt:  # tên chương giữa màn đầu mỗi chương (từ chương 2) + mốc chương cho mô tả YouTube
+                from app.director.youtube import yt_cfg
+
+                card = round(float(yt_cfg().get("chapter_card_s", 2.2)) * 1_000_000)
+                stamps = []
+                for k, ch in enumerate(self._yt_chapters(job)):
+                    n0 = int(ch["first_line"])
+                    if n0 >= len(dub_windows):
+                        continue
+                    t0 = int(dub_windows[n0][0])
+                    stamps.append([round(t0 / 1_000_000, 2), ch["title"]])
+                    if k:
+                        timed_fx["emphasis"] = [e for e in timed_fx["emphasis"] if not t0 <= e[0] < t0 + card]
+                        timed_fx["emphasis"].append((t0, card, ch["title"]))
+                timed_fx["emphasis"].sort()
+                (plan_dir / f"yt_timestamps_video{i:02d}.json").write_text(
+                    json.dumps(stamps, ensure_ascii=False), encoding="utf-8")
             for n in sync_notes:
                 self.log(f"[video {i:02d}] {n}")
         bgm = self._bgm(job, analysis) if (job.options.voice_only and job.options.keep_bgm) or job.options.char_dub \
@@ -2247,6 +2428,19 @@ class Runner:
             out.write_text(captions_text(to_captions(self._films_idea(job))), encoding="utf-8")
             job.data["captions"] = str(d / "deliver")
             self.log(f"Đã xuất caption: {out}")
+            return
+        if job.options.yt:  # gói đăng YouTube: tiêu đề, mô tả + mốc chương (theo voice thật), tag, ý tưởng ảnh bìa
+            from app.director.youtube import package_text
+
+            try:
+                stamps = json.loads((plan_dir / "yt_timestamps_video01.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                stamps = []
+            out = d / "deliver" / "youtube_video01.txt"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(package_text(self.yt_outline(job), [(float(t), str(n)) for t, n in stamps]), encoding="utf-8")
+            job.data["captions"] = str(d / "deliver")
+            self.log(f"Đã xuất gói đăng YouTube (tiêu đề, mô tả + mốc chương, tag, ảnh bìa): {out}")
             return
         credits = {dr["index"]: dr.get("credits") or [] for dr in job.data.get("drafts", [])}
         for v in self.videos(job):

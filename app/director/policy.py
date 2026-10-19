@@ -51,9 +51,21 @@ def find_platforms(text: str, language: str | None = None, cfg: dict | None = No
     return _find(text, lists, list(lists))
 
 
-def find_forbidden(text: str, language: str | None = None, cfg: dict | None = None) -> list[str]:
-    """Mọi thứ không được xuất hiện trong chữ trên màn hình / hook / caption / hashtag trên TikTok."""
-    return find_bad_words(text, language, cfg) + find_platforms(text, language, cfg)
+def find_forbidden(text: str, language: str | None = None, cfg: dict | None = None,
+                   platform: str = "tiktok") -> list[str]:
+    """Mọi thứ không được xuất hiện trong chữ trên màn hình / hook / caption / hashtag trên TikTok.
+    platform="youtube" (Bán content YouTube, 19/10): được kêu gọi đăng ký / bấm chuông / nhắc YouTube (`youtube_ok`),
+    nhưng KHÔNG nhắc TikTok (`youtube_forbidden`)."""
+    cfg = load_cfg() if cfg is None else cfg
+    hits = find_bad_words(text, language, cfg)
+    plat = find_platforms(text, language, cfg)
+    if platform == "youtube":
+        ok = {str(w).lower() for ws in (cfg.get("youtube_ok") or {}).values() for w in ws}
+        plat = [w for w in plat if w not in ok]
+        if cfg.get("enabled", True) and text:
+            lists = cfg.get("youtube_forbidden") or {}
+            plat += _find(text, lists, list(lists))
+    return hits + plat
 
 
 def merge_ranges(ranges: list[tuple[float, float]], gap: float = 0.0) -> list[tuple[float, float]]:

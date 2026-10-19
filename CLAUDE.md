@@ -296,6 +296,29 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   builder thêm nguồn video riêng (`extra_sources`, `PlanClip.lib`), file kho được chép vào dự án khi đóng gói, ghi
   `used_by`. Không có cảnh hợp / file kho bị xóa → dựng như cũ.
 
+## 5h. Chế độ "Bán content YouTube" (chủ dự án yêu cầu 19/10)
+
+- Thẻ "▶️ Bán content YouTube" (`JobOptions.yt`, đi CÙNG `sell=True` để dùng chung mọi thứ của Bán content;
+  `config/youtube.yaml`, `app/director/youtube.py`). MỘT video nguồn dưới 1h30 (`max_source_min`, kiểm tra ngay đầu bước
+  phân tích); thời lượng đầu ra chọn 10–20 phút (`yt_min`, `durations_min`) hoặc **AI tự chọn theo nội dung** (0 → kẹp
+  `auto_min` 5–20 phút, không kéo dài nhân tạo); khung 9:16 như các chế độ khác (chủ dự án tự đổi khung sau); phụ đề in
+  lên hình; giọng Voice Studio dùng chung `sell_voice`.
+- Bước segment: danh mục cảnh (dùng chung `ideas.make_catalog`) → **dàn ý** (prompt `yt_outline.md`, `YtOutline`): góc làm
+  (content MỚI hoặc XÀO NẤU lại content gốc), tiêu đề, mô tả, tag, ý tưởng ảnh bìa, 4–10 CHƯƠNG (tên ngôn ngữ đích, nội
+  dung, giây, mã cảnh); tool chia lại giây chương cho tổng đúng thời lượng (`normalize`, kẹp `min/max_chapter_s`), cảnh báo
+  khi thời lượng > `footage_ratio` × cảnh dùng được. Tick **"⏸️ Dừng duyệt dàn ý"** (`yt_pause`) thì job chờ ở bảng duyệt
+  (`_yt_panel`: Duyệt → `apply_yt_outline`; góp ý → `redo_yt_outline`, giữ danh mục cảnh); không tick thì chạy thẳng.
+- Lời từng chương viết SONG SONG (`make_sell_script(idea=chapter_job(...))`, prompt `yt_chapter.md`, lưu
+  `plan/yt_chapter_NN.json`): độ dài = giây chương, chỉ cảnh của chương (+ kho cảnh chung khi thiếu), chương 1 mở bằng hook,
+  chương sau không hook (tool tự đổi), ghép thành MỘT bài (`merge`, `plan/yt_chapters_video01.json` = câu đầu mỗi chương).
+- **Chính sách YouTube** thay cho luật TikTok: giá trị mới (không đọc lại y nguyên lời gốc — reused content), thân thiện
+  quảng cáo, không clickbait sai sự thật; được nhắc YouTube / kêu gọi đăng ký (`policy.yaml → youtube_ok`), không nhắc
+  TikTok (`youtube_forbidden`) — `find_forbidden(platform="youtube")`.
+- Dựng như Bán content nhưng nhịp YouTube (`youtube.yaml → build`: cảnh ~3.5s, tiếng động thưa, không ép 60 giây), cảnh bù
+  lấy trong danh mục cảnh; tên chương hiện giữa màn đầu mỗi chương (từ chương 2); voice ngắn hơn `short_voice_ratio` ×
+  thời lượng dàn ý thì dừng hỏi viết thêm. Giao hàng `deliver/youtube_video01.txt` (`package_text`): tiêu đề, mô tả + MỐC
+  CHƯƠNG tính từ voice thật (mốc đầu 00:00), tag, ý tưởng ảnh bìa — không hỏi AI caption TikTok.
+
 ## 5f. Tab "🎙️ Voice Studio" (chủ dự án yêu cầu 16/10)
 
 - Tab riêng trên thanh đầu trang (`/studio`, `app/web/studio_page.py`, logic `app/tts/studio.py`): dùng chính OmniVoice

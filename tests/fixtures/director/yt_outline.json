@@ -1,0 +1,48 @@
+{
+  "angle_vi": "Xào nấu lại: kể chuyện quán mì nổi tiếng theo hành trình một ngày, thêm nhận xét riêng",
+  "target_min": 1.1333333333333333,
+  "titles": [
+    "하루 만에 완판된 라멘집의 비밀",
+    "이 라멘이 특별한 이유"
+  ],
+  "titles_vi": [
+    "Bí mật quán ramen bán hết trong một ngày",
+    "Vì sao bát ramen này đặc biệt"
+  ],
+  "titles_top": [
+    "완판 라멘집",
+    "그 비밀은?"
+  ],
+  "description": "작은 라멘집이 하루 만에 완판된 이유를 따라가 봤습니다.",
+  "tags": [
+    "라멘",
+    "맛집",
+    "일본여행"
+  ],
+  "thumbnails_vi": [
+    "Cận bát mì bốc khói + chữ 'BÁN HẾT'"
+  ],
+  "chapters": [
+    {
+      "title": "완판의 시작",
+      "title_vi": "Khởi đầu",
+      "summary_vi": "Mở đầu bằng bát mì đẹp nhất",
+      "seconds": 34,
+      "shots": [
+        "S2"
+      ]
+    },
+    {
+      "title": "비밀의 국물",
+      "title_vi": "Nước dùng bí mật",
+      "summary_vi": "Quy trình nấu",
+      "seconds": 34,
+      "shots": [
+        "S1",
+        "s2",
+        "S9"
+      ]
+    }
+  ],
+  "editor_notes": "Kho cảnh mạnh ở ẩm thực."
+}

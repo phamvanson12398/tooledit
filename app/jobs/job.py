@@ -67,6 +67,10 @@ class JobOptions(BaseModel):
     ideas: bool = False               # Ý tưởng từ video dài (17/10): đi CÙNG sell=True — video dài làm kho cảnh, AI nghĩ
                                       #   nhiều ý tưởng short, chủ dự án tick cái muốn làm (config/ideas.yaml)
     ideas_brief: str = ""             # Ý tưởng từ video dài: gợi ý chủ đề / khán giả (không bắt buộc)
+    yt: bool = False                  # Bán content YouTube (19/10): đi CÙNG sell=True — video nguồn < 1h30 → video YouTube
+                                      #   dài chia chương (config/youtube.yaml)
+    yt_min: int = 0                   # Bán content YouTube: thời lượng (phút) chủ dự án chọn; 0 = AI tự chọn theo nội dung
+    yt_pause: bool = False            # Bán content YouTube: dừng cho chủ dự án duyệt dàn ý (không tick = chạy thẳng)
     cliff_pov: str = ""               # Review bỏ lửng: ngôi kể "1" (người kể là nhân vật chính) | "3"; "" = default_pov
 
 
@@ -159,7 +163,8 @@ class Job(BaseModel):
     def picks_segments(self) -> bool:
         """Job có bước AI chọn / chia đoạn + bảng duyệt. Review phim KHÔNG (chủ dự án 11/10: tóm gọn cả phim thành MỘT
         video, không chia nhiều video); Review bỏ lửng CÓ (chia phim thành các phần liền nhau)."""
-        return self.options.split or self.options.char_dub or self.options.cliff or self.options.ideas
+        return (self.options.split or self.options.char_dub or self.options.cliff or self.options.ideas
+                or self.options.yt)
 
     def applies(self, step: str) -> bool:
         if self.options.films:

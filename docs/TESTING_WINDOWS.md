@@ -1,5 +1,22 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 116 — Chế độ mới "▶️ Bán content YouTube" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Trang chủ → chọn MỘT video nguồn (dưới 1 tiếng 30 phút) → thẻ **▶️ Bán content YouTube** → ngôn ngữ → thời lượng
+   (**🤖 AI tự chọn** hoặc 10 / 12 / 15 / 18 / 20 phút) → (tùy chọn) tick **⏸️ Dừng cho tôi duyệt dàn ý** → giọng đọc →
+   Bắt đầu.
+3. Video nguồn dài hơn 90 phút: job báo lỗi ngay ở bước phân tích (không phân tích phí).
+4. Có tick dừng: trang job hiện **▶️ Duyệt dàn ý video YouTube** (góc làm, 3 tiêu đề, các chương + thời lượng). Thử góp ý
+   (vd "bỏ chương 4, thêm chương về giá cả") → **🔁 Lập lại dàn ý** (nhanh, không xem lại video) → **✅ Duyệt**.
+   Không tick: job tự chạy tới bước chờ voice.
+5. Nhật ký: "AI viết lời N chương (song song)", "✍️ Xong lời chương k/N…". Trang voice hiện cả bài (đọc liền một file hoặc
+   OmniVoice / giọng Voice Studio tự đọc — bài dài nên đọc mất vài phút tới vài chục phút).
+6. Xong: mở dự án CapCut — dài đúng thời lượng (± voice thật), có phụ đề, tên chương hiện giữa màn đầu mỗi chương, cảnh
+   khớp lời, nhạc nền + tiếng động thưa. Mở `jobs\<mã job>\deliver\youtube_video01.txt`: tiêu đề, mô tả có mốc chương
+   (00:00 …) khớp với video, tag, ý tưởng ảnh bìa.
+7. Kiểm tra lời không nhắc TikTok, có thể có câu kêu gọi đăng ký kênh ở giữa / cuối.
+
 ## Bước 115 — Thêm tiếng Đức `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

@@ -770,6 +770,31 @@ class IdeaList(BaseModel):
     editor_notes: str
 
 
+# ---------------- Bán content YouTube (chủ dự án yêu cầu 19/10) ----------------
+
+class YtChapter(BaseModel):
+    title: str = Field(description="tên chương bằng NGÔN NGỮ ĐÍCH (ngắn, hiện trên màn hình + mốc chương ở mô tả)")
+    title_vi: str = Field(description="nghĩa tiếng Việt")
+    summary_vi: str = Field(description="chương này nói gì, theo mạch nào, kết bằng gì để dẫn sang chương sau (tiếng Việt)")
+    seconds: float = Field(gt=0, description="thời lượng chương (giây)")
+    shots: list[str] = Field(min_length=1, description="mã cảnh trong danh mục (S1, S2…) dùng cho chương này")
+
+
+class YtOutline(BaseModel):
+    angle_vi: str = Field(description="góc làm video: content MỚI hay xào nấu lại content gốc, nói gì, vì sao người xem "
+                                      "xem hết (tiếng Việt)")
+    target_min: float = Field(gt=0, description="thời lượng đề xuất (phút)")
+    titles: list[str] = Field(min_length=1, max_length=5, description="tiêu đề YouTube (ngôn ngữ đích), hay nhất trước")
+    titles_vi: list[str] = Field(default_factory=list, description="nghĩa tiếng Việt từng tiêu đề")
+    titles_top: list[str] = Field(default_factory=list, max_length=2,
+                                  description="2 dòng chữ to phía trên video (ngôn ngữ đích, ngắn)")
+    description: str = Field(description="đoạn mô tả YouTube (ngôn ngữ đích), 2–4 câu, KHÔNG ghi mốc chương (tool tự thêm)")
+    tags: list[str] = Field(default_factory=list, description="10–15 tag (ngôn ngữ đích)")
+    thumbnails_vi: list[str] = Field(default_factory=list, description="3 ý tưởng ảnh bìa (tiếng Việt): cảnh nào + chữ gì")
+    chapters: list[YtChapter] = Field(min_length=2)
+    editor_notes: str
+
+
 # ---------------- Phụ đề tiếng Việt (chế độ "xem hiểu video nước ngoài") ----------------
 
 class ViLine(BaseModel):

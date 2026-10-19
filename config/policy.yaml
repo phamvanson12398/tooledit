@@ -30,3 +30,15 @@ other_platforms:
   ja: [ユーチューブ, ユーチューバー, インスタグラム, インスタライブ, フェイスブック, ツイッター, ツイキャス,
        ニコニコ動画, ニコ生, チャンネル登録, 高評価ボタン, 高評価お願い, "高評価と"]
   de: [abonnieren, abonniert, "glocke aktivieren", "kanal abonnieren"]
+
+# Bán content YOUTUBE (chủ dự án 19/10): video đăng YouTube → được nhắc YouTube / kêu gọi đăng ký, bấm chuông (bỏ khỏi danh
+# sách cấm ở trên), nhưng không nhắc TikTok.
+youtube_ok:
+  en: [youtube, youtuber, subscribe, "hit the bell", "yt shorts"]
+  ko: [유튜브, 유투브, 유튜버, 쇼츠, "구독과 좋아요", "구독 좋아요", "구독, 좋아요", 구독버튼, "구독 버튼", "채널 구독", "알림 설정"]
+  ja: [ユーチューブ, ユーチューバー, チャンネル登録, 高評価ボタン, 高評価お願い, "高評価と"]
+  de: [abonnieren, abonniert, "glocke aktivieren", "kanal abonnieren"]
+youtube_forbidden:
+  en: [tiktok, "tik tok", douyin]
+  ko: [틱톡]
+  ja: [ティックトック, ティクトク]

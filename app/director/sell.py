@@ -38,18 +38,21 @@ def _scene_of(t: float, scenes: list[dict]) -> dict | None:
 def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], cps: float, target_s: float,
                       cfg: dict, banned: list[tuple[float, float]] | None = None, title_max: int = 12,
                       video_index: int = 1, pool_only: bool = False,
-                      library: dict[str, float] | None = None, lib_share: float = 0.35) -> list[str]:
+                      library: dict[str, float] | None = None, lib_share: float = 0.35, first: bool = True,
+                      platform: str = "tiktok") -> list[str]:
     """pool_only (chế độ Ý tưởng từ video dài): `scenes` = các cảnh của ý tưởng — cảnh ngoài danh sách đó là lỗi.
-    library = {mã cảnh kho chung: độ dài} AI được dùng (shot.lib); cảnh kho chiếm tối đa lib_share tổng cảnh."""
+    library = {mã cảnh kho chung: độ dài} AI được dùng (shot.lib); cảnh kho chiếm tối đa lib_share tổng cảnh.
+    first=False (chương 2+ của Bán content YouTube): không có câu hook; platform="youtube": được nhắc YouTube / đăng ký."""
     from app.director.policy import find_forbidden, overlap_s
     from app.director.tasks import check_target_language, speech_chars
 
     errors = check_target_language(r, language)
     roles = [ln.role for ln in r.lines]
-    if roles[0] != "hook":
+    if first and roles[0] != "hook":
         errors.append("câu 1 phải có role \"hook\" (câu mở đầu thu hút)")
-    if "hook" in roles[1:]:
-        errors.append("chỉ câu 1 là \"hook\" — các câu sau là \"body\" (hoặc \"cta\" ở cuối)")
+    if "hook" in roles[1 if first else 0:]:
+        errors.append(("chỉ câu 1 là \"hook\"" if first else "chương này không có câu \"hook\"")
+                      + " — các câu là \"body\" (hoặc \"cta\" ở cuối)")
     if "cta" in roles and any(x != "cta" for x in roles[roles.index("cta"):]):
         errors.append("câu \"cta\" (kêu gọi hành động) chỉ đặt ở CUỐI bài")
     lo, hi = (cfg.get("script_fill") or [0.92, 1.03])[:2]
@@ -95,18 +98,18 @@ def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], 
                               "— lấy gọn trong MỘT cảnh")
             if banned and overlap_s(s.start, s.end, banned) > 0.05:
                 errors.append(f"câu {i}: cảnh {s.start}-{s.end} chứa đoạn vi phạm chính sách TikTok — chọn cảnh khác")
-        bad = find_forbidden(ln.text, language)
+        bad = find_forbidden(ln.text, language, platform=platform)
         if bad:
-            errors.append(f"câu {i} có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
+            errors.append(f"câu {i} có từ không được phép ({', '.join(bad)}) — viết lại")
     if all_s and lib_s / all_s > lib_share + 1e-6:
         errors.append(f"cảnh từ kho chung chiếm {lib_s / all_s:.0%} tổng cảnh — tối đa {lib_share:.0%}: ưu tiên cảnh video "
                       "gốc, kho chỉ bù chỗ video gốc KHÔNG có cảnh khớp lời")
     for t in r.titles_top:
         if len(t) > title_max:
             errors.append(f"tiêu đề '{t}' dài {len(t)} ký tự — tối đa {title_max}")
-        bad = find_forbidden(t, language)
+        bad = find_forbidden(t, language, platform=platform)
         if bad:
-            errors.append(f"tiêu đề '{t}' có từ không được phép trên TikTok ({', '.join(bad)}) — viết lại")
+            errors.append(f"tiêu đề '{t}' có từ không được phép ({', '.join(bad)}) — viết lại")
     if r.video_index != video_index:
         errors.append(f"video_index phải là {video_index}")
     return errors
@@ -156,7 +159,9 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     viết (bản này phải khác góc kể / câu mở đầu / thứ tự cảnh).
     idea = video của chế độ Ý tưởng từ video dài (app/director/ideas.py: {idea, pool, …}) — chỉ dùng cảnh trong `pool`
     (khung hình + lời nói gốc cũng chỉ lấy trong đó), others = short khác đã viết (tránh lặp cảnh).
-    library = cảnh kho chung AI được bù khi video gốc thiếu cảnh khớp lời (app/scene_library.candidates)."""
+    library = cảnh kho chung AI được bù khi video gốc thiếu cảnh khớp lời (app/scene_library.candidates).
+    idea có khóa "chapter" (Bán content YouTube, app/director/youtube.chapter_job): viết lời MỘT chương — độ dài = giây
+    chương, chỉ cảnh của chương, prompt yt_chapter.md, chương 2+ không có hook, được nhắc YouTube / kêu gọi đăng ký."""
     from app.director.policy import cut_ranges
     from app.director.schemas import SellScript
     from app.director.tasks import (LANGUAGE_NAMES, MARKETS, _segments_in, _shared_context, load_analysis,
@@ -170,7 +175,8 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     pool = [p for p in (idea or {}).get("pool") or [] if p["end"] > p["start"]]
     if idea is not None and pool:  # ý tưởng từ video dài: kho cảnh = các cảnh của ý tưởng
         scenes = [{"start": float(p["start"]), "end": float(p["end"]), "desc_vi": p.get("desc_vi", "")} for p in pool]
-    target = sell_target(cfg, sell_s)
+    chapter = (idea or {}).get("chapter")
+    target = float(idea["seconds"]) if chapter else sell_target(cfg, sell_s)
     cps = sell_cps(cfg, u.language)
     title_max = int((cfg.get("title_max_chars") or {}).get(u.language, 12))
     subs = bool(u.burned_in_text.present)
@@ -181,6 +187,10 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
         from app.director.ideas import ideas_cfg
 
         n = int(ideas_cfg().get("script_frames", 40))
+        if chapter:
+            from app.director.youtube import yt_cfg
+
+            n = int(yt_cfg().get("chapter_frames", 40))
         all_frames = [f for f in all_frames if _scene_of(f["t"], scenes)] or all_frames
     firsts = {min(all_frames, key=lambda f, t=s["start"]: abs(f["t"] - t))["file"]: None for s in scenes} \
         if all_frames else {}
@@ -224,8 +234,16 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
         from app.director.ideas import idea_brief, used_text
 
         task = "ideas_script"
-        variables.update({"idea": idea_brief(idea, brief), "used": used_text(others or []),
+        variables.update({"used": used_text(others or []),
                           "footage_s": f"{sum(s['end'] - s['start'] for s in scenes):.0f}"})
+        if chapter:
+            from app.director.youtube import chapter_brief
+
+            task = "yt_chapter"
+            variables.update({"chapter": chapter_brief(idea), "brief": brief.strip() or "(không có)",
+                              "target_chars": f"{int(lo * (target - gap * (target / 4)) * cps)}–{int(hi * target * cps)}"})
+        else:
+            variables["idea"] = idea_brief(idea, brief)
     banned = cut_ranges(u)
     names = {m.name for m in (music_items or [])}
 
@@ -233,6 +251,10 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
         fixes = []
         if r.video_index != video_index:  # AI ghi nhầm số bản → tool sửa (không bắt hỏi lại)
             r = r.model_copy(update={"video_index": video_index})
+        if chapter and chapter > 1 and any(ln.role == "hook" for ln in r.lines):  # chương giữa / cuối không có hook
+            fixes.append("chương này không mở bằng hook → đổi câu \"hook\" thành \"body\"")
+            r = r.model_copy(update={"lines": [ln.model_copy(update={"role": "body"}) if ln.role == "hook" else ln
+                                               for ln in r.lines]})
         if r.music.name and r.music.name not in names:
             fixes.append(f"bài nhạc '{r.music.name}' không có trong kho → để tool chọn theo không khí")
             r = r.model_copy(update={"music": r.music.model_copy(update={"name": None})})
@@ -253,7 +275,8 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     def extra(r) -> list[str]:
         return check_sell_script(r, u.language, duration=duration, scenes=scenes, cps=cps, target_s=target, cfg=cfg,
                                  banned=banned, title_max=title_max, video_index=video_index,
-                                 pool_only=idea is not None and bool(pool), library=lib_map, lib_share=lib_share)
+                                 pool_only=idea is not None and bool(pool), library=lib_map, lib_share=lib_share,
+                                 first=not chapter or chapter == 1, platform="youtube" if chapter else "tiktok")
 
     return director.run(task, variables, SellScript, [analysis_dir / f["file"] for f in frames],
                         extra_check=extra, repair=repair)
@@ -286,14 +309,15 @@ def sell_plan(r, default_ratio: str = "16:9"):
                     music=r.music, editor_notes=r.editor_notes)
 
 
-def short_voice(job_dir: Path, scripts: dict, sell_s: float | int = 0) -> dict[int, dict]:
+def short_voice(job_dir: Path, scripts: dict, sell_s: float | int = 0, *, need_s: float | None = None,
+                target_s: float | None = None, ratio: float | None = None) -> dict[int, dict]:
     """Chủ dự án 15/10 ("voice thiếu, không đủ ý"): video nào có voice cả bài ngắn hơn short_voice_ratio × min_s →
     {video: {voice_s, need_s, target_s, rate, extra_chars}}. Còn thiếu file / không đọc được độ dài thì bỏ qua."""
     from app.planner import dub_io
 
     cfg = sell_cfg()
-    need = float(cfg.get("min_s", 60.5))
-    target = sell_target(cfg, sell_s)
+    need = float(need_s if need_s is not None else cfg.get("min_s", 60.5))
+    target = float(target_s) if target_s is not None else sell_target(cfg, sell_s)
     gap = float(cfg.get("voice_gap_s", 0.08))
     out = {}
     for i, script in scripts.items():
@@ -302,7 +326,7 @@ def short_voice(job_dir: Path, scripts: dict, sell_s: float | int = 0) -> dict[i
         if not secs or any(x is None for x in secs):
             continue
         total = sum(secs) + gap * (len(secs) - 1)
-        if total < need * float(cfg.get("short_voice_ratio", 0.95)):
+        if total < need * float(ratio if ratio is not None else cfg.get("short_voice_ratio", 0.95)):
             rate = dub_io.voice_rate(job_dir, i, script, min_lines=1) or 0.0
             out[i] = {"voice_s": total, "need_s": need, "target_s": target, "rate": rate,
                       "extra_chars": int(max(0.0, target - total) * rate) if rate else 0}

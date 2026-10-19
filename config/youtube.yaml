@@ -1,0 +1,26 @@
+# CHẾ ĐỘ "BÁN CONTENT YOUTUBE" (chủ dự án yêu cầu 19/10)
+# Video nguồn (dưới 1h30) → AI xem từng phần, ghi danh mục cảnh (như "Ý tưởng từ video dài"), lập DÀN Ý video YouTube dài
+# (tiêu đề, các chương, thời lượng) — content MỚI hoặc xào nấu lại content gốc, tuân thủ chính sách YouTube — rồi viết lời
+# từng chương (song song), voice (thu tay / OmniVoice), cắt cảnh theo voice, phụ đề in lên hình, tên chương hiện đầu mỗi
+# chương. Khung 9:16 như các chế độ khác (chủ dự án tự đổi khung sau). Kèm gói YouTube: tiêu đề, mô tả có mốc chương, tag,
+# ý tưởng ảnh bìa (deliver/youtube_video01.txt).
+max_source_min: 90            # video nguồn dài hơn thì báo lỗi ngay khi tạo job
+durations_min: [10, 12, 15, 18, 20]   # lựa chọn trên trang chủ (phút); "AI tự chọn" = 0
+auto_min: [5, 20]             # AI tự chọn thời lượng trong khoảng này (phút) theo độ dày nội dung
+footage_ratio: 1.2            # thời lượng ≤ 1.2 × số giây cảnh dùng được (danh mục) — hơn nữa thì lặp cảnh lộ → ghi cảnh báo
+min_chapter_s: 45             # chương ngắn nhất (giây)
+max_chapter_s: 240            # chương dài nhất (giây)
+outline_frames: 40            # số khung (cảnh đẹp rải đều) gửi AI lúc lập dàn ý
+chapter_frames: 40            # số khung (trong cảnh của chương) gửi AI lúc viết lời chương
+chapter_card_s: 2.2           # tên chương hiện giữa màn chừng này giây ở đầu mỗi chương (từ chương 2)
+short_voice_ratio: 0.85       # voice cả bài ngắn hơn 85% thời lượng dàn ý → dừng hỏi viết thêm (như Bán content)
+# Dựng: nhịp YouTube chậm hơn TikTok
+build:
+  cut_s: 3.5
+  max_cut_s: 6.0
+  min_cut_s: 1.5
+  voice_gap_s: 0.12
+  min_s: 0                    # không ép tối thiểu 60 giây như TikTok
+fx:
+  emphasis_s: 1.6
+  sfx_min_gap_s: 8.0          # tiếng động đổi câu thưa hơn nhiều
