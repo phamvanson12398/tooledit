@@ -1,0 +1,12 @@
+{
+  "story_vi": "Mở bằng đàn sư tử nghỉ trưa → con non tập săn → cả đàn quây quần lúc chiều tà.",
+  "order": [3, 1, 2],
+  "lines": [
+    {"scene": 3, "start": 41, "end": 45, "text": "초원의 한낮, 사자들이 쉬고 있습니다.", "text_vi": "Giữa trưa trên đồng cỏ, bầy sư tử đang nghỉ."},
+    {"scene": 3, "start": 52, "end": 56, "text": "하지만 평화는 오래가지 않죠.", "text_vi": "Nhưng bình yên chẳng kéo dài."},
+    {"scene": 1, "start": 3, "end": 8, "text": "어린 사자가 첫 사냥에 나섭니다.", "text_vi": "Sư tử non lần đầu đi săn."},
+    {"scene": 2, "start": 25, "end": 30, "text": "해 질 녘, 가족은 다시 모입니다.", "text_vi": "Chiều tà, cả nhà lại quây quần."}
+  ],
+  "titles_top": ["초원의 하루", "어린 사자의 첫 사냥"],
+  "editor_notes": "Giữ đủ 3 cảnh, đưa cảnh nghỉ trưa lên đầu để mở nhẹ nhàng; lời dẫn ~30% thời lượng, nghỉ dài cho tiếng thiên nhiên."
+}

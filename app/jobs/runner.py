@@ -159,7 +159,7 @@ class Runner:
     def _dubbing(self, job: Job) -> bool:
         """Có lời thuyết minh: chế độ Đổi ngôn ngữ (tiếng gốc khác tiếng đích) hoặc Review phim (luôn có lời review)."""
         return (bool(job.options.target_language) and not job.data.get("dub_same")) or job.options.review or \
-            job.options.films or job.options.sell or job.options.anim
+            job.options.films or job.options.sell or job.options.anim or job.options.wild
 
     def _footage_size(self, job: Job) -> tuple[int, int, float]:
         """(rộng, cao, thời lượng giây) của footage, từ kết quả phân tích; chưa phân tích → (0, 0, 0)."""
@@ -182,10 +182,10 @@ class Runner:
 
         if ratio in RATIOS:  # khung người dùng chọn khi tạo job (16:9 / 4:3 / 1:1 / 4:5 / 3:4 / 9:10 / 9:16)
             style = {**style, "block_ratio": ratio, "crop_ratio": ratio}
-        if job.options.char_dub or job.options.anim:  # lồng tiếng nhân vật / hoạt hình: hình giữ tự nhiên, không "khác bản gốc"
+        if job.options.char_dub or job.options.anim or job.options.wild:  # hình giữ tự nhiên, không "khác bản gốc"
             style = {**style, "char_dub": config.load("char_dub"), "reorder": False, "cold_open": False, "remix": False,
                      "motion": {}}  # không tự thêm chuyển động hình (chủ dự án 11/10: chỉ chọn đoạn hay, không edit)
-            if job.options.anim:  # hoạt hình (20/10): cảnh đã xếp theo cốt truyện mới; giữ âm thanh gốc, không nhạc mới
+            if job.options.anim or job.options.wild:  # cảnh đã xếp theo mạch mới; giữ âm thanh gốc, không nhạc mới
                 style.update({"no_music": True, "mirror": None, "camera": None, "hype": None, "arrows": False,
                               "beat_sync": {"enabled": False}})
         elif job.options.target_language and not job.options.voice_only:
@@ -206,7 +206,8 @@ class Runner:
                      "original_audio": rcfg.get("original_audio") or {}}
             if rcfg.get("layout"):  # bố cục như video mẫu: khối phim 9:10 cắt thẳng từ footage, bám nhân vật
                 style.update({"layout": rcfg["layout"], "block_ratio": "9:10", "crop_ratio": None})
-        elif (job.options.hype or parts) and not job.options.voice_only and not job.options.char_dub:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
+        elif (job.options.hype or parts) and not job.options.voice_only and not job.options.char_dub \
+                and not job.options.wild:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
             hcfg = config.load("hype")
             style = {**style, "hype": {"min_clip_s": hcfg.get("min_clip_s", 3.0), "max_clip_s": hcfg.get("max_clip_s", 5.0)},
                      "reorder": False, "cold_open": bool(hcfg.get("cold_open", False))}
@@ -381,6 +382,8 @@ class Runner:
             job.data.pop("dub_skip", None)
         if step in ("segment", "hooks", "choose_hook", "plan"):
             self._clear_plans(d, plan_dir)
+        if job.options.wild and step in ("plan", "dub"):  # thế giới động vật: AI xếp cảnh + viết lời dẫn lại
+            (plan_dir / "wild_video01.json").unlink(missing_ok=True)
         if job.options.anim and step in ("plan", "dub"):  # hoạt hình: AI viết lại cốt truyện / xếp cảnh / lời thoại
             (plan_dir / "anim_video01.json").unlink(missing_ok=True)
             job.data.pop("anim_accept", None)
@@ -736,6 +739,49 @@ class Runner:
         job.step, job.status = "segment", Status.pending
         job._log("người dùng góp ý — AI nghĩ lại ý tưởng")
         job.save(self.jobs_root)
+
+    # ---------- Thế giới động vật (chủ dự án yêu cầu 20/10) ----------
+
+    def _wild_units(self, job: Job) -> list[dict]:
+        from app.director.tasks import load_analysis
+        from app.director.wild import units, wild_cfg
+
+        _, analysis, _ = self._paths(job)
+        sc = load_analysis(analysis)["scenes"]
+        return units(sc.get("scenes") or [], float(sc["duration"]), job.data.get("montage_parts"),
+                     float(wild_cfg().get("min_unit_s", 0.5)))
+
+    @staticmethod
+    def _wild_has_voice(a: dict) -> bool:
+        from app.director.wild import wild_cfg
+
+        speech = sum(s["end"] - s["start"] for s in a["transcript"].get("segments", []))
+        return speech >= float(wild_cfg().get("voice_detect_s", 3.0))
+
+    def _wild_step(self, job: Job) -> None:
+        """Toàn bộ cảnh xếp lại + lời dẫn phim tài liệu (một lượt AI) → kế hoạch dựng + kịch bản voice."""
+        from app.director.wild import make_wild_script, wild_plan, wild_to_dub
+        from app.planner import dub_io
+
+        d, analysis, plan_dir = self._paths(job)
+        us = self._wild_units(job)
+        path = plan_dir / "wild_video01.json"
+        if path.is_file() and (plan_dir / "edit_plan_video01.json").is_file():
+            return
+        self.log(f"AI xem {len(us)} cảnh, xếp lại thứ tự + viết lời dẫn phim tài liệu (giữ toàn bộ cảnh)…")
+        r = make_wild_script(self.director, analysis, self._understanding(job), us,
+                             feedback="\n".join(job.data.get("wild_feedback") or []))
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        path.write_text(r.model_dump_json(indent=2), encoding="utf-8")
+        ratio = job.data.get("default_ratio")
+        plan = wild_plan(r, us, ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
+        (plan_dir / "edit_plan_video01.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+        dub_io.dub_path(d, 1).write_text(wild_to_dub(r).model_dump_json(indent=2), encoding="utf-8")
+        dub_io.pending_path(d, 1).unlink(missing_ok=True)
+        talk = sum(ln.end - ln.start for ln in r.lines)
+        total = sum(x["end"] - x["start"] for x in us)
+        self.log(f"Xếp lại {len(us)} cảnh (giữ đủ, {total:.0f}s), {len(r.lines)} câu dẫn — lời dẫn chiếm "
+                 f"~{talk / total:.0%} video.")
 
     # ---------- Hoạt hình giữ âm thanh gốc (chủ dự án yêu cầu 20/10) ----------
 
@@ -1242,6 +1288,8 @@ class Runner:
         style_name = self._style_name(job)
         job.data["style_used"] = style_name
         self.log(f"Phong cách dựng: {style_name}")
+        if job.options.wild:  # thế giới động vật: giữ toàn bộ cảnh, chỉ đảo thứ tự + lời dẫn phim tài liệu
+            return self._wild_step(job)
         if job.options.anim:  # hoạt hình: MỘT lượt hỏi AI ra cốt truyện mới + thứ tự cảnh + lời thoại mới
             return self._anim_step(job)
         if job.options.sell:  # bán content: MỘT lượt hỏi AI ra cả kịch bản + cảnh + tiêu đề + nhạc
@@ -2288,8 +2336,19 @@ class Runner:
                     json.dumps(stamps, ensure_ascii=False), encoding="utf-8")
             for n in sync_notes:
                 self.log(f"[video {i:02d}] {n}")
+        wild_voice = job.options.wild and self._wild_has_voice(a)
         bgm = self._bgm(job, analysis) if (job.options.voice_only and job.options.keep_bgm) or job.options.char_dub \
-            or job.options.anim else None
+            or job.options.anim or wild_voice else None
+        if job.options.wild and bgm is None:  # không có giọng gốc → giữ nguyên tiếng gốc (hạ nhẹ dưới lời dẫn);
+            from app.director.wild import wild_cfg  # có giọng mà chưa tách được → hạ cả tiếng gốc xuống thấp
+
+            wc = wild_cfg()
+            if wild_voice:
+                self.log(f"[video {i:02d}] ⚠️ Video gốc có giọng nói nhưng chưa tách được (chưa cài Demucs?) — tiếng gốc chỉ "
+                         "hạ nhỏ, chưa bỏ hẳn giọng gốc.")
+            style = {**style, "original_audio": {"mute": False, "db": wc.get(
+                "orig_db_no_demucs" if wild_voice else "orig_db_under_voice", -8), "db_no_voice": wc.get(
+                "orig_db_no_demucs", -22) if wild_voice else 0}}
         if job.options.anim and bgm is None:  # chưa cài Demucs: giữ cả tiếng gốc, hạ nhỏ dưới voice mới
             from app.director.anim import anim_cfg
 

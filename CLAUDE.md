@@ -345,6 +345,23 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   bỏ giọng gốc, giọng gốc phát lại ở chỗ không có câu lồng — như char_dub); chưa cài Demucs thì giữ cả tiếng gốc, hạ
   `orig_db_under_voice` dưới voice mới. Không thêm nhạc (`no_music`), không zoom / lật / hiệu ứng.
 
+## 5j. Chế độ "Thế giới động vật" (chủ dự án yêu cầu 20/10)
+
+- Thẻ "🦁 Thế giới động vật" (`JobOptions.wild`, `config/wild.yaml`, `app/director/wild.py`, prompt `wild.md`), thả được
+  NHIỀU file ngắn (tool nối thành `source/montage.mp4` như ghép nhiều video), cần chọn ngôn ngữ lời dẫn. Không hook, không
+  chia video, không ⚡.
+- **KHÔNG ĐƯỢC BỚT:** cảnh = cảnh máy dò + cắt thêm ở chỗ nối 2 file (`units`, cảnh < `min_unit_s` gộp vào cảnh trước);
+  MỘT lượt AI chỉ ĐẢO THỨ TỰ cảnh cho hợp lý (`WildScript.order` phải là hoán vị ĐỦ mọi cảnh — `check_wild`) và viết lời
+  dẫn MỚI kiểu phim tài liệu: mỗi câu gắn một cảnh (`WildLine.scene`, giây gốc trong cảnh), ≤ `max_line_s`, nói một chút rồi
+  NGHỈ ≥ `min_pause_s` cho tiếng thiên nhiên, lời dẫn chiếm `min_talk_share`–`max_talk_share` thời lượng, câu đầu trong
+  `first_line_s` giây; đúng ngôn ngữ đích, không từ cấm, không bịa (chỉ nói điều thấy trong hình).
+- Kế hoạch dựng + kịch bản voice tạo bằng code (`wild_plan`: toàn bộ cảnh theo thứ tự mới, nguyên vẹn, tốc độ 1;
+  `wild_to_dub`: câu `narration`) → dùng chung trang voice / OmniVoice / phụ đề. Không thêm nhạc, không zoom / lật / hiệu ứng.
+- **Âm thanh:** video gốc có giọng người (transcript ≥ `voice_detect_s`) → Demucs bỏ giọng gốc, GIỮ tiếng nền (không phát
+  lại giọng gốc); chưa cài Demucs thì hạ cả tiếng gốc xuống `orig_db_no_demucs` + ghi ⚠️ nhật ký. Không có giọng người →
+  giữ nguyên tiếng gốc, hạ `orig_db_under_voice` khi có lời dẫn.
+- Đoạn AI đánh dấu vi phạm chính sách vẫn bị cắt như mọi chế độ (bảng 🚫 "Giữ lại" để giữ).
+
 ## 5f. Tab "🎙️ Voice Studio" (chủ dự án yêu cầu 16/10)
 
 - Tab riêng trên thanh đầu trang (`/studio`, `app/web/studio_page.py`, logic `app/tts/studio.py`): dùng chính OmniVoice

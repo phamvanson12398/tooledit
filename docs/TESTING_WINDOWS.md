@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 120 — Chế độ mới "🦁 Thế giới động vật" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Chọn NHIỀU file ngắn (mỗi file một dòng) → thẻ **🦁 Thế giới động vật** → chọn ngôn ngữ lời dẫn → Bắt đầu.
+3. Nhật ký bước "AI xếp lại cảnh + viết lời dẫn": "Xếp lại N cảnh (giữ đủ, Xs), Y câu dẫn — lời dẫn chiếm ~Z% video".
+4. Trang voice: mỗi câu dẫn ngắn, giữa các câu có khoảng nghỉ — thu từng câu, đọc cả bài một file, hoặc **🤖 Cho
+   OmniVoice đọc**.
+5. Mở CapCut, kiểm tra:
+   - tổng thời lượng = tổng thời lượng các file gốc (không mất cảnh nào), thứ tự cảnh đã được xếp lại;
+   - lời dẫn nói một chút rồi nghỉ vài giây, nghe được tiếng thiên nhiên giữa các câu; có phụ đề ngôn ngữ đích;
+   - file gốc có giọng người: giọng người đã mất, tiếng nền còn (cần cài Demucs; chưa cài thì nhật ký báo ⚠️ và tiếng gốc
+     chỉ hạ nhỏ).
+
 ## Bước 119 — Chế độ mới "🎨 Hoạt hình — giữ âm thanh gốc" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

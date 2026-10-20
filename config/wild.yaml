@@ -1,0 +1,18 @@
+# CHẾ ĐỘ "THẾ GIỚI ĐỘNG VẬT" (chủ dự án yêu cầu 20/10)
+# Nhiều file ngắn → tool nối lại (giữ TOÀN BỘ, không bỏ cảnh nào), AI chỉ ĐẢO THỨ TỰ cảnh cho hợp lý và viết lời dẫn MỚI
+# kiểu phim tài liệu thế giới động vật: nói một đoạn rồi NGHỈ một khoảng (để tiếng thiên nhiên dẫn dắt) rồi nói tiếp.
+# Âm thanh: giọng nói gốc (nếu có) tách bỏ bằng Demucs, tiếng nền / tiếng con vật GIỮ. Không thêm nhạc.
+min_pause_s: 2.0              # giữa 2 câu dẫn nghỉ ít nhất chừng này giây
+max_talk_share: 0.55          # lời dẫn chiếm tối đa 55% thời lượng video (còn lại là tiếng thiên nhiên)
+min_talk_share: 0.2           # …và ít nhất 20% (không quá vắng lời)
+max_line_s: 9                 # mỗi câu dẫn đọc tối đa ~9 giây
+line_fill: 1.15               # câu đọc tối đa 115% đoạn cảnh của nó (tool tăng tốc nhẹ phần dư)
+first_line_s: 5               # câu dẫn đầu tiên bắt đầu trong 5 giây đầu video
+min_unit_s: 0.5               # cảnh ngắn hơn chừng này thì gộp vào cảnh trước (dò cảnh hay cắt vụn)
+frames: 60                    # số khung hình gửi AI
+analysis_frames: 120          # bước phân tích: trích tối đa chừng này khung…
+frame_every_s: 3.0            # …mỗi 3 giây một khung (và khung đầu mỗi cảnh)
+# Âm thanh
+voice_detect_s: 3.0           # video gốc có ≥ chừng này giây lời nói (Whisper) → tách bỏ giọng bằng Demucs
+orig_db_under_voice: -8       # tiếng nền gốc hạ chừng này dB dưới lời dẫn mới
+orig_db_no_demucs: -22        # có giọng gốc mà chưa cài Demucs: hạ cả tiếng gốc xuống chừng này dB (không tách được)

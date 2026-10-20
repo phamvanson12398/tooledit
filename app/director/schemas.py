@@ -835,6 +835,25 @@ class AnimScript(BaseModel):
     editor_notes: str
 
 
+# ---------------- Thế giới động vật (chủ dự án yêu cầu 20/10) ----------------
+
+class WildLine(BaseModel):
+    scene: int = Field(ge=1, description="mã cảnh (số sau chữ C trong danh sách cảnh) mà câu này đọc trên đó")
+    start: float = Field(ge=0, description="giây GỐC bắt đầu đọc (nằm trong cảnh đó)")
+    end: float = Field(gt=0, description="giây GỐC kết thúc (nằm trong cảnh đó)")
+    text: str = Field(description="lời dẫn kiểu phim tài liệu bằng NGÔN NGỮ ĐÍCH")
+    text_vi: str = Field(description="nghĩa tiếng Việt")
+
+
+class WildScript(BaseModel):
+    story_vi: str = Field(description="mạch phim mới (tiếng Việt): mở – diễn biến – kết")
+    order: list[int] = Field(min_length=1, description="thứ tự MỚI của TẤT CẢ các cảnh (mã C1, C2… → 1, 2…), mỗi cảnh "
+                                                       "đúng một lần")
+    lines: list[WildLine] = Field(min_length=1, description="các câu dẫn theo thứ tự hiện trên video mới")
+    titles_top: list[str] = Field(default_factory=list, max_length=2, description="2 dòng tiêu đề (ngôn ngữ đích)")
+    editor_notes: str
+
+
 # ---------------- Phụ đề tiếng Việt (chế độ "xem hiểu video nước ngoài") ----------------
 
 class ViLine(BaseModel):
