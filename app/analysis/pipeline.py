@@ -100,7 +100,8 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
             o = job.options  # bỏ phần không cần cho chế độ này (chủ dự án 11/10: "chậm quá")
             need_scenes = not getattr(o, "vi_sub", False)             # phụ đề tiếng Việt: chỉ cần lời thoại
             need_faces = not (getattr(o, "vi_sub", False) or getattr(o, "voice_only", False) or films
-                              or getattr(o, "ideas", False) or getattr(o, "yt", False))  # giữ khung gốc
+                              or getattr(o, "ideas", False) or getattr(o, "yt", False)
+                              or getattr(o, "anim", False))  # giữ khung gốc
             video_job = _in_thread(pool, _video_part, src, i, tag, duration, info, out, cfg, workers, progress,
                                    max_frames if need_scenes else 6, need_scenes, need_faces, every_s)
             if listen:

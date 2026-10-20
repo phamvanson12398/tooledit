@@ -329,6 +329,22 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   thời lượng dàn ý thì dừng hỏi viết thêm. Giao hàng `deliver/youtube_video01.txt` (`package_text`): tiêu đề, mô tả + MỐC
   CHƯƠNG tính từ voice thật (mốc đầu 00:00), tag, ý tưởng ảnh bìa — không hỏi AI caption TikTok.
 
+## 5i. Chế độ "Hoạt hình — giữ âm thanh gốc" (chủ dự án yêu cầu 20/10)
+
+- Thẻ "🎨 Hoạt hình — giữ âm thanh gốc" (`JobOptions.anim`, `config/anim.yaml`, `app/director/anim.py`), MỘT video hoạt hình
+  ~1 phút, cần chọn ngôn ngữ đích. Mục đích: làm BIẾN THỂ — xếp lại các cảnh có sẵn thành CỐT TRUYỆN MỚI.
+- MỘT lượt AI (`make_anim_script`, prompt `anim.md`, `AnimScript`): cốt truyện gốc + mới, `story_diff` (AI tự đánh giá %),
+  `beats` = các đoạn gốc THEO THỨ TỰ MỚI (mỗi đoạn dùng một lần, tốc độ 1), beat nào nhân vật nói thì `line` (nhân vật +
+  lời thoại MỚI ngôn ngữ đích). `check_anim`: beat có ≥ `speech_beat_s` lời nói gốc BẮT BUỘC có lời thoại mới (giọng gốc bị
+  tách bỏ), câu đọc kịp trong beat, không chồng / lặp đoạn, dùng ≥ `min_cover` thời lượng gốc, máy đo đảo cảnh
+  `order_diff` ≥ `min_order_diff`, `story_diff` ≥ `min_story_diff` 70.
+- **Không làm khác ≥ 70% được** (AI đặt `feasible: false` + lý do, hoặc `story_diff` thấp): job DỪNG ở bước plan báo chủ dự
+  án (`Runner._anim_step`) — Tiếp tục = vẫn dựng bản này; 🛠️ Làm lại từ bước plan = AI thử lại.
+- Kế hoạch dựng + kịch bản lồng tiếng tạo bằng code (`anim_plan`, `anim_to_dub` — câu gắn đoạn gốc của beat) → dùng chung
+  trang voice / OmniVoice theo nhân vật / phụ đề như Lồng tiếng nhân vật. Âm thanh: nhạc + tiếng động gốc GIỮ (Demucs tách
+  bỏ giọng gốc, giọng gốc phát lại ở chỗ không có câu lồng — như char_dub); chưa cài Demucs thì giữ cả tiếng gốc, hạ
+  `orig_db_under_voice` dưới voice mới. Không thêm nhạc (`no_music`), không zoom / lật / hiệu ứng.
+
 ## 5f. Tab "🎙️ Voice Studio" (chủ dự án yêu cầu 16/10)
 
 - Tab riêng trên thanh đầu trang (`/studio`, `app/web/studio_page.py`, logic `app/tts/studio.py`): dùng chính OmniVoice

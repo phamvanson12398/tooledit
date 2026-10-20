@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 119 — Chế độ mới "🎨 Hoạt hình — giữ âm thanh gốc" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Chọn MỘT video hoạt hình ~1 phút → thẻ **🎨 Hoạt hình — giữ âm thanh gốc** → ngôn ngữ → Bắt đầu.
+3. Nhật ký bước "AI viết cốt truyện mới + xếp lại cảnh": "Cốt truyện mới khác ~X% bản gốc, Y% cặp cảnh bị đảo, Z câu lồng
+   tiếng". Nếu AI báo không làm khác ≥ 70% được, job DỪNG với thông báo ⚠️ + lý do → bấm **Tiếp tục** để vẫn dựng, hoặc
+   🛠️ **Làm lại từ bước plan** cho AI thử lại.
+4. Trang voice: dàn ý đầu trang là cốt truyện mới; mỗi câu có tên nhân vật — thu theo nhân vật hoặc **🤖 Cho OmniVoice
+   đọc** (mỗi nhân vật một giọng).
+5. Mở CapCut: cảnh đã xếp thứ tự khác bản gốc; nhạc + tiếng động gốc vẫn còn; chỗ nhân vật nói có voice mới + phụ đề
+   ngôn ngữ đích, KHÔNG còn giọng gốc (cần cài Demucs như Bước tách nhạc nền; chưa cài thì giọng gốc chỉ hạ nhỏ).
+
 ## Bước 118 — Bán content: thời lượng "AI tự chọn" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

@@ -435,7 +435,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
 
     # ---------- clip chính ----------
     # ---------- cắt theo nhịp nhạc: dời điểm cắt về beat gần nhất ----------
-    music = None if bgm_audio else pick_music(template, plan)  # giữ nhạc nền gốc → không thêm nhạc khác
+    # giữ nhạc nền gốc (hoặc style no_music — hoạt hình giữ âm thanh gốc) → không thêm nhạc khác
+    music = None if (bgm_audio or style.get("no_music")) else pick_music(template, plan)
     beats_out: list[float] = []
     bcfg = style.get("beat_sync") or {}
     # Review: cảnh được cắt ĐÚNG theo độ dài từng câu voice (review_sync) — dời điểm cắt theo nhịp nhạc sẽ làm lệch giọng
@@ -845,6 +846,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         notes.append("Giữ nhạc nền của video gốc (đã tách bỏ giọng nói), không thêm nhạc khác.")
     if vocals_audio and dub is not None:
         notes.append("Giữ giọng gốc ở chỗ không có câu lồng tiếng (tiếng cười, hét…), tắt đúng trong các câu lồng tiếng.")
+    elif style.get("no_music"):
+        notes.append("Giữ âm thanh gốc, không thêm nhạc nền.")
     elif music is None:
         missing.append({"kind": "music", "what": plan.music.mood_vi, "energy": plan.music.energy,
                         "video": video_index, "at_s": 0.0,

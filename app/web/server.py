@@ -137,6 +137,8 @@ STEP_VI_MODE = {
                  "plan": "AI cắt bỏ đoạn rề rà", "dub": "AI dịch thoại + nhận diện nhân vật",
                  "dub_voice": "Chờ voice từng nhân vật", "write": "Ghép giọng mới + nền gốc → CapCut"},
     "vi_sub": {"write": "Dịch phụ đề tiếng Việt → CapCut"},
+    "anim": {"plan": "AI viết cốt truyện mới + xếp lại cảnh", "dub_voice": "Chờ voice từng nhân vật",
+             "write": "Ghép cảnh + giữ âm thanh gốc + voice → CapCut"},
     "yt": {"segment": "AI xem video + lập dàn ý chương", "review_segments": "Chờ bạn duyệt dàn ý",
            "plan": "AI viết lời từng chương", "dub_voice": "Chờ bạn đọc cả bài",
            "write": "Cắt cảnh theo voice → đóng gói CapCut", "captions": "Gói đăng YouTube"},
@@ -148,7 +150,7 @@ STEP_VI_MODE = {
     "voice_only": {"plan": "AI lập kế hoạch (giữ nguyên hình)", "dub": "AI viết thuyết minh",
                    "dub_voice": "Chờ voice thuyết minh"},
 }
-MODE_VI = {"yt": "▶️ Bán content YouTube", "ideas": "💡 Ý tưởng từ video dài", "sell": "💰 Bán content", "films": "🎞️ Content nhiều phim", "char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "cliff": "🧨 Review bỏ lửng", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
+MODE_VI = {"anim": "🎨 Hoạt hình — giữ âm thanh gốc", "yt": "▶️ Bán content YouTube", "ideas": "💡 Ý tưởng từ video dài", "sell": "💰 Bán content", "films": "🎞️ Content nhiều phim", "char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "cliff": "🧨 Review bỏ lửng", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
            "voice_only": "🎙️ Chỉ thay tiếng", "dub": "🌐 Đổi ngôn ngữ", "montage": "🎞️ Ghép nhiều video",
            "normal": "✂️ Dựng thường"}
 
@@ -167,6 +169,8 @@ def _ai_options(selected: str | None = None) -> str:
 
 def job_mode(job) -> str:
     o = job.options
+    if o.anim:
+        return "anim"
     if o.yt:
         return "yt"
     if o.ideas:
@@ -238,7 +242,7 @@ def step_label(job, st: str) -> str:
 
 
 # các chế độ (thẻ) trên trang chủ; mỗi chế độ bật đúng một ô tick cũ (normal / dub: không ô nào)
-MODES = ("normal", "dub", "voice_only", "review", "cliff", "films", "char_dub", "sell", "ideas", "yt", "vi_sub")
+MODES = ("normal", "dub", "voice_only", "review", "cliff", "films", "char_dub", "anim", "sell", "ideas", "yt", "vi_sub")
 
 STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong",
              "stopped": "đã dừng"}
@@ -535,6 +539,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 ("films", "🎞️", "Content nhiều phim (từ bài TikTok ảnh)",
                  "Gõ tiêu đề + tải ảnh bài TikTok → AI viết content mới, bạn thả file các phim → tool tìm cảnh, xen dừng hình"),
                 ("char_dub", "🎭", "Lồng tiếng nhân vật", "Chọn đoạn hay (câu nói hay, hài, gay cấn…), thay giọng từng nhân vật, giữ nhạc nền gốc"),
+                ("anim", "🎨", "Hoạt hình — giữ âm thanh gốc", "Video hoạt hình ~1 phút → AI xếp lại cảnh thành CỐT "
+                 "TRUYỆN MỚI (khác ≥ 70%), giữ nhạc + tiếng động gốc, chỗ nhân vật nói thì lồng voice + phụ đề"),
                 ("sell", "💰", "Bán content", "Video ~1 phút → AI xem nội dung gốc rồi tự viết kịch bản MỚI, đảo cảnh khớp "
                  "lời, voice + nhạc mới, dự án CapCut đóng gói đủ file"),
                 ("ideas", "💡", "Ý tưởng từ video dài", "Vlog / du lịch / lịch sử dài → AI coi là kho cảnh, nghĩ nhiều ý "
@@ -551,7 +557,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <h2>🎞️ Tạo video mới</h2>
           <input type='hidden' name='style' value='auto'>
           <section class="stepbox"><div class="num">1</div><div class="sb">
-            <div data-modes="normal dub voice_only review cliff char_dub sell ideas yt vi_sub">
+            <div data-modes="normal dub voice_only review cliff char_dub anim sell ideas yt vi_sub">
             <h3>Chọn video</h3>
             <div class="row"><textarea id="footage" name="footage" rows="2" placeholder="Bấm Chọn file… hoặc dán đường dẫn (nhiều video: mỗi dòng một file)" required></textarea>
             <button type="button" class="btn light" onclick="pick()">📂 Chọn file…</button></div>
@@ -569,7 +575,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <section class="stepbox"><div class="num">2</div><div class="sb">
             <h3>Bạn muốn làm gì?</h3>
             <div class="modes">{modes}</div>
-            <div class="langbox" data-modes="normal dub voice_only review cliff films char_dub sell ideas yt">
+            <div class="langbox" data-modes="normal dub voice_only review cliff films char_dub anim sell ideas yt">
               <label>🌐 Ngôn ngữ video mới</label>
               <select name="target_language" id="lang"><option value="">Giữ nguyên ngôn ngữ gốc</option>
                 <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
@@ -670,6 +676,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           films:'Chọn ngôn ngữ của video mới (Hàn / Nhật / Anh / Đức).',
           cliff:'Lời review tiếng Hàn / Nhật / Anh / Đức. Không chọn ngôn ngữ = tiếng gốc của phim (phải là Hàn / Nhật / Anh / Đức).',
           char_dub:'Cần chọn ngôn ngữ mới (vd phim Nhật → tiếng Hàn). Nên cài Demucs để giữ nhạc nền gốc.',
+          anim:'Chọn ngôn ngữ của lời thoại mới + phụ đề. Nhạc + tiếng động gốc giữ nguyên (cài Demucs để tách giọng gốc sạch).',
           yt:'Chọn ngôn ngữ của giọng đọc + phụ đề. Âm thanh gốc bị bỏ; nội dung tuân thủ chính sách YouTube (giá trị mới, thân thiện quảng cáo).',
           ideas:'Chọn ngôn ngữ của giọng đọc + phụ đề (Hàn / Nhật / Anh / Đức). Âm thanh gốc bị bỏ, mỗi short có voice + nhạc mới.',
           sell:'AI tự xem nội dung gốc rồi viết kịch bản mới. Chọn ngôn ngữ của giọng đọc + phụ đề; âm thanh gốc bị bỏ hết, thay bằng voice + nhạc mới.',
@@ -802,15 +809,17 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                                                     for m in ("review", "char_dub", "vi_sub", "voice_only"))
             if mode == "vi_sub":
                 target_language = ""
-            if mode in ("sell", "ideas", "yt") and target_language not in TARGET_LANGS:
+            if mode in ("sell", "ideas", "yt", "anim") and target_language not in TARGET_LANGS:
                 return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>"
-                             + {"ideas": "Ý tưởng từ video dài", "yt": "Bán content YouTube"}.get(mode, "Bán content")
+                             + {"ideas": "Ý tưởng từ video dài", "yt": "Bán content YouTube",
+                                "anim": "Hoạt hình — giữ âm thanh gốc"}.get(mode, "Bán content")
                              + "</b> cần chọn "
                              "ngôn ngữ của giọng đọc (Hàn / Nhật / Anh / Đức).</p><p><a class='btn light' href='/'>Quay lại</a>"
                              "</p></div>")
-            if mode in ("sell", "ideas", "yt") and len([x for x in footage.splitlines() if x.strip()]) > 1:
+            if mode in ("sell", "ideas", "yt", "anim") and len([x for x in footage.splitlines() if x.strip()]) > 1:
                 return _page("Lỗi", "<div class='card'><h2>"
-                             + {"ideas": "Ý tưởng từ video dài", "yt": "Bán content YouTube"}.get(mode, "Bán content")
+                             + {"ideas": "Ý tưởng từ video dài", "yt": "Bán content YouTube",
+                                "anim": "Hoạt hình — giữ âm thanh gốc"}.get(mode, "Bán content")
                              + " dùng cho MỘT video"
                              "</h2><p>Chỉ chọn một file" + {"ideas": " (video dài bao nhiêu cũng được).",
                                                             "yt": " (dưới 1 tiếng 30 phút)."}.get(mode, " (~55–60 giây).")
@@ -852,13 +861,16 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         ideas = mode == "ideas"
         yt = mode == "yt"
+        anim = mode == "anim"
+        if anim:
+            hook = split = hype = None
         sell = mode in ("sell", "ideas", "yt")
         if sell:
             hook = split = hype = reframe = None
         job = Job.create(Path(jobs_root), [p.resolve() for p in paths], JobOptions(
             sell=sell, sell_brief=sell_brief.strip()[:2000] if sell and not ideas else "",
             ideas=ideas, ideas_brief=ideas_brief.strip()[:2000] if ideas else "",
-            yt=yt, yt_min=max(0, min(int(yt_min or 0), 30)) if yt else 0, yt_pause=bool(yt_pause) and yt,
+            anim=anim, yt=yt, yt_min=max(0, min(int(yt_min or 0), 30)) if yt else 0, yt_pause=bool(yt_pause) and yt,
             sell_s=max(0, min(int(sell_s or 0), 180)) if sell else 0,
             sell_auto=sell and not ideas and not yt and int(sell_s or 0) == -1,
             sell_variants=max(1, min(int(sell_variants or 1), 3)) if sell and not ideas and not yt else 1,

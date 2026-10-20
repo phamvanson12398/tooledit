@@ -809,6 +809,32 @@ class YtOutline(BaseModel):
     editor_notes: str
 
 
+# ---------------- Hoạt hình giữ âm thanh gốc (chủ dự án yêu cầu 20/10) ----------------
+
+class AnimLine(BaseModel):
+    speaker: str = Field(description="tên nhân vật nói câu này (viết thống nhất)")
+    text: str = Field(description="lời thoại MỚI theo cốt truyện mới, bằng NGÔN NGỮ ĐÍCH, văn nói tự nhiên")
+    text_vi: str = Field(description="nghĩa tiếng Việt")
+
+
+class AnimBeat(BaseModel):
+    start: float = Field(ge=0, description="giây GỐC bắt đầu cảnh")
+    end: float = Field(gt=0, description="giây GỐC kết thúc cảnh")
+    what_vi: str = Field(default="", description="cảnh này thấy gì / đóng vai gì trong cốt truyện mới (tiếng Việt)")
+    line: AnimLine | None = Field(default=None, description="câu lồng tiếng trong cảnh này (cảnh có nhân vật nói)")
+
+
+class AnimScript(BaseModel):
+    original_story_vi: str = Field(description="tóm tắt cốt truyện GỐC (tiếng Việt)")
+    new_story_vi: str = Field(description="cốt truyện MỚI (tiếng Việt): mở đầu – diễn biến – kết")
+    story_diff: int = Field(ge=0, le=100, description="cốt truyện mới khác bản gốc bao nhiêu % (tự đánh giá thật thà)")
+    feasible: bool = Field(default=True, description="false nếu KHÔNG THỂ làm khác ≥ 70% với các cảnh có sẵn")
+    diff_note_vi: str = Field(default="", description="khác ở đâu; không đạt thì vì sao (tiếng Việt)")
+    titles_top: list[str] = Field(default_factory=list, max_length=2, description="2 dòng tiêu đề (ngôn ngữ đích)")
+    beats: list[AnimBeat] = Field(min_length=3, description="các cảnh THEO THỨ TỰ MỚI")
+    editor_notes: str
+
+
 # ---------------- Phụ đề tiếng Việt (chế độ "xem hiểu video nước ngoài") ----------------
 
 class ViLine(BaseModel):

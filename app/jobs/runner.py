@@ -159,7 +159,7 @@ class Runner:
     def _dubbing(self, job: Job) -> bool:
         """Có lời thuyết minh: chế độ Đổi ngôn ngữ (tiếng gốc khác tiếng đích) hoặc Review phim (luôn có lời review)."""
         return (bool(job.options.target_language) and not job.data.get("dub_same")) or job.options.review or \
-            job.options.films or job.options.sell
+            job.options.films or job.options.sell or job.options.anim
 
     def _footage_size(self, job: Job) -> tuple[int, int, float]:
         """(rộng, cao, thời lượng giây) của footage, từ kết quả phân tích; chưa phân tích → (0, 0, 0)."""
@@ -182,9 +182,12 @@ class Runner:
 
         if ratio in RATIOS:  # khung người dùng chọn khi tạo job (16:9 / 4:3 / 1:1 / 4:5 / 3:4 / 9:10 / 9:16)
             style = {**style, "block_ratio": ratio, "crop_ratio": ratio}
-        if job.options.char_dub:  # lồng tiếng nhân vật: hình giữ tự nhiên (không "khác bản gốc"), chỉ cắt rề rà
+        if job.options.char_dub or job.options.anim:  # lồng tiếng nhân vật / hoạt hình: hình giữ tự nhiên, không "khác bản gốc"
             style = {**style, "char_dub": config.load("char_dub"), "reorder": False, "cold_open": False, "remix": False,
                      "motion": {}}  # không tự thêm chuyển động hình (chủ dự án 11/10: chỉ chọn đoạn hay, không edit)
+            if job.options.anim:  # hoạt hình (20/10): cảnh đã xếp theo cốt truyện mới; giữ âm thanh gốc, không nhạc mới
+                style.update({"no_music": True, "mirror": None, "camera": None, "hype": None, "arrows": False,
+                              "beat_sync": {"enabled": False}})
         elif job.options.target_language and not job.options.voice_only:
             dcfg = config.load("dub")
             style = {**style, **(dcfg.get("style_override") or {})}
@@ -378,6 +381,9 @@ class Runner:
             job.data.pop("dub_skip", None)
         if step in ("segment", "hooks", "choose_hook", "plan"):
             self._clear_plans(d, plan_dir)
+        if job.options.anim and step in ("plan", "dub"):  # hoạt hình: AI viết lại cốt truyện / xếp cảnh / lời thoại
+            (plan_dir / "anim_video01.json").unlink(missing_ok=True)
+            job.data.pop("anim_accept", None)
         if job.options.yt and step in ("segment", "plan", "dub"):  # bán content YouTube: viết lại lời các chương
             for f in plan_dir.glob("yt_chapter_*.json"):
                 f.unlink()
@@ -730,6 +736,42 @@ class Runner:
         job.step, job.status = "segment", Status.pending
         job._log("người dùng góp ý — AI nghĩ lại ý tưởng")
         job.save(self.jobs_root)
+
+    # ---------- Hoạt hình giữ âm thanh gốc (chủ dự án yêu cầu 20/10) ----------
+
+    def _anim_step(self, job: Job) -> None:
+        """Cốt truyện mới + xếp cảnh + lời thoại mới (một lượt AI) → kế hoạch dựng + kịch bản lồng tiếng. Không đạt
+        khác 70% → DỪNG báo chủ dự án (Tiếp tục = vẫn dựng; Làm lại từ bước plan = AI thử lại)."""
+        from app.director.anim import anim_cfg, anim_plan, anim_to_dub, make_anim_script, order_diff
+        from app.director.schemas import AnimScript
+        from app.planner import dub_io
+
+        d, analysis, plan_dir = self._paths(job)
+        path = plan_dir / "anim_video01.json"
+        if path.is_file() and (plan_dir / "edit_plan_video01.json").is_file():
+            r = AnimScript.model_validate_json(path.read_text(encoding="utf-8"))
+        else:
+            self.log("AI xem cảnh, viết cốt truyện mới + xếp lại cảnh + lời thoại mới…")
+            r = make_anim_script(self.director, analysis, self._understanding(job),
+                                 feedback="\n".join(job.data.get("anim_feedback") or []))
+            plan_dir.mkdir(parents=True, exist_ok=True)
+            path.write_text(r.model_dump_json(indent=2), encoding="utf-8")
+            ratio = job.data.get("default_ratio")
+            plan = anim_plan(r, ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
+            (plan_dir / "edit_plan_video01.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+            dub_io.dub_path(d, 1).write_text(anim_to_dub(r).model_dump_json(indent=2), encoding="utf-8")
+            dub_io.pending_path(d, 1).unlink(missing_ok=True)
+        od = order_diff(r.beats)
+        job.data["anim_report"] = {"story_diff": r.story_diff, "order_diff": od, "feasible": r.feasible,
+                                   "note_vi": r.diff_note_vi}
+        need = int(anim_cfg().get("min_story_diff", 70))
+        self.log(f"Cốt truyện mới khác ~{r.story_diff}% bản gốc, {od:.0%} cặp cảnh bị đảo, "
+                 f"{sum(1 for b in r.beats if b.line)} câu lồng tiếng.")
+        if (not r.feasible or r.story_diff < need) and not job.data.get("anim_accept"):
+            job.wait(f"⚠️ KHÔNG làm được cốt truyện khác ≥ {need}% bản gốc (AI đánh giá ~{r.story_diff}%). Lý do: "
+                     f"{r.diff_note_vi or 'video ít cảnh / cảnh quá liền mạch'}. Bấm Tiếp tục để vẫn dựng bản này, hoặc "
+                     "🛠️ Làm lại từ bước plan để AI thử lại.")
+            job.data["anim_accept"] = True  # bấm Tiếp tục = chấp nhận
 
     # ---------- Bán content YouTube (chủ dự án yêu cầu 19/10) ----------
 
@@ -1200,6 +1242,8 @@ class Runner:
         style_name = self._style_name(job)
         job.data["style_used"] = style_name
         self.log(f"Phong cách dựng: {style_name}")
+        if job.options.anim:  # hoạt hình: MỘT lượt hỏi AI ra cốt truyện mới + thứ tự cảnh + lời thoại mới
+            return self._anim_step(job)
         if job.options.sell:  # bán content: MỘT lượt hỏi AI ra cả kịch bản + cảnh + tiêu đề + nhạc
             for v in self.videos(job):
                 if not (plan_dir / f"edit_plan_video{v['index']:02d}.json").is_file():
@@ -1948,7 +1992,7 @@ class Runner:
 
     def _unvoiced_vocals(self, job: Job, analysis: Path, bgm: Path | None) -> Path | None:
         """Lồng tiếng nhân vật: giọng gốc Demucs tách ra, phát ở chỗ không có câu lồng tiếng (tiếng cười, hét…)."""
-        if not (job.options.char_dub and bgm and config.load("char_dub").get("keep_unvoiced", True)):
+        if not ((job.options.char_dub or job.options.anim) and bgm and config.load("char_dub").get("keep_unvoiced", True)):
             return None
         voc = analysis / "audio" / "vocals_00.wav"
         return voc.resolve() if voc.is_file() else None
@@ -2245,7 +2289,12 @@ class Runner:
             for n in sync_notes:
                 self.log(f"[video {i:02d}] {n}")
         bgm = self._bgm(job, analysis) if (job.options.voice_only and job.options.keep_bgm) or job.options.char_dub \
-            else None
+            or job.options.anim else None
+        if job.options.anim and bgm is None:  # chưa cài Demucs: giữ cả tiếng gốc, hạ nhỏ dưới voice mới
+            from app.director.anim import anim_cfg
+
+            style = {**style, "original_audio": {"mute": False, "db": anim_cfg().get("orig_db_under_voice", -22),
+                                                 "db_no_voice": 0}}
         res = build(plan, u_v, a, tpl, self._drafts_dir or drafts_root(), name, style,
                     hook=hook, voice=voice,
                     clean_audio=clean.resolve() if clean.is_file() and not job.options.sell else None,

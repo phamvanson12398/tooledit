@@ -68,6 +68,8 @@ class JobOptions(BaseModel):
     ideas: bool = False               # Ý tưởng từ video dài (17/10): đi CÙNG sell=True — video dài làm kho cảnh, AI nghĩ
                                       #   nhiều ý tưởng short, chủ dự án tick cái muốn làm (config/ideas.yaml)
     ideas_brief: str = ""             # Ý tưởng từ video dài: gợi ý chủ đề / khán giả (không bắt buộc)
+    anim: bool = False                # Hoạt hình giữ âm thanh gốc (20/10): cốt truyện MỚI (khác ≥ 70%) từ chính các cảnh,
+                                      #   giữ nhạc / tiếng động gốc, lồng voice + phụ đề chỗ nhân vật nói (config/anim.yaml)
     yt: bool = False                  # Bán content YouTube (19/10): đi CÙNG sell=True — video nguồn < 1h30 → video YouTube
                                       #   dài chia chương (config/youtube.yaml)
     yt_min: int = 0                   # Bán content YouTube: thời lượng (phút) chủ dự án chọn; 0 = AI tự chọn theo nội dung
@@ -158,7 +160,8 @@ class Job(BaseModel):
     @property
     def use_hook(self) -> bool:
         """Có hook voice riêng. Review phim thì KHÔNG (câu mở đầu của bài lời đọc là hook; hook riêng làm đứt mạch kể)."""
-        return self.options.hook and not self.options.review and not self.options.char_dub and not self.options.sell
+        return (self.options.hook and not self.options.review and not self.options.char_dub and not self.options.sell
+                and not self.options.anim)
 
     @property
     def picks_segments(self) -> bool:

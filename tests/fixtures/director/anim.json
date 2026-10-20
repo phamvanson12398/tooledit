@@ -1,0 +1,54 @@
+{
+  "original_story_vi": "Hai người trò chuyện chào hỏi nhau.",
+  "new_story_vi": "Một chú mèo đi tìm món quà bị mất, cuối cùng phát hiện bạn mình giấu để tổ chức sinh nhật bất ngờ.",
+  "story_diff": 80,
+  "feasible": true,
+  "diff_note_vi": "Đổi mục đích nhân vật + cái kết bất ngờ.",
+  "titles_top": [
+    "사라진 선물",
+    "범인은 바로…"
+  ],
+  "beats": [
+    {
+      "start": 40,
+      "end": 48,
+      "what_vi": "mèo tỉnh dậy, thấy hộp quà biến mất"
+    },
+    {
+      "start": 0,
+      "end": 6,
+      "what_vi": "mèo hỏi bạn",
+      "line": {
+        "speaker": "냥이",
+        "text": "내 선물 어디 갔어?",
+        "text_vi": "Quà của tớ đâu rồi?"
+      }
+    },
+    {
+      "start": 20,
+      "end": 28,
+      "what_vi": "bạn lảng tránh",
+      "line": {
+        "speaker": "멍이",
+        "text": "음… 나도 몰라!",
+        "text_vi": "Ờ… tớ cũng không biết!"
+      }
+    },
+    {
+      "start": 50,
+      "end": 58,
+      "what_vi": "mèo đi tìm khắp nơi"
+    },
+    {
+      "start": 10,
+      "end": 16,
+      "what_vi": "phát hiện bữa tiệc"
+    },
+    {
+      "start": 30,
+      "end": 36,
+      "what_vi": "cả hai cười vui"
+    }
+  ],
+  "editor_notes": "Xếp cảnh tỉnh dậy lên đầu, kết bằng bữa tiệc."
+}

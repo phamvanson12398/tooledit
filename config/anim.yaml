@@ -1,0 +1,14 @@
+# CHẾ ĐỘ "HOẠT HÌNH — GIỮ ÂM THANH GỐC" (chủ dự án yêu cầu 20/10)
+# Video hoạt hình ~1 phút → AI xem từng cảnh, nghĩ CỐT TRUYỆN MỚI (khác bản gốc ≥ 70%) rồi xếp lại cảnh theo cốt truyện đó.
+# Âm thanh gốc GIỮ (nhạc + tiếng động; giọng nói gốc tách bỏ bằng Demucs nếu đã cài, chưa cài thì hạ nhỏ dưới voice);
+# cảnh nào nhân vật nói thì lồng VOICE MỚI (lời thoại theo cốt truyện mới) + phụ đề ngôn ngữ đích. Không đạt 70% thì job dừng
+# báo chủ dự án (bấm Tiếp tục để vẫn dựng, hoặc Làm lại từ bước plan cho AI thử lại).
+min_story_diff: 70            # AI tự đánh giá cốt truyện mới khác bản gốc ít nhất chừng này %
+min_order_diff: 0.7           # ≥ 70% số cặp cảnh liền nhau trong video mới KHÔNG liền nhau như bản gốc (máy tự đo)
+min_cover: 0.6                # video mới dùng ít nhất 60% thời lượng video gốc (không bỏ quá nhiều cảnh)
+min_beat_s: 0.8               # mỗi cảnh dài ít nhất chừng này giây
+speech_beat_s: 0.6            # cảnh có ≥ chừng này giây lời nói gốc thì BẮT BUỘC có câu lồng tiếng (giọng gốc bị tách bỏ)
+line_fill: 1.15               # câu lồng tiếng đọc tối đa 115% thời lượng cảnh (tool tăng tốc nhẹ phần dư)
+frames: 50                    # số khung hình gửi AI
+# Âm thanh
+orig_db_under_voice: -22      # chưa cài Demucs: tiếng gốc hạ chừng này dB dưới voice mới
