@@ -248,7 +248,7 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
           bgm_audio: Path | None = None, vocals_audio: Path | None = None,
           cold_clip: tuple[float, float] | None = None, cold_subs: list[dict] | None = None,
           dub_windows: list | None = None, timed_fx: dict | None = None,
-          extra_sources: dict[str, dict] | None = None) -> BuildResult:
+          extra_sources: dict[str, dict] | None = None, insert_subs: list[dict] | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
     bgm_audio: nhạc nền gốc đã tách giọng nói (chỉ thay tiếng + giữ nhạc nền) — thay cho nhạc AI chọn.
@@ -265,7 +265,9 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     style["no_titles"] / ["no_subtitles"]: không thêm tiêu đề / phụ đề (video gốc đã có chữ in sẵn ở đó);
     style["sub_cover"]: phụ đề có nền tối che phụ đề in sẵn của video gốc (bán content).
     extra_sources: {mã cảnh kho chung: {path, width, height, duration}} — clip có `lib` lấy hình từ file kho (cùng tỉ lệ
-    khung với video gốc, không cắt, không tiếng)."""
+    khung với video gốc, không cắt, không tiếng).
+    insert_subs (bán content nửa thuyết minh, 20/10): phụ đề các đoạn GIỮ TIẾNG GỐC [{start, end (µs), text, text_vi}] —
+    clip `keep_audio` phát tiếng gốc, nhạc nền hạ nhỏ ở đó."""
     safe = config.load("safe_area")
     sub_cfg = config.load("subtitles")
     sc, tr, subjects = analysis["scenes"], analysis["transcript"], analysis["subjects"]
@@ -510,6 +512,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
     replay_cfg = style.get("replay_label") or {}
     replay_text = (replay_cfg.get("text") or {}).get(u.language, "REPLAY")
     replay_style = _style(replay_cfg) if replay_cfg else emph_style
+    keep_vol = float(((style.get("sell") or {}).get("orig_audio") or {}).get("volume", 1.0)) \
+        if isinstance(style.get("sell"), dict) else 1.0
     lib = {(i.kind, i.name): i for i in template.library}
     trans_after = {t.after_clip: lib.get(("transition", t.name)) for t in plan.transitions}
     motion_cfg = style.get("motion") or {}
@@ -570,8 +574,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
                         crop=fix_crop(crop_for(ratio, clip.source_start, clip.source_end), ratio, p.out_start,
                                       p.out_duration, flip_of(clip.source_start, idx),
                                       src=(clip.source_start, clip.source_end), speed=clip.speed),
-                        volume=0.0 if (clean_audio or clip.replay or mute_orig) else 1.0,
-                        keyframes=(kfs or []) + ([] if (clean_audio or clip.replay) else
+                        volume=keep_vol if clip.keep_audio else 0.0 if (clean_audio or clip.replay or mute_orig) else 1.0,
+                        keyframes=(kfs or []) + ([] if (clean_audio or clip.replay or clip.keep_audio) else
                                                  orig_volume(p.out_start, p.out_end)) or None,
                         transition=last_trans, flip_horizontal=flip_of(clip.source_start, idx), **bg_kwargs(ratio))
             n_mirror += flip_of(clip.source_start, idx)
@@ -673,6 +677,13 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
             round_radius=float(sc_cfg.get("round_radius", 0.15)), width=float(sc_cfg.get("pad_w", 0.3)),
             height=float(sc_cfg.get("pad_h", 0.35))))
         notes.append("Video gốc có phụ đề in sẵn ở dưới → phụ đề mới có nền tối che lên phụ đề cũ.")
+    if insert_subs:  # đoạn giữ tiếng gốc: phụ đề dịch lời gốc (cũng là chỗ hạ nhạc nền)
+        from app.planner.dub_io import split_text, spread_cues
+
+        cues = sorted(cues + [Cue(s0, e0, t) for x in insert_subs if str(x.get("text", "")).strip()
+                              for s0, e0, t in spread_cues(split_text(x["text"], lang, max_chars), int(x["start"]),
+                                                           int(x["end"]))], key=lambda c: c.start)
+        notes.append(f"{len(insert_subs)} đoạn giữ tiếng gốc (hình + tiếng nguyên vẹn, phụ đề dịch lời gốc).")
     for c in ([] if style.get("no_subtitles") else cues):  # cues vẫn dùng để hạ nhạc dưới giọng
         w.add_text(c.text, start=c.start, duration=c.end - c.start, x=pos["x"], y=pos["bottom"],
                    style=subtitle_style)
@@ -688,6 +699,11 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         for no, a, e, _, _, _ in dub_slots:
             text_vi = lines_by_no[no].text_vi.strip()
             for s0, e0, t in spread_cues(split_text(text_vi, "en", int(vcfg.get("max_chars", 34))), a, e):
+                w.add_text(t, start=s0, duration=max(1, e0 - s0), x=pos["x"], y=vi_y, style=vi_style)
+                n_vi += 1
+        for x in insert_subs or []:  # đoạn giữ tiếng gốc: nghĩa tiếng Việt lời gốc
+            for s0, e0, t in spread_cues(split_text(str(x.get("text_vi", "")).strip(), "en",
+                                                    int(vcfg.get("max_chars", 34))), int(x["start"]), int(x["end"])):
                 w.add_text(t, start=s0, duration=max(1, e0 - s0), x=pos["x"], y=vi_y, style=vi_style)
                 n_vi += 1
         if n_vi:
@@ -839,7 +855,8 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         base_db = float(mcfg.get("base_db", acfg.get("music_base_db", -5.0)))  # mức gốc khi không có thoại
         duck_db = float(mcfg.get("duck_db", acfg.get("duck_db", -10.0)))  # hạ thêm khi có thoại
         v_gap, v_speech = db_to_gain(base_db), db_to_gain(base_db + duck_db)
-        intervals = speech_intervals(cues)
+        intervals = speech_intervals(sorted(cues + [Cue(int(x["start"]), int(x["end"]), "") for x in insert_subs or []],
+                                            key=lambda c: c.start))  # + đoạn giữ tiếng gốc (cả chỗ chỉ có tiếng động)
         if hook is not None:
             intervals = [(0, hook_us), *intervals]  # hạ nhạc dưới voice hook
         m_dur = music.material.get("duration", 0)

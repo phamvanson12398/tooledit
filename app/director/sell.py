@@ -57,11 +57,14 @@ def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], 
         errors.append("câu \"cta\" (kêu gọi hành động) chỉ đặt ở CUỐI bài")
     lo, hi = (cfg.get("script_fill") or [0.92, 1.03])[:2]
     gap = float(cfg.get("voice_gap_s", 0.08)) * max(0, len(r.lines) - 1)
-    want = max(1.0, (target_s - gap) * cps)
+    errors += check_inserts(r, language, duration=duration, target_s=target_s, cfg=cfg, banned=banned)
+    ins_s = sum(max(0.0, x.end - x.start) for x in r.inserts)
+    want = max(1.0, (target_s - ins_s - gap) * cps)
     chars = sum(speech_chars(ln.text) for ln in r.lines)
     if not lo * want <= chars <= hi * want:
         errors.append(f"cả bài có {chars} chữ (đọc ~{chars / cps:.0f}s) — cần {int(lo * want)}–{int(hi * want)} chữ để "
-                      f"video dài ~{target_s:.0f}s ở tốc độ ~{cps:.1f} chữ/giây: "
+                      f"video dài ~{target_s:.0f}s ở tốc độ ~{cps:.1f} chữ/giây"
+                      + (f" (đã trừ {ins_s:.0f}s đoạn giữ tiếng gốc)" if ins_s else "") + ": "
                       + ("viết thêm ý / câu" if chars < lo * want else "viết gọn bớt"))
     min_cut = float(cfg.get("min_cut_s", 1.0))
     lib_s = all_s = 0.0
@@ -113,6 +116,48 @@ def check_sell_script(r, language: str, *, duration: float, scenes: list[dict], 
     if r.video_index != video_index:
         errors.append(f"video_index phải là {video_index}")
     return errors
+
+
+def check_inserts(r, language: str, *, duration: float, target_s: float, cfg: dict,
+                  banned: list[tuple[float, float]] | None = None) -> list[str]:
+    """Đoạn GIỮ TIẾNG GỐC (chủ dự án 20/10): độ dài min_s–max_s, trong video, không chạm đoạn vi phạm, tổng ≤ max_share,
+    phụ đề bằng ngôn ngữ đích."""
+    from app.director.policy import overlap_s
+    from app.director.tasks import wrong_language
+
+    if not r.inserts:
+        return []
+    oc = cfg.get("orig_audio") or {}
+    lo, hi = float(oc.get("min_s", 1.5)), float(oc.get("max_s", 10))
+    errors = []
+    for k, x in enumerate(r.inserts, 1):
+        d = x.end - x.start
+        if x.after_line > len(r.lines):
+            errors.append(f"đoạn tiếng gốc {k}: after_line {x.after_line} > số câu ({len(r.lines)})")
+        if x.end <= x.start or x.end > duration + 0.3:
+            errors.append(f"đoạn tiếng gốc {k} ({x.start}-{x.end}) nằm ngoài video gốc (0–{duration:.1f}s)")
+        elif not lo - 0.05 <= d <= hi + 0.05:
+            errors.append(f"đoạn tiếng gốc {k} dài {d:.1f}s — mỗi đoạn {lo:.0f}–{hi:.0f} giây")
+        if banned and overlap_s(x.start, x.end, banned) > 0.05:
+            errors.append(f"đoạn tiếng gốc {k} chứa đoạn vi phạm chính sách TikTok — chọn đoạn khác")
+        if x.text.strip() and wrong_language(x.text, language):
+            errors.append(f"đoạn tiếng gốc {k}: phụ đề `text` phải DỊCH sang ngôn ngữ đích (không để nguyên lời gốc)")
+    total = sum(max(0.0, x.end - x.start) for x in r.inserts)
+    share = float(oc.get("max_share", 0.4))
+    if total > share * target_s + 0.5:
+        errors.append(f"các đoạn tiếng gốc dài {total:.0f}s — tối đa {share:.0%} thời lượng (~{share * target_s:.0f}s): "
+                      "bớt đoạn, giọng đọc vẫn là chính")
+    return errors
+
+
+ORIG_NOTE = """BẠN TỰ QUYẾT có xen các đoạn GIỮ NGUYÊN TIẾNG GỐC hay không (kiểu "nửa thuyết minh, nửa tiếng gốc"): chỗ nào
+lời / tiếng gốc ĐẮT hơn mọi lời kể (câu nói hay, câu chốt, phản ứng hài, tiếng hét / cười, cao trào, câu khách hàng khen
+thật…) thì để người xem nghe thật — ghi vào `inserts`: `after_line` (đặt ngay sau câu đọc số mấy; 0 = mở video bằng tiếng
+gốc), `start`–`end` giây gốc ({lo:.0f}–{hi:.0f} giây/đoạn, không cắt giữa câu nói), `text` = phụ đề DỊCH lời gốc sang ngôn
+ngữ đích (rỗng nếu chỉ là tiếng động), `text_vi`, `why_vi`.
+- Câu đọc TRƯỚC đoạn đó dẫn vào ("và đây là phản ứng của anh ấy…"), câu SAU nói tiếp ý — KHÔNG đọc lại điều nhân vật vừa
+  nói. Tổng các đoạn ≤ {share:.0%} thời lượng; giọng đọc vẫn là chính. Video không có đoạn nào đắt thì để `inserts` rỗng.
+- Thời lượng các đoạn tiếng gốc được TRỪ vào bài đọc (bài đọc ngắn lại tương ứng — tool tính số chữ sau khi trừ)."""
 
 
 ONSCREEN_YES = """CÓ chữ in trên hình (vùng: {regions}; {note}).
@@ -229,6 +274,11 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     lib_map = {it["id"]: float(it["duration"]) for it in library or []}
     lib_share = float(lib_cfg().get("max_share", 0.35))
     variables.update({"library": prompt_text(library or []), "lib_share": f"{lib_share:.0%}"})
+    oc = cfg.get("orig_audio") or {}
+    use_orig = idea is None and bool(oc.get("enabled", True))  # chỉ Bán content (không Ý tưởng / YouTube)
+    variables["orig"] = (ORIG_NOTE.format(lo=float(oc.get("min_s", 1.5)), hi=float(oc.get("max_s", 10)),
+                                          share=float(oc.get("max_share", 0.4)))
+                         if use_orig else "(không dùng — `inserts` để rỗng)")
     task = "sell"
     if idea is not None:
         from app.director.ideas import idea_brief, used_text
@@ -270,7 +320,15 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
             if len(shots) != len(ln.shots) or any(s.end != o.end for s, o in zip(shots, ln.shots)):
                 fixes.append(f"câu {i}: cắt cảnh lố đuôi video về {duration:.1f}s")
             lines.append(ln.model_copy(update={"shots": shots or ln.shots}))
-        return r.model_copy(update={"lines": lines}), fixes
+        inserts = []
+        if use_orig:
+            for x in sorted(r.inserts, key=lambda x: (x.after_line, x.start)):
+                x = x.model_copy(update={"end": min(x.end, duration), "after_line": min(x.after_line, len(lines))})
+                if x.end - x.start >= 0.5:
+                    inserts.append(x)
+        elif r.inserts:
+            fixes.append("chế độ này không giữ tiếng gốc — bỏ các đoạn `inserts`")
+        return r.model_copy(update={"lines": lines, "inserts": inserts}), fixes
 
     def extra(r) -> list[str]:
         return check_sell_script(r, u.language, duration=duration, scenes=scenes, cps=cps, target_s=target, cfg=cfg,
@@ -294,8 +352,12 @@ def sell_to_dub(r):
                      source_end=max(s.end for s in own(ln)), text=ln.text, text_vi=ln.text_vi,
                      action_vi=ln.shots_vi, role=ln.role, shots=ln.shots, keyword=ln.keyword.strip())
              for ln in r.lines]
-    return DubScript(video_index=r.video_index, lines=lines, editor_notes=r.editor_notes,
-                     story_vi=r.outline_vi.strip() or "Bán content")
+    story = r.outline_vi.strip() or "Bán content"
+    if r.inserts:  # nửa thuyết minh: báo chủ dự án chỗ nào giữ tiếng gốc (không cần thu voice ở đó)
+        story += "\n🔊 Giữ tiếng gốc (không cần đọc): " + "; ".join(
+            f"sau câu {x.after_line} — {x.start:.1f}–{x.end:.1f}s" + (f" ({x.text_vi})" if x.text_vi else "")
+            for x in r.inserts)
+    return DubScript(video_index=r.video_index, lines=lines, editor_notes=r.editor_notes, story_vi=story)
 
 
 def sell_plan(r, default_ratio: str = "16:9"):
@@ -310,7 +372,8 @@ def sell_plan(r, default_ratio: str = "16:9"):
 
 
 def short_voice(job_dir: Path, scripts: dict, sell_s: float | int = 0, *, need_s: float | None = None,
-                target_s: float | None = None, ratio: float | None = None) -> dict[int, dict]:
+                target_s: float | None = None, ratio: float | None = None,
+                extra_s: dict[int, float] | None = None) -> dict[int, dict]:
     """Chủ dự án 15/10 ("voice thiếu, không đủ ý"): video nào có voice cả bài ngắn hơn short_voice_ratio × min_s →
     {video: {voice_s, need_s, target_s, rate, extra_chars}}. Còn thiếu file / không đọc được độ dài thì bỏ qua."""
     from app.planner import dub_io
@@ -325,7 +388,7 @@ def short_voice(job_dir: Path, scripts: dict, sell_s: float | int = 0, *, need_s
                 for n in range(1, len(script.lines) + 1)]
         if not secs or any(x is None for x in secs):
             continue
-        total = sum(secs) + gap * (len(secs) - 1)
+        total = sum(secs) + gap * (len(secs) - 1) + float((extra_s or {}).get(i, 0.0))  # + đoạn giữ tiếng gốc
         if total < need * float(ratio if ratio is not None else cfg.get("short_voice_ratio", 0.95)):
             rate = dub_io.voice_rate(job_dir, i, script, min_lines=1) or 0.0
             out[i] = {"voice_s": total, "need_s": need, "target_s": target, "rate": rate,

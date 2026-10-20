@@ -1567,6 +1567,19 @@ class Runner:
         dub_io.pending_path(d, i).unlink(missing_ok=True)
         return script
 
+    def _sell_inserts(self, job: Job, video_index: int) -> list:
+        """Đoạn GIỮ TIẾNG GỐC AI chọn (chủ dự án 20/10, chỉ Bán content) — lấy từ kịch bản sell_videoNN.json."""
+        from app.director.schemas import SellScript
+
+        if job.options.ideas or job.options.yt:
+            return []
+        _, _, plan_dir = self._paths(job)
+        try:
+            return SellScript.model_validate_json(
+                (plan_dir / f"sell_video{video_index:02d}.json").read_text(encoding="utf-8")).inserts
+        except (OSError, ValueError):
+            return []
+
     def _sell_auto_voice(self, job: Job) -> bool:
         """Bán content (chủ dự án 17/10): giọng chọn sẵn trong thư viện Voice Studio → OmniVoice tự đọc các câu còn thiếu
         (giọng mẫu thì clone — chỉ khi giọng đó đã được xác nhận quyền; giọng mô tả thì đọc theo mô tả), dùng thông số
@@ -1613,7 +1626,9 @@ class Runner:
             target = float(job.data.get("yt_target_s") or 600)
             return short_voice(d, self._dub_scripts(job), need_s=target, target_s=target,
                                ratio=float(yt_cfg().get("short_voice_ratio", 0.85)))
-        return short_voice(d, self._dub_scripts(job), job.options.sell_s)
+        scripts = self._dub_scripts(job)
+        extra = {i: sum(max(0.0, x.end - x.start) for x in self._sell_inserts(job, i)) for i in scripts}
+        return short_voice(d, scripts, job.options.sell_s, extra_s=extra)
 
     def sell_lengthen(self, job: Job, video_index: int) -> None:
         """Nút "📏 Viết dài thêm cho đủ thời lượng": lưu tốc độ đọc THẬT của giọng vừa thu (để AI tính đúng số chữ), rồi
@@ -2156,7 +2171,7 @@ class Runner:
                 min_cut_s=float(rcfg.get("min_cut_s", 1.0)))
             for n in sync_notes:
                 self.log(f"[video {i:02d}] {n}")
-        dub_windows, timed_fx, extra_sources = None, None, None
+        dub_windows, timed_fx, extra_sources, insert_subs = None, None, None, []
         if job.options.sell and dub is not None:  # bán content: cảnh cắt / đảo / dùng lại theo voice thật
             from app.director.sell import sell_cfg, sell_cps
             from app.planner.sell_sync import build_sell
@@ -2191,7 +2206,8 @@ class Runner:
             clips, dub_windows, sync_notes = build_sell(
                 dub, {n: us / 1_000_000 for n, (_, us) in (dub_voices or {}).items()}, pool or sc.get("scenes") or [],
                 float(sc["duration"]), cps=sell_cps(scfg, u_v.language), cfg=scfg,
-                allow_mirror=getattr(u_v, "mirror_ok", True) and not b.present)
+                allow_mirror=getattr(u_v, "mirror_ok", True) and not b.present,
+                inserts=self._sell_inserts(job, i), insert_out=insert_subs)
             plan = plan.model_copy(update={"clips": clips, "transitions": [], "zooms": [], "emphasis": [], "sfx": [],
                                            "effects": [], "stickers": [], "arrows": []})
             from app.planner.sell_sync import sell_fx
@@ -2227,7 +2243,7 @@ class Runner:
                     bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm),
                     cold_clip=self._cliff_hook(v) if job.options.cliff else None,
                     cold_subs=self._cliff_hook_subs(job, v) if job.options.cliff else None, dub_windows=dub_windows,
-                    timed_fx=timed_fx, extra_sources=extra_sources)
+                    timed_fx=timed_fx, extra_sources=extra_sources, insert_subs=insert_subs or None)
         if job.options.sell:
             from app.director.sell import sell_cfg
 

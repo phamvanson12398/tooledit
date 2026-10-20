@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 117 — Bán content: nửa thuyết minh, nửa tiếng gốc `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Tạo job **💰 Bán content** với video có lời nói / phản ứng hay (vd khách khen món, câu nói hài).
+3. Trang voice: ở phần dàn ý có dòng **"🔊 Giữ tiếng gốc (không cần đọc): sau câu N — giây…"** nếu AI chọn giữ đoạn nào
+   (AI tự quyết — video không có đoạn đắt thì không có dòng này). Chỉ cần đọc các câu như thường.
+4. Mở CapCut: ở đúng chỗ đó video phát nguyên hình + tiếng gốc (các đoạn khác tắt tiếng gốc), có phụ đề dịch lời gốc,
+   nhạc nền nhỏ lại; giọng đọc dẫn vào trước và nói tiếp sau, không lặp lại điều nhân vật vừa nói.
+5. Tiếng gốc to / nhỏ quá: chỉnh `orig_audio.volume` trong `config\sell.yaml`; muốn tắt hẳn kiểu này: `enabled: false`.
+
 ## Bước 116 — Chế độ mới "▶️ Bán content YouTube" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

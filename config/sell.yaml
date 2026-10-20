@@ -52,5 +52,13 @@ sub_cover:
   round_radius: 0.15
   pad_w: 0.3                  # đệm nền quanh chữ (0..1) — tăng nếu phụ đề cũ lộ ra hai bên
   pad_h: 0.35
+# Nửa thuyết minh, nửa tiếng gốc (chủ dự án 20/10): AI TỰ QUYẾT xen vài đoạn đắt GIỮ NGUYÊN hình + tiếng gốc (câu nói
+# hay, phản ứng hài, cao trào…) giữa lời đọc, phụ đề dịch lời gốc; giọng đọc dẫn vào rồi nói tiếp. Chỉ Bán content.
+orig_audio:
+  enabled: true
+  min_s: 1.5                  # mỗi đoạn tiếng gốc dài ít nhất…
+  max_s: 10                   # …và nhiều nhất chừng này giây
+  max_share: 0.4              # tổng các đoạn tiếng gốc ≤ 40% thời lượng video (vẫn là "bán content")
+  volume: 1.0                 # âm lượng tiếng gốc ở các đoạn này (1 = như gốc)
 # Nhiều bản từ cùng một video (chủ dự án 17/10): lựa chọn trên trang chủ
 max_variants: 3

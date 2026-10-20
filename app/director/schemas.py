@@ -342,6 +342,7 @@ class PlanClip(BaseModel):
     mirror: bool | None = Field(default=None, description="(tool đặt) phản chiếu ngang clip này; null = theo kiểu dựng")
     lib: str = Field(default="", description="(tool đặt) mã cảnh kho chung — clip lấy từ file trong kho, giây tính trong "
                                              "file đó; rỗng = video gốc")
+    keep_audio: bool = Field(default=False, description="(tool đặt) đoạn giữ TIẾNG GỐC (bán content nửa thuyết minh)")
     purpose_vi: str = ""
 
 
@@ -728,6 +729,16 @@ class OnscreenLine(BaseModel):
     text: str = Field(description="dòng phụ đề / chữ in trên hình, chép đúng chữ gốc")
 
 
+class OrigInsert(BaseModel):
+    after_line: int = Field(ge=0, description="đặt đoạn này NGAY SAU câu số mấy (0 = trước câu 1, mở video bằng tiếng gốc)")
+    start: float = Field(ge=0, description="giây GỐC bắt đầu — GIỮ NGUYÊN hình + tiếng gốc")
+    end: float = Field(gt=0, description="giây GỐC kết thúc (không cắt giữa câu nói)")
+    text: str = Field(default="", description="phụ đề: lời nói gốc trong đoạn DỊCH sang ngôn ngữ đích (rỗng nếu chỉ là "
+                                              "tiếng động / tiếng cười, không có lời)")
+    text_vi: str = Field(default="", description="nghĩa tiếng Việt")
+    why_vi: str = Field(default="", description="vì sao giữ tiếng gốc ở đây (tiếng Việt)")
+
+
 class SellScript(BaseModel):
     video_index: int = Field(ge=1)
     onscreen_text: list[OnscreenLine] = Field(default_factory=list, description="phụ đề in trên hình AI đọc được, theo "
@@ -737,6 +748,8 @@ class SellScript(BaseModel):
                                   description="2 dòng tiêu đề lớn phía trên khối video, ngôn ngữ đích")
     music: MusicChoice
     lines: list[SellLine] = Field(min_length=3)
+    inserts: list[OrigInsert] = Field(default_factory=list, description="(chỉ Bán content) các đoạn GIỮ TIẾNG GỐC xen "
+                                                                        "giữa lời đọc — bạn tự quyết có / bao nhiêu")
     editor_notes: str
 
 

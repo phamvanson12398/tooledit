@@ -3,7 +3,8 @@
 Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây). BẠN TỰ xem kỹ nội dung gốc (khung hình + lời nói gốc nếu có)
 để hiểu video nói / cho thấy gì, rồi tự chọn góc kể hấp dẫn nhất và dựng lại thành MỘT video TikTok MỚI dài khoảng
 **{{target_s}} giây**:
-- TOÀN BỘ âm thanh gốc bị bỏ. Âm thanh mới = giọng đọc kịch bản của bạn (chủ dự án thu / AI đọc) + nhạc nền mới.
+- Âm thanh gốc bị bỏ (trừ các đoạn bạn chọn GIỮ TIẾNG GỐC, xem bên dưới). Âm thanh mới = giọng đọc kịch bản của bạn
+  (chủ dự án thu / AI đọc) + nhạc nền mới.
 - Hình = các cảnh cắt từ video gốc, ĐƯỢC ĐẢO THỨ TỰ cho khớp lời dẫn, được dùng lại một cảnh khi cần (tool tự lấy khúc
   khác + phản chiếu cho khỏi lộ lặp) — nhưng hạn chế dùng lại, ưu tiên cảnh chưa dùng.
 - Tool sẽ đo độ dài từng câu voice thật rồi cắt các cảnh bạn chọn cho dài đúng bằng câu (cảnh ngắn thì làm chậm nhẹ /
@@ -32,6 +33,9 @@ Chủ dự án tải lên một video gốc ngắn (~{{source_s}} giây). BẠN 
    đặt ở CUỐI, 1–2 câu, tự nhiên, không ép. Kiểu được dùng: follow, bình luận, lưu video, "link ở bio", "giỏ hàng TikTok".
    KHÔNG nhắc nền tảng khác ngoài TikTok (YouTube, Instagram, subscribe/구독/チャンネル登録…). Nội dung không cần thì
    không có câu cta, câu cuối khép lại gọn.
+
+## Nửa thuyết minh, nửa tiếng gốc
+{{orig}}
 
 ## Viết lời
 - Văn NÓI tự nhiên của người bản xứ {{language_name}} làm TikTok cho khán giả nước mình — không dịch từ tiếng Việt, không

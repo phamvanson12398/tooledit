@@ -52,9 +52,13 @@ def _best_start(lo: float, hi: float, length: float, usage: _Usage) -> float:
 
 
 def build_sell(script, voice_s: dict[int, float], scenes: list[dict], duration: float, *, cps: float,
-               cfg: dict | None = None, allow_mirror: bool = True):
+               cfg: dict | None = None, allow_mirror: bool = True, inserts: list | None = None,
+               insert_out: list | None = None):
     """Trả (clips: list[PlanClip] theo thứ tự trên màn hình, windows: [(µs bắt đầu câu, giây, giây)] cho từng câu,
-    ghi chú). Câu chưa có voice: tạm tính theo số chữ / cps (dựng thử trước khi thu)."""
+    ghi chú). Câu chưa có voice: tạm tính theo số chữ / cps (dựng thử trước khi thu).
+    inserts (chủ dự án 20/10, nửa thuyết minh): các đoạn GIỮ TIẾNG GỐC (OrigInsert) đặt ngay sau câu `after_line` — hình +
+    tiếng gốc nguyên vẹn (tốc độ 1, không lật, `keep_audio`), các câu sau lùi lại; insert_out nhận
+    {"start", "end" (µs), "text", "text_vi"} để builder viết phụ đề dịch lời gốc."""
     from app.director.schemas import PlanClip
     from app.director.tasks import speech_chars
 
@@ -127,6 +131,27 @@ def build_sell(script, voice_s: dict[int, float], scenes: list[dict], duration: 
             n_fill += 1
         return got
 
+    by_after: dict[int, list] = {}
+    for x in inserts or []:
+        by_after.setdefault(int(x.after_line), []).append(x)
+
+    def put_inserts(after: int) -> float:
+        got = 0.0
+        for x in by_after.get(after, []):
+            a, b = max(0.0, float(x.start)), min(duration, float(x.end))
+            if b - a < 0.3:
+                continue
+            t0 = t + got
+            clips.append(PlanClip(source_start=round(a, 3), source_end=round(b, 3), speed=1.0, repeat=True,
+                                  keep_audio=True, purpose_vi=("🔊 tiếng gốc: " + (x.text_vi or x.why_vi))[:60]))
+            usage.add(a, b)
+            got += b - a
+            if insert_out is not None:
+                insert_out.append({"start": round(t0 * SEC), "end": round((t0 + b - a) * SEC), "text": x.text,
+                                   "text_vi": x.text_vi})
+        return got
+
+    t += put_inserts(0)
     for no, ln in enumerate(script.lines, 1):
         v = voice_s.get(no)
         if not v:
@@ -164,11 +189,14 @@ def build_sell(script, voice_s: dict[int, float], scenes: list[dict], duration: 
             avoid = {usage.scene_id((a + b) / 2) for a, b, lib in shots if not lib}
             got += filler(slot - got, avoid, purpose)
         t += got
+        t += put_inserts(no)
     if t < min_total:  # luôn dài hơn 60 giây: thêm cảnh sau câu cuối (nhạc chạy tiếp)
         add = filler(min_total - t, set(), "cảnh kết (nhạc chạy tiếp)")
         notes.append(f"Bài đọc dài {t:.1f}s < {min_total:.0f}s — thêm {add:.1f}s cảnh kết sau câu cuối.")
         t += add
+    n_ins = sum(1 for c in clips if c.keep_audio)
     notes.insert(0, f"Dựng theo voice: {len(script.lines)} câu → {len(clips)} cảnh, dài {t:.1f}s"
+                    + (f"; {n_ins} đoạn giữ tiếng gốc" if n_ins else "")
                     + (f"; {n_slow} câu làm chậm nhẹ" if n_slow else "")
                     + (f"; thêm {n_fill} cảnh cho đủ thời lượng" if n_fill else "")
                     + (f"; {n_reuse} cảnh dùng lại" + (" (đã phản chiếu ngang)" if mirror_ok else "") if n_reuse else "")

@@ -244,6 +244,13 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   chuyển sang"): phụ đề ngôn ngữ đích LUÔN có** — dải chữ dưới / không rõ vùng thì phụ đề có NỀN TỐI che phụ đề cũ (style
   `sub_cover`, `config/sell.yaml → sub_cover`), không bỏ phụ đề nữa. (5) **AV1 → H.264** (`Runner._capcut_source`, `config/capcut.yaml → transcode_codecs`, mọi chế độ): đổi
   một lần ra `analysis/capcut_src_00.mp4`, draft trỏ vào đó (`ffmpeg.video_codec` đọc `ffmpeg -i`, không cần ffprobe).
+- **Cập nhật 20/10 (chủ dự án): "nửa thuyết minh, nửa tiếng gốc"** — AI TỰ QUYẾT xen vài đoạn đắt GIỮ NGUYÊN hình + tiếng
+  gốc (câu nói hay, phản ứng hài, cao trào…) giữa lời đọc (`SellScript.inserts` / `OrigInsert`: `after_line`, giây gốc,
+  `text` = phụ đề dịch lời gốc), câu trước dẫn vào, câu sau nói tiếp; `check_inserts`: mỗi đoạn `orig_audio.min_s`–`max_s`,
+  tổng ≤ `max_share` 40%, không chạm đoạn vi phạm, phụ đề đúng ngôn ngữ đích; số chữ bài đọc trừ thời lượng các đoạn đó.
+  Dựng: `build_sell(inserts=…)` đặt clip `keep_audio` (tốc độ 1, không lật) sau câu, các câu sau lùi lại; builder phát
+  tiếng gốc ở clip đó, phụ đề dịch + hạ nhạc nền (`insert_subs`). Đoạn tiếng gốc không cần thu voice (ghi chú ở dàn ý trang
+  voice). CHỈ Bán content — Ý tưởng / YouTube tự bỏ `inserts`.
 - Thẻ "💰 Bán content" ở trang chủ (`JobOptions.sell`, `sell_brief` = định hướng nội dung, `sell_s` = thời lượng;
   `config/sell.yaml`), MỘT video gốc ~55–60 giây, cần chọn ngôn ngữ giọng đọc (Hàn / Nhật / Anh). Không hook riêng, không
   chia video, không ⚡.
