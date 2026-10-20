@@ -51,6 +51,15 @@ def out_times(order: list[int], us: list[dict]) -> dict[int, float]:
     return out
 
 
+def order_diff(order: list[int], us: list[dict]) -> float:
+    """Tỉ lệ cặp cảnh liền nhau trên video mới mà ở bản gốc KHÔNG nối tiếp nhau. 1.0 = đảo hết, 0 = giữ thứ tự cũ."""
+    pos = {u["id"]: k for k, u in enumerate(us)}
+    pairs = [(a, b) for a, b in zip(order, order[1:]) if a in pos and b in pos]
+    if not pairs:
+        return 0.0
+    return round(1 - sum(1 for a, b in pairs if pos[b] == pos[a] + 1) / len(pairs), 3)
+
+
 def check_wild(r, language: str, *, us: list[dict], cps: float, cfg: dict) -> list[str]:
     from app.director.policy import find_forbidden
     from app.director.tasks import speech_chars, wrong_language
@@ -67,6 +76,10 @@ def check_wild(r, language: str, *, us: list[dict], cps: float, cfg: dict) -> li
                       + (f" — lặp C{', C'.join(map(str, dup))}" if dup else "")
                       + (f" — không có C{', C'.join(map(str, extra))}" if extra else ""))
         return errors
+    need = float(cfg.get("min_order_diff", 0.5))
+    if len(us) >= int(cfg.get("min_scenes_reorder", 3)) and order_diff(r.order, us) < need:
+        errors.append(f"thứ tự cảnh mới còn giống bản gốc ({order_diff(r.order, us):.0%} cặp cảnh bị đảo, cần ≥ {need:.0%}): "
+                      "xếp cảnh THEO KỊCH BẢN MỚI (`story_vi`), không đi theo thứ tự / câu chuyện cũ")
     total = sum(u["end"] - u["start"] for u in us)
     pos = out_times(r.order, us)
     fill = float(cfg.get("line_fill", 1.15))
@@ -136,7 +149,7 @@ def make_wild_script(director: Director, analysis_dir: Path, u, us: list[dict], 
         "localize_brief": localize_brief(u), "summary": u.summary_vi, "total": f"{total:.0f}", "n": len(us),
         "cps": f"{cps:.1f}", "pause": f"{float(cfg.get('min_pause_s', 2.0)):.0f}",
         "talk_lo": f"{float(cfg.get('min_talk_share', 0.2)):.0%}", "talk_hi": f"{float(cfg.get('max_talk_share', 0.55)):.0%}",
-        "max_line": cfg.get("max_line_s", 9), "first_line": cfg.get("first_line_s", 5),
+        "order_diff": f"{float(cfg.get('min_order_diff', 0.5)):.0%}", "max_line": cfg.get("max_line_s", 9), "first_line": cfg.get("first_line_s", 5),
         "scenes": "\n".join(f"- C{x['id']}: {x['start']:.1f}–{x['end']:.1f}s ({x['end'] - x['start']:.1f}s)" for x in us),
         "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)",
         "transcript": format_transcript(a["transcript"].get("segments", []), 4000) or "(không có lời nói)",

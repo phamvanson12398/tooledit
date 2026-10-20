@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.director.fake import FakeDirector
 from app.director.schemas import WildScript
-from app.director.wild import check_wild, units
+from app.director.wild import check_wild, order_diff, units
 from app.jobs.job import JobOptions, Status
 from tests.test_planner import _short_plan
 from tests.test_runner import make_runner as _make_runner, prepare
@@ -29,6 +29,9 @@ def test_units_split_at_files_and_merge_tiny():
 def test_check_wild():
     assert _check(FIX) == []
     assert any("ĐỦ mọi cảnh" in e and "thiếu C2" in e for e in _check({**FIX, "order": [3, 1]}))  # không được bỏ cảnh
+    same = {**FIX, "order": [1, 2, 3], "lines": [FIX["lines"][2], FIX["lines"][3], FIX["lines"][0], FIX["lines"][1]]}
+    assert any("THEO KỊCH BẢN MỚI" in e for e in _check(same))  # giữ thứ tự cũ → bắt xếp cảnh theo kịch bản mới
+    assert order_diff([3, 1, 2], US) == 0.5 and order_diff([3, 2, 1], US) == 1.0
     close = {**FIX, "lines": FIX["lines"][:1] + [{**FIX["lines"][1], "start": 46, "end": 50}] + FIX["lines"][2:]}
     assert any("nghỉ ít nhất 2s" in e for e in _check(close))  # nói rồi phải nghỉ
     late = {**FIX, "lines": FIX["lines"][1:]}

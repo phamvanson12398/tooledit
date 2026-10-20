@@ -8,7 +8,8 @@
 4. Trang voice: mỗi câu dẫn ngắn, giữa các câu có khoảng nghỉ — thu từng câu, đọc cả bài một file, hoặc **🤖 Cho
    OmniVoice đọc**.
 5. Mở CapCut, kiểm tra:
-   - tổng thời lượng = tổng thời lượng các file gốc (không mất cảnh nào), thứ tự cảnh đã được xếp lại;
+   - tổng thời lượng = tổng thời lượng các file gốc (không mất cảnh nào), thứ tự cảnh đã được xếp lại THEO KỊCH BẢN MỚI
+     (dàn ý đầu trang voice) chứ không theo thứ tự quay cũ;
    - lời dẫn nói một chút rồi nghỉ vài giây, nghe được tiếng thiên nhiên giữa các câu; có phụ đề ngôn ngữ đích;
    - file gốc có giọng người: giọng người đã mất, tiếng nền còn (cần cài Demucs; chưa cài thì nhật ký báo ⚠️ và tiếng gốc
      chỉ hạ nhỏ).

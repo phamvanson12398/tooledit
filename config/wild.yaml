@@ -2,6 +2,8 @@
 # Nhiều file ngắn → tool nối lại (giữ TOÀN BỘ, không bỏ cảnh nào), AI chỉ ĐẢO THỨ TỰ cảnh cho hợp lý và viết lời dẫn MỚI
 # kiểu phim tài liệu thế giới động vật: nói một đoạn rồi NGHỈ một khoảng (để tiếng thiên nhiên dẫn dắt) rồi nói tiếp.
 # Âm thanh: giọng nói gốc (nếu có) tách bỏ bằng Demucs, tiếng nền / tiếng con vật GIỮ. Không thêm nhạc.
+min_order_diff: 0.5           # ≥ 50% cặp cảnh liền nhau phải KHÁC thứ tự gốc (cảnh theo kịch bản MỚI, chủ dự án 20/10)
+min_scenes_reorder: 3         # video ít hơn chừng này cảnh thì khỏi bắt đảo
 min_pause_s: 2.0              # giữa 2 câu dẫn nghỉ ít nhất chừng này giây
 max_talk_share: 0.55          # lời dẫn chiếm tối đa 55% thời lượng video (còn lại là tiếng thiên nhiên)
 min_talk_share: 0.2           # …và ít nhất 20% (không quá vắng lời)

@@ -2,10 +2,15 @@
 
 Chủ dự án đưa nhiều đoạn quay động vật (đã nối thành một video ~{{total}} giây, {{n}} cảnh). Làm thành MỘT video kiểu phim
 tài liệu thế giới động vật:
-- HÌNH: dùng TOÀN BỘ {{n}} cảnh, KHÔNG được bỏ cảnh nào, không cắt bớt — chỉ ĐẢO THỨ TỰ cảnh cho hợp lý (`order` = danh sách
-  mã cảnh theo thứ tự mới, đủ mọi cảnh, mỗi cảnh đúng một lần). Thứ tự hợp lý: mở bằng cảnh bối cảnh / cảnh đẹp giới thiệu
-  nơi sống → nhân vật chính (con vật) → hành động / sự kiện (kiếm ăn, săn mồi, chăm con, di cư…) → kết lắng đọng. Cảnh cùng
-  một con / cùng một sự việc để gần nhau.
+- LÀM THEO ĐÚNG THỨ TỰ NÀY:
+  1. Xem hết khung hình, rồi nghĩ KỊCH BẢN MỚI trước (`story_vi`: mở – diễn biến – kết) — câu chuyện của riêng bạn về con
+     vật, KHÔNG kể lại câu chuyện / lời nói cũ, không đi theo thứ tự quay cũ.
+  2. CHỌN CẢNH THEO KỊCH BẢN MỚI: với từng đoạn của kịch bản, lấy cảnh hợp nhất → ra `order`. Thứ tự cũ không có ý nghĩa gì;
+     ít nhất {{order_diff}} cặp cảnh liền nhau phải khác thứ tự gốc.
+  3. Viết lời dẫn bám kịch bản mới, mỗi câu trên đúng cảnh nó nói tới.
+- HÌNH: dùng TOÀN BỘ {{n}} cảnh, KHÔNG được bỏ cảnh nào, không cắt bớt — chỉ ĐẢO THỨ TỰ (`order` = danh sách mã cảnh theo
+  thứ tự mới, đủ mọi cảnh, mỗi cảnh đúng một lần). Gợi ý mạch: mở bằng cảnh bối cảnh / cảnh đẹp giới thiệu nơi sống → nhân
+  vật chính (con vật) → hành động / sự kiện (kiếm ăn, săn mồi, chăm con, di cư…) → kết lắng đọng.
 - ÂM THANH: giọng nói gốc (nếu có) bị bỏ; tiếng thiên nhiên / tiếng con vật GIỮ. Bạn viết LỜI DẪN MỚI.
 
 ## Lời dẫn (`lines`)
@@ -36,5 +41,5 @@ tài liệu thế giới động vật:
 ## Khung hình (mở bằng Read để xem) — giây gốc
 {{frames}}
 
-## Lời nói gốc (sẽ bị bỏ — chỉ để hiểu nội dung)
+## Lời nói gốc (sẽ bị bỏ — chỉ để hiểu con vật / sự việc; KHÔNG dựa vào đây để viết hay xếp cảnh)
 {{transcript}}
