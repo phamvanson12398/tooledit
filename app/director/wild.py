@@ -116,7 +116,7 @@ def check_wild(r, language: str, *, us: list[dict], cps: float, cfg: dict) -> li
             errors.append(f"câu {ka} và {kb} cách nhau {max(0.0, b0 - a1):.1f}s — nghỉ ít nhất {pause:.0f}s giữa 2 câu "
                           "(kiểu phim tài liệu: nói một chút rồi để tiếng thiên nhiên)")
     talk = sum(b - a for a, b, _ in spans)
-    lo, hi = float(cfg.get("min_talk_share", 0.2)), float(cfg.get("max_talk_share", 0.55))
+    lo, hi = float(cfg.get("min_talk_share", 0.2)), float(cfg.get("max_talk_share", 0.3))
     if total and talk > hi * total:
         errors.append(f"lời dẫn chiếm {talk / total:.0%} video — tối đa {hi:.0%}: bớt câu / câu ngắn hơn, nghỉ nhiều hơn")
     if total and talk < lo * total:
@@ -148,7 +148,7 @@ def make_wild_script(director: Director, analysis_dir: Path, u, us: list[dict], 
         "language_name": LANGUAGE_NAMES.get(u.language, u.language), "market": MARKETS.get(u.language, "TikTok"),
         "localize_brief": localize_brief(u), "summary": u.summary_vi, "total": f"{total:.0f}", "n": len(us),
         "cps": f"{cps:.1f}", "pause": f"{float(cfg.get('min_pause_s', 2.0)):.0f}",
-        "talk_lo": f"{float(cfg.get('min_talk_share', 0.2)):.0%}", "talk_hi": f"{float(cfg.get('max_talk_share', 0.55)):.0%}",
+        "talk_lo": f"{float(cfg.get('min_talk_share', 0.2)):.0%}", "talk_hi": f"{float(cfg.get('max_talk_share', 0.3)):.0%}",
         "order_diff": f"{float(cfg.get('min_order_diff', 0.5)):.0%}", "max_line": cfg.get("max_line_s", 9), "first_line": cfg.get("first_line_s", 5),
         "scenes": "\n".join(f"- C{x['id']}: {x['start']:.1f}–{x['end']:.1f}s ({x['end'] - x['start']:.1f}s)" for x in us),
         "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)",

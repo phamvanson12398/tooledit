@@ -12,7 +12,7 @@ from tests.test_runner import make_runner as _make_runner, prepare
 
 FIX = json.loads((Path(__file__).parent / "fixtures" / "director" / "wild.json").read_text(encoding="utf-8"))
 US = [{"id": 1, "start": 0.0, "end": 20.0}, {"id": 2, "start": 20.0, "end": 40.0}, {"id": 3, "start": 40.0, "end": 60.0}]
-CFG = {"min_pause_s": 2.0, "max_talk_share": 0.55, "min_talk_share": 0.2, "max_line_s": 9, "first_line_s": 5}
+CFG = {"min_pause_s": 2.0, "max_talk_share": 0.3, "min_talk_share": 0.2, "max_line_s": 9, "first_line_s": 5}
 PARTS = [{"index": 0, "start": 0, "end": 20}, {"index": 1, "start": 20, "end": 40}, {"index": 2, "start": 40, "end": 60}]
 
 
@@ -41,7 +41,7 @@ def test_check_wild():
                                                       "text_vi": "x"} for k in range(2)]
               + [{"scene": 2, "start": 20 + 10 * k, "end": 20 + 10 * k + 7.5, "text": "사자", "text_vi": "x"}
                  for k in range(2)]}
-    assert any("tối đa 55%" in e for e in _check(chatty))
+    assert any("tối đa 30%" in e for e in _check(chatty))
 
 
 def test_full_wild_job(tmp_path):

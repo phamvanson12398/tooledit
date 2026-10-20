@@ -358,6 +358,7 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - **Cập nhật 20/10 (chủ dự án): "AI chọn cảnh theo kịch bản MỚI, không theo kịch bản cũ"** — prompt bắt AI nghĩ kịch bản
   mới (`story_vi`) TRƯỚC, rồi chọn cảnh cho từng đoạn của kịch bản đó; lời nói gốc chỉ để hiểu, không dựa vào để viết / xếp;
   `check_wild` chặn khi thứ tự còn giống gốc (`order_diff` < `min_order_diff` 0.5, video ≥ `min_scenes_reorder` cảnh).
+- **Cập nhật 20/10 (chủ dự án): "còn 30% voice thôi"** — lời dẫn chiếm 20–30% thời lượng video (`max_talk_share` 0.30).
 - Kế hoạch dựng + kịch bản voice tạo bằng code (`wild_plan`: toàn bộ cảnh theo thứ tự mới, nguyên vẹn, tốc độ 1;
   `wild_to_dub`: câu `narration`) → dùng chung trang voice / OmniVoice / phụ đề. Không thêm nhạc, không zoom / lật / hiệu ứng.
 - **Âm thanh:** video gốc có giọng người (transcript ≥ `voice_detect_s`) → Demucs bỏ giọng gốc, GIỮ tiếng nền (không phát
