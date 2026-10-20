@@ -7,6 +7,7 @@
 
 default_s: 65                 # thời lượng mục tiêu mặc định (giây)
 durations: [62, 65, 70, 75]   # các lựa chọn trên trang chủ
+auto_s: [61, 120]             # "🤖 AI tự chọn" (chủ dự án 20/10): AI chọn thời lượng trong khoảng này theo độ dày nội dung
 min_s: 60.5                   # video luôn DÀI HƠN 60 giây: thiếu thì kéo dài cảnh cuối (nhạc chạy tiếp)
 script_fill: [0.97, 1.08]     # bài đọc dài 97–108% thời lượng mục tiêu (theo tốc độ giọng) — voice phải phủ kín video
 frames: 40                    # số khung hình gửi AI xem (khung đầu mỗi cảnh + rải đều)

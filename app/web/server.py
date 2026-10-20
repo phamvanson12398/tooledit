@@ -204,6 +204,9 @@ def review_len(job) -> str:
 
         sec = int(sell_target(sell_cfg(), job.options.sell_s))
         n = int(job.options.sell_variants or 1)
+        if job.options.sell_auto and not job.options.ideas and not job.options.yt:
+            return " · 🤖 AI tự chọn độ dài (> 60 giây)" + (f" · {n} bản" if n > 1 else "") + \
+                (" · 🎙️ giọng Voice Studio" if job.options.sell_voice else "")
         if job.options.yt:
             t = job.data.get("yt_target_s")
             return (f" · {int(t) // 60}:{int(t) % 60:02d}" if t else
@@ -589,7 +592,12 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 <label class="chip" style="margin-top:10px"><input type="checkbox" name="yt_pause"> ⏸️ Dừng cho tôi duyệt
                 dàn ý (tiêu đề, các chương) trước khi viết lời</label>
               </div>
-              <div data-modes="sell ideas">
+              <div data-modes="sell">
+                <label style="margin-top:10px">⏱️ Thời lượng video</label>
+                <select name="sell_s"><option value="-1">🤖 AI tự chọn theo nội dung (luôn trên 60 giây)</option>
+                {sell_opts}</select>
+              </div>
+              <div data-modes="ideas">
                 <label style="margin-top:10px">⏱️ Thời lượng video</label>
                 <select name="sell_s">{sell_opts}</select>
               </div>
@@ -852,6 +860,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             ideas=ideas, ideas_brief=ideas_brief.strip()[:2000] if ideas else "",
             yt=yt, yt_min=max(0, min(int(yt_min or 0), 30)) if yt else 0, yt_pause=bool(yt_pause) and yt,
             sell_s=max(0, min(int(sell_s or 0), 180)) if sell else 0,
+            sell_auto=sell and not ideas and not yt and int(sell_s or 0) == -1,
             sell_variants=max(1, min(int(sell_variants or 1), 3)) if sell and not ideas and not yt else 1,
             sell_voice=sell_voice.strip() if sell else "",
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only and not review,

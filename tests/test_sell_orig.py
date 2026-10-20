@@ -76,3 +76,50 @@ def test_ideas_and_youtube_drop_inserts(tmp_path):
     job = type("J", (), {})()
     job.options = JobOptions(sell=True, ideas=True)
     assert r._sell_inserts(job, 1) == []
+
+
+def test_ai_chooses_duration(tmp_path):
+    """Chủ dự án 20/10: tùy chọn "🤖 AI tự chọn" độ dài Bán content — AI ghi target_s, luôn > 60 giây."""
+    jobs, job = prepare(tmp_path, JobOptions(sell=True, sell_auto=True, target_language="ko", client_id="k"))
+    r = _make_runner(tmp_path, jobs)
+    r._director = FakeDirector(responses={"plan": _short_plan(), "sell": {**SELL, "target_s": 66}})
+    job = r.run(job)
+    assert job.step == "dub_voice", job.message
+    prompt = next(c["prompt"] for c in r.director.calls if c["task"] == "sell")
+    assert "BẠN TỰ CHỌN" in prompt and "61–120" in prompt
+    saved = json.loads((jobs / "j1" / "plan" / "sell_video01.json").read_text(encoding="utf-8"))
+    assert saved["target_s"] == 66
+
+
+def test_ai_duration_clamped_over_60(tmp_path):
+    jobs, job = prepare(tmp_path, JobOptions(sell=True, sell_auto=True, target_language="ko", client_id="k"))
+    r = _make_runner(tmp_path, jobs)
+    r._director = FakeDirector(responses={"plan": _short_plan(), "sell": {**SELL, "target_s": 30}})
+    job = r.run(job)
+    # AI chọn 30 giây → tool kẹp lên tối thiểu 61 giây rồi đếm chữ theo 61 giây (bài 68 giây → bắt viết gọn lại)
+    assert job.status == Status.error
+    retry = [c["prompt"] for c in r.director.calls if c["task"] == "sell"][-1]  # lần hỏi lại kèm lỗi
+    assert "~61s" in retry and "viết gọn bớt" in retry
+
+
+def test_home_sell_auto_option(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.jobs.job import Job
+    from app.web.server import create_app
+
+    f = tmp_path / "v.mp4"
+    f.write_bytes(b"x")
+    app = create_app(tmp_path / "jobs", lambda root, log: None)
+    app.state.worker.start = lambda job_id, action=None: True
+    c = TestClient(app)
+    assert "AI tự chọn theo nội dung (luôn trên 60 giây)" in c.get("/").text
+    res = c.post("/jobs", data={"footage": str(f), "mode": "sell", "target_language": "ko", "sell_s": "-1"},
+                 follow_redirects=False)
+    job_id = res.headers["location"].rsplit("/", 1)[1]
+    o = Job.load(tmp_path / "jobs", job_id).options
+    assert o.sell_auto and o.sell_s == 0
+    assert "AI tự chọn độ dài" in c.get(f"/jobs/{job_id}").text
+    res = c.post("/jobs", data={"footage": str(f), "mode": "ideas", "target_language": "ko", "sell_s": "-1"},
+                 follow_redirects=False)
+    assert not Job.load(tmp_path / "jobs", res.headers["location"].rsplit("/", 1)[1]).options.sell_auto  # chỉ Bán content

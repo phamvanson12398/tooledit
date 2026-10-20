@@ -1,5 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 118 — Bán content: thời lượng "AI tự chọn" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. **💰 Bán content** → ô **⏱️ Thời lượng video** chọn **🤖 AI tự chọn theo nội dung (luôn trên 60 giây)** → Bắt đầu.
+3. Đầu trang job ghi "🤖 AI tự chọn độ dài". Xong: video dài hơn 60 giây, dài / ngắn tùy nội dung (tối đa ~2 phút,
+   chỉnh `auto_s` trong `config\sell.yaml`).
+
 ## Bước 117 — Bán content: nửa thuyết minh, nửa tiếng gốc `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

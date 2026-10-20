@@ -197,7 +197,7 @@ def _lines_text(previous) -> str:
 def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, sell_s: float | int = 0,
                      music_items: list | None = None, video_index: int = 1, feedback: str = "", previous=None,
                      variant: tuple[int, int] = (1, 1), others: list | None = None, idea: dict | None = None,
-                     library: list[dict] | None = None):
+                     library: list[dict] | None = None, auto: bool = False):
     """AI xem khung hình + lời nói gốc, TỰ chọn góc kể theo nội dung gốc (chủ dự án 15/10 bỏ ô định hướng; `brief` chỉ còn
     cho job cũ đã nhập) → SellScript (lời + cảnh từng câu + tiêu đề + nhạc).
     variant = (bản thứ i, tổng n) — chủ dự án 17/10: một video gốc ra 2–3 bản KHÁC NHAU; others = SellScript các bản đã
@@ -205,6 +205,7 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     idea = video của chế độ Ý tưởng từ video dài (app/director/ideas.py: {idea, pool, …}) — chỉ dùng cảnh trong `pool`
     (khung hình + lời nói gốc cũng chỉ lấy trong đó), others = short khác đã viết (tránh lặp cảnh).
     library = cảnh kho chung AI được bù khi video gốc thiếu cảnh khớp lời (app/scene_library.candidates).
+    auto (chủ dự án 20/10, chỉ Bán content): AI TỰ CHỌN thời lượng trong `auto_s` (> 60 giây), ghi vào `target_s`.
     idea có khóa "chapter" (Bán content YouTube, app/director/youtube.chapter_job): viết lời MỘT chương — độ dài = giây
     chương, chỉ cảnh của chương, prompt yt_chapter.md, chương 2+ không có hook, được nhắc YouTube / kêu gọi đăng ký."""
     from app.director.policy import cut_ranges
@@ -279,6 +280,14 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     variables["orig"] = (ORIG_NOTE.format(lo=float(oc.get("min_s", 1.5)), hi=float(oc.get("max_s", 10)),
                                           share=float(oc.get("max_share", 0.4)))
                          if use_orig else "(không dùng — `inserts` để rỗng)")
+    auto = auto and idea is None
+    a_lo, a_hi = [float(x) for x in (cfg.get("auto_s") or [61, 120])[:2]]
+    if auto:  # AI tự chọn thời lượng: số chữ tính theo số giây AI ghi ở target_s
+        variables.update({
+            "target_s": f"{a_lo:.0f}–{a_hi:.0f} (BẠN TỰ CHỌN theo độ dày nội dung — nhiều ý hay thì dài, ít thì ngắn, luôn "
+                        f"trên 60 giây; ghi số giây đã chọn vào `target_s`)",
+            "target_chars": f"{int(lo * (a_lo - gap * 12) * cps)}–{int(hi * a_hi * cps)} (= số giây bạn chọn × {cps:.1f}, "
+                            "trừ các đoạn giữ tiếng gốc)"})
     task = "sell"
     if idea is not None:
         from app.director.ideas import idea_brief, used_text
@@ -299,6 +308,11 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
 
     def repair(r):
         fixes = []
+        if auto:  # thời lượng AI chọn: kẹp trong auto_s; không ghi thì lấy mặc định
+            t = min(max(float(r.target_s or target), a_lo), a_hi)
+            if abs(t - float(r.target_s or 0)) > 0.01:
+                fixes.append(f"thời lượng tự chọn → {t:.0f}s")
+            r = r.model_copy(update={"target_s": t})
         if r.video_index != video_index:  # AI ghi nhầm số bản → tool sửa (không bắt hỏi lại)
             r = r.model_copy(update={"video_index": video_index})
         if chapter and chapter > 1 and any(ln.role == "hook" for ln in r.lines):  # chương giữa / cuối không có hook
@@ -331,7 +345,8 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
         return r.model_copy(update={"lines": lines, "inserts": inserts}), fixes
 
     def extra(r) -> list[str]:
-        return check_sell_script(r, u.language, duration=duration, scenes=scenes, cps=cps, target_s=target, cfg=cfg,
+        return check_sell_script(r, u.language, duration=duration, scenes=scenes, cps=cps,
+                                 target_s=r.target_s if auto else target, cfg=cfg,
                                  banned=banned, title_max=title_max, video_index=video_index,
                                  pool_only=idea is not None and bool(pool), library=lib_map, lib_share=lib_share,
                                  first=not chapter or chapter == 1, platform="youtube" if chapter else "tiktok")

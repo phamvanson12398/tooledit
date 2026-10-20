@@ -1554,7 +1554,8 @@ class Runner:
                              brief=job.options.ideas_brief if ideas else job.options.sell_brief,
                              sell_s=job.options.sell_s, music_items=chosen or music, video_index=i,
                              feedback=feedback, previous=previous, variant=(1, 1) if ideas else (i, n_var),
-                             others=others, idea=v if ideas else None, library=library)
+                             others=others, idea=v if ideas else None, library=library,
+                             auto=job.options.sell_auto and not ideas)
         ratio = job.data.get("default_ratio")
         plan = sell_plan(r, ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
         if chosen:
@@ -1628,7 +1629,16 @@ class Runner:
                                ratio=float(yt_cfg().get("short_voice_ratio", 0.85)))
         scripts = self._dub_scripts(job)
         extra = {i: sum(max(0.0, x.end - x.start) for x in self._sell_inserts(job, i)) for i in scripts}
-        return short_voice(d, scripts, job.options.sell_s, extra_s=extra)
+        target = None
+        if job.options.sell_auto:  # AI tự chọn thời lượng → "cần thêm bao nhiêu chữ" tính theo số giây AI chọn
+            from app.director.schemas import SellScript
+
+            try:
+                target = SellScript.model_validate_json(
+                    (d / "plan" / "sell_video01.json").read_text(encoding="utf-8")).target_s or None
+            except (OSError, ValueError):
+                target = None
+        return short_voice(d, scripts, job.options.sell_s, extra_s=extra, target_s=target)
 
     def sell_lengthen(self, job: Job, video_index: int) -> None:
         """Nút "📏 Viết dài thêm cho đủ thời lượng": lưu tốc độ đọc THẬT của giọng vừa thu (để AI tính đúng số chữ), rồi

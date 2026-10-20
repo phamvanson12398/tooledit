@@ -251,6 +251,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   Dựng: `build_sell(inserts=…)` đặt clip `keep_audio` (tốc độ 1, không lật) sau câu, các câu sau lùi lại; builder phát
   tiếng gốc ở clip đó, phụ đề dịch + hạ nhạc nền (`insert_subs`). Đoạn tiếng gốc không cần thu voice (ghi chú ở dàn ý trang
   voice). CHỈ Bán content — Ý tưởng / YouTube tự bỏ `inserts`.
+- **Cập nhật 20/10 (chủ dự án): thời lượng "🤖 AI tự chọn theo nội dung"** (ô thời lượng, giá trị -1 → `JobOptions.sell_auto`,
+  chỉ Bán content): AI chọn số giây trong `auto_s` (61–120) theo độ dày nội dung, ghi `SellScript.target_s` (tool kẹp trong
+  khoảng, luôn > 60 giây); số chữ bài đọc tính theo số giây đó.
 - Thẻ "💰 Bán content" ở trang chủ (`JobOptions.sell`, `sell_brief` = định hướng nội dung, `sell_s` = thời lượng;
   `config/sell.yaml`), MỘT video gốc ~55–60 giây, cần chọn ngôn ngữ giọng đọc (Hàn / Nhật / Anh). Không hook riêng, không
   chia video, không ⚡.

@@ -748,6 +748,7 @@ class SellScript(BaseModel):
                                   description="2 dòng tiêu đề lớn phía trên khối video, ngôn ngữ đích")
     music: MusicChoice
     lines: list[SellLine] = Field(min_length=3)
+    target_s: float = Field(default=0, description="(chỉ khi chủ dự án để AI tự chọn thời lượng) số giây video bạn chọn")
     inserts: list[OrigInsert] = Field(default_factory=list, description="(chỉ Bán content) các đoạn GIỮ TIẾNG GỐC xen "
                                                                         "giữa lời đọc — bạn tự quyết có / bao nhiêu")
     editor_notes: str
