@@ -122,7 +122,7 @@ def test_web_multi_video_form(tmp_path):
     app.state.worker.start = lambda job_id, action=None: True
     client = TestClient(app)
     home = client.get("/").text
-    assert "Ghép nhiều video" in home and "Chuyển cảnh liên tục" in home
+    assert "name='mode' value='normal'" not in home  # chủ dự án 20/10: thẻ này đã bỏ khỏi trang chủ (backend còn cho job cũ)
     r = client.post("/jobs", data={"footage": f"{a}\n\"{b}\"\n", "split": "on"}, follow_redirects=False)
     job = Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1])
     assert len(job.footage) == 2 and not job.options.hype and not job.options.split  # ghép = câu chuyện, không chia

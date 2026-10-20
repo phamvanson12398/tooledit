@@ -339,8 +339,11 @@ def test_home_mode_cards_map_to_options(tmp_path):
     client = TestClient(app)
     home = client.get("/").text
     assert "Kho tài nguyên" not in home and "So sánh video" not in home
-    for m in ("normal", "dub", "voice_only", "review", "char_dub", "vi_sub"):
+    for m in ("review", "cliff", "wild", "sell", "ideas", "yt"):  # chủ dự án 20/10: chỉ còn các thẻ này
         assert f"name='mode' value='{m}'" in home
+    for m in ("normal", "dub", "voice_only", "films", "char_dub", "anim", "vi_sub"):
+        assert f"name='mode' value='{m}'" not in home
+    assert "name='mode' value='review' checked" in home
 
     def make(**data):
         r = client.post("/jobs", data={"footage": str(f), **data}, follow_redirects=False)

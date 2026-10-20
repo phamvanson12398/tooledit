@@ -470,7 +470,7 @@ def test_web_voice_only_needs_language(tmp_path):
     footage = tmp_path / "v.mp4"
     footage.write_bytes(b"x")
     client = TestClient(create_app(tmp_path / "jobs", lambda root, log: make_runner(tmp_path, root)))
-    assert "Chỉ thay tiếng" in client.get("/").text
+    assert "name='mode' value='voice_only'" not in client.get("/").text  # chủ dự án 20/10: thẻ này đã bỏ khỏi trang chủ (backend còn cho job cũ)
     r = client.post("/jobs", data={"footage": str(footage), "voice_only": "on"}, follow_redirects=False)
     assert "Chưa chọn ngôn ngữ" in r.text
 

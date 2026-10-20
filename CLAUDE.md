@@ -576,6 +576,11 @@ lại `understanding.json` (`reuse_understanding`), không hỏi lại AI.
 chọn theo nội dung); bỏ ô "Giữ nhạc nền gốc" của chế độ Chỉ thay tiếng (mã `keep_bgm` vẫn còn, Lồng tiếng nhân vật vẫn tách
 giọng bằng Demucs).
 
+**Cập nhật 20/10 (chủ dự án): bỏ 7 thẻ chế độ khỏi trang chủ** — Dựng video TikTok (kể cả ghép nhiều video), Đổi ngôn ngữ,
+Chỉ thay tiếng, Content nhiều phim, Lồng tiếng nhân vật, Hoạt hình — giữ âm thanh gốc, Chỉ phụ đề tiếng Việt. Trang chủ chỉ
+còn `HOME_MODES` trong `app/web/server.py` (Review phim, Review bỏ lửng, Thế giới động vật, Bán content, Ý tưởng từ video
+dài, Bán content YouTube; mặc định chọn Review phim). Mã các chế độ cũ GIỮ LẠI để job cũ vẫn mở / chạy tiếp được.
+
 Web app chạy local (FastAPI + trang HTML đơn giản, không cần build frontend), mở trên trình duyệt. Chủ dự án không phải gõ lệnh khi dùng hằng ngày; có file `start.bat` để khởi động.
 
 Tùy chọn cho mỗi job:

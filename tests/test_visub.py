@@ -75,7 +75,7 @@ def test_web_form_vi_sub(tmp_path):
     app = create_app(tmp_path / "jobs", lambda root, log: None)
     app.state.worker.start = lambda job_id, action=None: True
     client = TestClient(app)
-    assert "Chỉ phụ đề tiếng Việt" in client.get("/").text
+    assert "name='mode' value='vi_sub'" not in client.get("/").text  # chủ dự án 20/10: thẻ này đã bỏ khỏi trang chủ (backend còn cho job cũ)
     r = client.post("/jobs", data={"footage": str(f), "vi_sub": "on"}, follow_redirects=False)
     job = Job.load(tmp_path / "jobs", r.headers["location"].rsplit("/", 1)[1])
     assert job.options.vi_sub and not job.applies("understand") and job.applies("write")

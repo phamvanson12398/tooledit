@@ -175,7 +175,7 @@ def test_web_form_films(tmp_path):
     app.state.worker.start = lambda job_id, action=None: True
     client = TestClient(app)
     home = client.get("/").text
-    assert "Content nhiều phim" in home and 'name="post_title"' in home and 'name="post_images"' in home
+    assert "name='mode' value='films'" not in home  # chủ dự án 20/10: thẻ này đã bỏ khỏi trang chủ (backend còn cho job cũ)
     assert 'name="post_url"' not in home                                               # bỏ ô dán link (14/10)
     # ô "Chọn video" (bắt buộc) bị ẩn ở chế độ này phải bị tắt — không thì trình duyệt chặn nút Bắt đầu (lỗi 14/10)
     assert "querySelectorAll('input,select,textarea')" in home

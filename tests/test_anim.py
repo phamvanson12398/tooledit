@@ -90,7 +90,7 @@ def test_home_anim_mode(tmp_path):
     app = create_app(tmp_path / "jobs", lambda root, log: None)
     app.state.worker.start = lambda job_id, action=None: True
     c = TestClient(app)
-    assert "name='mode' value='anim'" in c.get("/").text
+    assert "name='mode' value='anim'" not in c.get("/").text  # chủ dự án 20/10: thẻ này đã bỏ khỏi trang chủ (backend còn cho job cũ)
     res = c.post("/jobs", data={"footage": str(f), "mode": "anim", "target_language": "ko", "hook": "on"},
                  follow_redirects=False)
     job_id = res.headers["location"].rsplit("/", 1)[1]

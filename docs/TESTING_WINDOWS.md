@@ -1,5 +1,13 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 122 — Trang chủ chỉ còn 6 chế độ `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Phần chọn chế độ chỉ còn: 🎬 Review phim / hoạt hình, 🧨 Review bỏ lửng, 🦁 Thế giới động vật, 💰 Bán content, 💡 Ý tưởng
+   từ video dài, ▶️ Bán content YouTube (mặc định chọn sẵn Review phim). Không còn Dựng video TikTok, Đổi ngôn ngữ, Chỉ thay
+   tiếng, Content nhiều phim, Lồng tiếng nhân vật, Hoạt hình, Chỉ phụ đề tiếng Việt.
+3. Mở một job CŨ thuộc các chế độ đã bỏ (nếu có): trang job vẫn mở được bình thường.
+
 ## Bước 121 — Chọn giọng đọc ở mọi chế độ `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

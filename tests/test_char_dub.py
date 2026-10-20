@@ -227,7 +227,7 @@ def test_web_char_dub(tmp_path):
     app = create_app(tmp_path / "jobs", lambda root, log: None)
     app.state.worker.start = lambda job_id, action=None: True
     client = TestClient(app)
-    assert "Lồng tiếng nhân vật" in client.get("/").text
+    assert "name='mode' value='char_dub'" not in client.get("/").text  # chủ dự án 20/10: thẻ này đã bỏ khỏi trang chủ (backend còn cho job cũ)
     assert "Chưa chọn ngôn ngữ" in client.post("/jobs", data={"footage": str(f), "char_dub": "on"}).text
     r = client.post("/jobs", data={"footage": str(f), "char_dub": "on", "target_language": "ko", "hook": "on"},
                     follow_redirects=False)
