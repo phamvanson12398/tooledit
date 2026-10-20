@@ -229,11 +229,13 @@ def review_len(job) -> str:
             (" · 🎙️ giọng Voice Studio" if job.options.sell_voice else "")
     if job.options.cliff:  # review bỏ lửng: ngôi kể
         pov = job.options.cliff_pov or str(app_config.load("cliff").get("default_pov", "3"))
-        return " · ngôi thứ 1" if pov == "1" else " · ngôi thứ 3"
+        return (" · ngôi thứ 1" if pov == "1" else " · ngôi thứ 3") + \
+            (" · 🎙️ giọng Voice Studio" if job.options.sell_voice else "")
+    voice = " · 🎙️ giọng Voice Studio" if job.options.sell_voice else ""
     if not job.options.review:
-        return ""
+        return voice
     sec = int(job.options.review_s or app_config.load("review").get("default_s", 150))
-    return f" · {sec // 60}:{sec % 60:02d}"
+    return f" · {sec // 60}:{sec % 60:02d}" + voice
 
 
 def esc_mode(job) -> str:
@@ -618,11 +620,13 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 <select name="sell_variants">{variant_opts}</select>
                 <div class="muted">Mỗi bản một góc kể, câu mở đầu, thứ tự cảnh, tiêu đề khác nhau — đăng như video riêng.</div>
               </div>
-              <div data-modes="sell ideas yt">
+              <div data-modes="normal dub voice_only review cliff films char_dub anim wild sell ideas yt">
                 <label style="margin-top:10px">🎙️ Giọng đọc</label>
                 <select name="sell_voice">{sell_voice_opts}</select>
-                <div class="muted">Chọn giọng đã lưu ở tab <a href="/studio">🎙️ Voice Studio</a> → OmniVoice tự đọc, tự dựng,
-                khỏi ngồi canh (voice ngắn thì tự viết dài thêm một lần).</div>
+                <div class="muted">Chọn giọng đã lưu ở tab <a href="/studio">🎙️ Voice Studio</a> → tới bước chờ voice OmniVoice
+                tự đọc, tự dựng, khỏi ngồi canh. Chế độ nhiều nhân vật: mọi nhân vật đọc bằng giọng này (muốn mỗi nhân vật một
+                giọng thì để "Tôi tự thu" rồi đặt giọng từng người ở trang voice). Dựng video TikTok: chỉ dùng khi có đổi ngôn
+                ngữ.</div>
               </div>
               <div data-modes="sell ideas">
                 <div class="muted">Luôn dài hơn 60 giây. Video gốc ngắn hơn thì tool làm chậm nhẹ / dùng lại cảnh (lấy khúc
@@ -883,7 +887,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             sell_s=max(0, min(int(sell_s or 0), 180)) if sell else 0,
             sell_auto=sell and not ideas and not yt and int(sell_s or 0) == -1,
             sell_variants=max(1, min(int(sell_variants or 1), 3)) if sell and not ideas and not yt else 1,
-            sell_voice=sell_voice.strip() if sell else "",
+            sell_voice=sell_voice.strip() if mode != "vi_sub" and not vi_sub else "",  # 20/10: mọi chế độ có voice
             client_id=client.strip() or "khach", hook=bool(hook) and not voice_only and not review,
             reframe_per_scene=False,  # 15/10: khung video gốc → không đổi khung theo cảnh
             confirm_before_build=bool(confirm), split=bool(split) and not voice_only and not review and len(paths) == 1,

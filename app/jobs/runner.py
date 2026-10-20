@@ -1674,11 +1674,12 @@ class Runner:
             return []
 
     def _sell_auto_voice(self, job: Job) -> bool:
-        """Bán content (chủ dự án 17/10): giọng chọn sẵn trong thư viện Voice Studio → OmniVoice tự đọc các câu còn thiếu
+        """Giọng chọn sẵn khi tạo job (Bán content 17/10; MỌI chế độ có voice từ 20/10) trong thư viện Voice Studio →
+        OmniVoice tự đọc các câu còn thiếu — mọi nhân vật chưa được đặt giọng riêng đều dùng giọng này
         (giọng mẫu thì clone — chỉ khi giọng đó đã được xác nhận quyền; giọng mô tả thì đọc theo mô tả), dùng thông số
         mặc định của Voice Studio. Trả True nếu đã đọc được câu nào. Lỗi → ghi nhật ký, chuyển sang chờ bạn thu tay."""
         from app.tts import studio
-        from app.tts.voices import NARRATOR
+        from app.tts.voices import voice_key
 
         v = studio.get_voice(job.options.sell_voice)
         if v is None:
@@ -1698,7 +1699,8 @@ class Runner:
         else:
             spec = {"mode": "design", "instruct": v.get("instruct", "")}
         tts = job.data.setdefault("tts", {})
-        tts["voices"] = {NARRATOR: spec}
+        names = {voice_key(ln) for sc in self._dub_scripts(job).values() for ln in sc.lines}
+        tts["voices"] = {**{n: spec for n in names}, **(tts.get("voices") or {})}
         tts["gen"] = {k: val for k, val in studio.load_params().items() if k in studio.WORKER_KEYS}
         self.log(f"🎙️ Giọng Voice Studio '{v['name']}' — OmniVoice tự đọc cả bài…")
         try:
@@ -1827,7 +1829,7 @@ class Runner:
             return
         d, _, _ = self._paths(job)
         missing = dub_io.missing_lines(d, self._dub_scripts(job))
-        if missing and job.options.sell and job.options.sell_voice and not job.data.get("auto_tts_error"):
+        if missing and job.options.sell_voice and not job.data.get("auto_tts_error"):
             if self._sell_auto_voice(job):  # OmniVoice đã đọc → bước này chạy lại để kiểm tra
                 return
             missing = dub_io.missing_lines(d, self._dub_scripts(job))

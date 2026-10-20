@@ -379,6 +379,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   guidance_scale, t_shift, layer_penalty_factor, position_temperature, class_temperature, denoise, preprocess_prompt,
   postprocess_output, normalize_text, audio_chunk_duration / threshold, pad / fade, seed (worker `torch.manual_seed`);
   lưu làm mặc định ở `config/local.yaml → studio_params`. Worker nhận thêm `gen` (yêu cầu cũ không có `gen` chạy như cũ).
+- **Cập nhật 20/10 (chủ dự án): "các chế độ khi cấu hình đều cho chọn voice"** — ô "🎙️ Giọng đọc" (giọng trong thư viện
+  Voice Studio, `JobOptions.sell_voice`) hiện ở MỌI chế độ có voice (trừ Chỉ phụ đề tiếng Việt); tới bước chờ voice
+  OmniVoice tự đọc (`Runner._sell_auto_voice`, không còn chỉ cho Bán content). Nhiều nhân vật: mọi nhân vật chưa đặt giọng
+  riêng dùng giọng này. Clone vẫn CHỈ khi giọng đã xác nhận quyền. Tự viết dài thêm khi voice ngắn vẫn chỉ ở Bán content.
 
 ## 5c. Chế độ "Phụ đề tiếng Việt" (chủ dự án yêu cầu 08/10)
 

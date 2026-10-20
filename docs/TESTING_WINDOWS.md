@@ -1,5 +1,15 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 121 — Chọn giọng đọc ở mọi chế độ `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Bấm lần lượt các thẻ chế độ (Đổi ngôn ngữ, Review, Lồng tiếng nhân vật, Hoạt hình, Thế giới động vật…): thẻ nào cũng có
+   ô **🎙️ Giọng đọc** (trừ Chỉ phụ đề tiếng Việt).
+3. Tạo một job (vd Thế giới động vật) và chọn một giọng đã lưu ở tab 🎙️ Voice Studio → Bắt đầu.
+4. Tới bước chờ voice, nhật ký ghi "🎙️ Giọng Voice Studio '…' — OmniVoice tự đọc cả bài…", job tự chạy tiếp tới CapCut.
+5. Chế độ nhiều nhân vật (Lồng tiếng nhân vật / Hoạt hình): mọi nhân vật đọc cùng giọng đã chọn. Muốn mỗi nhân vật một
+   giọng thì để "Tôi tự thu voice" rồi đặt giọng từng nhân vật trên trang voice.
+
 ## Bước 120 — Chế độ mới "🦁 Thế giới động vật" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
