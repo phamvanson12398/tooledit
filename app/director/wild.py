@@ -155,18 +155,81 @@ def make_wild_script(director: Director, analysis_dir: Path, u, us: list[dict], 
         "transcript": format_transcript(a["transcript"].get("segments", []), 4000) or "(không có lời nói)",
         "feedback": feedback.strip() or "(không có)"}
 
-    def repair(r):  # câu lố mép cảnh vài phần giây → kẹp về trong cảnh
-        by = {x["id"]: x for x in us}
-        lines = []
-        for ln in r.lines:
-            x = by.get(ln.scene)
-            if x:
-                ln = ln.model_copy(update={"start": max(ln.start, x["start"]), "end": min(ln.end, x["end"])})
-            lines.append(ln)
-        return r.model_copy(update={"lines": lines}), []
+    def repair(r):
+        return repair_wild(r, us, cps, cfg)
 
-    return director.run("wild", variables, WildScript, [analysis_dir / f["file"] for f in frames],
-                        extra_check=lambda r: check_wild(r, u.language, us=us, cps=cps, cfg=cfg), repair=repair)
+    from app.director.base import DirectorError
+
+    try:
+        return director.run("wild", variables, WildScript, [analysis_dir / f["file"] for f in frames],
+                            extra_check=lambda r: check_wild(r, u.language, us=us, cps=cps, cfg=cfg), repair=repair)
+    except DirectorError as exc:  # chủ dự án 20/10: AI sai vặt 3 lần → vẫn dùng bản cuối nếu chỉ còn lỗi nhỏ
+        if exc.last is None or not cfg.get("accept_minor", True) or hard_problems(exc.problems):
+            raise
+        r = exc.last.model_copy(update={"editor_notes": (exc.last.editor_notes + " | ⚠️ Còn lỗi nhỏ (tool vẫn dùng): "
+                                                         + "; ".join(exc.problems))[:2000]})
+        director.log("⚠️ AI vẫn còn lỗi nhỏ sau 3 lần — vẫn dùng bản cuối: " + "; ".join(exc.problems))
+        return r
+
+
+# lỗi KHÔNG được bỏ qua: thiếu / lặp cảnh, sai ngôn ngữ, từ cấm, câu gắn cảnh không có
+HARD_MARKS = ("`order` phải gồm ĐỦ", "ngôn ngữ đích", "không được phép", "không có cảnh")
+
+
+def hard_problems(problems: list[str]) -> list[str]:
+    return [p for p in problems if any(m in p for m in HARD_MARKS)]
+
+
+def repair_wild(r, us: list[dict], cps: float, cfg: dict):
+    """Tự sửa lỗi vặt thay vì hỏi lại AI (mỗi lần hỏi Gemini mất ~10 phút — chủ dự án 20/10):
+    kẹp câu vào trong cảnh; câu dài quá `max_line_s` mà vẫn đọc kịp thì cắt đoạn đọc ngắn lại; xếp câu theo đúng thứ tự
+    hiện trên video mới; 2 câu sát nhau quá thì lùi câu sau (còn chỗ trong cảnh) hoặc kéo câu trước ngắn lại."""
+    from app.director.tasks import speech_chars
+
+    by = {x["id"]: x for x in us}
+    fixes = []
+    max_line = float(cfg.get("max_line_s", 9))
+    fill = float(cfg.get("line_fill", 1.15))
+    pause = float(cfg.get("min_pause_s", 2.0))
+
+    def fits(ln, a, b):
+        return b - a > 0.3 and speech_chars(ln.text) <= (b - a) * cps * fill
+
+    lines = []
+    for ln in r.lines:
+        x = by.get(ln.scene)
+        if x:
+            ln = ln.model_copy(update={"start": max(ln.start, x["start"]), "end": min(ln.end, x["end"])})
+            if ln.end - ln.start > max_line and fits(ln, ln.start, ln.start + max_line):
+                ln = ln.model_copy(update={"end": round(ln.start + max_line, 2)})
+                fixes.append(f"rút câu dài quá {max_line:.0f}s")
+        lines.append(ln)
+    if sorted(r.order) != sorted(by):  # thiếu / lặp cảnh → để AI sửa
+        return r.model_copy(update={"lines": lines}), fixes
+    pos = out_times(r.order, us)
+
+    def o(ln):
+        return pos.get(ln.scene, 0.0) + ln.start - by[ln.scene]["start"] if ln.scene in by else 1e9
+
+    srt = sorted(lines, key=o)
+    if srt != lines:
+        fixes.append("xếp lại câu theo thứ tự hiện trên video mới")
+    out = []
+    for ln in srt:
+        if out and ln.scene in by and out[-1].scene in by:
+            prev = out[-1]
+            gap = o(ln) - (o(prev) + prev.end - prev.start)
+            if gap < pause - 0.05:
+                need = pause - gap
+                x = by[ln.scene]
+                if ln.end + need <= x["end"]:  # lùi câu sau, giữ độ dài
+                    ln = ln.model_copy(update={"start": round(ln.start + need, 2), "end": round(ln.end + need, 2)})
+                    fixes.append("lùi câu cho đủ khoảng nghỉ")
+                elif fits(prev, prev.start, prev.end - need):  # kéo câu trước ngắn lại
+                    out[-1] = prev.model_copy(update={"end": round(prev.end - need, 2)})
+                    fixes.append("rút câu trước cho đủ khoảng nghỉ")
+        out.append(ln)
+    return r.model_copy(update={"lines": out}), sorted(set(fixes))
 
 
 def wild_plan(r, us: list[dict], default_ratio: str = "16:9"):

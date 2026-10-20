@@ -18,3 +18,7 @@ frame_every_s: 3.0            # …mỗi 3 giây một khung (và khung đầu m
 voice_detect_s: 3.0           # video gốc có ≥ chừng này giây lời nói (Whisper) → tách bỏ giọng bằng Demucs
 orig_db_under_voice: -8       # tiếng nền gốc hạ chừng này dB dưới lời dẫn mới
 orig_db_no_demucs: -22        # có giọng gốc mà chưa cài Demucs: hạ cả tiếng gốc xuống chừng này dB (không tách được)
+# Chủ dự án 20/10 (lỗi "sai khuôn 3 lần (wild)"): tool tự sửa lỗi vặt (xếp câu theo thứ tự video mới, rút câu > max_line_s,
+# lùi câu cho đủ khoảng nghỉ); AI vẫn sai 3 lần mà chỉ còn lỗi NHỎ (tỉ lệ lời dẫn, khoảng nghỉ, độ dài câu…) thì vẫn dùng
+# bản cuối và ghi ⚠️ vào nhật ký. Lỗi LỚN (thiếu / lặp cảnh, sai ngôn ngữ, từ cấm) vẫn báo lỗi. false = luôn báo lỗi.
+accept_minor: true

@@ -1,5 +1,14 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 123 — Thế giới động vật: hết lỗi "sai khuôn 3 lần (wild)" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.
+2. Job Thế giới động vật đang lỗi: mở trang job → 🛠️ **Làm lại từ bước plan** (hoặc tạo job mới).
+3. Nhật ký có thể có dòng "Tự sửa: xếp lại câu theo thứ tự hiện trên video mới / rút câu dài quá 9s / lùi câu cho đủ khoảng
+   nghỉ" — tool tự sửa, không hỏi lại AI.
+4. Nếu AI vẫn sai vặt 3 lần: nhật ký ghi "⚠️ AI vẫn còn lỗi nhỏ sau 3 lần — vẫn dùng bản cuối: …" và job chạy tiếp tới trang
+   voice (không còn báo lỗi). Chỉ khi AI bỏ mất cảnh / viết sai ngôn ngữ mới còn báo lỗi.
+
 ## Bước 122 — Trang chủ chỉ còn 6 chế độ `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

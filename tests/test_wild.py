@@ -99,3 +99,38 @@ def test_home_wild_mode(tmp_path):
     assert job.options.wild and len(job.footage) == 2 and not job.options.hook and not job.options.split
     assert "🦁 Thế giới động vật" in c.get(f"/jobs/{job_id}").text
     assert "Chưa chọn ngôn ngữ" in c.post("/jobs", data={"footage": files[0], "mode": "wild"}).text
+
+
+def test_repair_fixes_order_and_long_line():
+    """Chủ dự án 20/10: Gemini sai 3 lần ("câu phải xếp theo thứ tự", "câu dài 10.5s") → tool tự sửa, khỏi hỏi lại."""
+    from app.director.wild import repair_wild
+
+    lines = list(reversed(FIX["lines"]))
+    lines[0] = {**lines[0], "start": 25, "end": 35.5}  # 10.5s, chữ ít → rút còn 9s
+    r, fixes = repair_wild(WildScript.model_validate({**FIX, "lines": lines}), US, 7.0, CFG)
+    assert check_wild(r, "ko", us=US, cps=7.0, cfg={**CFG, "max_talk_share": 0.5}) == [] and fixes
+    assert [ln.scene for ln in r.lines] == [3, 3, 1, 2] and r.lines[-1].end - r.lines[-1].start == 9
+
+
+def _job(tmp_path, response):
+    jobs, job = prepare(tmp_path, JobOptions(wild=True, target_language="ko", client_id="k"))
+    job.data["montage_parts"] = PARTS
+    job.save(jobs)
+    r = _make_runner(tmp_path, jobs)
+    r._director = FakeDirector(responses={"plan": _short_plan(), "wild": response})
+    return r, r.run(job)
+
+
+def test_minor_errors_accepted_after_retries(tmp_path):
+    chatty = {**FIX, "lines": FIX["lines"] + [
+        {"scene": 1, "start": 12, "end": 17, "text": "사자", "text_vi": "x"},
+        {"scene": 2, "start": 33, "end": 38, "text": "사자", "text_vi": "x"}]}  # lời dẫn 47% > 30%: lỗi nhỏ
+    r, job = _job(tmp_path, chatty)
+    assert job.status == Status.waiting and job.step == "dub_voice", job.message  # vẫn dựng tiếp, không báo lỗi
+    saved = json.loads((tmp_path / "jobs" / "j1" / "plan" / "wild_video01.json").read_text(encoding="utf-8"))
+    assert "Còn lỗi nhỏ" in saved["editor_notes"] and "tối đa 30%" in saved["editor_notes"]
+
+
+def test_hard_errors_still_fail(tmp_path):
+    r, job = _job(tmp_path, {**FIX, "order": [3, 1]})  # bỏ mất cảnh 2 → không được dùng
+    assert job.status == Status.error and "sai khuôn" in job.message
