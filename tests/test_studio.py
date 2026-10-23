@@ -152,3 +152,36 @@ def test_studio_page_flow(tmp_path, monkeypatch):
             break
         time.sleep(0.05)
     assert len(seen) == 2 and seen[1]["voices"]["v"]["ref_audio"].endswith("sample.wav")
+
+
+def test_download_all_numbered_from_one(tmp_path):
+    """Chủ dự án 23/10: "tải 1 phát hết các file âm thanh và đánh số theo thứ tự từ 1"."""
+    import io
+    import zipfile
+
+    from fastapi.testclient import TestClient
+
+    from app.web.server import create_app
+
+    out = tmp_path / "studio" / "outputs"
+    out.mkdir(parents=True)
+    for stamp, n, text in (("20261023_101500", 2, "câu hai"), ("20261023_090000", 1, "lượt cũ"),
+                           ("20261023_101500", 10, "câu mười"), ("20261023_101500", 1, "câu một")):
+        f = out / f"{stamp}_giong_a_{n:02d}.wav"
+        f.write_bytes(f"{stamp}-{n}".encode())
+        f.with_suffix(".json").write_text(json.dumps({"text": text}, ensure_ascii=False), encoding="utf-8")
+    app = create_app(tmp_path / "jobs", lambda root, log: None, studio_root=tmp_path / "studio")
+    c = TestClient(app)
+    page = c.get("/studio").text
+    assert "Tải tất cả (4 file" in page and "batch=20261023_101500" in page
+
+    z = zipfile.ZipFile(io.BytesIO(c.get("/studio/download-all").content))
+    assert z.read("1.wav") == b"20261023_090000-1"  # lượt cũ trước, rồi theo thứ tự dòng
+    assert [z.read(f"{i}.wav") for i in (2, 3, 4)] == [b"20261023_101500-1", b"20261023_101500-2",
+                                                        b"20261023_101500-10"]
+    assert "4.wav\tcâu mười" in z.read("danh_sach.txt").decode("utf-8")
+
+    z = zipfile.ZipFile(io.BytesIO(c.get("/studio/download-all?batch=20261023_101500").content))
+    assert sorted(n for n in z.namelist() if n.endswith(".wav")) == ["1.wav", "2.wav", "3.wav"]
+    assert z.read("1.wav") == b"20261023_101500-1"
+    assert c.get("/studio/download-all?batch=../x").status_code == 400

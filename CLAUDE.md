@@ -384,6 +384,10 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   guidance_scale, t_shift, layer_penalty_factor, position_temperature, class_temperature, denoise, preprocess_prompt,
   postprocess_output, normalize_text, audio_chunk_duration / threshold, pad / fade, seed (worker `torch.manual_seed`);
   lưu làm mặc định ở `config/local.yaml → studio_params`. Worker nhận thêm `gen` (yêu cầu cũ không có `gen` chạy như cũ).
+- **Cập nhật 23/10 (chủ dự án): "tải 1 phát hết các file âm thanh, đánh số theo thứ tự từ 1"** — mục "🎧 File đã đọc" có
+  nút "📦 Tải tất cả" + "📦" từng lượt đọc (`/studio/download-all[?batch=YYYYMMDD_HHMMSS]`): MỘT file zip, file đặt lại tên
+  1.wav, 2.wav… theo thứ tự đọc (lượt cũ trước, trong lượt theo thứ tự dòng — `ordered_outputs`), kèm `danh_sach.txt`
+  (số → câu đã đọc → tên file gốc) — `app/tts/studio.zip_outputs`.
 - **Cập nhật 20/10 (chủ dự án): "các chế độ khi cấu hình đều cho chọn voice"** — ô "🎙️ Giọng đọc" (giọng trong thư viện
   Voice Studio, `JobOptions.sell_voice`) hiện ở MỌI chế độ có voice (trừ Chỉ phụ đề tiếng Việt); tới bước chờ voice
   OmniVoice tự đọc (`Runner._sell_auto_voice`, không còn chỉ cho Bán content). Nhiều nhân vật: mọi nhân vật chưa đặt giọng

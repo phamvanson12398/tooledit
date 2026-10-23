@@ -1,5 +1,13 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 124 — Voice Studio: tải hết file một lần, đánh số từ 1 `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat` → tab **🎙️ Voice Studio**.
+2. Đọc thử vài dòng với ô **"Mỗi dòng một file riêng"**.
+3. Mục **🎧 File đã đọc**: bấm **📦 Tải tất cả (N file, đánh số 1, 2, 3…)** → trình duyệt tải về một file `.zip`.
+   Giải nén: các file tên `1.wav`, `2.wav`, `3.wav`… đúng thứ tự đã đọc, kèm `danh_sach.txt` ghi số nào là câu nào.
+4. Muốn chỉ lấy một lượt: bấm nút **📦 <ngày giờ> · N file** bên dưới — zip chỉ có các câu của lượt đó, cũng đánh số từ 1.
+
 ## Bước 123 — Thế giới động vật: hết lỗi "sai khuôn 3 lần (wild)" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`.

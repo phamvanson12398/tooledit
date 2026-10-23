@@ -282,6 +282,59 @@ def history(root: Path | None = None, limit: int = 40) -> list[dict]:
     return out
 
 
+STAMP_RE = re.compile(r"^(\d{8}_\d{6})_.*_(\d+)$")
+
+
+def _order_key(p: Path) -> tuple:
+    """Thứ tự file đã đọc: lượt cũ trước, trong một lượt theo đúng thứ tự dòng (…_01, _02…)."""
+    m = STAMP_RE.match(p.stem)
+    return (m.group(1), int(m.group(2))) if m else (datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y%m%d_%H%M%S"), 0)
+
+
+def ordered_outputs(root: Path | None = None, batch: str = "") -> list[Path]:
+    """Mọi file âm thanh đã đọc (hoặc chỉ một lượt — `batch` = mốc giờ YYYYMMDD_HHMMSS) theo thứ tự đọc."""
+    d = outputs_dir(root)
+    files = [f for f in d.glob("*.wav") if not batch or f.name.startswith(batch + "_")] if d.is_dir() else []
+    return sorted(files, key=_order_key)
+
+
+def batches(root: Path | None = None, limit: int = 10) -> list[dict]:
+    """Các lượt đọc gần nhất: [{batch, files, label}] — để tải cả lượt một lần."""
+    groups: dict[str, list[Path]] = {}
+    for f in ordered_outputs(root):
+        m = STAMP_RE.match(f.stem)
+        if m:
+            groups.setdefault(m.group(1), []).append(f)
+    out = []
+    for b in sorted(groups, reverse=True)[:limit]:
+        t = datetime.strptime(b, "%Y%m%d_%H%M%S")
+        out.append({"batch": b, "files": len(groups[b]), "label": t.strftime("%d/%m %H:%M:%S")})
+    return out
+
+
+def zip_outputs(files: list[Path]) -> bytes:
+    """Nén các file thành MỘT file zip, đặt tên lại theo thứ tự 1.wav, 2.wav… (chủ dự án 23/10) + danh_sach.txt ghi
+    số nào đọc câu gì."""
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    lines = []
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
+        for i, f in enumerate(files, 1):
+            name = f"{i}{f.suffix.lower()}"
+            z.write(f, name)
+            text = ""
+            if f.with_suffix(".json").is_file():
+                try:
+                    text = json.loads(f.with_suffix(".json").read_text(encoding="utf-8")).get("text", "")
+                except ValueError:
+                    pass
+            lines.append(f"{name}\t{text}\t(file gốc: {f.name})")
+        z.writestr("danh_sach.txt", "\n".join(lines) + "\n")
+    return buf.getvalue()
+
+
 def safe_file(base: Path, rel: str) -> Path | None:
     """Đường dẫn file nằm TRONG base (chặn ../); không có thì None."""
     try:

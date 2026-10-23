@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from urllib.parse import quote
 
@@ -90,6 +90,17 @@ def register(app: FastAPI, page, *, root: Path | None = None, settings_path: Pat
                         f"<br><a href='/studio/file/outputs/{esc(h['file'])}' download>⬇️ {esc(h['file'])}</a></td>"
                         f"<td>{esc((h.get('text') or '')[:140])}<br><span class='muted'>{esc(h.get('voice_name', ''))}"
                         f" · {esc(h.get('created', ''))}</span></td></tr>")
+        # chủ dự án 23/10: tải MỘT lần hết các file, đánh số 1, 2, 3… theo thứ tự đọc
+        total = len(st.ordered_outputs(root))
+        zips = ""
+        if total:
+            zips = ("<div style='margin-bottom:10px'><a class='btn small' href='/studio/download-all'>📦 Tải tất cả "
+                    f"({total} file, đánh số 1, 2, 3…)</a></div>")
+            multi = [b for b in st.batches(root) if b["files"] > 1]
+            if multi:
+                zips += "<div class='muted'>Hoặc tải từng lượt đọc: " + " ".join(
+                    f"<a class='btn small light' href='/studio/download-all?batch={esc(b['batch'])}'>📦 {esc(b['label'])} "
+                    f"· {b['files']} file</a>" for b in multi) + "</div>"
         body = f"""
         <div class='topnav'><a class='btn light small' href='/'>🏠 Về trang chủ</a>
         <span class='muted'>OmniVoice: {esc(str(c.get('model', '')))} · python: {esc(str(c.get('python') or 'của tool'))}
@@ -128,7 +139,7 @@ def register(app: FastAPI, page, *, root: Path | None = None, settings_path: Pat
         <div class='card'><h2>⏳ Tiến độ</h2><div id='status' class='muted'>Chưa chạy.</div>
           <form method='post' action='/studio/stop'><button class='btn small light' type='submit'>⏹️ Dừng</button></form>
         </div>
-        <div class='card'><h2>🎧 File đã đọc</h2><table>{''.join(hist) or "<tr><td class='muted'>Chưa có.</td></tr>"}</table></div>
+        <div class='card'><h2>🎧 File đã đọc</h2>{zips}<table>{''.join(hist) or "<tr><td class='muted'>Chưa có.</td></tr>"}</table></div>
         </div>
         <div class='side'><div class='card'><h2>📚 Thư viện giọng mẫu</h2>
           <table>{''.join(lib_rows) or "<tr><td class='muted'>Chưa có giọng nào — tải file mẫu ở ô bên trái.</td></tr>"}</table>
@@ -189,6 +200,17 @@ def register(app: FastAPI, page, *, root: Path | None = None, settings_path: Pat
             return RedirectResponse("/studio?msg=" + quote("Đang đọc lượt trước — đợi xong hoặc bấm Dừng."),
                                     status_code=303)
         return RedirectResponse(f"/studio?voice={quote((v or {}).get('slug', ''))}", status_code=303)
+
+    @app.get("/studio/download-all")
+    def studio_download_all(batch: str = ""):
+        if batch and not st.re.fullmatch(r"\d{8}_\d{6}", batch):
+            return HTMLResponse("Lượt đọc không hợp lệ", status_code=400)
+        files = st.ordered_outputs(root, batch)
+        if not files:
+            return HTMLResponse("Chưa có file nào", status_code=404)
+        name = f"voice_studio_{batch or 'tat_ca'}.zip"
+        return Response(st.zip_outputs(files), media_type="application/zip",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
     @app.post("/studio/voices/{slug_name}/delete")
     def studio_delete(slug_name: str):
