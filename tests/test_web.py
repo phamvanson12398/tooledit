@@ -316,7 +316,9 @@ def test_home_only_auto_style_more_ratios_no_keep_bgm(tmp_path):
     page = TestClient(create_app(tmp_path / "jobs", lambda root, log: None)).get("/").text
     assert "AI tự chọn" in page and page.count("name='style'") == 1
     assert "Giải trí / show" not in page and "Trang điểm / làm đẹp" not in page
-    assert "name=\"keep_bgm\"" not in page and "Giữ nhạc nền gốc" not in page
+    assert "Giữ nhạc nền gốc" not in page
+    # 05/11: ô giữ nhạc nền chỉ còn trong thẻ 🌐 Chuyển ngôn ngữ
+    assert page.count("name=\"keep_bgm\"") == 1 and '<div data-modes="convert">\n                <label class="chip" style="margin-top:10px"><input type="checkbox" name="keep_bgm"' in page
     # 15/10: bỏ ô Khung video (mặc định khung gốc) — job cũ đã chọn khung vẫn dựng như trước
     assert "name='ratio'" not in page and "name=\"reframe\"" not in page and "giữ đúng khung video gốc" in page
     job = Job.create(tmp_path / "j", [Path("C:/f/a.mp4")], JobOptions(), job_id="x")

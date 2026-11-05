@@ -56,7 +56,7 @@ def test_home_voice_picker_for_every_voice_mode(tmp_path, monkeypatch):
     app.state.worker.start = lambda job_id, action=None: True
     c = TestClient(app)
     page = c.get("/").text
-    assert 'data-modes="normal dub voice_only review cliff films char_dub anim wild sell ideas yt">\n' \
+    assert 'data-modes="normal dub voice_only convert review cliff films char_dub anim wild sell ideas yt">\n' \
            '                <label style="margin-top:10px">🎙️ Giọng đọc</label>' in page
     for mode in ("review", "char_dub", "dub", "vi_sub"):
         res = c.post("/jobs", data={"footage": str(f), "mode": mode, "target_language": "ja", "sell_voice": v["slug"]},
