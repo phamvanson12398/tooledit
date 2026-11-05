@@ -108,3 +108,30 @@ voice_only:
 
 # Chế độ "Phụ đề tiếng Việt" (08/10): số câu dịch mỗi lần hỏi AI (video dài chia nhiều lô)
 vi_sub_batch: 60
+
+# Chế độ "🌐 Chuyển ngôn ngữ" (chủ dự án yêu cầu 05/11): giữ nguyên hình (như Chỉ thay tiếng), DỊCH lời gốc sang ngôn ngữ
+# đích rồi thêm MỘT lượt AI biên tập lại từng câu cho đúng cách người bản xứ nói (prompt dub_polish.md).
+convert:
+  polish: true               # false = chỉ dịch (không hỏi AI lượt 2)
+  keep_bgm: true             # mặc định tick "Giữ nhạc nền + tiếng động gốc" (cần Demucs; chưa cài thì dùng nhạc AI)
+  native_tips:               # mẹo nói như người bản xứ, gửi kèm đề bài biên tập
+    ko: |
+      - Chọn đúng mức kính ngữ: lời thuyết minh với người xem dùng ~요 / ~죠 thân mật lịch sự; nhân vật nói với bạn bè thì
+        반말 (~야, ~어, ~지); với người lớn / khách thì 존댓말. Giữ nhất quán cả bài.
+      - Bỏ chủ ngữ khi đã rõ (không lặp 저는 / 그는 / 그녀는 — 그녀 gần như không dùng trong văn nói). Gọi người bằng tên / 이 사람.
+      - Dùng đuôi câu văn nói: ~거든요, ~더라고요, ~잖아요, ~네요, ~ㄹ걸요; tránh văn viết ~이다 / ~한다 / ~것이다.
+      - Từ thường ngày thay Hán-Hàn trang trọng (진짜 / 엄청 / 완전 thay 매우 / 굉장히 khi giọng vui); phản ứng tự nhiên
+        như 헐, 대박, 와 khi đúng cảm xúc.
+    ja: |
+      - Văn nói: 〜んです / 〜んだよね / 〜じゃん / 〜よね / 〜かな; tránh văn viết である / のだ.
+      - Chọn đúng mức: lời dẫn với người xem dùng です・ます mềm; nhân vật thân nhau dùng タメ口; với cấp trên / khách dùng 敬語.
+      - Bỏ chủ ngữ khi đã rõ (không lặp 私は / 彼は / 彼女は); gọi bằng tên + さん / くん / ちゃん đúng quan hệ.
+      - Câu ngắn, ngắt ý bằng 、 tự nhiên; từ cảm thán đúng lúc (えっ, まじで, やばい, すごっ).
+    en: |
+      - Spoken, casual English: contractions (it's, don't, gonna khi giọng vui), câu ngắn, động từ mạnh.
+      - Đổi thành ngữ / cách đùa sang thứ người Anh-Mỹ thật sự nói; không giữ cấu trúc câu của tiếng gốc.
+      - Không quá trang trọng (avoid "furthermore", "in addition", "it is"); filler tự nhiên khi hợp (like, so, okay, honestly).
+    de: |
+      - Gesprochenes Deutsch: du với người xem (TikTok), Sie chỉ khi nhân vật nói với khách / người lạ; dùng ja, doch, mal,
+        halt, eben đúng chỗ; câu ngắn, động từ đúng vị trí.
+      - Thành ngữ Đức thật sự dùng (krass, Wahnsinn, echt jetzt?) khi đúng cảm xúc; không dịch từng chữ cấu trúc tiếng gốc.

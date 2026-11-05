@@ -50,6 +50,8 @@ class JobOptions(BaseModel):
     vi_sub: bool = False              # Phụ đề tiếng Việt (08/10): chỉ dịch lời sang tiếng Việt để xem hiểu, không dựng lại
     hype: bool = False                # Chuyển cảnh liên tục: cảnh gay cấn lên đầu (3–5s/cảnh), còn lại về sau (07/10)
     script_mode: str = ""             # Đổi ngôn ngữ: "rewrite" = AI xem video viết mới / "translate" = dịch; "" = theo config
+    convert: bool = False             # 🌐 Chuyển ngôn ngữ (05/11): đi CÙNG voice_only=True — giữ hình, dịch lời gốc rồi AI
+                                      #   biên tập lại cho đúng cách người bản xứ nói (config/dub.yaml → convert)
     keep_bgm: bool = False            # (cùng voice_only) giữ nhạc nền gốc: tách giọng nói ra, chỉ thay lời thuyết minh
     review: bool = False              # Review phim / hoạt hình: 11/10 tóm gọn CẢ phim thành MỘT video, chỉ kể ý chính
     review_s: int = 0                 # Review (11/10): thời lượng video chủ dự án chọn (giây); 0 = default_s trong review.yaml

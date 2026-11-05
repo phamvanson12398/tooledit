@@ -142,6 +142,19 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - Video **mở đầu im lặng** (vd chỉ show món ăn / sản phẩm): BẮT BUỘC có lời dẫn mở đầu ngay từ cảnh đầu, giọng như
   video nấu ăn — gần gũi, gợi thèm, gợi tò mò cách làm (`narration.opening` trong `config/dub.yaml`).
 
+## 5k. Chế độ "🌐 Chuyển ngôn ngữ" (chủ dự án yêu cầu 05/11)
+
+- Thẻ "🌐 Chuyển ngôn ngữ" ở trang chủ (`HOME_MODES`, `JobOptions.convert`, đi CÙNG `voice_only=True` +
+  `script_mode="translate"` để dùng chung mọi thứ của "Chỉ thay tiếng"): MỘT video, gốc nói tiếng gì cũng được (Whisper tự
+  nhận), cần chọn ngôn ngữ đích (Hàn / Nhật / Anh / Đức). Hình giữ NGUYÊN, không hook, không chia video.
+- Lời mới: AI DỊCH đúng ý từng câu gốc (prompt `dub.md`), rồi thêm MỘT lượt **biên tập theo giọng bản xứ**
+  (`tasks.polish_dub_script`, prompt `dub_polish.md`, `Runner._convert_polish`): đọc lại từng câu kèm lời gốc, viết lại
+  cho đúng cách người bản xứ nói — trật tự câu, xưng hô / kính ngữ, thành ngữ, đuôi câu văn nói (mẹo từng ngôn ngữ ở
+  `config/dub.yaml → convert.native_tips`), giữ đúng ý, ghi `adapt_vi` khi đổi cách nói. GIỮ số câu + mốc giây + kind
+  (code tự chép lại), kiểm tra lại bằng `check_dub`; lượt biên tập lỗi thì dùng bản dịch, ghi ⚠️ nhật ký. Bản dịch nháp
+  lưu `plan/dub_draft_videoNN.json`. Tắt lượt biên tập: `convert.polish: false`.
+- Ô "🎵 Giữ nhạc nền + tiếng động gốc" (mặc định tick — `convert.keep_bgm`) = `keep_bgm` (Demucs bỏ giọng nói gốc).
+
 ## 5d. Chế độ "Lồng tiếng nhân vật" (chủ dự án yêu cầu 11/10)
 
 - Ô tick "🎭 Lồng tiếng nhân vật" (`JobOptions.char_dub`, `config/char_dub.yaml`), một video, cần chọn ngôn ngữ đích
@@ -588,6 +601,8 @@ giọng bằng Demucs).
 Chỉ thay tiếng, Content nhiều phim, Lồng tiếng nhân vật, Hoạt hình — giữ âm thanh gốc, Chỉ phụ đề tiếng Việt. Trang chủ chỉ
 còn `HOME_MODES` trong `app/web/server.py` (Review phim, Review bỏ lửng, Thế giới động vật, Bán content, Ý tưởng từ video
 dài, Bán content YouTube; mặc định chọn Review phim). Mã các chế độ cũ GIỮ LẠI để job cũ vẫn mở / chạy tiếp được.
+
+**Cập nhật 05/11 (chủ dự án):** thêm thẻ "🌐 Chuyển ngôn ngữ" (mục 5k) vào `HOME_MODES` (đứng sau Review phim).
 
 Web app chạy local (FastAPI + trang HTML đơn giản, không cần build frontend), mở trên trình duyệt. Chủ dự án không phải gõ lệnh khi dùng hằng ngày; có file `start.bat` để khởi động.
 

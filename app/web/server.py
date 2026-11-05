@@ -151,9 +151,11 @@ STEP_VI_MODE = {
              "write": "Cắt / đảo cảnh theo voice → đóng gói CapCut"},
     "voice_only": {"plan": "AI lập kế hoạch (giữ nguyên hình)", "dub": "AI viết thuyết minh",
                    "dub_voice": "Chờ voice thuyết minh"},
+    "convert": {"plan": "AI lập kế hoạch (giữ nguyên hình)", "dub": "AI dịch + biên tập cho đúng giọng bản xứ",
+                "dub_voice": "Chờ voice ngôn ngữ mới"},
 }
 MODE_VI = {"wild": "🦁 Thế giới động vật", "anim": "🎨 Hoạt hình — giữ âm thanh gốc", "yt": "▶️ Bán content YouTube", "ideas": "💡 Ý tưởng từ video dài", "sell": "💰 Bán content", "films": "🎞️ Content nhiều phim", "char_dub": "🎭 Lồng tiếng nhân vật", "review": "🎬 Review phim / hoạt hình", "cliff": "🧨 Review bỏ lửng", "vi_sub": "🇻🇳 Chỉ phụ đề tiếng Việt",
-           "voice_only": "🎙️ Chỉ thay tiếng", "dub": "🌐 Đổi ngôn ngữ", "montage": "🎞️ Ghép nhiều video",
+           "voice_only": "🎙️ Chỉ thay tiếng", "convert": "🌐 Chuyển ngôn ngữ", "dub": "🌐 Đổi ngôn ngữ", "montage": "🎞️ Ghép nhiều video",
            "normal": "✂️ Dựng thường"}
 
 
@@ -191,6 +193,8 @@ def job_mode(job) -> str:
         return "review"
     if o.vi_sub:
         return "vi_sub"
+    if o.convert:
+        return "convert"
     if o.voice_only:
         return "voice_only"
     if len(job.footage) > 1:
@@ -248,10 +252,11 @@ def step_label(job, st: str) -> str:
 
 
 # các chế độ (thẻ) trên trang chủ; mỗi chế độ bật đúng một ô tick cũ (normal / dub: không ô nào)
-MODES = ("normal", "dub", "voice_only", "review", "cliff", "films", "char_dub", "anim", "wild", "sell", "ideas", "yt", "vi_sub")
+MODES = ("normal", "dub", "voice_only", "convert", "review", "cliff", "films", "char_dub", "anim", "wild", "sell", "ideas", "yt", "vi_sub")
 # chủ dự án 20/10: BỎ khỏi trang chủ Dựng video TikTok / Đổi ngôn ngữ / Chỉ thay tiếng / Content nhiều phim / Lồng tiếng nhân vật /
 # Hoạt hình / Chỉ phụ đề tiếng Việt — chỉ còn các thẻ dưới đây (mã các chế độ cũ giữ lại để job cũ vẫn mở / chạy tiếp được)
-HOME_MODES = ("review", "cliff", "wild", "sell", "ideas", "yt")
+# chủ dự án 05/11: thêm "🌐 Chuyển ngôn ngữ" (vd tiếng Anh → tiếng Hàn, câu nói biên tập theo cách người bản xứ nói)
+HOME_MODES = ("review", "convert", "cliff", "wild", "sell", "ideas", "yt")
 
 STATUS_VI = {"pending": "chờ chạy", "running": "đang chạy", "waiting": "chờ bạn", "error": "lỗi", "done": "xong",
              "stopped": "đã dừng"}
@@ -541,6 +546,8 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                  "<b>Ghép nhiều video</b> thành một câu chuyện ~2 phút"),
                 ("dub", "🌐", "Đổi ngôn ngữ", "Thuyết minh + phụ đề tiếng Hàn / Nhật / Anh / Đức, dựng lại khác bản gốc"),
                 ("voice_only", "🎙️", "Chỉ thay tiếng", "Giữ NGUYÊN hình, chỉ thay voice + phụ đề ngôn ngữ mới"),
+                ("convert", "🌐", "Chuyển ngôn ngữ", "Vd tiếng Anh → tiếng Hàn: giữ NGUYÊN hình, AI dịch lời gốc rồi "
+                 "biên tập lại từng câu cho đúng cách người bản xứ nói → voice + phụ đề ngôn ngữ mới"),
                 ("review", "🎬", "Review phim / hoạt hình",
                  "Tóm gọn CẢ phim thành MỘT video, chỉ kể ý chính — bạn chọn thời lượng"),
                 ("cliff", "🧨", "Review bỏ lửng",
@@ -560,6 +567,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                  "mới hoặc xào nấu lại, voice + nhạc mới, phụ đề, kèm tiêu đề / mô tả có mốc chương / tag"),
                 ("vi_sub", "🇻🇳", "Chỉ phụ đề tiếng Việt", "Để bạn xem hiểu video nước ngoài (.srt + draft giữ nguyên)"),
             ) if x[0] in HOME_MODES])
+        convert_bgm = "checked" if ((app_config.load("dub").get("convert") or {}).get("keep_bgm", True)) else ""
         body = f"""
         <div class="hero"><div><h2>Xin chào 👋</h2><p>Chọn video → chọn kiểu làm → bấm <b>Bắt đầu</b>.
         Tool tự làm phần còn lại, chỗ nào cần bạn (duyệt đoạn, thu voice…) sẽ báo trong danh sách bên phải.</p></div></div>
@@ -568,7 +576,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <h2>🎞️ Tạo video mới</h2>
           <input type='hidden' name='style' value='auto'>
           <section class="stepbox"><div class="num">1</div><div class="sb">
-            <div data-modes="normal dub voice_only review cliff char_dub anim wild sell ideas yt vi_sub">
+            <div data-modes="normal dub voice_only convert review cliff char_dub anim wild sell ideas yt vi_sub">
             <h3>Chọn video</h3>
             <div class="row"><textarea id="footage" name="footage" rows="2" placeholder="Bấm Chọn file… hoặc dán đường dẫn (nhiều video: mỗi dòng một file)" required></textarea>
             <button type="button" class="btn light" onclick="pick()">📂 Chọn file…</button></div>
@@ -586,7 +594,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
           <section class="stepbox"><div class="num">2</div><div class="sb">
             <h3>Bạn muốn làm gì?</h3>
             <div class="modes">{modes}</div>
-            <div class="langbox" data-modes="normal dub voice_only review cliff films char_dub anim wild sell ideas yt">
+            <div class="langbox" data-modes="normal dub voice_only convert review cliff films char_dub anim wild sell ideas yt">
               <label>🌐 Ngôn ngữ video mới</label>
               <select name="target_language" id="lang"><option value="">Giữ nguyên ngôn ngữ gốc</option>
                 <option value="ko">Đổi sang tiếng Hàn (한국어)</option><option value="ja">Đổi sang tiếng Nhật (日本語)</option>
@@ -623,7 +631,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 <select name="sell_variants">{variant_opts}</select>
                 <div class="muted">Mỗi bản một góc kể, câu mở đầu, thứ tự cảnh, tiêu đề khác nhau — đăng như video riêng.</div>
               </div>
-              <div data-modes="normal dub voice_only review cliff films char_dub anim wild sell ideas yt">
+              <div data-modes="normal dub voice_only convert review cliff films char_dub anim wild sell ideas yt">
                 <label style="margin-top:10px">🎙️ Giọng đọc</label>
                 <select name="sell_voice">{sell_voice_opts}</select>
                 <div class="muted">Chọn giọng đã lưu ở tab <a href="/studio">🎙️ Voice Studio</a> → tới bước chờ voice OmniVoice
@@ -639,6 +647,12 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                 <option value="3" {'selected' if cliff_pov != '1' else ''}>Ngôi thứ 3 — người ngoài kể về nhân vật</option>
                 <option value="1" {'selected' if cliff_pov == '1' else ''}>Ngôi thứ 1 — nhân vật chính tự kể ("tôi")</option></select>
                 <div class="muted">Mỗi video 1:30–2:00 (tính cả short mở đầu). Phim chưa hết thì tự chia thêm phần, kể tới hết phim, không bỏ cảnh.</div></div>
+              <div data-modes="convert">
+                <label class="chip" style="margin-top:10px"><input type="checkbox" name="keep_bgm" {convert_bgm}> 🎵 Giữ nhạc nền + tiếng
+                động gốc (chỉ bỏ giọng nói gốc — cần cài Demucs, chưa cài thì dùng nhạc nền nhẹ)</label>
+                <div class="muted">Lời mới = dịch đúng ý lời gốc, rồi AI đọc lại như người bản xứ để sửa câu cứng / "dịch máy":
+                đúng xưng hô, kính ngữ, thành ngữ, đuôi câu văn nói. Câu nào đổi cách nói cho hợp nước đó sẽ ghi chú tiếng Việt.</div>
+              </div>
               <div data-modes="dub voice_only"><label style="margin-top:10px">✍️ Cách viết lời thuyết minh</label>
                 <select name="script_mode">
                 <option value="rewrite">AI xem video rồi VIẾT MỚI nội dung hợp nước đó (không dịch)</option>
@@ -652,7 +666,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="split"> ✂️ Chia video dài thành nhiều video</label>
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="hype"> ⚡ Chuyển cảnh liên tục</label>
               <label class="chip" data-modes="normal dub"><input type="checkbox" name="confirm"> ✅ Xác nhận trước khi dựng</label>
-              <label class="chip" data-modes="normal dub voice_only review"><input type="checkbox" name="business"> 💼 Khách doanh nghiệp</label>
+              <label class="chip" data-modes="normal dub voice_only convert review"><input type="checkbox" name="business"> 💼 Khách doanh nghiệp</label>
             </div>
             <div class="muted" style="margin-top:10px">🖼️ Khung video: giữ đúng khung video gốc, không cắt, không thu phóng.</div>
             <details class="adv"><summary>⚙️ Nâng cao: AI đạo diễn, nhạc nền, mã khách</summary>
@@ -685,6 +699,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
         }}
         const HINT={{normal:'Video gốc tiếng Hàn / Nhật / Anh / Đức thì để Giữ nguyên. Tiếng khác (Trung, Việt…) thì chọn ngôn ngữ cho bản TikTok.', dub:'Bạn sẽ thu voice từng câu bằng Voice Studio (hoặc cho OmniVoice đọc).',
           voice_only:'Không cắt, không đổi khung — chỉ thay tiếng. Cần chọn ngôn ngữ mới.',
+          convert:'Chọn ngôn ngữ MỚI (khác tiếng gốc), vd video tiếng Anh → chọn tiếng Hàn. Video gốc nói tiếng gì cũng được.',
           review:'Không chọn ngôn ngữ = lời review bằng tiếng gốc của phim.',
           films:'Chọn ngôn ngữ của video mới (Hàn / Nhật / Anh / Đức).',
           cliff:'Lời review tiếng Hàn / Nhật / Anh / Đức. Không chọn ngôn ngữ = tiếng gốc của phim (phải là Hàn / Nhật / Anh / Đức).',
@@ -819,8 +834,11 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                                   client, ai)
         cliff = mode == "cliff"
         if mode in MODES:  # trang chủ mới: chọn MỘT chế độ (thẻ) thay cho các ô tick riêng
-            review, char_dub, vi_sub, voice_only = (("on" if mode == m or (m == "review" and cliff) else None)
+            review, char_dub, vi_sub, voice_only = (("on" if mode == m or (m == "review" and cliff)
+                                                     or (m == "voice_only" and mode == "convert") else None)
                                                     for m in ("review", "char_dub", "vi_sub", "voice_only"))
+            if mode == "convert":  # 🌐 Chuyển ngôn ngữ = giữ hình như Chỉ thay tiếng + DỊCH rồi biên tập theo giọng bản xứ
+                script_mode = "translate"
             if mode == "vi_sub":
                 target_language = ""
             if mode in ("sell", "ideas", "yt", "anim", "wild") and target_language not in TARGET_LANGS:
@@ -850,12 +868,13 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
                          + "</p><p><a class='btn light' href='/'>Quay lại</a></p></div>")
         path = paths[0]
         lang = target_language if target_language in TARGET_LANGS else ""
+        mode_name = "Chuyển ngôn ngữ" if mode == "convert" else "Chỉ thay tiếng"
         if voice_only and len(paths) > 1:
-            return _page("Lỗi", "<div class='card'><h2>Chỉ thay tiếng dùng cho MỘT video</h2><p>Bỏ tick "
-                         "<b>Chỉ thay tiếng</b> để ghép nhiều video, hoặc chỉ chọn một file.</p>"
+            return _page("Lỗi", f"<div class='card'><h2>{mode_name} dùng cho MỘT video</h2><p>Bỏ tick "
+                         f"<b>{mode_name}</b> để ghép nhiều video, hoặc chỉ chọn một file.</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         if voice_only and not lang:
-            return _page("Lỗi", "<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>Chỉ thay tiếng</b> cần chọn "
+            return _page("Lỗi", f"<div class='card'><h2>Chưa chọn ngôn ngữ</h2><p>Chế độ <b>{mode_name}</b> cần chọn "
                          "ngôn ngữ mới ở ô <b>🌐 Đổi ngôn ngữ video</b> (Hàn / Nhật / Anh / Đức).</p>"
                          "<p><a class='btn light' href='/'>Quay lại</a></p></div>")
         if char_dub and (review or voice_only or vi_sub or len(paths) > 1):
@@ -899,6 +918,7 @@ def create_app(jobs_root: Path = JOBS_ROOT, runner_factory=None, *, assets_root:
             cliff=cliff, cliff_pov=(cliff_pov if cliff_pov in ("1", "3") else "") if cliff else "",
             char_dub=bool(char_dub),
             target_language=lang, voice_only=bool(voice_only), keep_bgm=bool(keep_bgm) and bool(voice_only),
+            convert=mode == "convert" and bool(voice_only),
             script_mode=script_mode if script_mode in ("rewrite", "translate") else "",
             vi_sub=bool(vi_sub) and len(paths) == 1, ai=ai if ai in AI_NAMES else ""))
         # chủ dự án 15/10: bỏ ô Khung video — mọi job mới giữ khung video GỐC, không cắt, không thu phóng

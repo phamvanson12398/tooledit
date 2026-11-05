@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 125 — Chế độ 🌐 Chuyển ngôn ngữ `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, mở PowerShell trong thư mục tool rồi chạy `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Ở "Bạn muốn làm gì?" có thẻ mới **🌐 Chuyển ngôn ngữ**. Chọn một video tiếng Anh ngắn (~1 phút), chọn thẻ này, ô ngôn ngữ
+   chọn **tiếng Hàn**. Ô "🎵 Giữ nhạc nền + tiếng động gốc" đã tick sẵn.
+3. Bấm **Bắt đầu**. Trong nhật ký job phải thấy lần lượt: "Viết lời thuyết minh video 01…" rồi
+   "AI biên tập lời dịch cho đúng cách người bản xứ nói…".
+4. Tới trang voice: đọc các câu tiếng Hàn — phải là văn nói tự nhiên (đuôi ~요 / ~거든요…, không lặp 그는 / 그녀는). Câu nào
+   AI đổi cách nói cho hợp người Hàn có ghi chú tiếng Việt.
+5. Muốn so với bản dịch thô: mở `jobs\<mã job>\plan\dub_draft_video01.json` (bản dịch) và `dub_video01.json` (bản đã biên tập).
+6. Thu voice (hoặc 🤖 OmniVoice) → dựng → mở CapCut: hình giữ nguyên, voice + phụ đề tiếng Hàn, nhạc nền gốc còn (nếu đã cài Demucs).
+
 ## Bước 124 — Voice Studio: tải hết file một lần, đánh số từ 1 `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat` → tab **🎙️ Voice Studio**.

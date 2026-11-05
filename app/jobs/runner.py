@@ -1418,6 +1418,8 @@ class Runner:
                     s = exc.last
                     self.log(f"Video {i:02d}: dùng bản thuyết minh gần nhất dù còn {len(exc.problems)} lỗi nhỏ "
                              "(accept_imperfect trong config/dub.yaml).")
+                if job.options.convert and (config.load("dub").get("convert") or {}).get("polish", True):
+                    s = self._convert_polish(job, analysis, plan, v, s)
                 dub_io.dub_path(d, i).write_text(s.model_dump_json(indent=2), encoding="utf-8")
                 dub_io.pending_path(d, i).unlink(missing_ok=True)
             if job.options.cliff:  # phụ đề cho short mở đầu — dịch sẵn cùng lúc viết lời
@@ -2117,6 +2119,19 @@ class Runner:
             return True
         job.save(self.jobs_root)
         return False
+
+    def _convert_polish(self, job: Job, analysis: Path, plan, v: dict, draft):
+        """🌐 Chuyển ngôn ngữ: AI biên tập bản dịch cho đúng cách người bản xứ nói; lỗi thì giữ bản dịch (ghi nhật ký)."""
+        from app.director.tasks import polish_dub_script
+        i = v["index"]
+        d, _, _ = self._paths(job)
+        (d / "plan" / f"dub_draft_video{i:02d}.json").write_text(draft.model_dump_json(indent=2), encoding="utf-8")
+        self.log(f"Video {i:02d}: AI biên tập lời dịch cho đúng cách người bản xứ nói…")
+        try:
+            return polish_dub_script(self.director, analysis, draft, self._u_for(job, v), plan)
+        except Exception as exc:  # noqa: BLE001 — lượt biên tập hỏng thì vẫn dùng bản dịch, không dừng job
+            self.log(f"⚠️ Video {i:02d}: chưa biên tập được ({str(exc)[:200]}) — dùng bản dịch.")
+            return draft
 
     def script_mode(self, job: Job) -> str:
         """Cách viết thuyết minh: rewrite (AI xem video, viết mới theo nước đích) hoặc translate (dịch sát)."""

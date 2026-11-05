@@ -1674,6 +1674,46 @@ def make_char_dub(director: Director, analysis_dir: Path, u, plan, *, video_inde
                         extra_check=extra, repair=repair)
 
 
+def polish_dub_script(director: Director, analysis_dir: Path, script, u, plan, *, footage: int = 0):
+    """Chế độ 🌐 Chuyển ngôn ngữ (chủ dự án yêu cầu 05/11): lượt 2 sau bản dịch — AI đọc lại từng câu như người bản xứ,
+    viết lại cho đúng cách họ nói (trật tự câu, kính ngữ / xưng hô, thành ngữ, đuôi câu văn nói), GIỮ số câu + mốc giây
+    + kind (code tự chép lại nếu AI đổi). Prompt dub_polish.md, mẹo từng ngôn ngữ ở config/dub.yaml → convert.native_tips."""
+    from app.director.schemas import DubScript
+
+    cfg = config.load("dub")
+    segs = load_analysis(analysis_dir, footage)["transcript"].get("segments", [])
+
+    def orig(ln) -> str:
+        t = " ".join(x["text"].strip() for x in _segments_in(segs, ln.source_start, ln.source_end))
+        return apply_name_corrections(t, u.name_corrections) or "(không có lời gốc — lời dẫn)"
+
+    lines = "\n".join(f"[{i}] ({ln.source_start:.1f}–{ln.source_end:.1f}s{', lời dẫn' if ln.kind == 'narration' else ''}) "
+                      f"{orig(ln)} → {ln.text}  // {ln.text_vi}" for i, ln in enumerate(script.lines, 1))
+    tips = ((cfg.get("convert") or {}).get("native_tips") or {}).get(u.language) or "(không có)"
+    variables = {"language_name": LANGUAGE_NAMES.get(u.language, u.language),
+                 "source_name": LANGUAGE_NAMES.get(u.source_language, u.source_language),
+                 "market": MARKETS.get(u.language, "TikTok"), "n": len(script.lines), "lines": lines,
+                 "cps": f"{effective_cps(cfg, u.language):.1f}", "native_tips": tips.strip(),
+                 "localize_brief": localize_brief(u),
+                 "sensitive_notes": _shared_context(u, []).get("sensitive_notes", "")}
+
+    def repair(r):
+        if len(r.lines) != len(script.lines):
+            return r, []
+        fixed = [ln.model_copy(update={"source_start": o.source_start, "source_end": o.source_end, "kind": o.kind,
+                                       "action_vi": ln.action_vi or o.action_vi, "speaker": o.speaker})
+                 for ln, o in zip(r.lines, script.lines)]
+        return r.model_copy(update={"lines": fixed, "video_index": script.video_index,
+                                    "story_vi": r.story_vi or script.story_vi, "cast": r.cast or script.cast}), []
+
+    def extra(r) -> list[str]:
+        if len(r.lines) != len(script.lines):
+            return [f"phải giữ đúng {len(script.lines)} câu (chỉ sửa chữ, không thêm / bớt / gộp câu)"]
+        return check_dub(r, plan, u.language, cfg)
+
+    return director.run("dub_polish", variables, DubScript, extra_check=extra, repair=repair)
+
+
 def make_dub(director: Director, analysis_dir: Path, u, plan, *, hook=None, video_index: int = 1, footage: int = 0,
              mode: str = "translate", review_s: int = 0, voice_info: list | None = None, hook_s: float = 0.0,
              cliff: dict | None = None):
