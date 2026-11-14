@@ -78,6 +78,8 @@ class JobOptions(BaseModel):
                                       #   dài chia chương (config/youtube.yaml)
     yt_min: int = 0                   # Bán content YouTube: thời lượng (phút) chủ dự án chọn; 0 = AI tự chọn theo nội dung
     yt_pause: bool = False            # Bán content YouTube: dừng cho chủ dự án duyệt dàn ý (không tick = chạy thẳng)
+    topics: bool = False              # Cắt đoạn hay theo chủ đề (14/11): MỘT video dài → AI tìm đoạn hay, gom theo chủ đề tự
+                                      #   đặt, chủ dự án tick → mỗi chủ đề một video GIỮ NGUYÊN tiếng gốc (config/topics.yaml)
     cliff_pov: str = ""               # Review bỏ lửng: ngôi kể "1" (người kể là nhân vật chính) | "3"; "" = default_pov
 
 
@@ -165,14 +167,14 @@ class Job(BaseModel):
     def use_hook(self) -> bool:
         """Có hook voice riêng. Review phim thì KHÔNG (câu mở đầu của bài lời đọc là hook; hook riêng làm đứt mạch kể)."""
         return (self.options.hook and not self.options.review and not self.options.char_dub and not self.options.sell
-                and not self.options.anim and not self.options.wild)
+                and not self.options.anim and not self.options.wild and not self.options.topics)
 
     @property
     def picks_segments(self) -> bool:
         """Job có bước AI chọn / chia đoạn + bảng duyệt. Review phim KHÔNG (chủ dự án 11/10: tóm gọn cả phim thành MỘT
         video, không chia nhiều video); Review bỏ lửng CÓ (chia phim thành các phần liền nhau)."""
         return (self.options.split or self.options.char_dub or self.options.cliff or self.options.ideas
-                or self.options.yt)
+                or self.options.yt or self.options.topics)
 
     def applies(self, step: str) -> bool:
         if self.options.films:

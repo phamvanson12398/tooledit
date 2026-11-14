@@ -866,3 +866,30 @@ class ViSubs(BaseModel):
 
 
 FilmsIdea.model_rebuild()  # MusicChoice khai báo phía dưới FilmsIdea
+
+
+# ---------------- Cắt đoạn hay theo chủ đề (chủ dự án yêu cầu 14/11) ----------------
+
+class TopicMoment(BaseModel):
+    start: float = Field(ge=0, description="giây GỐC bắt đầu — đầu một câu / một ý, không cắt ngang câu")
+    end: float = Field(gt=0, description="giây GỐC kết thúc — hết câu / hết ý")
+    summary_vi: str = Field(description="đoạn này nói / có gì (tiếng Việt, 1 câu)")
+    why_vi: str = Field(default="", description="vì sao hay (câu nói đắt, hài, bất ngờ, kiến thức hữu ích…)")
+    topic_vi: str = Field(default="", description="chủ đề ngắn gọn của đoạn (tiếng Việt, vài chữ)")
+
+
+class TopicMoments(BaseModel):
+    moments: list[TopicMoment] = Field(default_factory=list, description="các đoạn HAY trong phần video này, theo thứ tự")
+    editor_notes: str = ""
+
+
+class TopicGroup(BaseModel):
+    title_vi: str = Field(description="tên chủ đề (tiếng Việt), vd 'Bí quyết tiết kiệm tiền'")
+    summary_vi: str = Field(description="video này kể / nói gì (tiếng Việt, 1–2 câu)")
+    moments: list[int] = Field(min_length=1, description="mã đoạn (số sau chữ M) theo THỨ TỰ nên dựng trong video")
+    why_vi: str = Field(default="", description="vì sao chủ đề này hay / hợp TikTok")
+
+
+class TopicList(BaseModel):
+    topics: list[TopicGroup] = Field(min_length=1, description="các chủ đề, chủ đề hay nhất trước")
+    editor_notes: str = ""

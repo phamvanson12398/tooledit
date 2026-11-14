@@ -383,6 +383,25 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   giữ nguyên tiếng gốc, hạ `orig_db_under_voice` khi có lời dẫn.
 - Đoạn AI đánh dấu vi phạm chính sách vẫn bị cắt như mọi chế độ (bảng 🚫 "Giữ lại" để giữ).
 
+## 5l. Chế độ "🎯 Cắt đoạn hay theo chủ đề" (chủ dự án yêu cầu 14/11)
+
+- Thẻ "🎯 Cắt đoạn hay theo chủ đề" ở trang chủ (`HOME_MODES`, `JobOptions.topics`, `config/topics.yaml`,
+  `app/director/topics.py`): MỘT video dài (podcast, livestream, phỏng vấn, vlog…), nói tiếng gì cũng được, KHÔNG chọn ngôn
+  ngữ (bước understand không bắt chọn ngôn ngữ cho chế độ này). Không hook, không voice, không chia video kiểu cũ.
+- Chủ dự án chốt 14/11: **giữ tiếng gốc**; **AI tự đặt chủ đề** (đoạn lấy từ nhiều chỗ trong video được); **độ dài tự do** —
+  miễn đoạn có nghĩa và hay (chủ dự án tự edit tiếp); **có bảng tick duyệt**.
+- Bước segment: (1) AI tìm ĐOẠN HAY từng phần ~`chunk_s` 10 phút SONG SONG (prompt `topics_moments.md`, `TopicMoments`,
+  lưu `plan/topic_parts/NN.json`, dùng lại khi gom lại): trọn ý, đứng riêng vẫn hiểu, ≥ `min_moment_s`, không chồng nhau,
+  điểm cắt lệch đầu / cuối câu ≤ `snap_s` thì code kéo về đúng đầu / cuối câu (`repair_moments`); (2) AI gom đoạn thành
+  CHỦ ĐỀ (prompt `topics_group.md`, `TopicList`: tên, tóm tắt, mã đoạn M1… theo THỨ TỰ dựng, mỗi đoạn một chủ đề —
+  `check_topics`, tối đa `max_topics`). Kết quả `plan/segments.json` (`topics: true`).
+- Bảng duyệt = bảng TICK chủ đề (`_topics_panel`, `Runner.apply_topics`); ô góp ý → "🎯 Gom lại chủ đề"
+  (`Runner.redo_topics`: chỉ gom lại, giữ các đoạn đã tìm, không xem lại video).
+- Mỗi chủ đề đã tick = MỘT video: kế hoạch dựng tạo bằng code (`topic_plan`: các đoạn nối theo thứ tự, tốc độ 1, không
+  hiệu ứng / chữ thêm), style như hoạt hình / thế giới động vật (`no_music`, không zoom / lật / chuyển động), GIỮ NGUYÊN hình
+  + tiếng gốc, phụ đề lời gốc (từ Whisper). Không hỏi AI caption: bước captions xuất `deliver/chu_de.txt` (chủ đề + các
+  đoạn, giây gốc) để edit tiếp. Đoạn vi phạm chính sách vẫn bị cắt như mọi chế độ (bảng 🚫 "Giữ lại").
+
 ## 5f. Tab "🎙️ Voice Studio" (chủ dự án yêu cầu 16/10)
 
 - Tab riêng trên thanh đầu trang (`/studio`, `app/web/studio_page.py`, logic `app/tts/studio.py`): dùng chính OmniVoice
@@ -603,6 +622,7 @@ còn `HOME_MODES` trong `app/web/server.py` (Review phim, Review bỏ lửng, Th
 dài, Bán content YouTube; mặc định chọn Review phim). Mã các chế độ cũ GIỮ LẠI để job cũ vẫn mở / chạy tiếp được.
 
 **Cập nhật 05/11 (chủ dự án):** thêm thẻ "🌐 Chuyển ngôn ngữ" (mục 5k) vào `HOME_MODES` (đứng sau Review phim).
+**Cập nhật 14/11 (chủ dự án):** thêm thẻ "🎯 Cắt đoạn hay theo chủ đề" (mục 5l) vào `HOME_MODES`.
 
 Web app chạy local (FastAPI + trang HTML đơn giản, không cần build frontend), mở trên trình duyệt. Chủ dự án không phải gõ lệnh khi dùng hằng ngày; có file `start.bat` để khởi động.
 

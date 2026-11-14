@@ -182,10 +182,10 @@ class Runner:
 
         if ratio in RATIOS:  # khung người dùng chọn khi tạo job (16:9 / 4:3 / 1:1 / 4:5 / 3:4 / 9:10 / 9:16)
             style = {**style, "block_ratio": ratio, "crop_ratio": ratio}
-        if job.options.char_dub or job.options.anim or job.options.wild:  # hình giữ tự nhiên, không "khác bản gốc"
+        if job.options.char_dub or job.options.anim or job.options.wild or job.options.topics:  # hình tự nhiên
             style = {**style, "char_dub": config.load("char_dub"), "reorder": False, "cold_open": False, "remix": False,
                      "motion": {}}  # không tự thêm chuyển động hình (chủ dự án 11/10: chỉ chọn đoạn hay, không edit)
-            if job.options.anim or job.options.wild:  # cảnh đã xếp theo mạch mới; giữ âm thanh gốc, không nhạc mới
+            if job.options.anim or job.options.wild or job.options.topics:  # giữ âm thanh gốc, không nhạc mới
                 style.update({"no_music": True, "mirror": None, "camera": None, "hype": None, "arrows": False,
                               "beat_sync": {"enabled": False}})
         elif job.options.target_language and not job.options.voice_only:
@@ -207,7 +207,7 @@ class Runner:
             if rcfg.get("layout"):  # bố cục như video mẫu: khối phim 9:10 cắt thẳng từ footage, bám nhân vật
                 style.update({"layout": rcfg["layout"], "block_ratio": "9:10", "crop_ratio": None})
         elif (job.options.hype or parts) and not job.options.voice_only and not job.options.char_dub \
-                and not job.options.wild:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
+                and not job.options.wild and not job.options.topics:  # chuyển cảnh liên tục, cảnh gay cấn lên đầu
             hcfg = config.load("hype")
             style = {**style, "hype": {"min_clip_s": hcfg.get("min_clip_s", 3.0), "max_clip_s": hcfg.get("max_clip_s", 5.0)},
                      "reorder": False, "cold_open": bool(hcfg.get("cold_open", False))}
@@ -557,7 +557,7 @@ class Runner:
         elif target:
             job.data.pop("dub_same", None)
             self.log(f"Đổi ngôn ngữ: {u.language} → {target} (thuyết minh + phụ đề {target}).")
-        elif u.language not in TARGET_LANGS:
+        elif u.language not in TARGET_LANGS and not job.options.topics:  # cắt đoạn hay: giữ tiếng gốc, mọi ngôn ngữ
             job.data["need_language"] = u.language
             raise ValueError(f"Video gốc nói tiếng '{LANG_VI.get(u.language, u.language)}' — bản TikTok phải là tiếng "
                              "Hàn / Nhật / Anh / Đức. Chọn ngôn ngữ ở ô bên dưới rồi bấm Chạy tiếp.")
@@ -595,6 +595,9 @@ class Runner:
         if job.options.yt:  # bán content YouTube: danh mục cảnh → dàn ý chương (dừng duyệt nếu tick)
             redo = job.data.get("yt_redo") or {}
             return self._make_yt_outline(job, redo.get("feedback", ""))
+        if job.options.topics:  # cắt đoạn hay theo chủ đề: tìm đoạn hay (một lần) → gom chủ đề → chủ dự án tick
+            redo = job.data.get("topics_redo") or {}
+            return self._make_topics(job, redo.get("feedback", ""), redo.get("previous"))
         if job.options.ideas:  # ý tưởng từ video dài: danh mục cảnh (một lần) → AI nghĩ ý tưởng → chủ dự án tick
             redo = job.data.get("ideas_redo") or {}
             return self._make_ideas(job, redo.get("feedback", ""), redo.get("previous"))
@@ -627,6 +630,11 @@ class Runner:
         if not data.get("confirmed") and data.get("yt"):
             job.wait("Duyệt dàn ý video YouTube: xem tiêu đề, các chương, thời lượng rồi bấm Duyệt — hoặc góp ý để AI lập "
                      "lại dàn ý.")
+            return
+        if not data.get("confirmed") and data.get("topics"):
+            n = len((data.get("proposal") or {}).get("topics", []))
+            job.wait(f"Chọn chủ đề muốn làm: AI tìm được {n} chủ đề từ các đoạn hay. Tick các chủ đề muốn cắt (mỗi chủ đề "
+                     "một video, giữ nguyên tiếng gốc) rồi bấm Xác nhận — hoặc góp ý để AI gom lại.")
             return
         if not data.get("confirmed") and data.get("ideas"):
             n = len((data.get("proposal") or {}).get("ideas", []))
@@ -678,6 +686,59 @@ class Runner:
         if changed:  # chia khác đi → hook / kế hoạch cũ không còn đúng
             hook_io.hooks_path(d).unlink(missing_ok=True)
             self._clear_plans(d, plan_dir)
+        job.save(self.jobs_root)
+
+    # ---------- Cắt đoạn hay theo chủ đề (chủ dự án yêu cầu 14/11) ----------
+
+    def _make_topics(self, job: Job, feedback: str = "", previous: list[dict] | None = None) -> None:
+        from app.director.topics import make_moments, make_topics, proposal, save_proposal
+
+        _, analysis, plan_dir = self._paths(job)
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        u = self._understanding(job)
+        moments = make_moments(self.director, analysis, plan_dir, u, log=self.log)
+        if not moments:
+            raise ValueError("AI không tìm được đoạn hay nào trong video — thử video khác hoặc 🛠️ Làm lại từ bước segment.")
+        self.log(f"Tìm được {len(moments)} đoạn hay. AI gom theo chủ đề…")
+        r = make_topics(self.director, moments, u, feedback=feedback, previous=previous)
+        topics = proposal(r, moments)
+        save_proposal(plan_dir, topics, moments, r.editor_notes)
+        job.data["videos"] = []
+        job.data.pop("topics_redo", None)
+        used = {(m["start"], m["end"]) for t in topics for m in t["moments"]}
+        self.log(f"AI đề xuất {len(topics)} chủ đề (dùng {len(used)}/{len(moments)} đoạn hay).")
+
+    def apply_topics(self, job: Job, picks: list[int]) -> None:
+        """Chủ dự án tick chủ đề (số thứ tự trong đề xuất, từ 1) → mỗi chủ đề một video. Đổi lựa chọn → kế hoạch cũ bỏ."""
+        from app.director.topics import topic_videos
+
+        d, _, plan_dir = self._paths(job)
+        path = plan_dir / "segments.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        topics = (data.get("proposal") or {}).get("topics", [])
+        chosen = [topics[k - 1] for k in sorted(set(picks)) if 1 <= k <= len(topics)]
+        if not chosen:
+            raise ValueError("Cần tick ít nhất một chủ đề.")
+        videos = topic_videos(chosen)
+        changed = data.get("videos") != videos or not data.get("confirmed")
+        data.update({"videos": videos, "confirmed": True, "picked": sorted(set(picks))})
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        job.data["videos"] = videos
+        if changed:
+            self._clear_plans(d, plan_dir)
+        job.save(self.jobs_root)
+
+    def redo_topics(self, job: Job, feedback: str) -> None:
+        """Nút "🎯 Gom lại chủ đề": AI gom lại theo góp ý (các đoạn hay đã tìm giữ nguyên, không xem lại video)."""
+        _, _, plan_dir = self._paths(job)
+        path = plan_dir / "segments.json"
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+        job.data["topics_redo"] = {"feedback": feedback.strip(),
+                                   "previous": (data.get("proposal") or {}).get("topics", [])}
+        path.unlink(missing_ok=True)
+        job.data.pop("videos", None)
+        job.step, job.status = "segment", Status.pending
+        job._log("người dùng góp ý — AI gom lại chủ đề")
         job.save(self.jobs_root)
 
     # ---------- Ý tưởng từ video dài (chủ dự án yêu cầu 17/10) ----------
@@ -1290,6 +1351,16 @@ class Runner:
         self.log(f"Phong cách dựng: {style_name}")
         if job.options.wild:  # thế giới động vật: giữ toàn bộ cảnh, chỉ đảo thứ tự + lời dẫn phim tài liệu
             return self._wild_step(job)
+        if job.options.topics:  # cắt đoạn hay theo chủ đề: kế hoạch = các đoạn đã duyệt, không hỏi AI thêm
+            from app.director.topics import topic_plan
+
+            ratio = job.data.get("default_ratio")
+            for v in self.videos(job):
+                plan = topic_plan(v, ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
+                (plan_dir / f"edit_plan_video{v['index']:02d}.json").write_text(plan.model_dump_json(indent=2),
+                                                                               encoding="utf-8")
+            self.log(f"Kế hoạch dựng: {len(self.videos(job))} video, mỗi video nối các đoạn hay của một chủ đề.")
+            return
         if job.options.anim:  # hoạt hình: MỘT lượt hỏi AI ra cốt truyện mới + thứ tự cảnh + lời thoại mới
             return self._anim_step(job)
         if job.options.sell:  # bán content: MỘT lượt hỏi AI ra cả kịch bản + cảnh + tiêu đề + nhạc
@@ -2579,6 +2650,15 @@ class Runner:
             out.write_text(captions_text(to_captions(self._films_idea(job))), encoding="utf-8")
             job.data["captions"] = str(d / "deliver")
             self.log(f"Đã xuất caption: {out}")
+            return
+        if job.options.topics:  # cắt đoạn hay: danh sách chủ đề + các đoạn (giây gốc) để edit tiếp, không hỏi AI caption
+            from app.director.topics import package_text
+
+            out = d / "deliver" / "chu_de.txt"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(package_text(self.videos(job)), encoding="utf-8")
+            job.data["captions"] = str(d / "deliver")
+            self.log(f"Đã xuất danh sách chủ đề + các đoạn: {out}")
             return
         if job.options.yt:  # gói đăng YouTube: tiêu đề, mô tả + mốc chương (theo voice thật), tag, ý tưởng ảnh bìa
             from app.director.youtube import package_text

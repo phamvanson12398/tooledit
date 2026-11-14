@@ -1,0 +1,8 @@
+{
+  "moments": [
+    {"start": 1.5, "end": 20, "summary_vi": "Kể chuyện lần đầu đi Nhật bị lạc", "why_vi": "hài, có kết", "topic_vi": "du lịch Nhật"},
+    {"start": 25, "end": 40, "summary_vi": "Mẹo đổi tiền rẻ", "why_vi": "hữu ích", "topic_vi": "tiết kiệm"},
+    {"start": 45, "end": 58, "summary_vi": "Kết luận: nên đi Nhật mùa thu", "why_vi": "chốt ý", "topic_vi": "du lịch Nhật"}
+  ],
+  "editor_notes": "Bỏ đoạn chào hỏi đầu video."
+}

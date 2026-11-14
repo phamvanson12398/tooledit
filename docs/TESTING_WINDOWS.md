@@ -1,5 +1,18 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 126 — Chế độ mới "🎯 Cắt đoạn hay theo chủ đề" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+2. Chọn MỘT video dài (podcast / livestream / phỏng vấn…) → thẻ **🎯 Cắt đoạn hay theo chủ đề** → Bắt đầu (không cần chọn
+   ngôn ngữ).
+3. Nhật ký: "AI xem video (… phút) theo N phần để tìm đoạn hay…", "Tìm được X đoạn hay. AI gom theo chủ đề…".
+4. Bảng **🎯 Chọn chủ đề muốn cắt**: mỗi chủ đề có tên, số đoạn, tổng thời lượng; bấm "🎞️ Các đoạn" xem giây gốc từng đoạn.
+   Tick chủ đề muốn làm → **✅ Cắt các chủ đề đã tick**. (Chưa ưng: gõ góp ý → **🎯 Gom lại chủ đề**, không phải đợi AI xem
+   lại video.)
+5. Mở CapCut: mỗi chủ đề một dự án — các đoạn nối đúng thứ tự, nghe được TIẾNG GỐC, có phụ đề lời gốc, không nhạc / hiệu ứng.
+   Đoạn không bị cắt ngang câu nói.
+6. Thư mục `jobs\<mã job>\deliver\chu_de.txt`: danh sách chủ đề + các đoạn (giây gốc) để bạn edit tiếp.
+
 ## Bước 125 — Chế độ 🌐 Chuyển ngôn ngữ `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, mở PowerShell trong thư mục tool rồi chạy `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

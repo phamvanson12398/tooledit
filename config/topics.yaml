@@ -1,0 +1,12 @@
+# CHẾ ĐỘ "CẮT ĐOẠN HAY THEO CHỦ ĐỀ" (chủ dự án yêu cầu 14/11)
+# MỘT video dài → AI tìm các ĐOẠN HAY (trọn ý, không cắt ngang câu) → gom theo CHỦ ĐỀ AI tự đặt (đoạn ở nhiều chỗ trong
+# video được) → chủ dự án tick chủ đề muốn làm → mỗi chủ đề MỘT video: các đoạn nối lại, GIỮ NGUYÊN hình + tiếng gốc,
+# phụ đề lời gốc. Không giới hạn độ dài (chủ dự án tự edit tiếp). Không nhạc / hiệu ứng / voice mới.
+chunk_s: 600              # video dài hơn ~12 phút: AI xem từng phần ~10 phút SONG SONG để tìm đoạn hay
+min_moment_s: 5           # đoạn ngắn hơn chừng này thì bỏ (không đủ ý)
+snap_s: 1.5               # điểm cắt lệch đầu / cuối câu trong chừng này giây thì kéo về đúng đầu / cuối câu
+frames: 40                # số khung hình gửi AI mỗi phần
+analysis_frames: 300      # bước phân tích: trích tối đa chừng này khung…
+frame_every_s: 6.0        # …mỗi 6 giây một khung
+transcript_chars: 9000    # lời gốc gửi AI mỗi phần (ký tự)
+max_topics: 15            # AI đề xuất tối đa chừng này chủ đề
