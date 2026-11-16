@@ -1,0 +1,14 @@
+# CHẾ ĐỘ "COPS US" (chủ dự án yêu cầu 16/11) — bán content thể loại cảnh sát Mỹ (bodycam / dashcam / truy đuổi / bắt giữ)
+# MỘT video dài < max_source_min phút → AI xem hết (danh mục cảnh như Ý tưởng từ video dài), hiểu vụ việc, viết kịch bản
+# THEO HƯỚNG KHÁC (góc kể mới, thứ tự cảnh mới — khác bản gốc hoàn toàn), video ngắn DƯỚI 3 phút, xen đoạn cần voice với
+# đoạn GIỮ NGUYÊN tiếng gốc (câu thoại đắt, cao trào). Dùng chung mọi thứ của Bán content (voice, cắt cảnh theo voice,
+# chữ nhấn, tiếng động, đóng gói CapCut).
+max_source_min: 60        # video nguồn dài hơn chừng này phút thì báo lỗi ngay (đầu bước phân tích)
+auto_s: [60, 175]         # AI TỰ CHỌN thời lượng video theo độ dày vụ việc — luôn dưới 3 phút
+frames: 50                # số khung hình gửi AI lúc viết kịch bản
+orig_audio:               # đoạn giữ nguyên tiếng gốc (ghi đè config/sell.yaml → orig_audio cho chế độ này)
+  enabled: true
+  min_s: 1.5
+  max_s: 12
+  max_share: 0.45
+mirror_share: 0.4         # phản chiếu ngang ~40% cảnh cho khác bản gốc (tự tắt khi hình có chữ / logo in sẵn)

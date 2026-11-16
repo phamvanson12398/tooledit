@@ -226,6 +226,9 @@ class Runner:
                      "motion": dcfg.get("motion") or {"every_clip": True, "max_scale": 1.2},
                      "music": {**(style.get("music") or {}), "base_db": scfg.get("music_base_db", -14)}}
             style.update(self._burned_in_skip(job, scfg))
+            if job.options.cops:  # Cops US: phản chiếu ngang một phần cảnh cho khác bản gốc (tự tắt khi có chữ in sẵn)
+                style["mirror"] = {"share": float((config.load("cops") or {}).get("mirror_share", 0.4)),
+                                   "min_scenes": 3, "skip_burned_in": True}
         if job.options.voice_only:  # chỉ thay tiếng: giữ nguyên hình, khung = đúng tỉ lệ video gốc
             vcfg = config.load("dub").get("voice_only") or {}
             style = {**style, **(vcfg.get("style_override") or {})}
@@ -510,6 +513,15 @@ class Runner:
             if secs > limit * 60:
                 raise ValueError(f"Video nguồn dài {secs / 60:.0f} phút — Bán content YouTube nhận video dưới "
                                  f"{limit:.0f} phút. Cắt bớt video rồi tạo job mới.")
+        if job.options.cops:  # Cops US (16/11): video nguồn dưới 1 tiếng — báo ngay, khỏi phân tích phí
+            limit = float((config.load("cops") or {}).get("max_source_min", 60))
+            try:
+                secs = self._voice_duration(Path(job.footage[0])) / 1_000_000
+            except Exception:
+                secs = 0.0
+            if secs > limit * 60:
+                raise ValueError(f"Video nguồn dài {secs / 60:.0f} phút — Cops US nhận video dưới {limit:.0f} phút. Cắt "
+                                 "bớt video rồi tạo job mới.")
         if len(job.footage) > 1 and not job.data.get("montage_parts") and not job.options.films:
             self._build_montage(job, d)  # content nhiều phim: mỗi phim phân tích riêng (footage 0, 1, 2…), không nối
         if self._analyze_fn is None:
@@ -1712,6 +1724,14 @@ class Runner:
                 except ValueError:
                     pass
         ideas = job.options.ideas
+        idea = v if ideas else None
+        if job.options.cops:  # Cops US: AI xem hết video dài (danh mục cảnh, một lần) → kho cảnh = cả danh mục
+            from app.director.ideas import make_catalog
+
+            cat = make_catalog(self.director, analysis, plan_dir, self._u_for(job, v), log=self.log)
+            idea = {**v, "cops": True, "pool": [{"start": s.start, "end": s.end, "desc_vi": s.desc_vi}
+                                                for s in cat.shots]}
+            self.log(f"Danh mục cảnh: {len(cat.shots)} cảnh. AI viết kịch bản Cops US theo hướng mới…")
         library = self._library_for(job, v, analysis)
         if library:
             self.log(f"Kho cảnh chung: {len(library)} cảnh cùng khung AI được bù khi video gốc thiếu cảnh khớp lời.")
@@ -1719,8 +1739,8 @@ class Runner:
                              brief=job.options.ideas_brief if ideas else job.options.sell_brief,
                              sell_s=job.options.sell_s, music_items=chosen or music, video_index=i,
                              feedback=feedback, previous=previous, variant=(1, 1) if ideas else (i, n_var),
-                             others=others, idea=v if ideas else None, library=library,
-                             auto=job.options.sell_auto and not ideas)
+                             others=others, idea=idea, library=library,
+                             auto=(job.options.sell_auto and not ideas) or job.options.cops)
         ratio = job.data.get("default_ratio")
         plan = sell_plan(r, ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
         if chosen:
@@ -1797,7 +1817,7 @@ class Runner:
         scripts = self._dub_scripts(job)
         extra = {i: sum(max(0.0, x.end - x.start) for x in self._sell_inserts(job, i)) for i in scripts}
         target = None
-        if job.options.sell_auto:  # AI tự chọn thời lượng → "cần thêm bao nhiêu chữ" tính theo số giây AI chọn
+        if job.options.sell_auto or job.options.cops:  # AI tự chọn thời lượng → "cần thêm bao nhiêu chữ" tính theo số giây AI chọn
             from app.director.schemas import SellScript
 
             try:

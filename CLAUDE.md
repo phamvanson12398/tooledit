@@ -402,6 +402,24 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   + tiếng gốc, phụ đề lời gốc (từ Whisper). Không hỏi AI caption: bước captions xuất `deliver/chu_de.txt` (chủ đề + các
   đoạn, giây gốc) để edit tiếp. Đoạn vi phạm chính sách vẫn bị cắt như mọi chế độ (bảng 🚫 "Giữ lại").
 
+## 5m. Chế độ "🚓 Cops US" (chủ dự án yêu cầu 16/11)
+
+- Thẻ "🚓 Cops US" ở trang chủ (`HOME_MODES`, `JobOptions.cops`, đi CÙNG `sell=True` để dùng chung mọi thứ của Bán content;
+  `config/cops.yaml`, prompt `cops.md`). Bán content thể loại cảnh sát Mỹ (bodycam / dashcam / truy đuổi / bắt giữ).
+  MỘT video nguồn dưới `max_source_min` 60 phút (kiểm tra ngay đầu bước phân tích), cần chọn ngôn ngữ giọng đọc.
+- Chủ dự án chốt 16/11: AI HIỂU vụ việc rồi viết kịch bản THEO HƯỚNG KHÁC (góc kể mới, thứ tự cảnh mới, lời mới — khác
+  video gốc hoàn toàn); short DƯỚI 3 phút (AI tự chọn trong `auto_s` 60–175s, tool kẹp); xen đoạn cần VOICE với đoạn GIỮ
+  NGUYÊN tiếng gốc (`inserts` như "nửa thuyết minh" của Bán content, giới hạn riêng `orig_audio` trong cops.yaml: 1.5–12s /
+  đoạn, tổng ≤ 45%) — miễn hợp nhịp short.
+- Video dài → AI xem hết bằng DANH MỤC CẢNH (dùng chung `ideas.make_catalog`, khung rải như Ý tưởng); `make_sell_script`
+  nhận `idea={"cops": True, "pool": danh mục}` (`Runner._sell_script`): cảnh chỉ lấy trong danh mục (`pool_only`), task
+  `cops`, vẫn cho `inserts`, luôn tự chọn thời lượng. Khi dựng: phản chiếu ngang ~`mirror_share` 40% cảnh (tự tắt khi
+  hình có chữ in sẵn) cho khác bản gốc; còn lại y như Bán content (voice / OmniVoice, cắt cảnh theo voice, chữ nhấn, tiếng
+  động, đóng gói CapCut). Một bản / job (không chọn số bản).
+- Đúng sự thật + an toàn (prompt): không bịa tội danh / kết cục / tên; không kết tội khi video chưa rõ; không cổ vũ bạo
+  lực, không chửi thề. Đoạn AI đánh dấu vi phạm chính sách TikTok (bạo lực thật, vũ khí…) KHÔNG được dùng làm cảnh / tiếng
+  gốc — video nhiều cảnh như vậy sẽ ít cảnh dùng được; bảng 🚫 "Giữ lại" để giữ (chủ dự án tự chịu trách nhiệm).
+
 ## 5f. Tab "🎙️ Voice Studio" (chủ dự án yêu cầu 16/10)
 
 - Tab riêng trên thanh đầu trang (`/studio`, `app/web/studio_page.py`, logic `app/tts/studio.py`): dùng chính OmniVoice
@@ -623,6 +641,7 @@ dài, Bán content YouTube; mặc định chọn Review phim). Mã các chế đ
 
 **Cập nhật 05/11 (chủ dự án):** thêm thẻ "🌐 Chuyển ngôn ngữ" (mục 5k) vào `HOME_MODES` (đứng sau Review phim).
 **Cập nhật 14/11 (chủ dự án):** thêm thẻ "🎯 Cắt đoạn hay theo chủ đề" (mục 5l) vào `HOME_MODES`.
+**Cập nhật 16/11 (chủ dự án):** thêm thẻ "🚓 Cops US" (mục 5m) vào `HOME_MODES`.
 
 Web app chạy local (FastAPI + trang HTML đơn giản, không cần build frontend), mở trên trình duyệt. Chủ dự án không phải gõ lệnh khi dùng hằng ngày; có file `start.bat` để khởi động.
 

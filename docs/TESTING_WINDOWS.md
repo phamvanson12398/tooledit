@@ -1,5 +1,17 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 127 — Chế độ mới "🚓 Cops US" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Nếu `git pull` báo "Your local changes … would be overwritten": chạy `git stash` rồi `git pull` lại.
+2. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.
+3. Chọn MỘT video cảnh sát Mỹ (dưới 1 tiếng) → thẻ **🚓 Cops US** → chọn ngôn ngữ giọng đọc (+ giọng Voice Studio nếu
+   muốn tự đọc) → Bắt đầu. Video dài hơn 1 tiếng → báo lỗi ngay.
+4. Nhật ký: "AI xem video (… phút) theo N phần để ghi danh mục cảnh…", "AI viết kịch bản Cops US theo hướng mới…".
+5. Trang voice: dàn ý đầu trang ghi góc kể mới; dòng "🔊 Giữ tiếng gốc (không cần đọc)" cho biết các đoạn để nguyên tiếng
+   gốc. Thu / cho OmniVoice đọc cả bài.
+6. Mở CapCut: video dưới 3 phút, thứ tự cảnh khác bản gốc, một phần cảnh bị lật ngang; đoạn voice xen đoạn tiếng gốc
+   (có phụ đề dịch); nhạc nền mới.
+
 ## Bước 126 — Chế độ mới "🎯 Cắt đoạn hay theo chủ đề" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull`, mở lại `start.bat`, bấm **Ctrl + F5** ở trang chủ.

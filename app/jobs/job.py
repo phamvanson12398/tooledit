@@ -78,6 +78,8 @@ class JobOptions(BaseModel):
                                       #   dài chia chương (config/youtube.yaml)
     yt_min: int = 0                   # Bán content YouTube: thời lượng (phút) chủ dự án chọn; 0 = AI tự chọn theo nội dung
     yt_pause: bool = False            # Bán content YouTube: dừng cho chủ dự án duyệt dàn ý (không tick = chạy thẳng)
+    cops: bool = False                # Cops US (16/11): đi CÙNG sell=True — video cảnh sát Mỹ dài < 1h → short < 3 phút, kịch
+                                      #   bản theo hướng khác hẳn, xen voice + tiếng gốc (config/cops.yaml)
     topics: bool = False              # Cắt đoạn hay theo chủ đề (14/11): MỘT video dài → AI tìm đoạn hay, gom theo chủ đề tự
                                       #   đặt, chủ dự án tick → mỗi chủ đề một video GIỮ NGUYÊN tiếng gốc (config/topics.yaml)
     cliff_pov: str = ""               # Review bỏ lửng: ngôi kể "1" (người kể là nhân vật chính) | "3"; "" = default_pov

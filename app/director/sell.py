@@ -222,6 +222,8 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     if idea is not None and pool:  # ý tưởng từ video dài: kho cảnh = các cảnh của ý tưởng
         scenes = [{"start": float(p["start"]), "end": float(p["end"]), "desc_vi": p.get("desc_vi", "")} for p in pool]
     chapter = (idea or {}).get("chapter")
+    cops = bool((idea or {}).get("cops"))  # Cops US (16/11): kho cảnh = cả danh mục cảnh, vẫn xen tiếng gốc, < 3 phút
+    ccfg = (config.load("cops") or {}) if cops else {}
     target = float(idea["seconds"]) if chapter else sell_target(cfg, sell_s)
     cps = sell_cps(cfg, u.language)
     title_max = int((cfg.get("title_max_chars") or {}).get(u.language, 12))
@@ -233,6 +235,8 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
         from app.director.ideas import ideas_cfg
 
         n = int(ideas_cfg().get("script_frames", 40))
+        if cops:
+            n = int(ccfg.get("frames", 50))
         if chapter:
             from app.director.youtube import yt_cfg
 
@@ -275,21 +279,24 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     lib_map = {it["id"]: float(it["duration"]) for it in library or []}
     lib_share = float(lib_cfg().get("max_share", 0.35))
     variables.update({"library": prompt_text(library or []), "lib_share": f"{lib_share:.0%}"})
-    oc = cfg.get("orig_audio") or {}
-    use_orig = idea is None and bool(oc.get("enabled", True))  # chỉ Bán content (không Ý tưởng / YouTube)
+    oc = (ccfg.get("orig_audio") if cops else None) or cfg.get("orig_audio") or {}
+    use_orig = (idea is None or cops) and bool(oc.get("enabled", True))  # Bán content + Cops US (không Ý tưởng / YouTube)
     variables["orig"] = (ORIG_NOTE.format(lo=float(oc.get("min_s", 1.5)), hi=float(oc.get("max_s", 10)),
                                           share=float(oc.get("max_share", 0.4)))
                          if use_orig else "(không dùng — `inserts` để rỗng)")
-    auto = auto and idea is None
-    a_lo, a_hi = [float(x) for x in (cfg.get("auto_s") or [61, 120])[:2]]
+    auto = (auto and idea is None) or cops  # Cops US: AI luôn tự chọn thời lượng (dưới 3 phút)
+    a_lo, a_hi = [float(x) for x in ((ccfg.get("auto_s") if cops else None) or cfg.get("auto_s") or [61, 120])[:2]]
     if auto:  # AI tự chọn thời lượng: số chữ tính theo số giây AI ghi ở target_s
         variables.update({
             "target_s": f"{a_lo:.0f}–{a_hi:.0f} (BẠN TỰ CHỌN theo độ dày nội dung — nhiều ý hay thì dài, ít thì ngắn, luôn "
-                        f"trên 60 giây; ghi số giây đã chọn vào `target_s`)",
+                        f"trên 60 giây{', DƯỚI 3 phút' if cops else ''}; ghi số giây đã chọn vào `target_s`)",
             "target_chars": f"{int(lo * (a_lo - gap * 12) * cps)}–{int(hi * a_hi * cps)} (= số giây bạn chọn × {cps:.1f}, "
                             "trừ các đoạn giữ tiếng gốc)"})
     task = "sell"
-    if idea is not None:
+    if cops:
+        task = "cops"
+        variables["footage_s"] = f"{sum(s['end'] - s['start'] for s in scenes):.0f}"
+    elif idea is not None:
         from app.director.ideas import idea_brief, used_text
 
         task = "ideas_script"
@@ -346,7 +353,8 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
 
     def extra(r) -> list[str]:
         return check_sell_script(r, u.language, duration=duration, scenes=scenes, cps=cps,
-                                 target_s=r.target_s if auto else target, cfg=cfg,
+                                 target_s=r.target_s if auto else target,
+                                 cfg={**cfg, "orig_audio": oc} if cops else cfg,
                                  banned=banned, title_max=title_max, video_index=video_index,
                                  pool_only=idea is not None and bool(pool), library=lib_map, lib_share=lib_share,
                                  first=not chapter or chapter == 1, platform="youtube" if chapter else "tiktok")
