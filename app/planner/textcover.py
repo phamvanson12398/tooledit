@@ -80,3 +80,26 @@ def cover_glyphs(hx: float, hy: float, size: float, char_width_per_size: float,
     n = max(1, round(width_px / max(height_px, 1.0)))
     scale = (width_px / canvas_w) / (n * size * char_width_per_size)
     return "■" * n, round(scale, 3)
+
+
+def text_units(text: str) -> float:
+    """Độ rộng ước lượng của chữ theo "ô vuông": chữ Hàn / Nhật / Hán = 1, chữ Latin / số / dấu ~0.55, dấu cách 0.3."""
+    n = 0.0
+    for ch in text:
+        if ch.isspace():
+            n += 0.3
+        elif ord(ch) >= 0x1100:
+            n += 1.0
+        else:
+            n += 0.55
+    return max(n, 1.0)
+
+
+def fit_text_scale(text: str, hx: float, hy: float, size: float, char_width_per_size: float, fill: float = 0.8,
+                   canvas_w: int = 1080, canvas_h: int = 1920) -> float:
+    """scale để chữ (cỡ `size`) cao ~`fill` dải che và không tràn chiều ngang dải (cùng cách ước lượng như cover_glyphs).
+    [CẦN KIỂM TRA TRÊN MÁY]"""
+    unit = size * char_width_per_size * canvas_w  # một ô vuông chữ ở scale 1 (px)
+    by_h = fill * hy * canvas_h / unit
+    by_w = 0.95 * hx * canvas_w / (text_units(text) * unit)
+    return round(max(0.2, min(by_h, by_w)), 3)

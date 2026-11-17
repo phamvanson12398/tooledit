@@ -82,9 +82,9 @@ class JobOptions(BaseModel):
                                       #   bản theo hướng khác hẳn, xen voice + tiếng gốc (config/cops.yaml)
     topics: bool = False              # Cắt đoạn hay theo chủ đề (14/11): MỘT video dài → AI tìm đoạn hay, gom theo chủ đề tự
                                       #   đặt, chủ dự án tick → mỗi chủ đề một video GIỮ NGUYÊN tiếng gốc (config/topics.yaml)
-    textnote: bool = False            # Chữ theo hành động (17/11): MỘT video giữ NGUYÊN hình + tiếng gốc, thỉnh thoảng có hành
-                                      #   động thì AI viết chữ lên màn hình (ngôn ngữ = target_language; config/textnote.yaml)
-    textnote_voice: bool = False      # Chữ theo hành động: thêm giọng nói NGÔI THỨ NHẤT (đọc chính các dòng đó, chữ = phụ đề)
+    textnote: bool = False            # Dịch chữ trên màn hình (17/11): MỘT video giữ NGUYÊN hình + tiếng gốc, tool thấy chữ có
+                                      #   sẵn trên màn hình → dịch sang target_language → che chữ gốc + đè bản dịch
+                                      #   (config/textnote.yaml)
     cliff_pov: str = ""               # Review bỏ lửng: ngôi kể "1" (người kể là nhân vật chính) | "3"; "" = default_pov
 
 
@@ -196,8 +196,8 @@ class Job(BaseModel):
         if step == "review_segments":
             return self.picks_segments
         if step in ("dub", "dub_voice"):
-            if self.options.textnote:  # chữ theo hành động: chỉ có bước voice khi tick "Có giọng nói"
-                return self.options.textnote_voice
+            if self.options.textnote:  # dịch chữ trên màn hình: không voice
+                return False
             return bool(self.options.target_language) or self.options.review or self.options.sell
         return True
 

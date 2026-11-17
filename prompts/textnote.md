@@ -1,25 +1,30 @@
-# Nhiệm vụ: viết CHỮ THEO HÀNH ĐỘNG cho video — {{language_name}}, {{market}}
+# Nhiệm vụ: DỊCH CHỮ TRÊN MÀN HÌNH sang {{language_name}} — {{market}}
 
-Video gốc ~{{duration}} giây, được GIỮ NGUYÊN (không cắt, không đổi thứ tự, giữ tiếng gốc). Nội dung: {{summary}}
+Video gốc ~{{duration}} giây, giữ NGUYÊN (hình + tiếng). Nội dung: {{summary}}
 
-Bạn chỉ thêm các dòng chữ lên màn hình, THỈNH THOẢNG — đúng lúc có HÀNH ĐỘNG ĐÁNG CHÚ Ý (bắt đầu một bước, chi tiết đắt,
-khoảnh khắc bất ngờ / hài / thành quả, chỗ người xem dễ bỏ lỡ). Không tả lại mọi thứ, không nói liên tục.
+Tool sẽ CHE chữ gốc trên màn hình bằng một dải nền rồi viết bản dịch của bạn đè lên đúng chỗ đó. Việc của bạn: xem các
+khung hình (mỗi khung có ghi giây gốc), tìm MỌI chữ có sẵn trên màn hình — phụ đề cứng, chú thích, tiêu đề, chữ trên biển
+/ bảng / sản phẩm mà người xem cần hiểu — và dịch.
 
 ## Luật
-- Mỗi dòng (`notes`): `start`–`end` = giây GỐC lúc hành động đó đang diễn ra (xem khung hình có ghi giây), hiện
-  {{min_s}}–{{max_s}} giây; giữa 2 dòng cách ít nhất {{gap}} giây; tổng thời gian có chữ ≤ {{share}} video; trung bình
-  khoảng 1 dòng mỗi {{every}} giây (chỗ không có gì đáng nói thì để trống). Xếp theo thời gian.
-{{voice_rule}}
-- `text` bằng {{language_name}} (văn nói tự nhiên của người bản xứ, không dịch từ tiếng Việt); `text_vi` = nghĩa tiếng
-  Việt; `action_vi` = hành động đang thấy trên hình lúc đó (tiếng Việt).
-- ĐÚNG SỰ THẬT: chỉ nói điều THẤY trên hình / nghe trong lời gốc; không bịa tên, số liệu, tên sản phẩm. Không chửi thề,
-  không nhắc nền tảng khác ngoài TikTok, không kêu gọi follow / subscribe.
-- `editor_notes`: tiếng Việt, ngắn — vì sao chọn các thời điểm này.
+- Mỗi mục (`items`) = MỘT dòng / một khối chữ liền nhau, từ lúc hiện tới lúc tắt:
+  - `start`–`end`: giây GỐC lúc chữ hiện và tắt (chữ hiện qua nhiều khung liên tiếp thì gộp thành MỘT mục; chữ đổi nội
+    dung thì sang mục mới).
+  - `box`: [trái, trên, phải, dưới] — vị trí chữ trên khung GỐC, mỗi số 0..1 (0,0 = góc trên trái; 1,1 = góc dưới phải),
+    bao TRỌN dòng chữ (thà rộng hơn một chút còn hơn sót nét).
+  - `text_orig`: chép ĐÚNG chữ gốc. `text`: bản dịch {{language_name}} tự nhiên như người bản xứ viết, NGẮN GỌN để vừa chỗ
+    chữ gốc (không dài hơn gốc quá nhiều). `text_vi`: nghĩa tiếng Việt.
+- Tên riêng, số, thương hiệu không cần dịch thì `text` để y như `text_orig`.
+- BỎ QUA: logo / watermark nhỏ ở góc, chữ quá nhỏ hoặc mờ không đọc được, chữ đã là {{language_name}}.
+- Dịch đúng nghĩa, không thêm ý, không bịa. Không chửi thề; không nhắc nền tảng khác ngoài TikTok (gặp thì dịch nhẹ đi /
+  bỏ mục đó).
+- Video không có chữ nào trên màn hình → `items` rỗng, ghi lý do ở `editor_notes`.
+- `editor_notes`: tiếng Việt, ngắn — video có những loại chữ nào, chỗ nào bỏ qua và vì sao.
 
 ## Khung hình (tên file — giây gốc)
 {{frames}}
 
-## Lời nói gốc (chỉ để hiểu, không chép)
+## Lời nói gốc (chỉ để hiểu ngữ cảnh khi dịch)
 {{transcript}}
 
 ## Góp ý của chủ dự án

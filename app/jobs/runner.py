@@ -159,8 +159,8 @@ class Runner:
 
     def _dubbing(self, job: Job) -> bool:
         """Có lời thuyết minh: chế độ Đổi ngôn ngữ (tiếng gốc khác tiếng đích) hoặc Review phim (luôn có lời review)."""
-        if job.options.textnote:  # chữ theo hành động: chỉ khi tick "Có giọng nói" (ngôi thứ nhất)
-            return job.options.textnote_voice
+        if job.options.textnote:  # dịch chữ trên màn hình: không voice
+            return False
         return (bool(job.options.target_language) and not job.data.get("dub_same")) or job.options.review or \
             job.options.films or job.options.sell or job.options.anim or job.options.wild
 
@@ -192,16 +192,10 @@ class Runner:
             if job.options.anim or job.options.wild or job.options.topics or job.options.textnote:  # giữ âm thanh
                 style.update({"no_music": True, "mirror": None, "camera": None, "hype": None, "arrows": False,
                               "beat_sync": {"enabled": False}})  # gốc, không nhạc mới
-            if job.options.textnote:  # chữ theo hành động: chữ trắng viền đen; không phụ đề lời gốc (trừ khi bật)
+            if job.options.textnote:  # dịch chữ trên màn hình: chỉ che + đè chữ dịch, không phụ đề lời gốc / tiêu đề
                 from app.director.textnote import textnote_cfg
 
-                tc = textnote_cfg()
-                style.update({"emphasis": tc.get("text_style") or style.get("emphasis") or {},
-                              "emphasis_palette": tc.get("palette") or style.get("emphasis_palette") or [],
-                              "no_subtitles": not tc.get("subtitles", False) and not job.options.textnote_voice})
-                if job.options.textnote_voice:  # tiếng gốc hạ nhỏ khi đang có câu đọc ngôi thứ nhất
-                    style["original_audio"] = {"mute": False, "db": float((tc.get("voice") or {}).get(
-                        "orig_db_under_voice", -10)), "db_no_voice": 0}
+                style.update({"screen_text": textnote_cfg(), "no_subtitles": True, "no_titles": True})
         elif job.options.target_language and not job.options.voice_only:
             dcfg = config.load("dub")
             style = {**style, **(dcfg.get("style_override") or {})}
@@ -401,7 +395,7 @@ class Runner:
             self._clear_plans(d, plan_dir)
         if job.options.wild and step in ("plan", "dub"):  # thế giới động vật: AI xếp cảnh + viết lời dẫn lại
             (plan_dir / "wild_video01.json").unlink(missing_ok=True)
-        if job.options.textnote and step in ("plan", "dub"):  # chữ theo hành động: AI viết lại các dòng chữ
+        if job.options.textnote and step in ("plan", "dub"):  # dịch chữ trên màn hình: AI đọc + dịch lại
             (plan_dir / "textnote_video01.json").unlink(missing_ok=True)
         if job.options.anim and step in ("plan", "dub"):  # hoạt hình: AI viết lại cốt truyện / xếp cảnh / lời thoại
             (plan_dir / "anim_video01.json").unlink(missing_ok=True)
@@ -872,13 +866,14 @@ class Runner:
         self.log(f"Xếp lại {len(us)} cảnh (giữ đủ, {total:.0f}s), {len(r.lines)} câu dẫn — lời dẫn chiếm "
                  f"~{talk / total:.0%} video.")
 
-    # ---------- Chữ theo hành động (chủ dự án yêu cầu 17/11) ----------
+    # ---------- Dịch chữ trên màn hình (chủ dự án yêu cầu 17/11) ----------
 
     def _textnote_step(self, job: Job) -> None:
-        """Giữ nguyên video; AI viết chữ ở các hành động đáng chú ý → kế hoạch dựng (chữ = chữ nhấn) hoặc, khi có giọng
-        nói, kịch bản voice ngôi thứ nhất (chữ = phụ đề)."""
-        from app.director.textnote import make_textnote_script, textnote_cfg, textnote_plan, textnote_to_dub
-        from app.planner import dub_io
+        """Giữ nguyên video; AI đọc + dịch MỌI chữ có sẵn trên màn hình, máy chỉnh hộp / thời gian cho khít → kế hoạch
+        dựng (cả video) + plan/textnote_video01.json (chữ để builder che + đè bản dịch)."""
+        from app.director.schemas import ScreenTextScript
+        from app.director.tasks import load_analysis
+        from app.director.textnote import make_screen_texts, refine_items, textnote_cfg, textnote_plan
 
         d, analysis, plan_dir = self._paths(job)
         path = plan_dir / "textnote_video01.json"
@@ -886,25 +881,40 @@ class Runner:
             return
         u = self._understanding(job)
         lang = job.options.target_language or u.language
-        voice = job.options.textnote_voice
-        self.log("AI xem video, viết " + ("lời nói ngôi thứ nhất (voice + phụ đề)" if voice else "chữ")
-                 + " ở các hành động đáng chú ý — giữ nguyên video gốc…")
-        r = make_textnote_script(self.director, analysis, u, lang, voice=voice,
-                                 feedback="\n".join(job.data.get("textnote_feedback") or []))
+        cfg = textnote_cfg()
+        self.log("AI đọc chữ trên màn hình + dịch sang ngôn ngữ đã chọn — giữ nguyên video gốc…")
+        r = make_screen_texts(self.director, analysis, u, lang,
+                              feedback="\n".join(job.data.get("textnote_feedback") or []))
+        if cfg.get("refine", True) and r.items:
+            a = load_analysis(analysis)
+            r2, n = refine_items(r, [(float(f["t"]), analysis / f["file"]) for f in a["frames"]], cfg)
+            r = ScreenTextScript.model_validate(r2.model_dump())
+            if n:
+                self.log(f"Máy chỉnh cho khít vị trí / thời gian {n} chữ.")
         plan_dir.mkdir(parents=True, exist_ok=True)
         path.write_text(r.model_dump_json(indent=2), encoding="utf-8")
-        duration = self._footage_size(job)[2] or max(n.end for n in r.notes)
+        duration = self._footage_size(job)[2] or max([it.end for it in r.items] + [1.0])
         cuts = [(p.start, p.end) for p in u.policy_issues]
         ratio = job.data.get("default_ratio")
-        plan = textnote_plan(r, duration, cuts, textnote_cfg(), voice=voice,
-                             default_ratio=ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
+        plan = textnote_plan(r, duration, cuts, default_ratio=ratio if ratio in ("16:9", "4:3", "1:1") else "16:9")
         (plan_dir / "edit_plan_video01.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
-        if voice:
-            dub_io.dub_path(d, 1).write_text(textnote_to_dub(r).model_dump_json(indent=2), encoding="utf-8")
-            dub_io.pending_path(d, 1).unlink(missing_ok=True)
-        shown = sum(n.end - n.start for n in r.notes)
-        self.log(f"{len(r.notes)} dòng {'lời nói' if voice else 'chữ'} (~{shown:.0f}s / {duration:.0f}s video)"
-                 + (f", bỏ {len(cuts)} đoạn vi phạm chính sách." if cuts else "."))
+        if r.items:
+            self.log(f"Tìm thấy + dịch {len(r.items)} chữ trên màn hình"
+                     + (f", bỏ {len(cuts)} đoạn vi phạm chính sách." if cuts else "."))
+        else:
+            self.log("⚠️ AI không thấy chữ nào trên màn hình — dự án CapCut sẽ giữ nguyên video. "
+                     + (r.editor_notes or ""))
+
+    def _screen_texts(self, job: Job) -> list[dict] | None:
+        from app.director.schemas import ScreenTextScript
+        from app.director.textnote import screen_items
+
+        _, _, plan_dir = self._paths(job)
+        try:
+            r = ScreenTextScript.model_validate_json((plan_dir / "textnote_video01.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return screen_items(r) or None
 
     # ---------- Hoạt hình giữ âm thanh gốc (chủ dự án yêu cầu 20/10) ----------
 
@@ -1425,7 +1435,7 @@ class Runner:
             return
         if job.options.anim:  # hoạt hình: MỘT lượt hỏi AI ra cốt truyện mới + thứ tự cảnh + lời thoại mới
             return self._anim_step(job)
-        if job.options.textnote:  # chữ theo hành động: giữ nguyên video, MỘT lượt AI viết các dòng chữ (± voice)
+        if job.options.textnote:  # dịch chữ trên màn hình: giữ nguyên video, MỘT lượt AI đọc + dịch chữ
             return self._textnote_step(job)
         if job.options.sell:  # bán content: MỘT lượt hỏi AI ra cả kịch bản + cảnh + tiêu đề + nhạc
             for v in self.videos(job):
@@ -2539,7 +2549,8 @@ class Runner:
                     bgm_audio=bgm, vocals_audio=self._unvoiced_vocals(job, analysis, bgm),
                     cold_clip=self._cliff_hook(v) if job.options.cliff else None,
                     cold_subs=self._cliff_hook_subs(job, v) if job.options.cliff else None, dub_windows=dub_windows,
-                    timed_fx=timed_fx, extra_sources=extra_sources, insert_subs=insert_subs or None)
+                    timed_fx=timed_fx, extra_sources=extra_sources, insert_subs=insert_subs or None,
+                    screen_texts=self._screen_texts(job) if job.options.textnote else None)
         if job.options.sell:
             from app.director.sell import sell_cfg
 

@@ -1,12 +1,10 @@
-"""CHỮ THEO HÀNH ĐỘNG (chủ dự án yêu cầu 17/11).
+"""DỊCH CHỮ TRÊN MÀN HÌNH (chủ dự án yêu cầu 17/11 — thay chế độ "Chữ theo hành động" cùng ngày).
 
-MỘT video, giữ NGUYÊN hình + tiếng gốc (không cắt — trừ đoạn vi phạm chính sách, không đổi thứ tự / khung / tốc độ, không
-nhạc). MỘT lượt AI (`make_textnote_script`, prompt `textnote.md`): thỉnh thoảng có hành động đáng chú ý thì viết MỘT dòng
-chữ ngắn lên màn hình (ngôn ngữ đích). Kế hoạch dựng tạo bằng code (`textnote_plan`: một clip cả video, chữ = `emphasis`).
-
-Ô tick "🎙️ Có giọng nói" (`JobOptions.textnote_voice`): mỗi dòng còn được ĐỌC thành voice ở NGÔI THỨ NHẤT — như chính người
-trong video vừa làm vừa nói thẳng với người xem; khi đó chữ là phụ đề của câu đọc (`textnote_to_dub` → trang voice /
-OmniVoice / phụ đề dùng chung), không thêm chữ nhấn.
+MỘT video, giữ NGUYÊN hình + tiếng gốc. MỘT lượt AI (`make_screen_texts`, prompt `textnote.md`) đọc các khung hình dày
+(~1 giây / khung), chép MỌI chữ có sẵn trên màn hình (phụ đề cứng, chú thích, tiêu đề…) kèm vị trí (`box` trên khung gốc)
++ lúc hiện, và dịch sang ngôn ngữ đích. Máy chỉnh hộp / thời gian cho khít (`refine_items`, OpenCV trên khung đã trích).
+Khi dựng: builder CHE chữ gốc bằng dải nền rồi viết chữ dịch đè lên (`build(screen_texts=…)`). Kế hoạch dựng tạo bằng code
+(`textnote_plan`: cả video, tốc độ 1, không nhạc / chữ nhấn / phụ đề lời gốc).
 """
 
 from __future__ import annotations
@@ -21,155 +19,147 @@ def textnote_cfg() -> dict:
     return config.load("textnote") or {}
 
 
-def limits(cfg: dict, voice: bool) -> dict:
-    """Giới hạn đang dùng: có giọng nói thì theo mục `voice` (câu dài hơn, dày hơn)."""
-    v = cfg.get("voice") or {}
-    if voice:
-        return {"min_s": float(cfg.get("min_note_s", 1.2)), "max_s": float(v.get("max_line_s", 7)),
-                "gap": float(v.get("min_gap_s", 2.0)), "share": float(v.get("max_share", 0.5)),
-                "every": float(v.get("every_s", 8)), "fill": float(v.get("line_fill", 1.15)),
-                "overlap": float(v.get("max_speech_overlap", 0.5))}
-    return {"min_s": float(cfg.get("min_note_s", 1.2)), "max_s": min(4.0, float(cfg.get("max_note_s", 4.0))),
-            "gap": float(cfg.get("min_gap_s", 3.0)), "share": float(cfg.get("max_share", 0.35)),
-            "every": float(cfg.get("every_s", 12)), "fill": 0.0, "overlap": 1.0}
-
-
-def max_chars(cfg: dict, language: str) -> int:
-    return int((cfg.get("max_chars") or {}).get(language, 36 if language in ("en", "de") else 18))
-
-
-def speech_overlap(a: float, b: float, segs: list[dict]) -> float:
-    return sum(max(0.0, min(b, float(s["end"])) - max(a, float(s["start"]))) for s in segs)
-
-
-def check_textnote(r, language: str, *, duration: float, cfg: dict, voice: bool, cps: float = 0.0,
-                   segs: list[dict] | None = None) -> list[str]:
+def check_screen_texts(r, language: str, *, duration: float, cfg: dict) -> list[str]:
     from app.director.policy import find_forbidden
-    from app.director.tasks import speech_chars, wrong_language
+    from app.director.tasks import wrong_language
 
-    lim = limits(cfg, voice)
     errors = []
-    prev = None
-    for k, n in enumerate(r.notes, 1):
-        if not (0 <= n.start < n.end <= duration + 0.3):
-            errors.append(f"dòng {k} ({n.start}–{n.end}s) phải nằm trong video 0–{duration:.1f}s và end > start")
+    min_box = float(cfg.get("min_box", 0.01))
+    for k, it in enumerate(r.items, 1):
+        if not (0 <= it.start < it.end <= duration + 0.5):
+            errors.append(f"chữ {k} ({it.start}–{it.end}s) phải nằm trong video 0–{duration:.1f}s và end > start")
+        l, t, rr, b = it.box
+        if not (0 <= l < rr <= 1 and 0 <= t < b <= 1) or rr - l < min_box or b - t < min_box:
+            errors.append(f"chữ {k}: `box` {it.box} sai — phải là [trái, trên, phải, dưới] trong 0..1, trái < phải, "
+                          "trên < dưới, bao trọn dòng chữ gốc")
+        if not it.text.strip() or not it.text_orig.strip():
+            errors.append(f"chữ {k}: thiếu chữ gốc hoặc bản dịch (chữ rỗng)")
             continue
-        d = n.end - n.start
-        if d < lim["min_s"] - 0.05 or d > lim["max_s"] + 0.05:
-            errors.append(f"dòng {k} hiện {d:.1f}s — phải {lim['min_s']:.1f}–{lim['max_s']:.0f} giây")
-        if prev is not None and n.start < prev.end + lim["gap"] - 0.05:
-            errors.append(f"dòng {k} ({n.start}s) sát dòng trước (hết {prev.end}s) — cách ít nhất {lim['gap']:.0f} giây")
-        prev = n
-        if not n.text.strip():
-            errors.append(f"dòng {k}: chữ rỗng")
-            continue
-        if wrong_language(n.text, language):
-            errors.append(f"dòng {k}: KHÔNG viết bằng ngôn ngữ đích ({language}) — `text` phải là ngôn ngữ đích, nghĩa "
-                          "tiếng Việt ghi ở `text_vi`")
-        bad = find_forbidden(n.text, language)
+        same = it.text.strip() == it.text_orig.strip()  # tên riêng / số / thương hiệu giữ nguyên được
+        if not same and wrong_language(it.text, language):
+            errors.append(f"chữ {k}: bản dịch KHÔNG viết bằng ngôn ngữ đích ({language}) — `text` phải là ngôn ngữ đích, "
+                          "nghĩa tiếng Việt ghi ở `text_vi`")
+        bad = find_forbidden(it.text, language)
         if bad:
-            errors.append(f"dòng {k}: có từ không được phép ({', '.join(bad[:3])})")
-        if voice:
-            need = speech_chars(n.text) / max(cps, 0.1)
-            if cps and need > d * lim["fill"] + 0.2:
-                errors.append(f"dòng {k}: câu đọc mất ~{need:.1f}s mà chỉ có {d:.1f}s — viết ngắn lại")
-            if segs and speech_overlap(n.start, n.end, segs) > d * lim["overlap"]:
-                errors.append(f"dòng {k} ({n.start}–{n.end}s) đè lên lời nói gốc — chuyển sang chỗ lặng gần đó")
-        elif len(n.text.strip()) > max_chars(cfg, language):
-            errors.append(f"dòng {k}: {len(n.text.strip())} ký tự — tối đa {max_chars(cfg, language)} ký tự (một dòng)")
-    total = sum(max(0.0, n.end - n.start) for n in r.notes)
-    if duration > 0 and total > duration * lim["share"] + 0.5:
-        errors.append(f"chữ hiện tổng {total:.0f}s = {total / duration:.0%} video — tối đa {lim['share']:.0%} (chỉ ở "
-                      "hành động đáng chú ý, bỏ bớt dòng)")
+            errors.append(f"chữ {k}: có từ không được phép ({', '.join(bad[:3])}) — dịch nhẹ đi / bỏ")
     return errors
 
 
-# lỗi KHÔNG được bỏ qua khi AI sai 3 lần: sai ngôn ngữ, từ cấm, ngoài video
-HARD_MARKS = ("ngôn ngữ đích", "không được phép", "phải nằm trong video", "chữ rỗng")
+def _iou(a, b) -> float:
+    l, t, r, bt = max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])
+    inter = max(0.0, r - l) * max(0.0, bt - t)
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / union if union > 0 else 0.0
 
 
-def hard_problems(problems: list[str]) -> list[str]:
-    return [p for p in problems if any(m in p for m in HARD_MARKS)]
-
-
-def repair_textnote(r, duration: float, cfg: dict, voice: bool):
-    """Tự sửa lỗi vặt: xếp theo thời gian, kẹp vào video, dòng dài quá thì rút lại, dòng quá ngắn thì kéo dài (còn chỗ),
-    dòng sát dòng trước quá thì lùi chút ít (≤ `max_shift_s`, để chữ vẫn đúng lúc hành động) hoặc bỏ."""
-    lim = limits(cfg, voice)
-    fixes, out = [], []
-    for n in sorted(r.notes, key=lambda n: n.start):
-        a, b = max(0.0, n.start), min(duration, n.end)
-        if b - a > lim["max_s"]:
-            b = a + lim["max_s"]
-            fixes.append("rút dòng chữ dài quá")
-        if b - a < lim["min_s"]:
-            b = min(duration, a + lim["min_s"])
-        if out and a < out[-1].end + lim["gap"]:
-            shift = out[-1].end + lim["gap"] - a
-            if shift <= float(cfg.get("max_shift_s", 1.5)) and b + shift <= duration:  # lùi xa quá thì lệch hành động
-                a, b = a + shift, b + shift
-                fixes.append("lùi dòng chữ cho đủ khoảng cách")
-            else:
-                fixes.append("bỏ dòng chữ sát dòng trước")
-                continue
-        if b - a < lim["min_s"] - 0.05:
+def repair_screen_texts(r, duration: float, cfg: dict):
+    """Tự sửa lỗi vặt: kẹp vào video / khung, sửa hộp ngược, xếp theo thời gian, GỘP các dòng giống hệt nhau nối tiếp
+    (AI hay chép một phụ đề thành nhiều dòng theo từng khung), bỏ chữ hiện quá ngắn."""
+    fixes, out = set(), []
+    min_s = float(cfg.get("min_item_s", 0.5))
+    for it in sorted(r.items, key=lambda x: x.start):
+        l, t, rr, b = (min(1.0, max(0.0, float(v))) for v in it.box)
+        box = [min(l, rr), min(t, b), max(l, rr), max(t, b)]
+        if box != list(it.box):
+            fixes.add("kẹp / sửa hộp chữ về trong khung")
+        a, e = max(0.0, it.start), min(duration, it.end)
+        if e <= a and it.end > it.start:
             continue
-        out.append(n.model_copy(update={"start": round(a, 2), "end": round(b, 2)}))
-    if not out:
-        return r, []
-    return r.model_copy(update={"notes": out}), sorted(set(fixes))
+        cur = it.model_copy(update={"start": round(a, 2), "end": round(e, 2), "box": [round(v, 4) for v in box]})
+        prev = out[-1] if out else None
+        if prev and prev.text_orig.strip() == cur.text_orig.strip() and cur.start <= prev.end + 1.2 \
+                and _iou(prev.box, cur.box) > 0.3:
+            out[-1] = prev.model_copy(update={"end": max(prev.end, cur.end), "box": [
+                min(prev.box[0], cur.box[0]), min(prev.box[1], cur.box[1]),
+                max(prev.box[2], cur.box[2]), max(prev.box[3], cur.box[3])]})
+            fixes.add("gộp các dòng chữ giống nhau nối tiếp")
+            continue
+        out.append(cur)
+    kept = [x for x in out if x.end - x.start >= min_s - 1e-6]
+    if len(kept) != len(out):
+        fixes.add("bỏ chữ hiện quá ngắn")
+    return r.model_copy(update={"items": kept}), sorted(fixes)
 
 
-def make_textnote_script(director: Director, analysis_dir: Path, u, language: str, *, voice: bool = False,
-                         feedback: str = ""):
-    from app.director.base import DirectorError
-    from app.director.schemas import TextNoteScript
+def make_screen_texts(director: Director, analysis_dir: Path, u, language: str, *, feedback: str = ""):
+    from app.director.schemas import ScreenTextScript
     from app.director.tasks import (
         LANGUAGE_NAMES,
         MARKETS,
-        effective_cps,
         format_transcript,
         load_analysis,
         pick_evenly,
     )
 
     cfg = textnote_cfg()
-    lim = limits(cfg, voice)
     a = load_analysis(analysis_dir)
     duration = float(a["scenes"]["duration"])
-    segs = a["transcript"].get("segments", [])
-    cps = effective_cps(config.load("dub"), language) if voice else 0.0
-    frames = pick_evenly(a["frames"], int(cfg.get("frames", 60)))
-    lname = LANGUAGE_NAMES.get(language, language)
-    voice_rule = (
-        f"- CÓ GIỌNG NÓI: mỗi dòng còn được ĐỌC thành voice và hiện làm phụ đề. Viết ở NGÔI THỨ NHẤT — như CHÍNH người "
-        f"trong video vừa làm vừa nói thẳng với người xem (vd \"Giờ mình cho trứng vào nè\", \"Chỗ này phải làm thật nhẹ "
-        f"tay nha\"), văn nói tự nhiên của người bản xứ, gần gũi. Câu phải đọc KỊP: ≤ (end − start) × {cps:.1f} chữ / giây "
-        f"(không tính dấu cách, dấu câu). Đặt câu vào CHỖ LẶNG (không đè lời nói gốc — xem lời nói gốc bên dưới có giây).")\
-        if voice else (
-        f"- KHÔNG có giọng nói: chữ ngắn gọn như chú thích / bình luận trên màn hình, MỘT dòng ≤ {max_chars(cfg, language)} "
-        "ký tự, emoji tối đa 1 cái khi hợp.")
+    frames = pick_evenly(sorted(a["frames"], key=lambda f: f["t"]), int(cfg.get("frames", 120)))
     variables = {
-        "language_name": lname, "market": MARKETS.get(language, "TikTok"), "summary": u.summary_vi,
-        "duration": f"{duration:.0f}", "min_s": f"{lim['min_s']:.1f}", "max_s": f"{lim['max_s']:.0f}",
-        "gap": f"{lim['gap']:.0f}", "share": f"{lim['share']:.0%}", "every": f"{lim['every']:.0f}",
-        "voice_rule": voice_rule,
+        "language_name": LANGUAGE_NAMES.get(language, language), "market": MARKETS.get(language, "TikTok"),
+        "summary": u.summary_vi, "duration": f"{duration:.0f}",
         "frames": "\n".join(f"- {Path(f['file']).name} — {f['t']:.1f}s" for f in frames) or "(không có)",
-        "transcript": format_transcript(segs, int(cfg.get("transcript_chars", 5000))) or "(không có lời nói)",
+        "transcript": format_transcript(a["transcript"].get("segments", []), int(cfg.get("transcript_chars", 3000)))
+        or "(không có lời nói)",
         "feedback": feedback.strip() or "(không có)"}
+    return director.run("textnote", variables, ScreenTextScript, [analysis_dir / f["file"] for f in frames],
+                        extra_check=lambda r: check_screen_texts(r, language, duration=duration, cfg=cfg),
+                        repair=lambda r: repair_screen_texts(r, duration, cfg))
 
-    def check(r):
-        return check_textnote(r, language, duration=duration, cfg=cfg, voice=voice, cps=cps, segs=segs)
 
+def refine_items(r, frames: list[tuple[float, Path]], cfg: dict):
+    """Máy chỉnh cho khít: trong vùng AI báo (nới `refine_expand`) tìm đúng chỗ có nét chữ → hộp mới; rồi xem các khung
+    quanh đó để biết lúc chữ THẬT SỰ hiện / tắt. Không có OpenCV / không thấy nét chữ thì giữ nguyên bản AI.
+    Trả (bản đã chỉnh, số chữ được chỉnh)."""
     try:
-        return director.run("textnote", variables, TextNoteScript, [analysis_dir / f["file"] for f in frames],
-                            extra_check=check, repair=lambda r: repair_textnote(r, duration, cfg, voice))
-    except DirectorError as exc:  # AI sai vặt 3 lần → vẫn dùng bản cuối nếu chỉ còn lỗi nhỏ (như Thế giới động vật)
-        if exc.last is None or not cfg.get("accept_minor", True) or hard_problems(exc.problems):
-            raise
-        director.log("⚠️ AI vẫn còn lỗi nhỏ sau 3 lần — vẫn dùng bản cuối: " + "; ".join(exc.problems))
-        return exc.last.model_copy(update={"editor_notes": (exc.last.editor_notes + " | ⚠️ Còn lỗi nhỏ (tool vẫn dùng): "
-                                                            + "; ".join(exc.problems))[:2000]})
+        import numpy as np
+
+        from app.analysis.textdetect import _load, presence_times, text_map
+    except ImportError:
+        return r, 0
+    if not frames:
+        return r, 0
+    frames = sorted(frames)
+    grays = _load([p for _, p in frames], 480)
+    timed = [(t, g) for (t, _), g in zip(frames, grays) if g is not None]
+    if not timed:
+        return r, 0
+    ex = float(cfg.get("refine_expand", 0.3))
+    dens = float(cfg.get("refine_density", 0.08))
+    out, changed = [], 0
+    for it in r.items:
+        inside = [g for t, g in timed if it.start - 0.01 <= t <= it.end + 0.01]
+        box = list(it.box)
+        if inside:
+            h, w = inside[0].shape[:2]
+            bw, bh = box[2] - box[0], box[3] - box[1]
+            reg = [max(0.0, box[0] - bw * ex), max(0.0, box[1] - bh * ex),
+                   min(1.0, box[2] + bw * ex), min(1.0, box[3] + bh * ex)]
+            x0, y0, x1, y1 = int(reg[0] * w), int(reg[1] * h), max(int(reg[2] * w), int(reg[0] * w) + 1), \
+                max(int(reg[3] * h), int(reg[1] * h) + 1)
+            heat = np.mean([text_map(g if g.shape[:2] == (h, w) else _resize(g, w, h))[y0:y1, x0:x1]
+                            for g in inside], axis=0)
+            ys, xs = np.nonzero(heat >= 0.3)
+            if len(xs):
+                nb = [reg[0] + xs.min() / w - 0.01, reg[1] + ys.min() / h - 0.01,
+                      reg[0] + (xs.max() + 1) / w + 0.01, reg[1] + (ys.max() + 1) / h + 0.01]
+                nb = [round(min(1.0, max(0.0, v)), 4) for v in nb]
+                area = (nb[2] - nb[0]) * (nb[3] - nb[1])
+                if 0.3 * bw * bh <= area <= 3.0 * bw * bh:
+                    box = nb
+        window = [(t, g) for t, g in timed if it.start - 1.5 <= t <= it.end + 1.5]
+        spans = [s for s in presence_times(window, box, density=dens) if s[0] < it.end + 0.5 and s[1] > it.start - 0.5]
+        a, e = (min(s[0] for s in spans), max(s[1] for s in spans)) if spans else (it.start, it.end)
+        new = it.model_copy(update={"box": box, "start": round(max(0.0, a), 2), "end": round(max(a + 0.3, e), 2)})
+        changed += new != it
+        out.append(new)
+    return r.model_copy(update={"items": out}), changed
+
+
+def _resize(g, w: int, h: int):
+    import cv2
+
+    return cv2.resize(g, (w, h))
 
 
 def keep_ranges(duration: float, cuts: list[tuple[float, float]]) -> list[tuple[float, float]]:
@@ -184,27 +174,19 @@ def keep_ranges(duration: float, cuts: list[tuple[float, float]]) -> list[tuple[
     return out
 
 
-def textnote_plan(r, duration: float, cuts: list[tuple[float, float]], cfg: dict, *, voice: bool,
-                  default_ratio: str = "16:9"):
-    """Kế hoạch dựng: cả video nguyên vẹn, tốc độ 1 (chỉ bỏ đoạn vi phạm); không voice thì chữ = `emphasis`."""
-    from app.director.schemas import EditPlan, Emphasis, MusicChoice, PlanClip
+def textnote_plan(r, duration: float, cuts: list[tuple[float, float]], default_ratio: str = "16:9"):
+    """Kế hoạch dựng: cả video nguyên vẹn, tốc độ 1 (chỉ bỏ đoạn vi phạm). Chữ dịch do builder vẽ (`screen_texts`)."""
+    from app.director.schemas import EditPlan, MusicChoice, PlanClip
 
     ranges = keep_ranges(duration, cuts) or [(0.0, round(duration, 3))]
     clips = [PlanClip(source_start=a, source_end=b, purpose_vi="giữ nguyên video gốc") for a, b in ranges]
-    pos = "center" if cfg.get("position") == "center" else "top"
-    emphasis = [] if voice else [
-        Emphasis(source_time=n.start, duration=max(0.4, min(4.0, n.end - n.start)), text=n.text.strip(), position=pos)
-        for n in r.notes if n.text.strip()]
-    return EditPlan(video_index=1, titles_top=[], default_ratio=default_ratio, clips=clips, emphasis=emphasis,
+    return EditPlan(video_index=1, titles_top=[], default_ratio=default_ratio, clips=clips,
                     music=MusicChoice(name=None, mood_vi="giữ tiếng gốc", energy="low"),
-                    editor_notes=f"Giữ nguyên video gốc, {len(r.notes)} dòng "
-                                 + ("lời nói ngôi thứ nhất (voice + phụ đề)." if voice else "chữ theo hành động.")
+                    editor_notes=f"Giữ nguyên video gốc, dịch + che {len(r.items)} chữ trên màn hình."
                                  + (f" {r.editor_notes}" if r.editor_notes else ""))
 
 
-def textnote_to_dub(r):
-    from app.director.schemas import DubLine, DubScript
-
-    lines = [DubLine(kind="narration", source_start=n.start, source_end=n.end, text=n.text, text_vi=n.text_vi)
-             for n in r.notes if n.text.strip()]
-    return DubScript(video_index=1, lines=lines, editor_notes=r.editor_notes)
+def screen_items(r) -> list[dict]:
+    """Dữ liệu cho builder: [{start, end, box, text}] (giây gốc, hộp trên khung gốc)."""
+    return [{"start": it.start, "end": it.end, "box": list(it.box), "text": it.text.strip()}
+            for it in r.items if it.text.strip()]

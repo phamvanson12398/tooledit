@@ -248,8 +248,11 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
           bgm_audio: Path | None = None, vocals_audio: Path | None = None,
           cold_clip: tuple[float, float] | None = None, cold_subs: list[dict] | None = None,
           dub_windows: list | None = None, timed_fx: dict | None = None,
-          extra_sources: dict[str, dict] | None = None, insert_subs: list[dict] | None = None) -> BuildResult:
+          extra_sources: dict[str, dict] | None = None, insert_subs: list[dict] | None = None,
+          screen_texts: list[dict] | None = None) -> BuildResult:
     """analysis: kết quả load_analysis(); voice: (đường dẫn, độ dài µs) nếu đã thu.
+    screen_texts: chữ trên màn hình đã dịch [{start, end (giây gốc), box (khung gốc 0..1), text}] → che chữ gốc bằng dải
+    nền rồi viết bản dịch đè lên (chế độ Dịch chữ trên màn hình, 17/11; style["screen_text"] = config/textnote.yaml).
     dub (chế độ Đổi ngôn ngữ): DubScript; dub_voices: {số câu: (file, độ dài µs)} — thuyết minh + phụ đề theo câu dịch.
     bgm_audio: nhạc nền gốc đã tách giọng nói (chỉ thay tiếng + giữ nhạc nền) — thay cho nhạc AI chọn.
     vocals_audio (lồng tiếng nhân vật): phần GIỌNG NÓI gốc Demucs tách ra — phát lại ở chỗ KHÔNG có câu lồng tiếng
@@ -754,6 +757,36 @@ def build(plan: EditPlan, u: Understanding, analysis: dict, template: DraftTempl
         colored = dataclasses.replace(emph_style, color=palette[i % len(palette)])
         w.add_text(text, start=int(t), duration=int(min(dur, tmap.end - t)), x=pos["x"], y=pos["center"], style=colored,
                    animations=emph_anims)
+
+    # ---------- dịch chữ trên màn hình: dải che chữ gốc + bản dịch đè lên (17/11) ----------
+    if screen_texts:
+        from app.planner.textcover import cover_glyphs, cover_rect, fit_text_scale
+
+        st = style.get("screen_text") or {}
+        cw = float((four or {}).get("char_width_per_size", 0.0017))
+        color = str(st.get("cover_color", "#000000"))
+        rgb = tuple(int(color.lstrip("#")[i:i + 2], 16) / 255 for i in (0, 2, 4))
+        cover_st = TextStyle(size=15, color=rgb, background=TextBackground(
+            color=color, alpha=float(st.get("cover_alpha", 0.85)), round_radius=float(st.get("cover_round", 0.25)),
+            style=1, width=0.04, height=0.12))
+        txt_st = dataclasses.replace(_style({"size": 15, "color": st.get("text_color", [1, 1, 1])}), bold=True)
+        r_st = "9:16" if ratio_for(None) == "full" else ratio_for(None)
+        n_st = 0
+        for item in screen_texts:
+            t0 = tmap.to_out(float(item["start"]))
+            if t0 is None:
+                continue
+            dur = min(round((float(item["end"]) - float(item["start"])) * SEC), tmap.end - t0)
+            rect = cover_rect(tuple(item["box"]), None, r_st, pad=float(st.get("cover_pad", 0.15)))
+            if dur < 300_000 or rect is None:
+                continue
+            cx, cy, hx, hy = rect
+            glyphs, scale = cover_glyphs(hx, hy, 15, cw)
+            w.add_text(glyphs, start=t0, duration=dur, x=cx, y=cy, scale=scale, style=cover_st, animations=None)
+            w.add_text(item["text"], start=t0, duration=dur, x=cx, y=cy, style=txt_st, animations=None,
+                       scale=fit_text_scale(item["text"], hx, hy, 15, cw, float(st.get("text_fill", 0.8))))
+            n_st += 1
+        notes.append(f"Dịch chữ trên màn hình: che chữ gốc + đè bản dịch ở {n_st} chỗ.")
 
     # ---------- trang trí: hiệu ứng hình, sticker, filter ----------
     corners = {"top_left": (-0.55, 0.55), "top_right": (0.45, 0.55), "center": (0.0, 0.25),

@@ -1,8 +1,11 @@
 {
-  "notes": [
-    {"start": 5.0, "end": 8.0, "text": "계란 투입!", "text_vi": "Cho trứng vào!", "action_vi": "đập trứng vào chảo"},
-    {"start": 20.0, "end": 23.0, "text": "소금 한 꼬집", "text_vi": "Một nhúm muối", "action_vi": "rắc muối"},
-    {"start": 40.0, "end": 43.0, "text": "완성 ✨", "text_vi": "Hoàn thành", "action_vi": "bày ra đĩa"}
+  "items": [
+    {"start": 2.0, "end": 6.0, "box": [0.1, 0.8, 0.9, 0.9], "text_orig": "今天做番茄炒蛋", "text": "오늘은 토마토 달걀볶음",
+     "text_vi": "Hôm nay làm trứng xào cà chua"},
+    {"start": 6.5, "end": 9.0, "box": [0.1, 0.8, 0.9, 0.9], "text_orig": "今天做番茄炒蛋", "text": "오늘은 토마토 달걀볶음",
+     "text_vi": "(AI chép trùng — tool tự gộp)"},
+    {"start": 20.0, "end": 24.0, "box": [0.3, 0.1, 0.7, 0.18], "text_orig": "盐 5g", "text": "소금 5g",
+     "text_vi": "Muối 5g"}
   ],
-  "editor_notes": "Chỉ đặt chữ ở 3 bước chính: cho trứng, nêm muối, bày đĩa."
+  "editor_notes": "Video có phụ đề cứng tiếng Trung ở dưới và chú thích nguyên liệu ở trên."
 }

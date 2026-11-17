@@ -854,18 +854,20 @@ class WildScript(BaseModel):
     editor_notes: str
 
 
-# ---------------- Chữ theo hành động (chủ dự án yêu cầu 17/11) ----------------
+# ---------------- Dịch chữ trên màn hình (chủ dự án yêu cầu 17/11) ----------------
 
-class TextNote(BaseModel):
-    start: float = Field(ge=0, description="giây GỐC chữ bắt đầu hiện (lúc hành động xảy ra)")
-    end: float = Field(gt=0, description="giây GỐC chữ tắt")
-    text: str = Field(description="MỘT dòng chữ ngắn bằng NGÔN NGỮ ĐÍCH, nói về hành động đang thấy")
+class ScreenText(BaseModel):
+    start: float = Field(ge=0, description="giây GỐC chữ bắt đầu hiện trên màn hình")
+    end: float = Field(gt=0, description="giây GỐC chữ biến mất")
+    box: list[float] = Field(min_length=4, max_length=4,
+                             description="vị trí chữ trên khung gốc [trái, trên, phải, dưới], mỗi số 0..1")
+    text_orig: str = Field(description="chữ GỐC đúng như trên màn hình")
+    text: str = Field(description="bản dịch sang NGÔN NGỮ ĐÍCH (ngắn gọn, tự nhiên, vừa chỗ chữ gốc)")
     text_vi: str = Field(default="", description="nghĩa tiếng Việt")
-    action_vi: str = Field(default="", description="hành động đang thấy trên hình (tiếng Việt)")
 
 
-class TextNoteScript(BaseModel):
-    notes: list[TextNote] = Field(min_length=1, description="các dòng chữ theo thời gian")
+class ScreenTextScript(BaseModel):
+    items: list[ScreenText] = Field(default_factory=list, description="mọi chữ trên màn hình, theo thời gian")
     editor_notes: str
 
 
