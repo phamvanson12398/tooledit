@@ -423,6 +423,24 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   lực, không chửi thề. Đoạn AI đánh dấu vi phạm chính sách TikTok (bạo lực thật, vũ khí…) KHÔNG được dùng làm cảnh / tiếng
   gốc — video nhiều cảnh như vậy sẽ ít cảnh dùng được; bảng 🚫 "Giữ lại" để giữ (chủ dự án tự chịu trách nhiệm).
 
+## 5n. Chế độ "✍️ Chữ theo hành động" (chủ dự án yêu cầu 17/11)
+
+- Thẻ "✍️ Chữ theo hành động" ở trang chủ (`HOME_MODES`, `JobOptions.textnote`, `config/textnote.yaml`,
+  `app/director/textnote.py`, prompt `textnote.md`): MỘT video, cần chọn ngôn ngữ của chữ (Hàn / Nhật / Anh / Đức). GIỮ
+  NGUYÊN video gốc — hình + tiếng gốc, không cắt (trừ đoạn vi phạm chính sách — `keep_ranges`), không đổi thứ tự / khung /
+  tốc độ, không nhạc, không zoom / lật / hiệu ứng; không hook, không chia video.
+- MỘT lượt AI: THỈNH THOẢNG, đúng lúc có hành động đáng chú ý thì viết MỘT dòng chữ ngắn (`TextNote`: giây gốc, `text`
+  ngôn ngữ đích, `text_vi`, `action_vi`). `check_textnote`: trong video, hiện `min_note_s`–`max_note_s`, cách nhau
+  ≥ `min_gap_s`, tổng ≤ `max_share`, một dòng ≤ `max_chars`, đúng ngôn ngữ, không từ cấm; `repair_textnote` tự xếp / rút /
+  lùi ≤ `max_shift_s` (xa hơn thì bỏ dòng); sai 3 lần mà chỉ còn lỗi nhỏ thì vẫn dùng (`accept_minor`). Kế hoạch dựng tạo
+  bằng code (`textnote_plan`): chữ = `emphasis` (dải trên khối video, chữ trắng viền đen `text_style`), không phụ đề lời
+  gốc (`subtitles: false`).
+- Ô tick **"🎙️ Có giọng nói"** (`JobOptions.textnote_voice`, chủ dự án 17/11): lời viết ở NGÔI THỨ NHẤT — như chính người
+  trong video vừa làm vừa nói thẳng với người xem; mỗi dòng được đọc thành voice (`textnote_to_dub` → trang voice /
+  OmniVoice / ô 🎙️ Giọng đọc dùng chung), chữ = phụ đề của câu đọc (không thêm chữ nhấn); câu đọc kịp trong đoạn của nó,
+  đặt ở chỗ lặng (không đè lời nói gốc quá `max_speech_overlap`), tiếng gốc hạ `orig_db_under_voice` khi đang nói
+  (mục `voice` trong `config/textnote.yaml`).
+
 ## 5f. Tab "🎙️ Voice Studio" (chủ dự án yêu cầu 16/10)
 
 - Tab riêng trên thanh đầu trang (`/studio`, `app/web/studio_page.py`, logic `app/tts/studio.py`): dùng chính OmniVoice
@@ -652,6 +670,7 @@ dài, Bán content YouTube; mặc định chọn Review phim). Mã các chế đ
 **Cập nhật 05/11 (chủ dự án):** thêm thẻ "🌐 Chuyển ngôn ngữ" (mục 5k) vào `HOME_MODES` (đứng sau Review phim).
 **Cập nhật 14/11 (chủ dự án):** thêm thẻ "🎯 Cắt đoạn hay theo chủ đề" (mục 5l) vào `HOME_MODES`.
 **Cập nhật 16/11 (chủ dự án):** thêm thẻ "🚓 Cops US" (mục 5m) vào `HOME_MODES`.
+**Cập nhật 17/11 (chủ dự án):** thêm thẻ "✍️ Chữ theo hành động" (mục 5n) vào `HOME_MODES`.
 
 Web app chạy local (FastAPI + trang HTML đơn giản, không cần build frontend), mở trên trình duyệt. Chủ dự án không phải gõ lệnh khi dùng hằng ngày; có file `start.bat` để khởi động.
 

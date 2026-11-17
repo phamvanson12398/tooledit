@@ -82,6 +82,9 @@ class JobOptions(BaseModel):
                                       #   bản theo hướng khác hẳn, xen voice + tiếng gốc (config/cops.yaml)
     topics: bool = False              # Cắt đoạn hay theo chủ đề (14/11): MỘT video dài → AI tìm đoạn hay, gom theo chủ đề tự
                                       #   đặt, chủ dự án tick → mỗi chủ đề một video GIỮ NGUYÊN tiếng gốc (config/topics.yaml)
+    textnote: bool = False            # Chữ theo hành động (17/11): MỘT video giữ NGUYÊN hình + tiếng gốc, thỉnh thoảng có hành
+                                      #   động thì AI viết chữ lên màn hình (ngôn ngữ = target_language; config/textnote.yaml)
+    textnote_voice: bool = False      # Chữ theo hành động: thêm giọng nói NGÔI THỨ NHẤT (đọc chính các dòng đó, chữ = phụ đề)
     cliff_pov: str = ""               # Review bỏ lửng: ngôi kể "1" (người kể là nhân vật chính) | "3"; "" = default_pov
 
 
@@ -169,7 +172,8 @@ class Job(BaseModel):
     def use_hook(self) -> bool:
         """Có hook voice riêng. Review phim thì KHÔNG (câu mở đầu của bài lời đọc là hook; hook riêng làm đứt mạch kể)."""
         return (self.options.hook and not self.options.review and not self.options.char_dub and not self.options.sell
-                and not self.options.anim and not self.options.wild and not self.options.topics)
+                and not self.options.anim and not self.options.wild and not self.options.topics
+                and not self.options.textnote)
 
     @property
     def picks_segments(self) -> bool:
@@ -192,6 +196,8 @@ class Job(BaseModel):
         if step == "review_segments":
             return self.picks_segments
         if step in ("dub", "dub_voice"):
+            if self.options.textnote:  # chữ theo hành động: chỉ có bước voice khi tick "Có giọng nói"
+                return self.options.textnote_voice
             return bool(self.options.target_language) or self.options.review or self.options.sell
         return True
 

@@ -1,0 +1,8 @@
+{
+  "notes": [
+    {"start": 5.0, "end": 8.0, "text": "계란 투입!", "text_vi": "Cho trứng vào!", "action_vi": "đập trứng vào chảo"},
+    {"start": 20.0, "end": 23.0, "text": "소금 한 꼬집", "text_vi": "Một nhúm muối", "action_vi": "rắc muối"},
+    {"start": 40.0, "end": 43.0, "text": "완성 ✨", "text_vi": "Hoàn thành", "action_vi": "bày ra đĩa"}
+  ],
+  "editor_notes": "Chỉ đặt chữ ở 3 bước chính: cho trứng, nêm muối, bày đĩa."
+}

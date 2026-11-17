@@ -104,12 +104,15 @@ def run_analysis(job: Job, jobs_root: Path, *, transcribe_fn: Callable = transcr
             if getattr(job.options, "topics", False):  # cắt đoạn hay theo chủ đề (14/11): khung rải cả video dài
                 tcfg = config.load("topics") or {}
                 max_frames, every_s = int(tcfg.get("analysis_frames", 300)), float(tcfg.get("frame_every_s", 6.0))
+            if getattr(job.options, "textnote", False):  # chữ theo hành động (17/11): khung dày để bắt đúng lúc hành động
+                ncfg = config.load("textnote") or {}
+                max_frames, every_s = int(ncfg.get("analysis_frames", 150)), float(ncfg.get("frame_every_s", 2.0))
             o = job.options  # bỏ phần không cần cho chế độ này (chủ dự án 11/10: "chậm quá")
             need_scenes = not getattr(o, "vi_sub", False)             # phụ đề tiếng Việt: chỉ cần lời thoại
             need_faces = not (getattr(o, "vi_sub", False) or getattr(o, "voice_only", False) or films
                               or getattr(o, "ideas", False) or getattr(o, "yt", False) or getattr(o, "cops", False)
                               or getattr(o, "anim", False) or getattr(o, "wild", False)
-                              or getattr(o, "topics", False))  # giữ khung gốc
+                              or getattr(o, "topics", False) or getattr(o, "textnote", False))  # giữ khung gốc
             video_job = _in_thread(pool, _video_part, src, i, tag, duration, info, out, cfg, workers, progress,
                                    max_frames if need_scenes else 6, need_scenes, need_faces, every_s)
             if listen:

@@ -1,0 +1,33 @@
+# CHẾ ĐỘ "✍️ CHỮ THEO HÀNH ĐỘNG" (chủ dự án yêu cầu 17/11)
+# MỘT video, KHÔNG voice: giữ NGUYÊN hình + tiếng gốc (không cắt — trừ đoạn vi phạm chính sách, không đổi thứ tự / khung /
+# tốc độ, không nhạc). Thỉnh thoảng có hành động đáng chú ý thì AI viết MỘT dòng chữ ngắn lên màn hình (ngôn ngữ chọn khi tạo
+# job). Kế hoạch dựng tạo bằng code; chữ hiện ở dải trên khối video (position: top) hoặc giữa (center).
+min_note_s: 1.2               # mỗi dòng chữ hiện ít nhất chừng này giây…
+max_note_s: 4.0               # …và tối đa chừng này giây (CapCut: chữ nhấn ≤ 4s)
+min_gap_s: 3.0                # giữa 2 dòng chữ cách ít nhất chừng này giây ("thỉnh thoảng", không dày đặc)
+max_shift_s: 1.5             # tool tự lùi dòng chữ sát dòng trước tối đa chừng này giây (xa hơn thì bỏ dòng đó)
+max_share: 0.35               # tổng thời gian có chữ ≤ 35% thời lượng video
+every_s: 12                   # gợi ý cho AI: trung bình khoảng 1 dòng / 12 giây (chỉ ở hành động đáng chú ý)
+position: top                 # top = dải trên khối video (ít che hành động) | center = giữa
+max_chars: {ko: 18, ja: 18, en: 36, de: 36}   # tối đa ký tự / dòng (một dòng, không xuống dòng)
+subtitles: false              # true = thêm phụ đề lời gốc (Whisper) — mặc định tắt, chỉ có chữ theo hành động
+frames: 60                    # số khung hình gửi AI
+analysis_frames: 150          # bước phân tích: trích tối đa chừng này khung…
+frame_every_s: 2.0            # …mỗi 2 giây một khung (và khung đầu mỗi cảnh)
+transcript_chars: 5000        # lời nói gốc gửi AI (để hiểu, không chép)
+# kiểu chữ (chữ trắng viền đen dễ đọc trên mọi nền)
+text_style: {size: 15, color: [1, 1, 1], stroke_color: [0, 0, 0], stroke_width: 0.14, animations: [in]}
+palette: [[1, 1, 1], [1, 0.9, 0.3]]
+# AI sai vặt 3 lần mà chỉ còn lỗi NHỎ (khoảng cách, tỉ lệ chữ…) thì vẫn dùng bản cuối, ghi ⚠️ nhật ký; lỗi LỚN (sai ngôn
+# ngữ, từ cấm, ngoài video) vẫn báo lỗi.
+accept_minor: true
+# Ô tick "🎙️ Có giọng nói" (chủ dự án 17/11): mỗi dòng được ĐỌC thành voice ở NGÔI THỨ NHẤT — như chính người trong video
+# đang làm và nói thẳng với người xem ("Giờ mình cho trứng vào nè…"). Chữ hiện thành phụ đề của câu đọc (không thêm chữ nhấn).
+voice:
+  max_line_s: 7               # mỗi câu đọc tối đa ~7 giây
+  min_gap_s: 2.0              # giữa 2 câu cách ít nhất chừng này giây
+  max_share: 0.5              # tổng lời đọc ≤ 50% thời lượng
+  every_s: 8                  # gợi ý: trung bình ~1 câu / 8 giây
+  line_fill: 1.15             # câu đọc tối đa 115% đoạn của nó (tool tăng tốc nhẹ phần dư)
+  max_speech_overlap: 0.5     # câu đọc không được đè lên lời nói gốc quá 50% độ dài câu (ưu tiên chỗ lặng)
+  orig_db_under_voice: -10    # tiếng gốc hạ chừng này dB khi có câu đọc

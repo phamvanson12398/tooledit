@@ -1,5 +1,19 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 130 — Chế độ "✍️ Chữ theo hành động" `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull` (lỗi "local changes" thì `git stash` trước), mở lại `start.bat`.
+2. Trang chủ → chọn MỘT video (vd nấu ăn, làm đồ thủ công) → thẻ **✍️ Chữ theo hành động** → chọn ngôn ngữ (vd tiếng
+   Hàn) → **không** tick 🎙️ → Bắt đầu.
+3. Job chạy thẳng tới xong (không có bước voice). Mở dự án trong CapCut: video giữ nguyên từ đầu tới cuối, tiếng gốc,
+   không nhạc; thỉnh thoảng có một dòng chữ trắng viền đen ở phía trên đúng lúc có hành động. Kiểm tra chữ có đúng lúc,
+   có che hình không (muốn đặt giữa: `position: center` trong `config\textnote.yaml`).
+4. Làm lại với ô **🎙️ Có giọng nói** tick (có thể chọn 🎙️ Giọng đọc trong Voice Studio): job dừng ở trang voice, lời ở
+   ngôi thứ nhất ("mình đang…"). Thu tay hoặc để OmniVoice đọc → CapCut: voice nằm ở chỗ lặng, có phụ đề, tiếng gốc hạ nhỏ
+   lúc đang nói.
+5. Muốn chữ dày / thưa hơn: sửa `every_s`, `min_gap_s`, `max_share` trong `config\textnote.yaml` (mục `voice` cho bản có
+   giọng nói).
+
 ## Bước 129 — Bán content "AI tự chọn độ dài": kể chi tiết hơn `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. `git pull` (lỗi "local changes" thì `git stash` trước), mở lại `start.bat`.

@@ -854,6 +854,21 @@ class WildScript(BaseModel):
     editor_notes: str
 
 
+# ---------------- Chữ theo hành động (chủ dự án yêu cầu 17/11) ----------------
+
+class TextNote(BaseModel):
+    start: float = Field(ge=0, description="giây GỐC chữ bắt đầu hiện (lúc hành động xảy ra)")
+    end: float = Field(gt=0, description="giây GỐC chữ tắt")
+    text: str = Field(description="MỘT dòng chữ ngắn bằng NGÔN NGỮ ĐÍCH, nói về hành động đang thấy")
+    text_vi: str = Field(default="", description="nghĩa tiếng Việt")
+    action_vi: str = Field(default="", description="hành động đang thấy trên hình (tiếng Việt)")
+
+
+class TextNoteScript(BaseModel):
+    notes: list[TextNote] = Field(min_length=1, description="các dòng chữ theo thời gian")
+    editor_notes: str
+
+
 # ---------------- Phụ đề tiếng Việt (chế độ "xem hiểu video nước ngoài") ----------------
 
 class ViLine(BaseModel):
