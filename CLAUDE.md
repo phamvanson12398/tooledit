@@ -710,6 +710,9 @@ Edit plan tối thiểu phải mô tả: danh sách clip (nguồn, in/out, tốc
   `--dangerously-skip-permissions` (cập nhật 11/10: đề bài luôn kèm `TOOLS_NOTE` — chỉ đọc file, không web / URL / lệnh; AI
   vẫn lỡ dùng công cụ bị chặn — vd `ReadUrlContent` — thì `ToolDenied` → tự hỏi lại tối đa 2 lần kèm `RETRY_NOTE`);
   `agy` tự cập nhật ngầm, tìm ở `%LOCALAPPDATA%\agy\bin\agy.exe` nếu không có PATH.
+  **Cập nhật 17/11 (lỗi "Our servers are experiencing high traffic… UNAVAILABLE (code 503): No capacity"):** máy chủ
+  Gemini quá tải (`is_busy` → `ServerBusy`) thì tool tự đợi rồi hỏi lại theo `agy_busy_wait_s` (60/120/180/300 giây,
+  bấm Dừng vẫn dừng ngay), hết lượt mới báo lỗi kèm gợi ý đổi sang Claude.
 - **Hỏi AI song song trong một job (chủ dự án 11/10: "Gemini chậm, video > 10 phút chia ra làm rồi gộp"):** bước chọn
   đoạn của video dài hơn `long_video.split_over_s` (600s) chia thành vài phần ~10 phút, điểm chia ở khoảng lặng dài nhất
   gần điểm chia đều (`long_parts`), mỗi phần một lượt hỏi (chỉ chọn trong phần của mình — `restrict`), chạy song song

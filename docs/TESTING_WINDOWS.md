@@ -1,5 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 132 — Gemini quá tải (503 "high traffic") tự đợi rồi hỏi lại `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Sau `git pull` + mở lại `start.bat`: job dùng Gemini gặp lỗi "Our servers are experiencing high traffic… (code 503)"
+   thì nhật ký hiện "Máy chủ Gemini đang quá tải — đợi 60 giây rồi hỏi lại (lần 1/4)…" và job tự chạy tiếp.
+2. Đợi hết 4 lần (~11 phút) vẫn quá tải mới báo lỗi → bấm Chạy tiếp sau, hoặc đổi job sang Claude ở trang job.
+   Đổi thời gian đợi: `agy_busy_wait_s` trong `config\director.yaml` (`[]` = báo lỗi ngay như cũ).
+
 ## Bước 131 — Chế độ "🔤 Dịch chữ trên màn hình" (thay "Chữ theo hành động") `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull` (lỗi "local changes" thì `git stash` trước), mở lại `start.bat`.

@@ -70,6 +70,18 @@ class ToolDenied(DirectorError):
         self.tools = tools
 
 
+class ServerBusy(DirectorError):
+    """Máy chủ Gemini quá tải (503 / UNAVAILABLE / "high traffic" / "No capacity") — đợi một lúc rồi hỏi lại."""
+
+
+BUSY_KEYS = ("high traffic", "no capacity", "unavailable", "503", "overloaded", "try again in a minute")
+
+
+def is_busy(message: str) -> bool:
+    low = (message or "").lower()
+    return any(k in low for k in BUSY_KEYS)
+
+
 def find_exe(name: str | None = None) -> str:
     """`agy` trong PATH, không có thì chỗ trình cài đặt chính thức để file (%LOCALAPPDATA%\\agy\\bin\\agy.exe)."""
     name = name or "agy"
@@ -101,6 +113,9 @@ def write_task_files(workdir: Path, prompt: str, schema: dict, image_names: list
 
 def _friendly(message: str) -> str:
     low = message.lower()
+    if is_busy(message):
+        return ("Máy chủ Gemini đang quá tải (lỗi phía Google, không phải lỗi tool). Đợi vài phút rồi bấm Chạy tiếp, hoặc "
+                "đổi job này sang Claude ở trang job. (Thông báo gốc: " + message[:200] + ")")
     if any(k in low for k in ("login", "log in", "sign in", "signin", "auth", "credential", "unauthenticated")):
         return ("Antigravity CLI chưa đăng nhập. Mở PowerShell, gõ `agy`, đăng nhập tài khoản Google có gói AI Pro, "
                 "thấy giao diện chat thì thoát (`/quit`), rồi bấm Chạy tiếp. (Thông báo gốc: " + message[:200] + ")")
@@ -108,6 +123,10 @@ def _friendly(message: str) -> str:
         return ("Gemini (Antigravity) đã hết hạn mức tạm thời của gói. Đợi một lúc rồi bấm Chạy tiếp, hoặc đổi job này "
                 "sang Claude ở trang job. (Thông báo gốc: " + message[:200] + ")")
     return f"Antigravity CLI báo lỗi: {message[:800]}"
+
+
+def _error(message: str) -> DirectorError:
+    return (ServerBusy if is_busy(message) else DirectorError)(_friendly(message))
 
 
 def _json_in(text: str) -> dict | None:
@@ -129,7 +148,7 @@ def parse_output(stdout: str, stderr: str = "", returncode: int = 0) -> dict:
         msg = (stderr or stdout or "").strip() or f"mã thoát {returncode}"
         if "auto-denied" in msg:
             raise ToolDenied(f"Gemini (Antigravity) định dùng công cụ bị chặn. Chi tiết: {msg[:300]}") from None
-        raise DirectorError(_friendly(msg)) from None
+        raise _error(msg) from None
     if not isinstance(data, dict):
         raise DirectorError(f"Antigravity CLI trả kết quả lạ: {str(stdout)[:300]}")
     if isinstance(data.get("structured_output"), dict) and data["structured_output"]:
@@ -137,7 +156,7 @@ def parse_output(stdout: str, stderr: str = "", returncode: int = 0) -> dict:
     status = str(data.get("status") or "")
     if status and status.upper() != "SUCCESS":
         err = data.get("error") or data.get("response") or stderr or status
-        raise DirectorError(_friendly(str(err.get("message") if isinstance(err, dict) else err)))
+        raise _error(str(err.get("message") if isinstance(err, dict) else err))
     found = _json_in(str(data.get("response") or ""))
     if found is not None:
         return found
@@ -148,7 +167,20 @@ def parse_output(stdout: str, stderr: str = "", returncode: int = 0) -> dict:
                             + (f" Chi tiết: {stderr.strip()[:300]}" if stderr.strip() else ""), denied)
     if "auto-denied" in (stderr or ""):
         raise ToolDenied(f"Gemini (Antigravity) định dùng công cụ bị chặn. Chi tiết: {stderr.strip()[:300]}")
-    raise DirectorError(_friendly(stderr.strip() or "không có kết quả (response trống)"))
+    raise _error(stderr.strip() or "không có kết quả (response trống)")
+
+
+def _sleep_stoppable(seconds: float) -> None:
+    """Đợi, nhưng bấm Dừng job thì dừng ngay."""
+    import time
+
+    from app.jobs import stop
+
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        if stop.requested(stop.current()):
+            raise stop.JobStopped("Đã dừng theo yêu cầu")
+        time.sleep(min(0.5, max(0.0, end - time.monotonic())))
 
 
 class AntigravityDirector(ClaudeCodeDirector):
@@ -160,6 +192,21 @@ class AntigravityDirector(ClaudeCodeDirector):
         self.exe = find_exe(cfg.get("agy_exe"))
 
     def _complete(self, task: str, prompt: str, schema: dict, images: list[Path]) -> dict:
+        """Máy chủ Gemini quá tải (chủ dự án 17/11: "Our servers are experiencing high traffic…") → tự đợi rồi hỏi lại
+        (`agy_busy_wait_s` trong config/director.yaml), hết lượt mới báo lỗi."""
+        waits = [float(x) for x in (self.cfg.get("agy_busy_wait_s") or [])]
+        for k in range(len(waits) + 1):
+            try:
+                return self._complete_denied(task, prompt, schema, images)
+            except ServerBusy as exc:
+                if k == len(waits):
+                    raise ServerBusy(f"{exc} — đã tự đợi và hỏi lại {len(waits)} lần vẫn quá tải.") from exc
+                self.log(f"Máy chủ Gemini đang quá tải — đợi {waits[k]:.0f} giây rồi hỏi lại "
+                         f"(lần {k + 1}/{len(waits)})…")
+                _sleep_stoppable(waits[k])
+        raise AssertionError("unreachable")
+
+    def _complete_denied(self, task: str, prompt: str, schema: dict, images: list[Path]) -> dict:
         extra = ""
         for attempt in range(DENIED_RETRIES + 1):
             try:

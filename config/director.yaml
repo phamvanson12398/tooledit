@@ -11,6 +11,9 @@ effort: null                 # null | low | medium | high
 agy_exe: agy                 # không có trong PATH thì tool tự tìm %LOCALAPPDATA%\agy\bin\agy.exe
 agy_model: null              # null = mặc định của tài khoản; xem tên model bằng lệnh `agy models`
 agy_effort: null             # null | low | medium | high | xhigh | max
+# Máy chủ Gemini quá tải (503 "high traffic" / "No capacity") → tự đợi chừng này giây rồi hỏi lại, mỗi số một lần
+# (chủ dự án 17/11). [] = báo lỗi ngay như cũ.
+agy_busy_wait_s: [60, 120, 180, 300]
 # Hỏi AI song song trong MỘT job (chủ dự án 11/10: Gemini chậm): lập kế hoạch / viết thoại nhiều video cùng lúc, và
 # video dài được chia phần cho AI chọn đoạn song song rồi gộp. Gói Pro có giới hạn tần suất → 2 là vừa; 1 = lần lượt.
 parallel_calls: 2

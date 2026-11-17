@@ -214,3 +214,38 @@ def test_agy_task_files_use_contact_sheets(tmp_path, monkeypatch):
     assert d._complete("understand", "Đề bài", {"type": "object"}, imgs) == {"ok": 1}
     assert "sheet_01.jpg" in seen["files"] and "f0.jpg" not in seen["files"]
     assert "ẢNH LƯỚI" in seen["prompt"] and "sheet_01.jpg" in seen["prompt"]
+
+
+def test_server_busy_waits_then_retries(monkeypatch):
+    """Chủ dự án 17/11: "Our servers are experiencing high traffic… (UNAVAILABLE (code 503): No capacity…)" → tool tự đợi
+    rồi hỏi lại, hết lượt mới báo lỗi (kèm gợi ý đổi sang Claude)."""
+    import pytest
+
+    import app.director.antigravity_cli as ag
+
+    msg = ("Our servers are experiencing high traffic right now, please try again in a minute. (UNAVAILABLE (code 503): "
+           "No capacity available for model gemini-3.8-flash-high on the server)")
+    with pytest.raises(ag.ServerBusy) as e:
+        ag.parse_output("", msg, 1)
+    assert "quá tải" in str(e.value) and "Claude" in str(e.value)
+    with pytest.raises(ag.DirectorError) as e2:
+        ag.parse_output("", "something else broke", 1)
+    assert not isinstance(e2.value, ag.ServerBusy)
+
+    slept, calls = [], []
+    monkeypatch.setattr(ag, "_sleep_stoppable", slept.append)
+    d = ag.AntigravityDirector({"agy_exe": "agy", "agy_busy_wait_s": [60, 120]})
+
+    def once(task, prompt, schema, images):
+        calls.append(1)
+        if len(calls) < 3:
+            raise ag._error(msg)
+        return {"ok": True}
+
+    monkeypatch.setattr(d, "_complete_denied", once)
+    assert d._complete("x", "p", {}, []) == {"ok": True} and slept == [60.0, 120.0]
+    calls.clear()
+    slept.clear()
+    monkeypatch.setattr(d, "_complete_denied", lambda *a: (_ for _ in ()).throw(ag._error(msg)))
+    with pytest.raises(ag.ServerBusy, match="hỏi lại 2 lần"):
+        d._complete("x", "p", {}, [])
