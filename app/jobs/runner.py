@@ -9,6 +9,7 @@ import json
 import time
 import os
 import sys
+import shutil
 from pathlib import Path
 from typing import Callable
 
@@ -1623,6 +1624,7 @@ class Runner:
             return 0
         req_voices = {}
         audio_src = None
+        anchors = (job.data.get("tts") or {}).get("anchors") or {}  # giọng neo các lần đọc trước (khóa giọng)
         for name in sorted(used):
             v = dict(voices.get(name) or {"mode": "auto"})
             if v.get("mode") == "upload":  # giọng mẫu chủ dự án tải lên (11/10)
@@ -1668,9 +1670,14 @@ class Runner:
                         segs = load_analysis(analysis)["transcript"].get("segments", [])
                         v.update({"ref_audio": str(ref), "ref_text": ov.ref_text(segs, *span)})
                         self.log(f"🎭 {name}: clone từ giọng gốc {span[0]:.1f}–{span[1]:.1f}s.")
+            if v.get("mode") in ("design", "auto") and not v.get("ref_audio"):  # chủ dự án 17/11: khóa giọng
+                anchor = anchors.get(name) or {}
+                if anchor.get("sig") == ov.voice_sig(v) and Path(anchor.get("audio") or "").is_file():
+                    v.update({"anchor_audio": anchor["audio"], "anchor_text": anchor.get("text", "")})
             req_voices[name] = v
         request = {"model": cfg.get("model", "k2-fsa/OmniVoice"), "device": str(cfg.get("device", "auto")),
-                   "num_step": int(cfg.get("num_step", 32)), "voices": req_voices, "items": items}
+                   "num_step": int(cfg.get("num_step", 32)), "voices": req_voices, "items": items,
+                   "lock_voice": bool(cfg.get("lock_voice", True))}
         gen = (job.data.get("tts") or {}).get("gen")
         if gen:  # thông số Voice Studio (tốc độ, seed…) — bán content dùng giọng thư viện
             request["gen"] = dict(gen)
@@ -1678,7 +1685,19 @@ class Runner:
         run = getattr(self, "_tts_run", None) or ov.run_worker
         from app.jobs.limits import group_slot
 
+        texts = {it["out"]: it["text"] for it in items}
+
         def on_line(line: str) -> None:
+            if line.startswith("ANCHOR "):  # câu đầu của giọng design / auto → giữ làm giọng neo cho mọi lần đọc sau
+                name, _, out = line[7:].partition("\t")
+                if name in req_voices and Path(out).is_file():
+                    keep = d / "voice" / "refs" / f"neo_{ov.safe_name(name)}.wav"
+                    keep.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(out, keep)
+                    job.data.setdefault("tts", {}).setdefault("anchors", {})[name] = {
+                        "audio": str(keep), "text": texts.get(out, ""), "sig": ov.voice_sig(req_voices[name])}
+                    self.log(f"🔒 Khóa giọng {name}: các câu sau đọc đúng giọng câu đầu.")
+                return
             if line.startswith(("PROGRESS", "INFO", "ERROR")):
                 self.log(f"OmniVoice: {line.split(' ', 1)[-1]}")
 

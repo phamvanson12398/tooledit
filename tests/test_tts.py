@@ -361,3 +361,64 @@ def test_choose_omnivoice_install_check_and_kill(tmp_path):
         ov.run_worker({"items": []}, tmp_path / "r.json", {"python": sys.executable}, lambda x: (_ for _ in ()).throw(Stop()),
                       run=popen)
     assert procs[0].wait(timeout=10) is not None
+
+
+def test_worker_locks_design_and_auto_voice_to_first_line(tmp_path):
+    """Chủ dự án 17/11: "một video nhiều giọng khác nhau" — giọng mô tả / tự chọn: câu đầu làm giọng neo, câu sau clone
+    đúng giọng đó; có neo từ lần đọc trước thì clone ngay từ câu đầu."""
+    env = _fake_env(tmp_path)
+    out = tmp_path / "voice"
+    neo = tmp_path / "neo.wav"
+    neo.write_bytes(b"RIFF")
+    req = {"model": "M", "num_step": 16,
+           "voices": {"B": {"mode": "design", "instruct": "male, deep"},
+                      "C": {"mode": "auto", "anchor_audio": str(neo), "anchor_text": "neo cũ"}},
+           "items": [{"text": "một", "voice": "B", "out": str(out / "1.wav")},
+                     {"text": "hai", "voice": "B", "out": str(out / "2.wav")},
+                     {"text": "ba", "voice": "C", "out": str(out / "3.wav")}]}
+    lines = []
+
+    def run(cmd, **kw):
+        return subprocess.Popen(cmd, **{**kw, "env": {**kw.get("env", {}), **env}, "cwd": tmp_path})
+
+    ov.run_worker(req, tmp_path / "req.json", {"python": sys.executable}, lines.append, run=run)
+    calls = [c for c in (tmp_path / "calls.log").read_text(encoding="utf-8").splitlines() if "|" in c]
+    assert calls[0].startswith("một|None|None|male, deep|None|")      # câu đầu: đọc theo mô tả
+    assert calls[1].startswith("hai|None|None|None|một|")             # câu sau: clone giọng câu đầu (cùng giọng)
+    assert calls[2].startswith("ba|None|None|None|neo cũ|")           # có neo cũ → clone ngay
+    assert any(x == f"ANCHOR B\t{out / '1.wav'}" for x in lines) and not any(x.startswith("ANCHOR C") for x in lines)
+
+    req["lock_voice"] = False                                          # tắt khóa giọng → như cũ
+    (tmp_path / "calls.log").unlink()
+    ov.run_worker(req, tmp_path / "req.json", {"python": sys.executable}, lines.append, run=run)
+    calls = [c for c in (tmp_path / "calls.log").read_text(encoding="utf-8").splitlines() if "|" in c]
+    assert calls[1].startswith("hai|None|None|male, deep|None|")
+
+
+def test_runner_keeps_anchor_between_runs(tmp_path):
+    """Giọng neo lưu lại (voice/refs/neo_*.wav) → lần đọc bù / đọc lại sau vẫn đúng giọng cũ; đổi mô tả thì bỏ neo."""
+    jobs, job, r = _char_job(tmp_path)
+    reqs = []
+
+    def fake_tts(request, request_path, cfg, on_line):
+        reqs.append(request)
+        first = {}
+        for it in request["items"]:
+            Path(it["out"]).parent.mkdir(parents=True, exist_ok=True)
+            Path(it["out"]).write_bytes(b"RIFF")
+            v = request["voices"][it["voice"]]
+            if v.get("mode") != "clone" and not v.get("anchor_audio") and it["voice"] not in first:
+                first[it["voice"]] = it["out"]
+                on_line(f"ANCHOR {it['voice']}\t{it['out']}")
+
+    r._tts_run = fake_tts
+    r.save_tts_voices(job, {"징징이": {"mode": "design", "instruct": "male"}}, clone_ok=False)
+    r.tts_generate(job)
+    anchors = job.data["tts"]["anchors"]
+    assert anchors and all(Path(a["audio"]).name.startswith("neo_") and Path(a["audio"]).is_file()
+                           for a in anchors.values())
+    r.tts_generate(job, only_missing=False)                            # đọc lại: dùng neo đã lưu
+    assert reqs[1]["voices"]["징징이"]["anchor_audio"] == anchors["징징이"]["audio"]
+    r.save_tts_voices(job, {"징징이": {"mode": "design", "instruct": "female"}}, clone_ok=False)
+    r.tts_generate(job, only_missing=False)                            # đổi mô tả giọng → không dùng neo cũ
+    assert "anchor_audio" not in reqs[2]["voices"]["징징이"]

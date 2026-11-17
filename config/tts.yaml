@@ -7,6 +7,8 @@ python: ""               # (chọn được trên giao diện: trang chủ → �
 model: k2-fsa/OmniVoice  # tên model trên HuggingFace hoặc thư mục đã tải sẵn
 device: auto             # auto = GPU NVIDIA nếu có (cuda:0), không thì CPU (chậm); hoặc ghi cuda:0 / cpu
 timeout_s: 3600          # chạy quá chừng này giây thì tắt OmniVoice (không treo máy)
+lock_voice: true          # KHÓA GIỌNG (chủ dự án 17/11): giọng "OmniVoice tự chọn" / "mô tả giọng" lấy câu đầu làm giọng neo,
+                          # các câu sau (kể cả lần đọc sau) clone đúng giọng đó — cả video một giọng; false = như cũ
 num_step: 32             # số bước sinh (16 = nhanh hơn, kém mượt hơn chút)
 fit_duration: true       # đọc vừa khít thời lượng câu thoại gốc (khớp miệng nhân vật)
 min_ref_s: 3.0           # giọng mẫu để clone: 3–10 giây (khuyến nghị của OmniVoice)

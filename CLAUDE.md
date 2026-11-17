@@ -434,6 +434,13 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
   guidance_scale, t_shift, layer_penalty_factor, position_temperature, class_temperature, denoise, preprocess_prompt,
   postprocess_output, normalize_text, audio_chunk_duration / threshold, pad / fade, seed (worker `torch.manual_seed`);
   lưu làm mặc định ở `config/local.yaml → studio_params`. Worker nhận thêm `gen` (yêu cầu cũ không có `gen` chạy như cũ).
+- **Cập nhật 17/11 (chủ dự án: "chế độ tự chọn giọng thì một video nhiều giọng khác nhau, không đồng bộ") — KHÓA GIỌNG:**
+  giọng "OmniVoice tự chọn" / "Mô tả giọng" không có mẫu nên mỗi câu sinh ra một giọng khác; worker lấy câu ĐẦU TIÊN của
+  giọng đó làm giọng neo rồi clone đúng giọng ấy cho các câu sau (`lock_voice` trong request / `config/tts.yaml`, in
+  `ANCHOR`); tool chép neo ra `voice/refs/neo_<tên>.wav`, lưu `job.data.tts.anchors` (kèm `voice_sig` = cách tạo + mô tả)
+  → lần đọc bù / đọc lại sau gửi `anchor_audio` / `anchor_text`, vẫn đúng giọng cũ; đổi mô tả giọng thì bỏ neo cũ. Áp dụng
+  mọi chế độ có OmniVoice + tab Voice Studio (khóa trong một lượt đọc). Neo là giọng AI tự sinh, không phải giọng người
+  thật nên không cần tick xác nhận quyền.
 - **Cập nhật 23/10 (chủ dự án): "tải 1 phát hết các file âm thanh, đánh số theo thứ tự từ 1"** — mục "🎧 File đã đọc" có
   nút "📦 Tải tất cả" + "📦" từng lượt đọc (`/studio/download-all[?batch=YYYYMMDD_HHMMSS]`): MỘT file zip, file đặt lại tên
   1.wav, 2.wav… theo thứ tự đọc (lượt cũ trước, trong lượt theo thứ tự dòng — `ordered_outputs`), kèm `danh_sach.txt`

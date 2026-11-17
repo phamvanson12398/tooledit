@@ -1,5 +1,16 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 128 — Khóa giọng OmniVoice: cả video một giọng `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. Tắt `start.bat`, `git pull` (lỗi "local changes" thì `git stash` trước), mở lại `start.bat`.
+2. Mở một job đang ở trang voice → 🤖 **Cho OmniVoice đọc** với giọng **"OmniVoice tự chọn"** hoặc **"Mô tả giọng"** (hoặc
+   tạo job mới chọn giọng mô tả ở ô 🎙️ Giọng đọc).
+3. Nhật ký có dòng "🔒 Khóa giọng <tên>: các câu sau đọc đúng giọng câu đầu."
+4. Nghe các file `voice\videoNN_dubMM.wav` (hoặc xem trong CapCut): mọi câu của cùng một nhân vật / người dẫn cùng MỘT
+   giọng. Đọc lại một câu sau đó vẫn cùng giọng cũ.
+5. Muốn đổi giọng: sửa mô tả giọng trên trang voice rồi đọc lại — tool bỏ giọng neo cũ, lấy câu đầu của lần đọc mới làm neo.
+6. Tab 🎙️ Voice Studio, tick "Mỗi dòng một file" với giọng mô tả / tự chọn: các file cùng một giọng.
+
 ## Bước 127 — Chế độ mới "🚓 Cops US" `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Nếu `git pull` báo "Your local changes … would be overwritten": chạy `git stash` rồi `git pull` lại.

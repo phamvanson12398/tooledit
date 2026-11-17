@@ -10,6 +10,10 @@ request.json:
   class_temperature, denoise, postprocess_output, audio_chunk_duration, audio_chunk_threshold, pad_duration,
   fade_duration, speed, normalize_text, seed}; giọng clone thêm "preprocess_prompt" và "prompt_cache" (file .pt —
   có thì nạp lại, chưa có thì tạo rồi lưu: VoiceClonePrompt.save / .load), item thêm "speed".
+  KHÓA GIỌNG (chủ dự án 17/11: "một video nhiều giọng khác nhau, không đồng bộ"): giọng "design" / "auto" không có mẫu
+  nên mỗi câu sinh độc lập ra một giọng khác — "lock_voice": true (mặc định) lấy câu ĐẦU TIÊN của giọng đó làm giọng neo
+  rồi clone đúng giọng ấy cho các câu sau; giọng có sẵn "anchor_audio" + "anchor_text" (neo của lần đọc trước) thì clone
+  từ neo ngay từ câu đầu. In "ANCHOR <tên giọng>\t<file>" khi vừa tạo neo mới.
 In ra từng dòng "PROGRESS i/n <file>" để tool hiện tiến độ; lỗi → in "ERROR ..." và thoát mã 1.
 
 API đối chiếu mã nguồn OmniVoice 0.2.1 (omnivoice/models/omnivoice.py): OmniVoice.from_pretrained(name, device_map,
@@ -109,13 +113,20 @@ def main(argv: list[str]) -> int:
     gen_kw = {k: v for k, v in gen.items() if k in GEN_KEYS}
     gen_kw.setdefault("num_step", int(req.get("num_step", 32)))
     prompts: dict[str, dict] = {}
+    lock = bool(req.get("lock_voice", True))
+    unlocked: set[str] = set()  # giọng design / auto chưa có neo → câu đầu tiên đọc xong sẽ thành neo
     for name, v in (req.get("voices") or {}).items():
         if v.get("mode") == "clone" and v.get("ref_audio"):
             prompts[name] = {"voice_clone_prompt": _clone_prompt(model, v)}
+        elif lock and v.get("anchor_audio") and Path(v["anchor_audio"]).is_file():
+            prompts[name] = {"voice_clone_prompt": _clone_prompt(
+                model, {"ref_audio": v["anchor_audio"], "ref_text": v.get("anchor_text") or ""})}
         elif v.get("mode") == "design" and (v.get("instruct") or "").strip():
             prompts[name] = {"instruct": v["instruct"].strip()}
+            unlocked.add(name)
         else:
             prompts[name] = {}
+            unlocked.add(name)
     items = req.get("items") or []
     for i, it in enumerate(items, 1):
         kw = dict(prompts.get(it.get("voice", ""), {}))
@@ -131,6 +142,15 @@ def main(argv: list[str]) -> int:
             torch.manual_seed(int(seed) + i - 1)
         audio = model.generate(text=it["text"], language=it.get("language") or None, **gen_kw, **kw)
         _write_wav(Path(it["out"]), audio[0], rate)
+        name = it.get("voice", "")
+        if lock and name in unlocked:  # câu đầu của giọng chưa có mẫu → làm neo, các câu sau đọc đúng giọng này
+            unlocked.discard(name)
+            try:
+                prompts[name] = {"voice_clone_prompt": model.create_voice_clone_prompt(
+                    ref_audio=str(it["out"]), ref_text=it["text"], preprocess_prompt=True)}
+                print(f"ANCHOR {name}\t{it['out']}", flush=True)
+            except Exception as exc:  # không tạo được neo → đọc tiếp như cũ
+                print(f"INFO không khóa được giọng {name} ({type(exc).__name__})", flush=True)
         print(f"PROGRESS {i}/{len(items)} {Path(it['out']).name}", flush=True)
     return 0
 

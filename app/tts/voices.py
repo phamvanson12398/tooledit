@@ -111,6 +111,11 @@ def prepare_sample(src: Path, dst: Path, max_s: float = 10.0, exe: str | None = 
     return dst, True
 
 
+def voice_sig(v: dict) -> str:
+    """Dấu nhận giọng design / auto (cách tạo + mô tả): đổi mô tả giọng thì giọng neo cũ không dùng nữa."""
+    return f"{v.get('mode', 'auto')}|{(v.get('instruct') or '').strip()}"
+
+
 def build_items(script, video_index: int, voice_dir: Path, language: str, windows: list | None,
                 fit_duration: bool = True, only: set[int] | None = None) -> list[dict]:
     """Danh sách câu cần đọc: text, giọng (nhân vật), thời lượng mục tiêu (= chỗ trống câu gốc), file ra."""
