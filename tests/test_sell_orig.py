@@ -86,7 +86,7 @@ def test_ai_chooses_duration(tmp_path):
     job = r.run(job)
     assert job.step == "dub_voice", job.message
     prompt = next(c["prompt"] for c in r.director.calls if c["task"] == "sell")
-    assert "BẠN TỰ CHỌN" in prompt and "61–120" in prompt
+    assert "BẠN TỰ CHỌN" in prompt and "61–180" in prompt and "CHI TIẾT" in prompt
     saved = json.loads((jobs / "j1" / "plan" / "sell_video01.json").read_text(encoding="utf-8"))
     assert saved["target_s"] == 66
 

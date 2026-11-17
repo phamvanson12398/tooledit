@@ -267,6 +267,9 @@ Mỗi lần xử lý footage là một **job**, lưu trong `jobs/<job_id>/`. Job
 - **Cập nhật 20/10 (chủ dự án): thời lượng "🤖 AI tự chọn theo nội dung"** (ô thời lượng, giá trị -1 → `JobOptions.sell_auto`,
   chỉ Bán content): AI chọn số giây trong `auto_s` (61–120) theo độ dày nội dung, ghi `SellScript.target_s` (tool kẹp trong
   khoảng, luôn > 60 giây); số chữ bài đọc tính theo số giây đó.
+  **Cập nhật 17/11 (chủ dự án: "video chi tiết hơn chút nữa, miễn hay, thời gian không quan trọng"):** `auto_s` nới
+  61–180s; đề bài dặn AI ưu tiên kể CHI TIẾT, đủ ý (diễn biến, phản ứng, chi tiết đắt, bối cảnh) — không lặp ý / lan man /
+  bịa để kéo dài. Cops US giữ giới hạn riêng dưới 3 phút (`config/cops.yaml → auto_s`).
 - Thẻ "💰 Bán content" ở trang chủ (`JobOptions.sell`, `sell_brief` = định hướng nội dung, `sell_s` = thời lượng;
   `config/sell.yaml`), MỘT video gốc ~55–60 giây, cần chọn ngôn ngữ giọng đọc (Hàn / Nhật / Anh). Không hook riêng, không
   chia video, không ⚡.

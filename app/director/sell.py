@@ -289,7 +289,10 @@ def make_sell_script(director: Director, analysis_dir: Path, u, *, brief: str, s
     if auto:  # AI tự chọn thời lượng: số chữ tính theo số giây AI ghi ở target_s
         variables.update({
             "target_s": f"{a_lo:.0f}–{a_hi:.0f} (BẠN TỰ CHỌN theo độ dày nội dung — nhiều ý hay thì dài, ít thì ngắn, luôn "
-                        f"trên 60 giây{', DƯỚI 3 phút' if cops else ''}; ghi số giây đã chọn vào `target_s`)",
+                        f"trên 60 giây{', DƯỚI 3 phút' if cops else ''}; ghi số giây đã chọn vào `target_s`. Chủ dự án "
+                        "17/11: ưu tiên kể CHI TIẾT, đủ ý, video HAY — thời lượng không quan trọng: thấy chi tiết thật nào "
+                        "đáng kể (diễn biến, phản ứng, chi tiết đắt, bối cảnh) thì kể ra, đừng cắt ngắn cho gọn; nhưng "
+                        "không lặp ý, không kể lan man, không bịa thêm để kéo dài)",
             "target_chars": f"{int(lo * (a_lo - gap * 12) * cps)}–{int(hi * a_hi * cps)} (= số giây bạn chọn × {cps:.1f}, "
                             "trừ các đoạn giữ tiếng gốc)"})
     task = "sell"

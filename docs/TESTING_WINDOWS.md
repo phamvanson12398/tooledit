@@ -1,5 +1,12 @@
 # Hướng dẫn kiểm tra trên máy Windows
 
+## Bước 129 — Bán content "AI tự chọn độ dài": kể chi tiết hơn `[CẦN KIỂM TRA TRÊN MÁY]`
+
+1. `git pull` (lỗi "local changes" thì `git stash` trước), mở lại `start.bat`.
+2. 💰 Bán content → ô ⏱️ Thời lượng chọn **🤖 AI tự chọn theo nội dung** → Bắt đầu.
+3. Trang voice: bài đọc chi tiết hơn trước (kể diễn biến, phản ứng, chi tiết đắt); video có thể dài tới ~3 phút tùy nội
+   dung. Muốn nới / thu khoảng: sửa `auto_s` trong `config\sell.yaml`.
+
 ## Bước 128 — Khóa giọng OmniVoice: cả video một giọng `[CẦN KIỂM TRA TRÊN MÁY]`
 
 1. Tắt `start.bat`, `git pull` (lỗi "local changes" thì `git stash` trước), mở lại `start.bat`.
